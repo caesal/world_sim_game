@@ -2,7 +2,7 @@
 
 This is a small civilization sandbox simulation game.
 
-The player creates a world map and places different civilizations on it. Each civilization has its own behavior style. They can expand, fight, survive, or disappear over time.
+The player creates a world map and places different civilizations on it. Each civilization has its own behavior style. They can expand, form borders, survive, or disappear over time.
 
 ## Current Version Goal
 
@@ -15,7 +15,7 @@ It will include:
 3. Population
 4. Territory size
 5. Simple random events
-6. Simple battle logic
+6. Peaceful border formation when civilizations meet
 7. Year-by-year simulation
 8. Civilization behavior preferences
 9. Tile inspection
@@ -74,7 +74,7 @@ Terrain also affects local behavior:
 
 ## Cities
 
-Each civilization starts with a capital city. A city controls a nearby region, and that control radius grows from population and local resources. If another civilization captures the city tile, the whole city region changes owner.
+Each civilization starts with a capital city. A city controls a nearby fixed province region. After that province shape is established, population growth and ownership changes do not reshape its borders.
 
 Clicking any tile inside a city region shows the administrative region summary, including population and average food, wood, minerals, water, habitability, attack, and defense values.
 
@@ -86,7 +86,7 @@ The map uses continuous elevation, moisture, and temperature fields. Terrain is 
 
 Each civilization has four 0-10 traits:
 
-1. Aggression: how likely it is to attack another country
+1. Aggression: reserved for later conflict and pressure systems
 2. Expansion: how quickly it settles nearby land
 3. Defense: how well it holds territory
 4. Culture: how quickly population grows and how stable the country feels
@@ -96,8 +96,7 @@ Each civilization has four 0-10 traits:
 Each day:
 
 1. Each month, each civilization may gain population
-2. Cities grow and claim nearby controlled regions
+2. Cities grow while their established province borders stay fixed
 3. Each civilization may expand territory
-4. Civilizations may fight if they meet
-5. City capture changes the whole controlled region
-6. The simulation continues until one civilization wins
+4. Civilizations stop at each other's borders when they meet
+5. The simulation continues as a sandbox world

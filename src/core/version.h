@@ -1,0 +1,7 @@
+#ifndef WORLD_SIM_VERSION_H
+#define WORLD_SIM_VERSION_H
+
+#define WORLD_SIM_VERSION "0.1.3"
+#define WORLD_SIM_VERSION_LABEL "World Sim Game Ver" WORLD_SIM_VERSION
+
+#endif
