@@ -1,7 +1,7 @@
-#ifndef WORLD_SIM_SIMULATION_H
+﻿#ifndef WORLD_SIM_SIMULATION_H
 #define WORLD_SIM_SIMULATION_H
 
-#include "game_types.h"
+#include "core/game_types.h"
 
 int city_at(int x, int y);
 int city_for_tile(int x, int y);

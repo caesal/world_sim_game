@@ -1,9 +1,17 @@
-#include "diplomacy.h"
+﻿#include "diplomacy.h"
 
 #include "war.h"
-#include "../world/world.h"
+#include "sim/simulation.h"
+#include "world/world_gen.h"
+
+#include <string.h>
+
+#ifndef DIPLOMACY_ENABLE_ADVANCED_STATES
+#define DIPLOMACY_ENABLE_ADVANCED_STATES 1
+#endif
 
 static DiplomacyRelation diplomacy_matrix[MAX_CIVS][MAX_CIVS];
+static BorderContactCache border_contact_cache;
 
 static void set_relation_pair(int civ_a, int civ_b, DiplomacyRelation relation) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
@@ -32,6 +40,8 @@ void diplomacy_reset(void) {
     int a;
     int b;
 
+    memset(&border_contact_cache, 0, sizeof(border_contact_cache));
+    border_contact_cache.dirty = 1;
     for (a = 0; a < MAX_CIVS; a++) {
         for (b = 0; b < MAX_CIVS; b++) {
             diplomacy_matrix[a][b] = default_relation(a == b ? DIPLOMACY_PEACE : DIPLOMACY_NONE,
@@ -207,7 +217,9 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         if (relation.truce_years_left == 0) {
             relation.state = relation.border_tension >= 55 ? DIPLOMACY_TENSE : DIPLOMACY_PEACE;
         }
-    } else if (relation.state == DIPLOMACY_VASSAL) {
+    }
+#if DIPLOMACY_ENABLE_ADVANCED_STATES
+    else if (relation.state == DIPLOMACY_VASSAL) {
         relation.border_tension = clamp(relation.border_tension - 4, 0, 100);
         relation.relation_score = clamp(relation.relation_score + relation.trade_fit / 25 -
                                         relation.resource_conflict / 30, 0, 100);
@@ -216,11 +228,15 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         relation.relation_score = clamp(relation.relation_score + relation.trade_fit / 25 -
                                         relation.border_tension / 18, 0, 100);
         if (relation.border_tension > 55 || relation.resource_conflict > 72) relation.state = DIPLOMACY_PEACE;
-    } else if (relation.state == DIPLOMACY_PEACE) {
+    }
+#endif
+    else if (relation.state == DIPLOMACY_PEACE) {
         if (relation.border_tension >= 55 || relation.relation_score < 35) relation.state = DIPLOMACY_TENSE;
+#if DIPLOMACY_ENABLE_ADVANCED_STATES
         else if (relation.relation_score >= 78 && relation.trade_fit >= 60 && relation.border_tension <= 25) {
             relation.state = DIPLOMACY_ALLIANCE;
         }
+#endif
     } else if (relation.state == DIPLOMACY_TENSE) {
         int desire_a = war_desire(civ_a, civ_b, relation);
         int desire_b = war_desire(civ_b, civ_a, relation);
@@ -239,6 +255,8 @@ void diplomacy_update_contacts(void) {
     int a;
     int b;
 
+    /* TODO: replace full-map pair scans with BorderContactCache when territory changes become evented. */
+    border_contact_cache.dirty = 1;
     for (a = 0; a < civ_count; a++) {
         if (!is_valid_civ(a)) continue;
         for (b = a + 1; b < civ_count; b++) {
@@ -313,6 +331,7 @@ void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score) 
 }
 
 void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
+#if DIPLOMACY_ENABLE_ADVANCED_STATES
     DiplomacyRelation relation;
 
     if (overlord < 0 || overlord >= MAX_CIVS || vassal < 0 || vassal >= MAX_CIVS || overlord == vassal) return;
@@ -325,6 +344,9 @@ void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
     relation.overlord = overlord;
     relation.vassal = vassal;
     set_relation_pair(overlord, vassal, relation);
+#else
+    diplomacy_start_truce(overlord, vassal, 10, relation_score);
+#endif
 }
 
 const char *diplomacy_status_name(DiplomacyStatus status) {

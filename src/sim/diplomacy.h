@@ -1,7 +1,7 @@
-#ifndef WORLD_SIM_DIPLOMACY_H
+﻿#ifndef WORLD_SIM_DIPLOMACY_H
 #define WORLD_SIM_DIPLOMACY_H
 
-#include "../core/game_state.h"
+#include "core/game_state.h"
 
 typedef enum {
     DIPLOMACY_NONE,
@@ -26,6 +26,12 @@ typedef struct {
     int overlord;
     int vassal;
 } DiplomacyRelation;
+
+typedef struct {
+    int border_length[MAX_CIVS][MAX_CIVS];
+    int natural_barrier[MAX_CIVS][MAX_CIVS];
+    int dirty;
+} BorderContactCache;
 
 void diplomacy_reset(void);
 void diplomacy_update_contacts(void);

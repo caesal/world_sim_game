@@ -7,7 +7,7 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.4.a is a Windows graphical sandbox prototype written in C.
+Ver0.1.5 is a Windows graphical sandbox prototype written in C.
 
 You can:
 
@@ -51,6 +51,13 @@ You can:
 38. Derive climate from elevation, distance to sea, latitude, and mountain rain shadow
 39. Use the new crisp civilization icon package for resource and metric blocks
 40. Use the matching-style icon package for covered map, city, combat, territory, and disorder icons
+41. Use a dedicated Diplomacy tab to inspect contacted civilizations, relation factors, diplomatic status, and war progress
+42. See selected-country military strength, capital garrison estimates, and province garrison estimates in the Diplomacy tab
+43. Keep the year/month top bar visible above the map and reduce white repaint flashes during tab or panel interaction
+44. Use city stage icons for outpost, village, town, city, capital, and harbor markers
+45. Show Chinese two-character stat labels beside icons when the UI language is Chinese
+46. Keep versioned design PDFs in `docs` with version-matched filenames
+47. Keep `.c` and `.h` files under the 500-line module size rule
 
 ## Controls
 
@@ -65,7 +72,7 @@ You can:
 9. `R` also generates a new random world when the map has keyboard focus
 10. `Esc` quits the game
 11. Left mouse click selects a tile or civilization
-12. Use the right-side tabs to switch between info, civilization controls, and map generation
+12. Use the right-side tabs to switch between info, civilization controls, diplomacy, and map generation
 13. Drag the panel divider to resize the side controls
 14. Mouse wheel zooms the map around the cursor
 15. In the Map tab, click mode buttons to switch map layers
@@ -75,10 +82,24 @@ You can:
 
 ## Build
 
-Install a C compiler such as MSYS2 MinGW GCC, then run this in the MSYS2 UCRT64 terminal:
+Install a C compiler such as MSYS2 MinGW GCC. If `make` is installed, run:
 
 ```bash
-gcc -O2 -Wall -Wextra -I. src/main.c src/game.c src/core/game_state.c src/data/game_tables.c src/world_gen.c src/simulation.c src/world/noise.c src/world/ports.c src/sim/expansion.c src/sim/diplomacy.c src/sim/war.c src/render.c src/ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
+make
+./world_sim.exe
+```
+
+On Windows, `build.bat` uses the same source list:
+
+```bat
+build.bat
+world_sim.exe
+```
+
+The direct command is:
+
+```bash
+gcc -O2 -Wall -Wextra -I. -Isrc src/main.c src/game/game.c src/core/game_state.c src/data/game_tables.c src/world/world_gen.c src/world/terrain_query.c src/world/rivers.c src/sim/simulation.c src/world/noise.c src/world/ports.c src/sim/civilization_metrics.c src/sim/province.c src/sim/expansion.c src/sim/diplomacy.c src/sim/war.c src/render/render.c src/render/render_common.c src/render/map_render.c src/render/panel_info.c src/render/panel_diplomacy.c src/render/panel_map.c src/render/icons.c src/ui/ui_layout.c src/ui/ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
 ./world_sim.exe
 ```
 
@@ -86,28 +107,24 @@ If you are using PowerShell, add the MSYS2 compiler folder for the current termi
 
 ```powershell
 $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
-gcc -O2 -Wall -Wextra -I. src\main.c src\game.c src\core\game_state.c src\data\game_tables.c src\world_gen.c src\simulation.c src\world\noise.c src\world\ports.c src\sim\expansion.c src\sim\diplomacy.c src\sim\war.c src\render.c src\ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
+gcc -O2 -Wall -Wextra -I. -Isrc src\main.c src\game\game.c src\core\game_state.c src\data\game_tables.c src\world\world_gen.c src\world\terrain_query.c src\world\rivers.c src\sim\simulation.c src\world\noise.c src\world\ports.c src\sim\civilization_metrics.c src\sim\province.c src\sim\expansion.c src\sim\diplomacy.c src\sim\war.c src\render\render.c src\render\render_common.c src\render\map_render.c src\render\panel_info.c src\render\panel_diplomacy.c src\render\panel_map.c src\render\icons.c src\ui\ui_layout.c src\ui\ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
 .\world_sim.exe
-```
-
-If `make` is installed, the root `Makefile` provides the same build:
-
-```bash
-make
 ```
 
 ## Source Layout
 
 1. `src/main.c` starts the program
-2. `src/game.c` and `src/game.h` own game startup and the main message loop
-3. `src/game_types.h` contains shared constants, enums, structs, typedefs, extern state, and common helper declarations
+2. `src/game/game.c` and `src/game/game.h` own game startup and the main message loop
+3. `src/core/game_types.h` contains shared constants, enums, structs, typedefs, extern state, and common helper declarations
 4. `src/core` contains shared state definitions, common helper implementations, and the version marker
-5. `src/world_gen.c` and `src/world_gen.h` contain world generation, geography, climate, ecology, resources, and terrain queries
-6. `src/simulation.c` and `src/simulation.h` contain city, province, civilization, expansion, and month/year simulation coordination
-7. `src/render.c` and `src/render.h` contain drawing-only map, panel, border, icon, and legend rendering
-8. `src/ui.c` and `src/ui.h` contain Win32 input, form controls, buttons, sliders, and UI commands
+5. `src/world/world_gen.c` and `src/world/world_gen.h` contain top-level world generation
+6. `src/sim/simulation.c` and `src/sim/simulation.h` contain civilization seeding, summaries, and month/year simulation coordination
+7. `src/render` contains drawing-only map, panel, border, icon, and legend rendering split by responsibility
+8. `src/ui` contains Win32 input, form controls, buttons, sliders, and UI layout helpers
 9. `src/data` contains editable geography, climate, ecology, resource, and civilization metric tables
-10. `src/world` contains support modules for noise, ports, and compatibility includes
-11. `src/sim` contains diplomacy, expansion, and war simulation submodules
+10. `src/world` contains support modules for generation, noise, rivers, ports, and terrain queries
+11. `src/sim` contains civilization metrics, province logic, diplomacy, expansion, and war simulation submodules
 12. `assets/icons` contains the PNG icons used by the right-side information panel
 13. `Makefile` contains the canonical build command
+14. `build.bat` mirrors the same source list for Windows command prompts
+15. `docs/ver0.1.5_province_expansion_logic.pdf` and `docs/ver0.1.5_diplomacy_war_framework.pdf` track the design references for this version

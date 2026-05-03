@@ -1,14 +1,19 @@
-#include "war.h"
+﻿#include "war.h"
 
 #include "diplomacy.h"
-#include "../world/world.h"
+#include "sim/simulation.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_ACTIVE_WARS (MAX_CIVS * MAX_CIVS / 2)
 #define GAME_POPULATION_SCALE 100
-#define SOLDIERS_PER_LEGION 1000
+#define LEGION_SIZE 1000
+#define PEACE_ARMY_RATE 0
+#define WAR_MOBILIZATION_RATE 2
+#define EXTREME_MOBILIZATION_RATE 4
+#define LEGION_WAR_FOOD_UPKEEP 0
+#define LEGION_WAR_MONEY_UPKEEP 0
 
 static ActiveWar active_wars[MAX_ACTIVE_WARS];
 
@@ -29,15 +34,15 @@ static int resource_deficit_value(int value, int target) {
 
 static int mobilized_soldiers(int civ_id, int extreme) {
     int population = effective_population(civ_id);
-    int rate = extreme ? 4 : 2;
+    int rate = extreme ? EXTREME_MOBILIZATION_RATE : WAR_MOBILIZATION_RATE;
 
     return clamp(population * rate / 100, 0, MAX_POPULATION);
 }
 
 static int effective_legions(int soldiers) {
-    int legions = soldiers / SOLDIERS_PER_LEGION;
+    int legions = soldiers / LEGION_SIZE;
 
-    if (soldiers % SOLDIERS_PER_LEGION >= 600) legions++;
+    if (soldiers % LEGION_SIZE >= 600) legions++;
     return legions;
 }
 
@@ -129,6 +134,32 @@ ActiveWar war_state_between(int civ_a, int civ_b) {
     return active_wars[index];
 }
 
+int war_estimated_soldiers(int civ_id) {
+    if (!is_valid_civ(civ_id)) return 0;
+    return mobilized_soldiers(civ_id, 0);
+}
+
+int war_current_soldiers_for_civ(int civ_id) {
+    int i;
+    int total = 0;
+    int at_war = 0;
+
+    if (!is_valid_civ(civ_id)) return 0;
+    for (i = 0; i < MAX_ACTIVE_WARS; i++) {
+        ActiveWar *war = &active_wars[i];
+
+        if (!war->active) continue;
+        if (war->attacker == civ_id) {
+            total += war->soldiers_a;
+            at_war = 1;
+        } else if (war->defender == civ_id) {
+            total += war->soldiers_b;
+            at_war = 1;
+        }
+    }
+    return at_war ? total : war_estimated_soldiers(civ_id);
+}
+
 static int army_success_chance(int civ_id, int opponent_id, int defending) {
     CountrySummary summary = summarize_country(civ_id);
     DiplomacyRelation relation = diplomacy_relation(civ_id, opponent_id);
@@ -154,7 +185,7 @@ static int roll_successes(int soldiers, int chance) {
 
     for (i = 0; i < rolls; i++) {
         int roll_chance = chance;
-        if (soldiers < SOLDIERS_PER_LEGION && rolls == 1) roll_chance -= 15;
+        if (soldiers < LEGION_SIZE && rolls == 1) roll_chance -= 15;
         if (rnd(100) < clamp(roll_chance, 5, 95)) successes++;
     }
     return successes;

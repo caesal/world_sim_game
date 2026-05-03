@@ -1,5 +1,33 @@
 # Version Log
 
+## Ver0.1.5
+
+Implemented features:
+
+1. Bumped the active prototype version to Ver0.1.5
+2. Added a dedicated right-side Diplomacy tab separate from the civilization editing tab
+3. Diplomacy now lists only civilizations that have been contacted by the selected country
+4. Each contacted relationship shows relation score, status, border tension, trade fit, resource conflict, border length, natural barrier, years known, and truce years
+5. War relationships display a two-color progress bar using the selected country on the left and the opponent on the right
+6. The war progress bar includes current soldiers, losses, and battle wins for both sides
+7. Added read-only war soldier accessors so rendering can show military state without mutating simulation data
+8. The Diplomacy tab shows available soldiers, mobilization base, capital garrison estimate, and province-level garrison estimates
+9. Province military values are displayed as estimated garrisons because the current simulation does not yet store persistent per-province armies
+10. Updated the right-side tab layout so Info, Civ, Diplomacy, and Map are all reachable
+11. Updated README current-version notes for the Ver0.1.5 diplomacy UI
+12. Kept the year/month top bar above the map draw pass so it is not covered by the map surface
+13. Suppressed background erasing to reduce white flashes while switching tabs or resizing the side panel
+14. Replaced city markers with the matching-style outpost, village, town, city, capital, and harbor icons
+15. Replaced diplomacy factor text rows with icon metric blocks and hover labels
+16. Localized compact metric labels to Chinese two-character labels in Chinese mode
+17. Moved source files into responsibility folders: `core`, `game`, `world`, `sim`, `render`, and `ui`
+18. Split `render.c` into map, panel, diplomacy, shared render helper, and icon modules
+19. Split river generation into `src/world/rivers.c` and `src/world/rivers.h`
+20. Added the 500-line `.c` and `.h` rule to `AGENTS.md` and verified the source tree follows it
+21. Renamed design PDFs to versioned filenames: `ver0.1.5_province_expansion_logic.pdf`, `ver0.1.5_diplomacy_war_framework.pdf`, and `ver0.1.4a_code_review_notes_for_codex.pdf`
+22. Updated `Makefile`, `build.bat`, README build commands, and source layout docs for the categorized tree
+23. Reduced short scattered river fragments by moving river carving into a dedicated river-generation pass with minimum length and spacing checks
+
 ## Ver0.1.4.a
 
 Freeze notes:

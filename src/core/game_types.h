@@ -1,4 +1,4 @@
-#ifndef WORLD_SIM_GAME_TYPES_H
+﻿#ifndef WORLD_SIM_GAME_TYPES_H
 #define WORLD_SIM_GAME_TYPES_H
 
 #define WIN32_LEAN_AND_MEAN
@@ -23,16 +23,6 @@
 #define FORM_X_PAD 18
 #define CITY_MIN_DISTANCE 18
 #define MAX_POPULATION 2000000000
-
-#define ID_NAME_EDIT 101
-#define ID_SYMBOL_EDIT 102
-#define ID_AGGRESSION_EDIT 103
-#define ID_EXPANSION_EDIT 104
-#define ID_DEFENSE_EDIT 105
-#define ID_CULTURE_EDIT 106
-#define ID_ADD_BUTTON 107
-#define ID_APPLY_BUTTON 108
-#define ID_INITIAL_CIVS_EDIT 109
 
 typedef enum {
     GEO_OCEAN,
@@ -85,49 +75,32 @@ typedef enum {
 } Ecology;
 
 typedef enum {
-    RESOURCE_NONE,
-    RESOURCE_FARMLAND,
-    RESOURCE_PASTURE,
-    RESOURCE_FOREST,
-    RESOURCE_MINE,
-    RESOURCE_FISHERY,
-    RESOURCE_SALT_LAKE,
-    RESOURCE_GEOTHERMAL,
-    RESOURCE_COUNT
+    RESOURCE_FEATURE_NONE,
+    RESOURCE_FEATURE_FARMLAND,
+    RESOURCE_FEATURE_PASTURE,
+    RESOURCE_FEATURE_FOREST,
+    RESOURCE_FEATURE_MINE,
+    RESOURCE_FEATURE_FISHERY,
+    RESOURCE_FEATURE_SALT_LAKE,
+    RESOURCE_FEATURE_GEOTHERMAL,
+    RESOURCE_FEATURE_COUNT
 } ResourceFeature;
 
 typedef enum {
-    DISPLAY_OVERVIEW,
-    DISPLAY_CLIMATE,
-    DISPLAY_GEOGRAPHY,
-    DISPLAY_POLITICAL,
-    DISPLAY_ALL
-} DisplayMode;
+    RESOURCE_FOOD,
+    RESOURCE_LIVESTOCK,
+    RESOURCE_WOOD,
+    RESOURCE_STONE,
+    RESOURCE_ORE,
+    RESOURCE_WATER,
+    RESOURCE_POPULATION,
+    RESOURCE_MONEY,
+    RESOURCE_TYPE_COUNT
+} ResourceType;
 
-typedef enum {
-    PANEL_INFO,
-    PANEL_CIV,
-    PANEL_MAP
-} PanelTab;
-
-typedef enum {
-    WORLD_SLIDER_OCEAN,
-    WORLD_SLIDER_CONTINENT,
-    WORLD_SLIDER_RELIEF,
-    WORLD_SLIDER_MOISTURE,
-    WORLD_SLIDER_DROUGHT,
-    WORLD_SLIDER_VEGETATION,
-    WORLD_SLIDER_BIAS_FOREST,
-    WORLD_SLIDER_BIAS_DESERT,
-    WORLD_SLIDER_BIAS_MOUNTAIN,
-    WORLD_SLIDER_BIAS_WETLAND,
-    WORLD_SLIDER_COUNT
-} WorldSetupSlider;
-
-typedef enum {
-    UI_LANG_EN,
-    UI_LANG_ZH
-} UiLanguage;
+typedef struct {
+    int value[RESOURCE_TYPE_COUNT];
+} ResourceVector;
 
 typedef enum {
     CIV_METRIC_GOVERNANCE,
@@ -191,6 +164,8 @@ typedef struct {
     int radius;
     int capital;
     int port;
+    int port_x;
+    int port_y;
     int port_region;
 } City;
 
@@ -243,28 +218,50 @@ typedef struct {
 } CountrySummary;
 
 typedef struct {
-    int map_x;
-    int map_y;
-    int tile_size;
-    int draw_w;
-    int draw_h;
-} MapLayout;
-
-typedef struct {
-    HWND name_edit;
-    HWND symbol_edit;
-    HWND aggression_edit;
-    HWND expansion_edit;
-    HWND defense_edit;
-    HWND culture_edit;
-    HWND initial_civs_edit;
-    HWND add_button;
-    HWND apply_button;
-} FormControls;
+    Tile (*world)[MAP_W];
+    Civilization *civs;
+    City *cities;
+    int *civ_count;
+    int *city_count;
+    int *year;
+    int *month;
+    int *selected_x;
+    int *selected_y;
+    int *selected_civ;
+    int *auto_run;
+    int *speed_index;
+    int *display_mode;
+    int *panel_tab;
+    int *ui_language;
+    int *side_panel_w;
+    int *dragging_panel;
+    int *dragging_slider;
+    int *dragging_map;
+    int *last_mouse_x;
+    int *last_mouse_y;
+    int *hover_x;
+    int *hover_y;
+    int *ocean_slider;
+    int *continent_slider;
+    int *relief_slider;
+    int *moisture_slider;
+    int *drought_slider;
+    int *vegetation_slider;
+    int *bias_forest_slider;
+    int *bias_desert_slider;
+    int *bias_mountain_slider;
+    int *bias_wetland_slider;
+    int *initial_civ_count;
+    int *map_zoom_percent;
+    int *map_offset_x;
+    int *map_offset_y;
+    int *map_legend_collapsed;
+} GameState;
 
 extern Tile world[MAP_H][MAP_W];
 extern Civilization civs[MAX_CIVS];
 extern City cities[MAX_CITIES];
+extern GameState g_game;
 extern int civ_count;
 extern int city_count;
 extern int year;
@@ -300,7 +297,6 @@ extern int map_zoom_percent;
 extern int map_offset_x;
 extern int map_offset_y;
 extern int map_legend_collapsed;
-extern FormControls form;
 
 extern const int SPEED_MS[3];
 extern const char *SPEED_NAMES[3];
@@ -312,14 +308,6 @@ int clamp(int value, int min, int max);
 int rnd(int max);
 void append_log(char *log, size_t log_size, const char *format, ...);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
-RECT get_play_button_rect(RECT client);
-RECT get_speed_button_rect(RECT client, int index);
-RECT get_mode_button_rect(RECT client, int index);
-RECT get_panel_tab_rect(RECT client, int index);
-RECT get_language_button_rect(RECT client);
-RECT get_map_legend_box_rect(RECT client);
-RECT get_map_legend_toggle_rect(RECT client);
 int point_in_rect(RECT rect, int x, int y);
-const char *speed_seconds_text(int index);
 
 #endif

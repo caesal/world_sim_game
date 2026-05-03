@@ -1,4 +1,6 @@
-#include "game_tables.h"
+﻿#include "game_tables.h"
+
+#define LOCALIZED_LANGUAGE_ZH 1
 
 #define MAKE_GEOGRAPHY_RULE(id, en, zh, food, livestock, wood, stone, ore, water, population, money, habitability, attack, defense, note_en, note_zh) \
     [id] = {{en, zh}, {food, livestock, wood, stone, ore, water, population, money, habitability, attack, defense}, {note_en, note_zh}},
@@ -27,7 +29,7 @@ const EcologyRule ECOLOGY_RULES[ECO_COUNT] = {
     WORLD_ECOLOGY_RULE_ROWS(MAKE_ECOLOGY_RULE)
 };
 
-const ResourceFeatureRule RESOURCE_FEATURE_RULES[RESOURCE_COUNT] = {
+const ResourceFeatureRule RESOURCE_FEATURE_RULES[RESOURCE_FEATURE_COUNT] = {
     WORLD_RESOURCE_FEATURE_RULE_ROWS(MAKE_RESOURCE_RULE)
 };
 
@@ -36,5 +38,5 @@ const CivilizationMetricRule CIVILIZATION_METRIC_RULES[CIV_METRIC_COUNT] = {
 };
 
 const char *localized_text(LocalizedText text, int language) {
-    return language == UI_LANG_ZH ? text.zh : text.en;
+    return language == LOCALIZED_LANGUAGE_ZH ? text.zh : text.en;
 }

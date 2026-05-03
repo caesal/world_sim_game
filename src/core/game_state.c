@@ -1,4 +1,6 @@
-#include "game_state.h"
+﻿#include "game_state.h"
+
+#include "ui/ui_types.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -43,7 +45,47 @@ int map_zoom_percent = 120;
 int map_offset_x = 0;
 int map_offset_y = 0;
 int map_legend_collapsed = 0;
-FormControls form;
+
+GameState g_game = {
+    world,
+    civs,
+    cities,
+    &civ_count,
+    &city_count,
+    &year,
+    &month,
+    &selected_x,
+    &selected_y,
+    &selected_civ,
+    &auto_run,
+    &speed_index,
+    &display_mode,
+    &panel_tab,
+    &ui_language,
+    &side_panel_w,
+    &dragging_panel,
+    &dragging_slider,
+    &dragging_map,
+    &last_mouse_x,
+    &last_mouse_y,
+    &hover_x,
+    &hover_y,
+    &ocean_slider,
+    &continent_slider,
+    &relief_slider,
+    &moisture_slider,
+    &drought_slider,
+    &vegetation_slider,
+    &bias_forest_slider,
+    &bias_desert_slider,
+    &bias_mountain_slider,
+    &bias_wetland_slider,
+    &initial_civ_count,
+    &map_zoom_percent,
+    &map_offset_x,
+    &map_offset_y,
+    &map_legend_collapsed
+};
 
 const int SPEED_MS[3] = {1000, 250, 50};
 const char *SPEED_NAMES[3] = {"Slow", "Normal", "Fast"};
@@ -97,97 +139,6 @@ COLORREF blend_color(COLORREF base, COLORREF overlay, int percent) {
     return RGB(r, g, b);
 }
 
-RECT get_play_button_rect(RECT client) {
-    RECT rect = {18, client.bottom - 38, 58, client.bottom - 8};
-    return rect;
-}
-
-RECT get_speed_button_rect(RECT client, int index) {
-    RECT rect;
-    rect.left = 68 + index * 46;
-    rect.top = client.bottom - 38;
-    rect.right = rect.left + 40;
-    rect.bottom = client.bottom - 8;
-    return rect;
-}
-
-RECT get_mode_button_rect(RECT client, int index) {
-    RECT rect;
-    int panel_x = client.right - side_panel_w + FORM_X_PAD;
-    rect.left = panel_x;
-    rect.top = TOP_BAR_H + 74 + index * 34;
-    rect.right = panel_x + side_panel_w - FORM_X_PAD * 2;
-    rect.bottom = rect.top + 28;
-    return rect;
-}
-
-RECT get_panel_tab_rect(RECT client, int index) {
-    RECT rect;
-    int panel_x = client.right - side_panel_w + 12;
-    int tab_w = (side_panel_w - 24) / 3;
-    rect.left = panel_x + index * tab_w;
-    rect.top = TOP_BAR_H + 10;
-    rect.right = index == 2 ? client.right - 12 : rect.left + tab_w - 4;
-    rect.bottom = rect.top + 30;
-    return rect;
-}
-
-RECT get_language_button_rect(RECT client) {
-    RECT rect;
-    rect.left = client.right - side_panel_w - 92;
-    rect.top = 16;
-    rect.right = client.right - side_panel_w - 18;
-    rect.bottom = 46;
-    if (rect.left < client.left + 250) {
-        rect.left = client.left + 250;
-        rect.right = rect.left + 74;
-    }
-    return rect;
-}
-
-RECT get_map_legend_box_rect(RECT client) {
-    RECT box;
-    int panel_left = client.right - side_panel_w;
-    int geo_count = GEO_COUNT;
-    int climate_count = CLIMATE_COUNT;
-    int line_h = 20;
-    int rows = display_mode == DISPLAY_CLIMATE ? climate_count : geo_count;
-    int box_w = display_mode == DISPLAY_ALL ? 390 : 210;
-
-    if (display_mode == DISPLAY_ALL && climate_count > rows) rows = climate_count;
-    box.right = panel_left - 14;
-    box.left = box.right - box_w;
-    box.bottom = client.bottom - BOTTOM_BAR_H - 12;
-    box.top = map_legend_collapsed ? box.bottom - 34 : box.bottom - (rows * line_h + 38);
-    if (box.left < 20 || box.top < TOP_BAR_H + 12) {
-        SetRectEmpty(&box);
-    }
-    return box;
-}
-
-RECT get_map_legend_toggle_rect(RECT client) {
-    RECT box = get_map_legend_box_rect(client);
-    RECT button;
-
-    if (IsRectEmpty(&box)) {
-        SetRectEmpty(&button);
-        return button;
-    }
-    button.left = box.right - 34;
-    button.top = box.top + 6;
-    button.right = box.right - 8;
-    button.bottom = box.top + 28;
-    return button;
-}
-
 int point_in_rect(RECT rect, int x, int y) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-}
-
-const char *speed_seconds_text(int index) {
-    switch (index) {
-        case 0: return "1s";
-        case 1: return "0.25s";
-        default: return "0.05s";
-    }
 }

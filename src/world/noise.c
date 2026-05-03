@@ -1,6 +1,6 @@
-#include "noise.h"
+﻿#include "noise.h"
 
-#include "../core/game_state.h"
+#include "core/game_state.h"
 
 static int smooth_step_255(int value) {
     value = clamp(value, 0, 255);

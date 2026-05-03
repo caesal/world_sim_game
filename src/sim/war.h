@@ -1,7 +1,7 @@
-#ifndef WORLD_SIM_WAR_H
+﻿#ifndef WORLD_SIM_WAR_H
 #define WORLD_SIM_WAR_H
 
-#include "../core/game_state.h"
+#include "core/game_state.h"
 
 typedef enum {
     WAR_OUTCOME_NONE,
@@ -32,6 +32,8 @@ int war_start(int attacker, int defender);
 void war_update_year(void);
 int war_active_between(int civ_a, int civ_b);
 ActiveWar war_state_between(int civ_a, int civ_b);
+int war_estimated_soldiers(int civ_id);
+int war_current_soldiers_for_civ(int civ_id);
 const char *war_outcome_name(WarOutcome outcome);
 
 #endif

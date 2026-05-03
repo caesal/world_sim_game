@@ -1,10 +1,18 @@
-#include "game.h"
+﻿#include "game.h"
 
-#include "game_types.h"
-#include "simulation.h"
-#include "ui.h"
+#include "core/game_types.h"
+#include "sim/simulation.h"
+#include "ui/ui.h"
 
 #include <string.h>
+
+void game_toggle_auto_run(void) {
+    auto_run = !auto_run;
+}
+
+void game_request_new_world(void) {
+    reset_simulation();
+}
 
 int run_game(void) {
     HINSTANCE instance = GetModuleHandle(NULL);
@@ -19,7 +27,7 @@ int run_game(void) {
     wc.hInstance = instance;
     wc.lpszClassName = class_name;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hbrBackground = NULL;
 
     if (!RegisterClassA(&wc)) {
         MessageBoxA(NULL, "Failed to register window class.", "World Sim Game", MB_ICONERROR);

@@ -1,120 +1,30 @@
-#include "world_gen.h"
+﻿#include "world/world_gen.h"
 
 #include "data/game_tables.h"
 #include "world/noise.h"
+#include "world/rivers.h"
+#include "world/terrain_query.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
-static void add_table_stats(TerrainStats *stats, TableStats delta) {
-    stats->food += delta.food;
-    stats->livestock += delta.livestock;
-    stats->wood += delta.wood;
-    stats->stone += delta.stone;
-    stats->minerals += delta.minerals;
-    stats->water += delta.water;
-    stats->pop_capacity += delta.population;
-    stats->money += delta.money;
-    stats->habitability += delta.habitability;
-    stats->attack += delta.attack;
-    stats->defense += delta.defense;
-}
+static WorldGenConfig gen_config;
 
-static void clamp_terrain_stats(TerrainStats *stats) {
-    stats->food = clamp(stats->food, 0, 10);
-    stats->livestock = clamp(stats->livestock, 0, 10);
-    stats->wood = clamp(stats->wood, 0, 10);
-    stats->stone = clamp(stats->stone, 0, 10);
-    stats->minerals = clamp(stats->minerals, 0, 10);
-    stats->water = clamp(stats->water, 0, 10);
-    stats->pop_capacity = clamp(stats->pop_capacity, 0, 10);
-    stats->money = clamp(stats->money, 0, 10);
-    stats->habitability = clamp(stats->habitability, 0, 10);
-    stats->attack = clamp(stats->attack, -3, 6);
-    stats->defense = clamp(stats->defense, 0, 8);
-}
+WorldGenConfig world_gen_config_from_globals(void) {
+    WorldGenConfig config;
 
-static TerrainStats terrain_stats_base(Geography geography, Climate climate, int river) {
-    TerrainStats stats;
-
-    memset(&stats, 0, sizeof(stats));
-    if (geography >= 0 && geography < GEO_COUNT) add_table_stats(&stats, GEOGRAPHY_RULES[geography].stats);
-    if (climate >= 0 && climate < CLIMATE_COUNT) add_table_stats(&stats, CLIMATE_RULES[climate].stats);
-
-    if (river) {
-        stats.food += 2;
-        stats.water += 3;
-        stats.money += 1;
-        stats.pop_capacity += 1;
-        stats.defense += 1;
-    }
-
-    clamp_terrain_stats(&stats);
-    return stats;
-}
-
-static void apply_ecology_stats(TerrainStats *stats, Ecology ecology) {
-    if (ecology >= 0 && ecology < ECO_COUNT) add_table_stats(stats, ECOLOGY_RULES[ecology].stats);
-}
-
-static void apply_resource_stats(TerrainStats *stats, ResourceFeature resource) {
-    if (resource >= 0 && resource < RESOURCE_COUNT) add_table_stats(stats, RESOURCE_FEATURE_RULES[resource].stats);
-}
-
-int is_land(Geography geography) {
-    return geography != GEO_OCEAN && geography != GEO_LAKE && geography != GEO_BAY;
-}
-
-static int is_sea_water(Geography geography) {
-    return geography == GEO_OCEAN || geography == GEO_BAY;
-}
-
-static int sea_water_near_land(int x, int y, int radius) {
-    int dy;
-    int dx;
-
-    for (dy = -radius; dy <= radius; dy++) {
-        for (dx = -radius; dx <= radius; dx++) {
-            int nx = x + dx;
-            int ny = y + dy;
-            if (dx == 0 && dy == 0) continue;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-            if (is_sea_water(world[ny][nx].geography)) return 1;
-        }
-    }
-    return 0;
-}
-
-static int is_coastal_land_tile(int x, int y) {
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    return is_land(world[y][x].geography) && sea_water_near_land(x, y, 2);
-}
-
-TerrainStats tile_stats(int x, int y) {
-    TerrainStats stats = terrain_stats_base(world[y][x].geography, world[y][x].climate, world[y][x].river);
-    int variation = world[y][x].resource_variation - 50;
-    int base_habitability = stats.habitability;
-    int resource_habitability;
-
-    stats.food = clamp(stats.food + variation / 18, 0, 10);
-    stats.livestock = clamp(stats.livestock + variation / 22 + (world[y][x].moisture - 45) / 30, 0, 10);
-    stats.wood = clamp(stats.wood + (world[y][x].moisture - 50) / 24, 0, 10);
-    stats.stone = clamp(stats.stone + (world[y][x].elevation - 48) / 22, 0, 10);
-    stats.minerals = clamp(stats.minerals + (world[y][x].elevation - 55) / 18, 0, 10);
-    stats.water = clamp(stats.water + (world[y][x].moisture - 45) / 18, 0, 10);
-    stats.pop_capacity = clamp(stats.pop_capacity + stats.food / 3 + stats.water / 4, 0, 10);
-    stats.money = clamp(stats.money + stats.livestock / 5 + stats.minerals / 5 + stats.water / 6, 0, 10);
-    apply_ecology_stats(&stats, world[y][x].ecology);
-    apply_resource_stats(&stats, world[y][x].resource);
-    clamp_terrain_stats(&stats);
-    resource_habitability = (stats.food * 2 + stats.livestock + stats.wood + stats.stone / 2 +
-                             stats.minerals / 2 + stats.water * 2 + stats.pop_capacity) / 7;
-    stats.habitability = clamp((base_habitability + resource_habitability) / 2 +
-                               variation / 24 - abs(world[y][x].temperature - 55) / 35, 0, 10);
-    if (world[y][x].river) stats.defense = clamp(stats.defense + 1, 0, 8);
-    clamp_terrain_stats(&stats);
-    return stats;
+    config.ocean = ocean_slider;
+    config.continent = continent_slider;
+    config.relief = relief_slider;
+    config.moisture = moisture_slider;
+    config.drought = drought_slider;
+    config.vegetation = vegetation_slider;
+    config.bias_forest = bias_forest_slider;
+    config.bias_desert = bias_desert_slider;
+    config.bias_mountain = bias_mountain_slider;
+    config.bias_wetland = bias_wetland_slider;
+    return config;
 }
 
 static int nearby_land_count(int x, int y) {
@@ -132,33 +42,6 @@ static int nearby_land_count(int x, int y) {
         }
     }
     return count;
-}
-
-static int tile_cost(int x, int y) {
-    TerrainStats stats = tile_stats(x, y);
-    int resource_relief;
-    if (!is_land(world[y][x].geography)) return 99;
-    resource_relief = stats.food + stats.water + stats.wood + stats.stone + stats.minerals + stats.money;
-    return clamp(12 - stats.habitability / 2 - stats.water / 4 - stats.food / 5 -
-                 resource_relief / 18 + stats.defense / 3, 2, 12);
-}
-
-static int terrain_resource_value(TerrainStats stats) {
-    return stats.food * 4 + stats.water * 4 + stats.pop_capacity * 3 + stats.money * 3 +
-           stats.livestock * 2 + stats.wood * 2 + stats.stone * 2 + stats.minerals * 3 +
-           stats.habitability * 2;
-}
-
-int world_tile_cost(int x, int y) {
-    return tile_cost(x, y);
-}
-
-int world_terrain_resource_value(TerrainStats stats) {
-    return terrain_resource_value(stats);
-}
-
-int world_is_coastal_land_tile(int x, int y) {
-    return is_coastal_land_tile(x, y);
 }
 
 
@@ -245,7 +128,7 @@ static void compute_ocean_distance(int elevation[MAP_H][MAP_W], int sea_level,
 
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
-            if (ocean_slider > 0 && elevation[y][x] < sea_level) {
+            if (gen_config.ocean > 0 && elevation[y][x] < sea_level) {
                 distance[y][x] = 0;
                 queue_x[tail] = x;
                 queue_y[tail] = y;
@@ -293,7 +176,7 @@ static void compute_rain_shadow(int elevation[MAP_H][MAP_W], int sea_level,
             int block = 0;
             int step;
 
-            if (elevation[y][x] < sea_level || ocean_slider <= 0) {
+            if (elevation[y][x] < sea_level || gen_config.ocean <= 0) {
                 shadow[y][x] = 0;
                 continue;
             }
@@ -345,54 +228,15 @@ static Climate majority_neighbor_climate(int x, int y, Climate fallback) {
     return best;
 }
 
-static void mark_river_from(int start_x, int start_y) {
-    int x = start_x;
-    int y = start_y;
-    int steps;
-
-    for (steps = 0; steps < 180; steps++) {
-        int best_x = x;
-        int best_y = y;
-        int best_score = world[y][x].elevation;
-        int dy;
-        int dx;
-
-        if (!is_land(world[y][x].geography)) return;
-        world[y][x].river = 1;
-
-        for (dy = -1; dy <= 1; dy++) {
-            for (dx = -1; dx <= 1; dx++) {
-                int nx = x + dx;
-                int ny = y + dy;
-                int score;
-
-                if (dx == 0 && dy == 0) continue;
-                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                if (!is_land(world[ny][nx].geography)) return;
-                score = world[ny][nx].elevation + rnd(5);
-                if (score < best_score) {
-                    best_score = score;
-                    best_x = nx;
-                    best_y = ny;
-                }
-            }
-        }
-
-        if (best_x == x && best_y == y) return;
-        x = best_x;
-        y = best_y;
-    }
-}
-
 static Geography classify_geography(int elevation, int sea_level, int nearby_water, int relief, int moisture,
-                                    int temperature, Climate climate) {
-    int coast_band = 1 + ocean_slider * 5 / 100;
-    int coast_water_limit = ocean_slider < 15 ? 7 : 4;
-    int mountain_bias = (relief_slider + bias_mountain_slider) / 2;
-    int wet_bias = (moisture_slider + bias_wetland_slider) / 2;
+                                     int temperature, Climate climate) {
+    int coast_band = 1 + gen_config.ocean * 5 / 100;
+    int coast_water_limit = gen_config.ocean < 15 ? 7 : 4;
+    int mountain_bias = (gen_config.relief + gen_config.bias_mountain) / 2;
+    int wet_bias = (gen_config.moisture + gen_config.bias_wetland) / 2;
 
     (void)temperature;
-    if (ocean_slider <= 0) {
+    if (gen_config.ocean <= 0) {
         if (elevation > 88 && rnd(1000) < 4 + mountain_bias / 4) return GEO_VOLCANO;
         if (elevation > 82 && relief < 9) return GEO_PLATEAU;
         if (elevation > 84 - mountain_bias / 12) return GEO_MOUNTAIN;
@@ -426,8 +270,8 @@ static Geography classify_geography(int elevation, int sea_level, int nearby_wat
 }
 
 static Ecology classify_ecology(Geography geography, Climate climate, int moisture, int temperature) {
-    int forest_bias = (vegetation_slider - 50) / 2 + (bias_forest_slider - 50) / 3;
-    int wetland_bias = (moisture_slider + bias_wetland_slider) / 8;
+    int forest_bias = (gen_config.vegetation - 50) / 2 + (gen_config.bias_forest - 50) / 3;
+    int wetland_bias = (gen_config.moisture + gen_config.bias_wetland) / 8;
 
     if (!is_land(geography)) return ECO_NONE;
     if (geography == GEO_DELTA && temperature > 65) return ECO_MANGROVE;
@@ -476,40 +320,40 @@ static ResourceFeature classify_resource(Geography geography, Climate climate, E
                                          int moisture, int temperature, int elevation, int variation) {
     if (!is_land(geography)) {
         if (geography == GEO_BAY || geography == GEO_LAKE) {
-            return RESOURCE_FISHERY;
+            return RESOURCE_FEATURE_FISHERY;
         }
-        return RESOURCE_NONE;
+        return RESOURCE_FEATURE_NONE;
     }
     if ((geography == GEO_MOUNTAIN || geography == GEO_HILL || geography == GEO_VOLCANO ||
          geography == GEO_CANYON || elevation > 78) && variation > 28) {
-        return RESOURCE_MINE;
+        return RESOURCE_FEATURE_MINE;
     }
-    if (geography == GEO_VOLCANO && variation > 60) return RESOURCE_GEOTHERMAL;
+    if (geography == GEO_VOLCANO && variation > 60) return RESOURCE_FEATURE_GEOTHERMAL;
     if ((geography == GEO_LAKE || geography == GEO_BASIN) &&
         (climate == CLIMATE_DESERT || climate == CLIMATE_SEMI_ARID) && variation > 50) {
-        return RESOURCE_SALT_LAKE;
+        return RESOURCE_FEATURE_SALT_LAKE;
     }
     if ((geography == GEO_PLAIN || geography == GEO_DELTA || geography == GEO_BASIN ||
          geography == GEO_COAST || geography == GEO_OASIS) &&
         moisture > 42 && climate != CLIMATE_DESERT && climate != CLIMATE_ICE_CAP &&
         climate != CLIMATE_TUNDRA && variation > 18) {
-        return RESOURCE_FARMLAND;
+        return RESOURCE_FEATURE_FARMLAND;
     }
-    if ((geography == GEO_COAST || geography == GEO_ISLAND) && variation > 42) return RESOURCE_FISHERY;
+    if ((geography == GEO_COAST || geography == GEO_ISLAND) && variation > 42) return RESOURCE_FEATURE_FISHERY;
     if (ecology == ECO_GRASSLAND || climate == CLIMATE_SEMI_ARID ||
         climate == CLIMATE_HIGHLAND_PLATEAU) {
-        return RESOURCE_PASTURE;
+        return RESOURCE_FEATURE_PASTURE;
     }
     if (ecology == ECO_FOREST || ecology == ECO_RAINFOREST || ecology == ECO_BAMBOO ||
         ecology == ECO_MANGROVE) {
-        return RESOURCE_FOREST;
+        return RESOURCE_FEATURE_FOREST;
     }
-    if (temperature > 68 && moisture > 76 && geography == GEO_DELTA) return RESOURCE_FISHERY;
-    return RESOURCE_NONE;
+    if (temperature > 68 && moisture > 76 && geography == GEO_DELTA) return RESOURCE_FEATURE_FISHERY;
+    return RESOURCE_FEATURE_NONE;
 }
 
 static Climate classify_climate(int cold, int elevation, int moisture, int temperature, int near_ocean) {
-    int desert_limit = 6 + (drought_slider + bias_desert_slider) * 36 / 100;
+    int desert_limit = 6 + (gen_config.drought + gen_config.bias_desert) * 36 / 100;
     int semi_arid_limit = desert_limit + 16;
 
     if (elevation > 84 && temperature < 48) return CLIMATE_ALPINE;
@@ -528,7 +372,7 @@ static Climate classify_climate(int cold, int elevation, int moisture, int tempe
     return CLIMATE_CONTINENTAL;
 }
 
-void generate_world(void) {
+void generate_world_with_config(const WorldGenConfig *config) {
     int y;
     int x;
     int pass;
@@ -538,9 +382,9 @@ void generate_world(void) {
     static int sorted_elevation[MAP_W * MAP_H];
     static int ocean_distance[MAP_H][MAP_W];
     static int rain_shadow[MAP_H][MAP_W];
-    int target_land_percent = 100 - ocean_slider * 72 / 100;
-    int target_land_tiles = MAP_W * MAP_H * target_land_percent / 100;
-    int threshold_index = clamp(MAP_W * MAP_H - target_land_tiles, 0, MAP_W * MAP_H - 1);
+    int target_land_percent;
+    int target_land_tiles;
+    int threshold_index;
     int sea_level;
     int index = 0;
     int climate_axis;
@@ -549,6 +393,11 @@ void generate_world(void) {
     int elevation_seed;
     int moisture_seed;
     int temperature_seed;
+
+    gen_config = config ? *config : world_gen_config_from_globals();
+    target_land_percent = 100 - gen_config.ocean * 72 / 100;
+    target_land_tiles = MAP_W * MAP_H * target_land_percent / 100;
+    threshold_index = clamp(MAP_W * MAP_H - target_land_tiles, 0, MAP_W * MAP_H - 1);
 
     seed_random();
     climate_axis = rnd(4);
@@ -565,35 +414,35 @@ void generate_world(void) {
             int edge_y = y < MAP_H / 2 ? y : MAP_H - 1 - y;
             int edge = edge_x < edge_y ? edge_x : edge_y;
             int edge_falloff = clamp(edge * 3, 0, 42);
-            int dry_shift = drought_slider * 16 / 100 + bias_desert_slider / 6;
+            int dry_shift = gen_config.drought * 16 / 100 + gen_config.bias_desert / 6;
             int base_elevation = world_fractal_noise(x, y, elevation_seed);
             int broken_elevation = world_fractal_noise(x * 2 + elevation_seed % 97, y * 2 + elevation_seed % 53,
                                                        elevation_seed + 911);
-            int fragment_weight = clamp(continent_slider, 0, 100);
+            int fragment_weight = clamp(gen_config.continent, 0, 100);
 
             world[y][x].geography = GEO_OCEAN;
             world[y][x].climate = CLIMATE_OCEANIC;
             world[y][x].ecology = ECO_NONE;
-            world[y][x].resource = RESOURCE_NONE;
+            world[y][x].resource = RESOURCE_FEATURE_NONE;
             world[y][x].owner = -1;
             world[y][x].province_id = -1;
             world[y][x].river = 0;
             elevation[y][x] = (base_elevation * (100 - fragment_weight) + broken_elevation * fragment_weight) / 100 +
-                              edge_falloff - 22 + (relief_slider - 50) / 5;
-            moisture[y][x] = clamp(world_fractal_noise(x, y, moisture_seed) + moisture_slider / 3 - dry_shift, 0, 100);
+                              edge_falloff - 22 + (gen_config.relief - 50) / 5;
+            moisture[y][x] = clamp(world_fractal_noise(x, y, moisture_seed) + gen_config.moisture / 3 - dry_shift, 0, 100);
             temperature[y][x] = world_fractal_noise(x, y, temperature_seed);
         }
     }
 
-    smooth_field(elevation, clamp(7 - continent_slider / 20, 2, 7));
-    smooth_field(moisture, clamp(5 - continent_slider / 35, 2, 5));
+    smooth_field(elevation, clamp(7 - gen_config.continent / 20, 2, 7));
+    smooth_field(moisture, clamp(5 - gen_config.continent / 35, 2, 5));
     smooth_field(temperature, 3);
 
-    for (pass = 0; pass < 18 + relief_slider / 3 + bias_mountain_slider / 5; pass++) {
+    for (pass = 0; pass < 18 + gen_config.relief / 3 + gen_config.bias_mountain / 5; pass++) {
         int cx = 24 + rnd(MAP_W - 48);
         int cy = 18 + rnd(MAP_H - 36);
-        int radius = 12 + rnd(28 + clamp(100 - continent_slider, 0, 100) / 2);
-        int lift = 6 + relief_slider * 24 / 100 + bias_mountain_slider / 5 + rnd(18);
+        int radius = 12 + rnd(28 + clamp(100 - gen_config.continent, 0, 100) / 2);
+        int lift = 6 + gen_config.relief * 24 / 100 + gen_config.bias_mountain / 5 + rnd(18);
         int yy;
         int xx;
 
@@ -607,7 +456,7 @@ void generate_world(void) {
             }
         }
     }
-    smooth_field(elevation, clamp(6 - continent_slider / 25, 2, 6));
+    smooth_field(elevation, clamp(6 - gen_config.continent / 25, 2, 6));
 
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) sorted_elevation[index++] = elevation[y][x];
@@ -620,14 +469,14 @@ void generate_world(void) {
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             int elev = clamp(elevation[y][x], 0, 100);
-            int coast_humidity = ocean_slider <= 0 ? 0 : clamp(42 - ocean_distance[y][x], 0, 42);
-            int inland_dryness = ocean_slider <= 0 ? 0 : clamp(ocean_distance[y][x] / 2, 0, 34);
+            int coast_humidity = gen_config.ocean <= 0 ? 0 : clamp(42 - ocean_distance[y][x], 0, 42);
+            int inland_dryness = gen_config.ocean <= 0 ? 0 : clamp(ocean_distance[y][x] / 2, 0, 34);
             int shadow_dryness = rain_shadow[y][x];
             int moist = clamp(moisture[y][x] + coast_humidity - inland_dryness - shadow_dryness +
-                              (elev < sea_level + 8 && ocean_slider > 0 ? 12 : 0), 0, 100);
+                              (elev < sea_level + 8 && gen_config.ocean > 0 ? 12 : 0), 0, 100);
             int latitude_cold = latitude_coldness(x, y, climate_axis);
             int cold = clamp(latitude_cold + elev / 4 + shadow_dryness / 5 + rnd(17) - 8, 0, 120);
-            int ocean_moderation = ocean_slider <= 0 ? 0 : clamp(22 - ocean_distance[y][x] / 2, 0, 22);
+            int ocean_moderation = gen_config.ocean <= 0 ? 0 : clamp(22 - ocean_distance[y][x] / 2, 0, 22);
             int temp = clamp(100 - cold + temperature[y][x] / 8 - elev / 7 + ocean_moderation / 2, 0, 100);
             int nearby_water = 0;
             int local_min = 999;
@@ -656,7 +505,7 @@ void generate_world(void) {
         }
     }
 
-    for (pass = 0; pass < (ocean_slider < 15 ? 5 : 2); pass++) {
+    for (pass = 0; pass < (gen_config.ocean < 15 ? 5 : 2); pass++) {
         static Tile next[MAP_H][MAP_W];
         memcpy(next, world, sizeof(world));
         for (y = 1; y < MAP_H - 1; y++) {
@@ -664,9 +513,9 @@ void generate_world(void) {
                 int land = nearby_land_count(x, y);
                 if (is_land(world[y][x].geography) && land <= 2 &&
                     world[y][x].geography != GEO_ISLAND) {
-                    next[y][x].geography = ocean_slider <= 0 ? GEO_PLAIN : GEO_OCEAN;
+                    next[y][x].geography = gen_config.ocean <= 0 ? GEO_PLAIN : GEO_OCEAN;
                 }
-                if (!is_land(world[y][x].geography) && land >= (ocean_slider < 15 ? 4 : 6)) next[y][x].geography = GEO_PLAIN;
+                if (!is_land(world[y][x].geography) && land >= (gen_config.ocean < 15 ? 4 : 6)) next[y][x].geography = GEO_PLAIN;
             }
         }
         memcpy(world, next, sizeof(world));
@@ -688,17 +537,10 @@ void generate_world(void) {
         }
     }
 
-    for (pass = 0; pass < 72 + (moisture_slider + bias_wetland_slider) / 2; pass++) {
-        int tries;
-        for (tries = 0; tries < 250; tries++) {
-            int rx = rnd(MAP_W);
-            int ry = rnd(MAP_H);
-            if ((world[ry][rx].geography == GEO_MOUNTAIN || world[ry][rx].geography == GEO_HILL ||
-                 world[ry][rx].geography == GEO_PLATEAU) &&
-                world[ry][rx].elevation > 52 && world[ry][rx].moisture > 28 + rnd(28)) {
-                mark_river_from(rx, ry);
-                break;
-            }
-        }
-    }
+    generate_rivers(gen_config.moisture, gen_config.bias_wetland);
+}
+
+void generate_world(void) {
+    WorldGenConfig config = world_gen_config_from_globals();
+    generate_world_with_config(&config);
 }

@@ -1,9 +1,8 @@
-#ifndef WORLD_SIM_WORLD_GEN_H
-#define WORLD_SIM_WORLD_GEN_H
+﻿#ifndef WORLD_SIM_TERRAIN_QUERY_H
+#define WORLD_SIM_TERRAIN_QUERY_H
 
-#include "game_types.h"
+#include "core/game_types.h"
 
-void generate_world(void);
 TerrainStats tile_stats(int x, int y);
 int is_land(Geography geography);
 int world_tile_cost(int x, int y);

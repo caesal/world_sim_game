@@ -1,6 +1,8 @@
-#include "expansion.h"
+﻿#include "expansion.h"
 
-#include "../world/world.h"
+#include "sim/simulation.h"
+#include "world/terrain_query.h"
+#include "world/world_gen.h"
 
 #include <stdlib.h>
 

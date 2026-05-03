@@ -1,6 +1,7 @@
-#include "ports.h"
+﻿#include "ports.h"
 
-#include "world.h"
+#include "sim/simulation.h"
+#include "terrain_query.h"
 
 typedef struct {
     int x;
@@ -107,7 +108,11 @@ static void refresh_city_port_regions(void) {
     if (shallow_sea_dirty) rebuild_shallow_sea_regions();
     for (i = 0; i < city_count; i++) {
         if (!cities[i].alive || !cities[i].port) continue;
-        cities[i].port_region = shallow_region_near_land(cities[i].x, cities[i].y);
+        if (cities[i].port_x < 0 || cities[i].port_y < 0) {
+            cities[i].port_x = cities[i].x;
+            cities[i].port_y = cities[i].y;
+        }
+        cities[i].port_region = shallow_region_near_land(cities[i].port_x, cities[i].port_y);
         if (cities[i].port_region < 0) cities[i].port = 0;
     }
 }
@@ -129,11 +134,10 @@ void ports_maybe_make_city_port(int city_id) {
     if (!world_select_city_site_in_province(city_id, 0, 1, &x, &y)) return;
     region = shallow_region_near_land(x, y);
     if (region < 0) return;
-    city->x = x;
-    city->y = y;
     city->port = 1;
+    city->port_x = x;
+    city->port_y = y;
     city->port_region = region;
-    city->radius = world_city_radius_for_tile(x, y, city->population);
     world_invalidate_region_cache();
 }
 

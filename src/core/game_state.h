@@ -1,6 +1,6 @@
-#ifndef WORLD_SIM_GAME_STATE_H
+﻿#ifndef WORLD_SIM_GAME_STATE_H
 #define WORLD_SIM_GAME_STATE_H
 
-#include "../game_types.h"
+#include "core/game_types.h"
 
 #endif

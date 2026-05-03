@@ -1,15 +1,20 @@
-#include "ui.h"
+﻿#include "ui.h"
 
-#include "game_types.h"
-#include "render.h"
-#include "simulation.h"
-#include "world_gen.h"
+#include "game/game.h"
+#include "core/game_types.h"
+#include "render/render.h"
+#include "sim/simulation.h"
+#include "ui/ui_layout.h"
+#include "ui/ui_types.h"
+#include "world/terrain_query.h"
+#include "world/world_gen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 static int tracking_mouse_leave = 0;
+static FormControls form;
 
 static void invalidate_side_panel(HWND hwnd) {
     RECT client;
@@ -288,7 +293,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         return;
     }
     if (point_in_rect(get_play_button_rect(client), mouse_x, mouse_y)) {
-        auto_run = !auto_run;
+        game_toggle_auto_run();
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -299,7 +304,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
     }
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < PANEL_TAB_COUNT; i++) {
         if (point_in_rect(get_panel_tab_rect(client, i), mouse_x, mouse_y)) {
             panel_tab = i;
             layout_form_controls(hwnd);
@@ -351,7 +356,8 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     hover_y = mouse_y;
     was_panel = old_hover_x >= client.right - side_panel_w && old_hover_y >= TOP_BAR_H && old_hover_y <= client.bottom;
     is_panel = mouse_x >= client.right - side_panel_w && mouse_y >= TOP_BAR_H && mouse_y <= client.bottom;
-    if (panel_tab == PANEL_INFO && (was_panel || is_panel) && (old_hover_x != hover_x || old_hover_y != hover_y)) {
+    if ((panel_tab == PANEL_INFO || panel_tab == PANEL_DIPLOMACY) &&
+        (was_panel || is_panel) && (old_hover_x != hover_x || old_hover_y != hover_y)) {
         invalidate_side_panel(hwnd);
     }
     if (dragging_map) {
@@ -440,7 +446,7 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
 
 int handle_shortcut(HWND hwnd, WPARAM key) {
     if (key == VK_SPACE) {
-        auto_run = !auto_run;
+        game_toggle_auto_run();
         InvalidateRect(hwnd, NULL, FALSE);
         return 1;
     }
@@ -454,7 +460,7 @@ int handle_shortcut(HWND hwnd, WPARAM key) {
     }
     if (key == VK_F5 || key == 'R') {
         read_world_setup_controls();
-        reset_simulation();
+        game_request_new_world();
         InvalidateRect(hwnd, NULL, FALSE);
         return 1;
     }
@@ -526,6 +532,8 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
         case WM_PAINT:
             paint_window(hwnd);
             return 0;
+        case WM_ERASEBKGND:
+            return 1;
         case WM_DESTROY:
             KillTimer(hwnd, TIMER_ID);
             PostQuitMessage(0);
