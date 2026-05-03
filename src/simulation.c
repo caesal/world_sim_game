@@ -860,6 +860,7 @@ void reset_simulation(void) {
     selected_civ = -1;
     invalidate_region_cache();
     generate_world();
+    ports_reset_regions();
     invalidate_region_cache();
     seed_default_civilizations();
     recalculate_territory();

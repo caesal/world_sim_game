@@ -2,9 +2,10 @@
 
 #include "core/version.h"
 #include "data/game_tables.h"
+#include "simulation.h"
 #include "sim/diplomacy.h"
 #include "sim/war.h"
-#include "world/world.h"
+#include "world_gen.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -52,25 +53,25 @@ typedef int (WINAPI *GdipDeleteGraphicsProc)(void *);
 typedef int (WINAPI *GdipDisposeImageProc)(void *);
 
 static const char *ICON_PATHS[ICON_COUNT] = {
-    "assets\\icons\\resource_ore.png",
-    "assets\\icons\\metric_logistics.png",
+    "assets\\icons\\metric_military.png",
+    "assets\\icons\\metric_territory.png",
     "assets\\icons\\resource_population.png",
-    "assets\\icons\\metric_governance.png",
+    "assets\\icons\\metric_defense.png",
     "assets\\icons\\metric_cohesion.png",
     "assets\\icons\\resource_water.png",
-    "assets\\icons\\metric_adaptation.png",
-    "assets\\icons\\resource_water.png",
+    "assets\\icons\\map_geography.png",
+    "assets\\icons\\map_climate.png",
     "assets\\icons\\resource_population.png",
-    "assets\\icons\\metric_governance.png",
-    "assets\\icons\\resource_ore.png",
+    "assets\\icons\\metric_defense.png",
+    "assets\\icons\\metric_attack.png",
     "assets\\icons\\resource_food.png",
     "assets\\icons\\resource_livestock.png",
     "assets\\icons\\resource_wood.png",
     "assets\\icons\\resource_ore.png",
     "assets\\icons\\resource_stone.png",
-    "assets\\icons\\metric_governance.png",
-    "assets\\icons\\metric_adaptation.png",
-    "assets\\icons\\metric_governance.png",
+    "assets\\icons\\city_capital.png",
+    "assets\\icons\\metric_disorder.png",
+    "assets\\icons\\metric_territory.png",
     "assets\\icons\\metric_logistics.png",
     "assets\\icons\\metric_economy.png",
     "assets\\icons\\metric_production.png",
@@ -176,6 +177,81 @@ static void draw_center_text(HDC hdc, RECT rect, const char *text, COLORREF colo
 
 static const char *tr(const char *en, const char *zh) {
     return ui_language == UI_LANG_ZH ? zh : en;
+}
+
+static const char *geography_name(Geography geography) {
+    if (geography < 0 || geography >= GEO_COUNT) return tr("Unknown", "未知");
+    return localized_text(GEOGRAPHY_RULES[geography].name, ui_language);
+}
+
+static const char *climate_name(Climate climate) {
+    if (climate < 0 || climate >= CLIMATE_COUNT) return tr("Unknown", "未知");
+    return localized_text(CLIMATE_RULES[climate].name, ui_language);
+}
+
+static const char *ecology_name(Ecology ecology) {
+    if (ecology < 0 || ecology >= ECO_COUNT) return tr("Unknown", "未知");
+    return localized_text(ECOLOGY_RULES[ecology].name, ui_language);
+}
+
+static const char *resource_name(ResourceFeature resource) {
+    if (resource < 0 || resource >= RESOURCE_COUNT) return tr("Unknown", "未知");
+    return localized_text(RESOURCE_FEATURE_RULES[resource].name, ui_language);
+}
+
+static COLORREF geography_color(Geography geography) {
+    switch (geography) {
+        case GEO_OCEAN: return RGB(74, 139, 201);
+        case GEO_COAST: return RGB(199, 224, 201);
+        case GEO_PLAIN: return RGB(189, 190, 157);
+        case GEO_HILL: return RGB(140, 125, 88);
+        case GEO_MOUNTAIN: return RGB(101, 92, 81);
+        case GEO_PLATEAU: return RGB(154, 141, 106);
+        case GEO_BASIN: return RGB(165, 166, 135);
+        case GEO_CANYON: return RGB(158, 104, 74);
+        case GEO_VOLCANO: return RGB(83, 71, 68);
+        case GEO_LAKE: return RGB(87, 154, 207);
+        case GEO_BAY: return RGB(98, 171, 215);
+        case GEO_DELTA: return RGB(134, 177, 111);
+        case GEO_WETLAND: return RGB(106, 154, 112);
+        case GEO_OASIS: return RGB(118, 178, 118);
+        case GEO_ISLAND: return RGB(154, 184, 112);
+        case GEO_COUNT: return RGB(0, 0, 0);
+        default: return RGB(0, 0, 0);
+    }
+}
+
+static COLORREF climate_color(Climate climate) {
+    switch (climate) {
+        case CLIMATE_TROPICAL_RAINFOREST: return RGB(30, 126, 52);
+        case CLIMATE_TROPICAL_MONSOON: return RGB(74, 164, 62);
+        case CLIMATE_TROPICAL_SAVANNA: return RGB(170, 188, 75);
+        case CLIMATE_DESERT: return RGB(224, 174, 74);
+        case CLIMATE_SEMI_ARID: return RGB(194, 176, 94);
+        case CLIMATE_MEDITERRANEAN: return RGB(151, 183, 93);
+        case CLIMATE_OCEANIC: return RGB(83, 150, 93);
+        case CLIMATE_TEMPERATE_MONSOON: return RGB(96, 170, 83);
+        case CLIMATE_CONTINENTAL: return RGB(149, 176, 96);
+        case CLIMATE_SUBARCTIC: return RGB(87, 137, 103);
+        case CLIMATE_TUNDRA: return RGB(178, 185, 153);
+        case CLIMATE_ICE_CAP: return RGB(233, 238, 233);
+        case CLIMATE_ALPINE: return RGB(172, 168, 150);
+        case CLIMATE_HIGHLAND_PLATEAU: return RGB(164, 154, 120);
+        case CLIMATE_COUNT: return RGB(0, 0, 0);
+        default: return RGB(0, 0, 0);
+    }
+}
+
+static COLORREF overview_color(int x, int y) {
+    COLORREF base = geography_color(world[y][x].geography);
+    COLORREF climate = climate_color(world[y][x].climate);
+    int blend = is_land(world[y][x].geography) ? 48 : 18;
+    COLORREF color = blend_color(base, climate, blend);
+    int elev = world[y][x].elevation;
+
+    if (!is_land(world[y][x].geography)) return color;
+    if (elev > 55) return blend_color(color, RGB(38, 35, 32), clamp((elev - 55) / 3, 0, 18));
+    return blend_color(color, RGB(236, 230, 198), clamp((55 - elev) / 4, 0, 12));
 }
 
 static int point_in_rect_local(RECT rect, int x, int y) {
@@ -1030,7 +1106,7 @@ static void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, 
 static void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font) {
     int y = TOP_BAR_H + 58;
     int i;
-    char text[180];
+    char text[512];
 
     SelectObject(hdc, title_font);
     draw_text_line(hdc, x, y, tr("Civilizations", "文明"), RGB(245, 245, 245));
@@ -1066,12 +1142,12 @@ static void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
             if (relation.state == DIPLOMACY_NONE) continue;
             active_war = war_state_between(selected_civ, i);
             if (relation.state == DIPLOMACY_VASSAL && relation.overlord >= 0 && relation.overlord < civ_count) {
-                if (relation.overlord == selected_civ) snprintf(status_text, sizeof(status_text), "%s", tr("Vassal", "附庸"));
-                else snprintf(status_text, sizeof(status_text), "%s %c", tr("Vassal to", "附庸于"), civs[relation.overlord].symbol);
+                if (relation.overlord == selected_civ) snprintf(status_text, sizeof(status_text), "%.63s", tr("Vassal", "附庸"));
+                else snprintf(status_text, sizeof(status_text), "%.61s %c", tr("Vassal to", "附庸于"), civs[relation.overlord].symbol);
             } else {
-                snprintf(status_text, sizeof(status_text), "%s", diplomacy_status_name(relation.state));
+                snprintf(status_text, sizeof(status_text), "%.63s", diplomacy_status_name(relation.state));
             }
-            snprintf(text, sizeof(text), "%c %s  %s  REL %d TEN %d TRADE %d CON %d TRUCE %d",
+            snprintf(text, sizeof(text), "%c %.63s  %.63s  REL %d TEN %d TRADE %d CON %d TRUCE %d",
                      civs[i].symbol, civs[i].name, status_text,
                      relation.relation_score, relation.border_tension, relation.trade_fit,
                      relation.resource_conflict, relation.truce_years_left);

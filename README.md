@@ -7,7 +7,7 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.4 is a Windows graphical sandbox prototype written in C.
+Ver0.1.4.a is a Windows graphical sandbox prototype written in C.
 
 You can:
 
@@ -50,6 +50,7 @@ You can:
 37. Let province shapes follow geography-aware growth costs instead of fixed circular regions
 38. Derive climate from elevation, distance to sea, latitude, and mountain rain shadow
 39. Use the new crisp civilization icon package for resource and metric blocks
+40. Use the matching-style icon package for covered map, city, combat, territory, and disorder icons
 
 ## Controls
 
@@ -77,7 +78,7 @@ You can:
 Install a C compiler such as MSYS2 MinGW GCC, then run this in the MSYS2 UCRT64 terminal:
 
 ```bash
-gcc -O2 -I. src/main.c src/game.c src/core/game_state.c src/data/game_tables.c src/world_gen.c src/simulation.c src/world/noise.c src/world/ports.c src/sim/expansion.c src/sim/diplomacy.c src/sim/war.c src/render.c src/ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
+gcc -O2 -Wall -Wextra -I. src/main.c src/game.c src/core/game_state.c src/data/game_tables.c src/world_gen.c src/simulation.c src/world/noise.c src/world/ports.c src/sim/expansion.c src/sim/diplomacy.c src/sim/war.c src/render.c src/ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
 ./world_sim.exe
 ```
 
@@ -85,8 +86,14 @@ If you are using PowerShell, add the MSYS2 compiler folder for the current termi
 
 ```powershell
 $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
-gcc -O2 -I. src\main.c src\game.c src\core\game_state.c src\data\game_tables.c src\world_gen.c src\simulation.c src\world\noise.c src\world\ports.c src\sim\expansion.c src\sim\diplomacy.c src\sim\war.c src\render.c src\ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
+gcc -O2 -Wall -Wextra -I. src\main.c src\game.c src\core\game_state.c src\data\game_tables.c src\world_gen.c src\simulation.c src\world\noise.c src\world\ports.c src\sim\expansion.c src\sim\diplomacy.c src\sim\war.c src\render.c src\ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
 .\world_sim.exe
+```
+
+If `make` is installed, the root `Makefile` provides the same build:
+
+```bash
+make
 ```
 
 ## Source Layout
@@ -103,3 +110,4 @@ gcc -O2 -I. src\main.c src\game.c src\core\game_state.c src\data\game_tables.c s
 10. `src/world` contains support modules for noise, ports, and compatibility includes
 11. `src/sim` contains diplomacy, expansion, and war simulation submodules
 12. `assets/icons` contains the PNG icons used by the right-side information panel
+13. `Makefile` contains the canonical build command

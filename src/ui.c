@@ -2,7 +2,8 @@
 
 #include "game_types.h"
 #include "render.h"
-#include "world/world.h"
+#include "simulation.h"
+#include "world_gen.h"
 
 #include <stdio.h>
 #include <stdlib.h>

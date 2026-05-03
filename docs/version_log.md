@@ -1,5 +1,15 @@
 # Version Log
 
+## Ver0.1.4.a
+
+Freeze notes:
+
+1. Replaced covered UI icons with the matching-style icon package while keeping existing resource icons for resource types not included in the new package
+2. Added root `Makefile` using the current module list
+3. Added the province expansion and diplomacy/war framework PDFs to `docs`
+4. Tightened module includes so world generation no longer depends on the port or simulation boundary
+5. Confirmed the first-stage refactor structure and kept `AGENTS.md` in place for future agent rules
+
 ## Ver0.1.4
 
 Implemented features:

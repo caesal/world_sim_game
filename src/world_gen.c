@@ -2,7 +2,6 @@
 
 #include "data/game_tables.h"
 #include "world/noise.h"
-#include "world/ports.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -61,81 +60,6 @@ static void apply_ecology_stats(TerrainStats *stats, Ecology ecology) {
 
 static void apply_resource_stats(TerrainStats *stats, ResourceFeature resource) {
     if (resource >= 0 && resource < RESOURCE_COUNT) add_table_stats(stats, RESOURCE_FEATURE_RULES[resource].stats);
-}
-
-const char *geography_name(Geography geography) {
-    if (geography < 0 || geography >= GEO_COUNT) return ui_language == UI_LANG_ZH ? "未知" : "Unknown";
-    return localized_text(GEOGRAPHY_RULES[geography].name, ui_language);
-}
-
-const char *climate_name(Climate climate) {
-    if (climate < 0 || climate >= CLIMATE_COUNT) return ui_language == UI_LANG_ZH ? "未知" : "Unknown";
-    return localized_text(CLIMATE_RULES[climate].name, ui_language);
-}
-
-const char *ecology_name(Ecology ecology) {
-    if (ecology < 0 || ecology >= ECO_COUNT) return ui_language == UI_LANG_ZH ? "未知" : "Unknown";
-    return localized_text(ECOLOGY_RULES[ecology].name, ui_language);
-}
-
-const char *resource_name(ResourceFeature resource) {
-    if (resource < 0 || resource >= RESOURCE_COUNT) return ui_language == UI_LANG_ZH ? "未知" : "Unknown";
-    return localized_text(RESOURCE_FEATURE_RULES[resource].name, ui_language);
-}
-
-COLORREF geography_color(Geography geography) {
-    switch (geography) {
-        case GEO_OCEAN: return RGB(74, 139, 201);
-        case GEO_COAST: return RGB(199, 224, 201);
-        case GEO_PLAIN: return RGB(189, 190, 157);
-        case GEO_HILL: return RGB(140, 125, 88);
-        case GEO_MOUNTAIN: return RGB(101, 92, 81);
-        case GEO_PLATEAU: return RGB(154, 141, 106);
-        case GEO_BASIN: return RGB(165, 166, 135);
-        case GEO_CANYON: return RGB(158, 104, 74);
-        case GEO_VOLCANO: return RGB(83, 71, 68);
-        case GEO_LAKE: return RGB(87, 154, 207);
-        case GEO_BAY: return RGB(98, 171, 215);
-        case GEO_DELTA: return RGB(134, 177, 111);
-        case GEO_WETLAND: return RGB(106, 154, 112);
-        case GEO_OASIS: return RGB(118, 178, 118);
-        case GEO_ISLAND: return RGB(154, 184, 112);
-        case GEO_COUNT: return RGB(0, 0, 0);
-        default: return RGB(0, 0, 0);
-    }
-}
-
-COLORREF climate_color(Climate climate) {
-    switch (climate) {
-        case CLIMATE_TROPICAL_RAINFOREST: return RGB(30, 126, 52);
-        case CLIMATE_TROPICAL_MONSOON: return RGB(74, 164, 62);
-        case CLIMATE_TROPICAL_SAVANNA: return RGB(170, 188, 75);
-        case CLIMATE_DESERT: return RGB(224, 174, 74);
-        case CLIMATE_SEMI_ARID: return RGB(194, 176, 94);
-        case CLIMATE_MEDITERRANEAN: return RGB(151, 183, 93);
-        case CLIMATE_OCEANIC: return RGB(83, 150, 93);
-        case CLIMATE_TEMPERATE_MONSOON: return RGB(96, 170, 83);
-        case CLIMATE_CONTINENTAL: return RGB(149, 176, 96);
-        case CLIMATE_SUBARCTIC: return RGB(87, 137, 103);
-        case CLIMATE_TUNDRA: return RGB(178, 185, 153);
-        case CLIMATE_ICE_CAP: return RGB(233, 238, 233);
-        case CLIMATE_ALPINE: return RGB(172, 168, 150);
-        case CLIMATE_HIGHLAND_PLATEAU: return RGB(164, 154, 120);
-        case CLIMATE_COUNT: return RGB(0, 0, 0);
-        default: return RGB(0, 0, 0);
-    }
-}
-
-COLORREF overview_color(int x, int y) {
-    COLORREF base = geography_color(world[y][x].geography);
-    COLORREF climate = climate_color(world[y][x].climate);
-    int blend = is_land(world[y][x].geography) ? 48 : 18;
-    COLORREF color = blend_color(base, climate, blend);
-    int elev = world[y][x].elevation;
-
-    if (!is_land(world[y][x].geography)) return color;
-    if (elev > 55) return blend_color(color, RGB(38, 35, 32), clamp((elev - 55) / 3, 0, 18));
-    return blend_color(color, RGB(236, 230, 198), clamp((55 - elev) / 4, 0, 12));
 }
 
 int is_land(Geography geography) {
@@ -777,6 +701,4 @@ void generate_world(void) {
             }
         }
     }
-
-    ports_reset_regions();
 }

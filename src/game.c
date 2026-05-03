@@ -1,8 +1,8 @@
 #include "game.h"
 
 #include "game_types.h"
+#include "simulation.h"
 #include "ui.h"
-#include "world/world.h"
 
 #include <string.h>
 
