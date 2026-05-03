@@ -7,7 +7,7 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.3 is a Windows graphical sandbox prototype written in C.
+Ver0.1.4 is a Windows graphical sandbox prototype written in C.
 
 You can:
 
@@ -29,7 +29,7 @@ You can:
 16. Keep cities farther apart so provinces do not cluster into tiny rings
 17. Use right-side tabs for selected info, civilization management, and map generation
 18. Tune ocean, mountain, desert, forest, and wetland generation from the map tab
-19. Generate cold regions from random climate centers instead of fixed top/bottom poles
+19. Generate cold regions from a randomized latitude axis instead of fixed top/bottom poles
 20. Use a higher-density 800x600 internal map grid with crisp tile rendering
 21. Drag the map with the right mouse button
 22. Keep peaceful contact borders stable while civilizations expand toward open land
@@ -41,6 +41,15 @@ You can:
 28. Render only visible map details while panning or zooming
 29. Draw the high-density map through a crisp pixel surface instead of one rectangle per tile
 30. Use dedicated icons for territory, disorder, migration, and economy in the UI icon registry
+31. Generate maps from reusable fractal value-noise fields so terrain regions are less speckled
+32. Show country population, disorder factors, province resources, and a collapsible transparent map legend in the UI
+33. Keep diplomacy and war code in dedicated simulation modules for upcoming alliance, vassal, win, and loss rules
+34. Keep the right panel wide enough for four metric blocks per row
+35. Draw PNG icons directly through GDI+ so their transparent backgrounds stay transparent
+36. Track geography, climate, ecology, and resource features as separate map layers
+37. Let province shapes follow geography-aware growth costs instead of fixed circular regions
+38. Derive climate from elevation, distance to sea, latitude, and mountain rain shadow
+39. Use the new crisp civilization icon package for resource and metric blocks
 
 ## Controls
 
@@ -68,7 +77,7 @@ You can:
 Install a C compiler such as MSYS2 MinGW GCC, then run this in the MSYS2 UCRT64 terminal:
 
 ```bash
-gcc -O2 src/main.c src/core/game_state.c src/world/world.c src/gui/render.c src/gui/ui.c -o world_sim.exe -lgdi32 -lmsimg32 -mwindows
+gcc -O2 -I. src/main.c src/game.c src/core/game_state.c src/data/game_tables.c src/world_gen.c src/simulation.c src/world/noise.c src/world/ports.c src/sim/expansion.c src/sim/diplomacy.c src/sim/war.c src/render.c src/ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
 ./world_sim.exe
 ```
 
@@ -76,15 +85,21 @@ If you are using PowerShell, add the MSYS2 compiler folder for the current termi
 
 ```powershell
 $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
-gcc -O2 src\main.c src\core\game_state.c src\world\world.c src\gui\render.c src\gui\ui.c -o world_sim.exe -lgdi32 -lmsimg32 -mwindows
+gcc -O2 -I. src\main.c src\game.c src\core\game_state.c src\data\game_tables.c src\world_gen.c src\simulation.c src\world\noise.c src\world\ports.c src\sim\expansion.c src\sim\diplomacy.c src\sim\war.c src\render.c src\ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
 .\world_sim.exe
 ```
 
 ## Source Layout
 
 1. `src/main.c` starts the program
-2. `src/core` contains shared types, constants, state, helpers, and the version marker
-3. `src/world` contains world generation, geography and climate logic, cities, provinces, and simulation rules
-4. `src/gui` contains Win32 input handling, controls, map rendering, panels, and icon drawing
-5. `src/game.h` provides the top-level game entry include used by `main.c`
-6. `assets/icons` contains the PNG icons used by the right-side information panel
+2. `src/game.c` and `src/game.h` own game startup and the main message loop
+3. `src/game_types.h` contains shared constants, enums, structs, typedefs, extern state, and common helper declarations
+4. `src/core` contains shared state definitions, common helper implementations, and the version marker
+5. `src/world_gen.c` and `src/world_gen.h` contain world generation, geography, climate, ecology, resources, and terrain queries
+6. `src/simulation.c` and `src/simulation.h` contain city, province, civilization, expansion, and month/year simulation coordination
+7. `src/render.c` and `src/render.h` contain drawing-only map, panel, border, icon, and legend rendering
+8. `src/ui.c` and `src/ui.h` contain Win32 input, form controls, buttons, sliders, and UI commands
+9. `src/data` contains editable geography, climate, ecology, resource, and civilization metric tables
+10. `src/world` contains support modules for noise, ports, and compatibility includes
+11. `src/sim` contains diplomacy, expansion, and war simulation submodules
+12. `assets/icons` contains the PNG icons used by the right-side information panel

@@ -1,8 +1,8 @@
 #include "ui.h"
 
-#include "../core/game_state.h"
+#include "game_types.h"
 #include "render.h"
-#include "../world/world.h"
+#include "world/world.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,13 +188,14 @@ static RECT setup_slider_rect(HWND hwnd, int index) {
     RECT client;
     RECT rect;
     int x;
+    int section_gap = index >= WORLD_SLIDER_BIAS_FOREST ? 34 : 0;
 
     GetClientRect(hwnd, &client);
     x = client.right - side_panel_w + FORM_X_PAD;
-    rect.left = x + 90;
-    rect.right = client.right - FORM_X_PAD;
-    rect.top = TOP_BAR_H + 315 + index * 48;
-    rect.bottom = rect.top + 8;
+    rect.left = x + 158;
+    rect.right = client.right - FORM_X_PAD - 8;
+    rect.top = TOP_BAR_H + 292 + index * 34 + section_gap;
+    rect.bottom = rect.top + 10;
     return rect;
 }
 
@@ -202,7 +203,7 @@ static int setup_slider_hit_test(HWND hwnd, int mouse_x, int mouse_y) {
     int i;
 
     if (panel_tab != PANEL_MAP) return -1;
-    for (i = 0; i < 5; i++) {
+    for (i = 0; i < WORLD_SLIDER_COUNT; i++) {
         RECT track = setup_slider_rect(hwnd, i);
         RECT hit = {track.left - 8, track.top - 14, track.right + 8, track.bottom + 14};
         if (point_in_rect(hit, mouse_x, mouse_y)) return i;
@@ -214,11 +215,16 @@ static void update_setup_slider(HWND hwnd, int index, int mouse_x) {
     RECT track = setup_slider_rect(hwnd, index);
     int value = clamp((mouse_x - track.left) * 100 / (track.right - track.left), 0, 100);
 
-    if (index == 0) ocean_slider = value;
-    else if (index == 1) mountain_slider = value;
-    else if (index == 2) desert_slider = value;
-    else if (index == 3) forest_slider = value;
-    else if (index == 4) wetland_slider = value;
+    if (index == WORLD_SLIDER_OCEAN) ocean_slider = value;
+    else if (index == WORLD_SLIDER_CONTINENT) continent_slider = value;
+    else if (index == WORLD_SLIDER_RELIEF) relief_slider = value;
+    else if (index == WORLD_SLIDER_MOISTURE) moisture_slider = value;
+    else if (index == WORLD_SLIDER_DROUGHT) drought_slider = value;
+    else if (index == WORLD_SLIDER_VEGETATION) vegetation_slider = value;
+    else if (index == WORLD_SLIDER_BIAS_FOREST) bias_forest_slider = value;
+    else if (index == WORLD_SLIDER_BIAS_DESERT) bias_desert_slider = value;
+    else if (index == WORLD_SLIDER_BIAS_MOUNTAIN) bias_mountain_slider = value;
+    else if (index == WORLD_SLIDER_BIAS_WETLAND) bias_wetland_slider = value;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -264,10 +270,22 @@ static void read_world_setup_controls(void) {
 
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
+    RECT legend_toggle;
     int i;
     int slider;
 
     GetClientRect(hwnd, &client);
+    legend_toggle = get_map_legend_toggle_rect(client);
+    if (!IsRectEmpty(&legend_toggle) && point_in_rect(legend_toggle, mouse_x, mouse_y)) {
+        map_legend_collapsed = !map_legend_collapsed;
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
+    if (point_in_rect(get_language_button_rect(client), mouse_x, mouse_y)) {
+        ui_language = ui_language == UI_LANG_EN ? UI_LANG_ZH : UI_LANG_EN;
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
     if (point_in_rect(get_play_button_rect(client), mouse_x, mouse_y)) {
         auto_run = !auto_run;
         InvalidateRect(hwnd, NULL, FALSE);
@@ -419,7 +437,7 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
-static int handle_shortcut(HWND hwnd, WPARAM key) {
+int handle_shortcut(HWND hwnd, WPARAM key) {
     if (key == VK_SPACE) {
         auto_run = !auto_run;
         InvalidateRect(hwnd, NULL, FALSE);
@@ -446,20 +464,20 @@ static int handle_shortcut(HWND hwnd, WPARAM key) {
     return 0;
 }
 
-static int is_game_shortcut(WPARAM key) {
+int is_game_shortcut(WPARAM key) {
     return key == VK_SPACE || key == VK_F1 || key == VK_F2 || key == VK_F5 || key == VK_ESCAPE;
 }
 
-static int is_game_char_shortcut(WPARAM key) {
+int is_game_char_shortcut(WPARAM key) {
     return key == ' ';
 }
 
-static int handle_char_shortcut(HWND hwnd, WPARAM key) {
+int handle_char_shortcut(HWND hwnd, WPARAM key) {
     if (key == ' ') return handle_shortcut(hwnd, VK_SPACE);
     return 0;
 }
 
-static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
+LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CREATE:
             create_form_controls(hwnd);
@@ -514,52 +532,4 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
         default:
             return DefWindowProc(hwnd, msg, wparam, lparam);
     }
-}
-
-int run_game(void) {
-    HINSTANCE instance = GetModuleHandle(NULL);
-    const char *class_name = "WorldSimGameWindow";
-    WNDCLASSA wc;
-    HWND hwnd;
-    MSG msg;
-
-    reset_simulation();
-    memset(&wc, 0, sizeof(wc));
-    wc.lpfnWndProc = window_proc;
-    wc.hInstance = instance;
-    wc.lpszClassName = class_name;
-    wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-
-    if (!RegisterClassA(&wc)) {
-        MessageBoxA(NULL, "Failed to register window class.", "World Sim Game", MB_ICONERROR);
-        return 1;
-    }
-
-    hwnd = CreateWindowExA(0, class_name, "World Sim Game", WS_OVERLAPPEDWINDOW,
-                           CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_W, WINDOW_H,
-                           NULL, NULL, instance, NULL);
-    if (!hwnd) {
-        MessageBoxA(NULL, "Failed to create game window.", "World Sim Game", MB_ICONERROR);
-        return 1;
-    }
-
-    ShowWindow(hwnd, SW_SHOW);
-    UpdateWindow(hwnd);
-
-    while (GetMessage(&msg, NULL, 0, 0) > 0) {
-        if (msg.message == WM_KEYDOWN && (msg.hwnd == hwnd || IsChild(hwnd, msg.hwnd))) {
-            if (is_game_shortcut(msg.wParam)) {
-                if (handle_shortcut(hwnd, msg.wParam)) continue;
-            }
-        }
-        if (msg.message == WM_CHAR && (msg.hwnd == hwnd || IsChild(hwnd, msg.hwnd))) {
-            if (is_game_char_shortcut(msg.wParam)) {
-                if (handle_char_shortcut(hwnd, msg.wParam)) continue;
-            }
-        }
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
-    }
-    return 0;
 }

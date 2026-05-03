@@ -1,5 +1,43 @@
 # Version Log
 
+## Ver0.1.4
+
+Implemented features:
+
+1. Bumped the active prototype version to Ver0.1.4
+2. Fixed default civilization seeding beyond eight civilizations by expanding names, symbols, and trait presets to the full civilization limit
+3. Restored province borders with a separate alpha border layer for smoother internal province and country outlines
+4. Rebuilt the selected information panel around country and province sections instead of bold generic labels
+5. Restored country population, land, city count, disorder, and province resource metrics
+6. Added visible factor hints and hover labels for aggregate values such as population, disorder, and habitability
+7. Added a bottom-right map legend for geography and climate colors
+8. Strengthened the desert slider so dry climate generation changes more clearly
+9. Changed world generation to reusable fractal value-noise fields for larger, more coherent land, moisture, and temperature regions
+10. Made Ocean 0 produce land-first maps instead of shallow-water noise
+11. Added `src/world/noise.c` and `src/world/noise.h` for map noise generation
+12. Added `src/sim/diplomacy.c`, `src/sim/diplomacy.h`, `src/sim/war.c`, and `src/sim/war.h` as the first diplomacy and war structure
+13. Added first-pass diplomacy contact tracking when living civilizations touch borders
+14. Updated build documentation for the new module layout
+15. Widened the default and minimum side panel so four metric blocks fit without squeezing
+16. Switched icon rendering to draw PNGs through GDI+ directly so transparent icons keep their alpha channel
+17. Expanded climate categories to tropical rainforest, monsoon, savanna, desert, semi-arid, mediterranean, oceanic, temperate monsoon, continental, subarctic, tundra, ice cap, alpine, and highland plateau
+18. Expanded geography categories to the current design set: ocean, coast, plain, hill, mountain, plateau, basin, canyon, volcano, lake, bay, delta, wetland, oasis, and island
+19. Added separate ecology and resource layers so a tile can have geography, climate, ecology, and resource features at the same time
+20. Made province shapes grow with geography-aware frontier costs instead of simple circular city radii
+21. Added ecology and resource names to selected province inspection
+22. Smoothed province and country outlines through a higher-resolution border alpha surface
+23. Added `src/data/game_tables.h` and `src/data/game_tables.c` for editable geography, climate, ecology, resource, and civilization metric tables
+24. Pruned unsupported geography entries from generation tables so the code follows the current design charts more strictly
+25. Added first-pass language switching for the main UI text path and selected-info panel labels
+26. Started replacing old A/E/D/C traits with governance, cohesion, production, military, commerce, logistics, and innovation
+27. Replaced the old four terrain sliders with world controls for ocean, continent fragmentation, relief, moisture, drought, vegetation, and advanced terrain bias
+28. Connected every world-generation slider to the fractal map generator so rebuilding the world reflects the selected values
+29. Added dynamic adaptation as a changing civilization state derived from environment, resources, culture, and disorder instead of a fixed core metric
+30. Tightened the geography list to the approved table and kept Island as the only island category
+31. Added easy-edit text reference tables to `src/data/game_tables.h` for the map pipeline, geography, climate, resources, and civilization metrics
+32. Updated expansion so nearby claims attach to an existing city province while distant high-value targets can create frontier cities and provinces
+33. Added first-pass alliance and vassal diplomacy states, with vassal outcomes available after severe war defeats
+
 ## Ver0.1.3
 
 Implemented features:
@@ -85,6 +123,12 @@ Implemented features:
 63. Moved the high-density smoothing buffer out of the stack to avoid large-map stack pressure
 64. Rebalanced the ocean slider so Ocean 0 creates mostly land instead of dense shallow-water noise
 65. Enlarged high-density terrain features so generated maps read less speckled
+66. Added editable geography, climate, ecology, resource, and civilization metric tables in `src/data`
+67. Pruned unsupported geography entries so generation follows the current design table only
+68. Added first-pass language switching for English and Chinese UI labels
+69. Added the seven civilization metrics: governance, cohesion, production, military, commerce, logistics, and innovation
+70. Replaced the old UUID icon set with the new crisp semantic icon package
+71. Added climate generation inputs for randomized latitude, distance to sea, elevation cooling, and mountain rain shadow
 
 ## Ver0.1.1
 
