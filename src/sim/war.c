@@ -1,6 +1,8 @@
 ﻿#include "war.h"
 
 #include "diplomacy.h"
+#include "sim/plague.h"
+#include "sim/population.h"
 #include "sim/simulation.h"
 
 #include <stdlib.h>
@@ -21,22 +23,15 @@ static int is_valid_civ(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
 }
 
-static int effective_population(int civ_id) {
-    CountrySummary summary = summarize_country(civ_id);
-    int population = summary.population > civs[civ_id].population ? summary.population : civs[civ_id].population;
-
-    return clamp(population, 0, MAX_POPULATION / GAME_POPULATION_SCALE) * GAME_POPULATION_SCALE;
-}
-
 static int resource_deficit_value(int value, int target) {
     return clamp(target - value, 0, target);
 }
 
 static int mobilized_soldiers(int civ_id, int extreme) {
-    int population = effective_population(civ_id);
+    int recruitable = population_recruitable_for_civ(civ_id) * GAME_POPULATION_SCALE;
     int rate = extreme ? EXTREME_MOBILIZATION_RATE : WAR_MOBILIZATION_RATE;
 
-    return clamp(population * rate / 100, 0, MAX_POPULATION);
+    return clamp(recruitable * rate / 100, 0, MAX_POPULATION);
 }
 
 static int effective_legions(int soldiers) {
@@ -200,6 +195,15 @@ static int apply_casualties(int *soldiers, int percent) {
     if (casualties > *soldiers) casualties = *soldiers;
     *soldiers -= casualties;
     return casualties;
+}
+
+static void apply_population_casualties(int civ_id, int soldier_casualties) {
+    int population_losses;
+
+    if (soldier_casualties <= 0) return;
+    population_losses = (soldier_casualties + GAME_POPULATION_SCALE - 1) / GAME_POPULATION_SCALE;
+    population_apply_casualties(civ_id, population_losses);
+    plague_notify_war_casualties(civ_id, population_losses);
 }
 
 static void update_supply_state(ActiveWar *war) {
@@ -454,6 +458,8 @@ static void run_war_year(ActiveWar *war) {
 
     war->casualties_a += casualties_a;
     war->casualties_b += casualties_b;
+    apply_population_casualties(war->attacker, casualties_a);
+    apply_population_casualties(war->defender, casualties_b);
     war->years++;
 
     if (!should_settle(war)) return;

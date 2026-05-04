@@ -18,7 +18,10 @@ void world_recalculate_territory(void);
 void world_invalidate_region_cache(void);
 int add_civilization_at(const char *name, char symbol, int aggression, int expansion,
                         int defense, int culture, int preferred_x, int preferred_y);
+void simulation_reset_state(void);
+void simulation_seed_default_civilizations(void);
+void simulation_apply_civilization_edit(int civ_id, const char *name, char symbol,
+                                        int aggression, int expansion, int defense, int culture);
 void simulate_one_month(void);
-void reset_simulation(void);
 
 #endif

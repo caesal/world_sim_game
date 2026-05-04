@@ -16,8 +16,6 @@ typedef struct {
     int bias_wetland;
 } WorldGenConfig;
 
-WorldGenConfig world_gen_config_from_globals(void);
 void generate_world_with_config(const WorldGenConfig *config);
-void generate_world(void);
 
 #endif

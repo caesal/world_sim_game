@@ -1,221 +1,14 @@
-﻿#ifndef WORLD_SIM_GAME_TYPES_H
+#ifndef WORLD_SIM_GAME_TYPES_H
 #define WORLD_SIM_GAME_TYPES_H
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <windowsx.h>
 
 #include <stddef.h>
 
-#define MAP_W 800
-#define MAP_H 600
-#define MAX_CIVS 16
-#define MAX_CITIES 128
-#define NAME_LEN 64
-#define WINDOW_W 1920
-#define WINDOW_H 1080
-#define TOP_BAR_H 62
-#define DEFAULT_SIDE_PANEL_W 520
-#define MIN_SIDE_PANEL_W 500
-#define MAX_SIDE_PANEL_W 720
-#define BOTTOM_BAR_H 44
-#define TIMER_ID 1
-#define FORM_X_PAD 18
-#define CITY_MIN_DISTANCE 18
-#define MAX_POPULATION 2000000000
-
-typedef enum {
-    GEO_OCEAN,
-    GEO_COAST,
-    GEO_PLAIN,
-    GEO_HILL,
-    GEO_MOUNTAIN,
-    GEO_PLATEAU,
-    GEO_BASIN,
-    GEO_CANYON,
-    GEO_VOLCANO,
-    GEO_LAKE,
-    GEO_BAY,
-    GEO_DELTA,
-    GEO_WETLAND,
-    GEO_OASIS,
-    GEO_ISLAND,
-    GEO_COUNT
-} Geography;
-
-typedef enum {
-    CLIMATE_TROPICAL_RAINFOREST,
-    CLIMATE_TROPICAL_MONSOON,
-    CLIMATE_TROPICAL_SAVANNA,
-    CLIMATE_DESERT,
-    CLIMATE_SEMI_ARID,
-    CLIMATE_MEDITERRANEAN,
-    CLIMATE_OCEANIC,
-    CLIMATE_TEMPERATE_MONSOON,
-    CLIMATE_CONTINENTAL,
-    CLIMATE_SUBARCTIC,
-    CLIMATE_TUNDRA,
-    CLIMATE_ICE_CAP,
-    CLIMATE_ALPINE,
-    CLIMATE_HIGHLAND_PLATEAU,
-    CLIMATE_COUNT
-} Climate;
-
-typedef enum {
-    ECO_NONE,
-    ECO_FOREST,
-    ECO_RAINFOREST,
-    ECO_GRASSLAND,
-    ECO_DESERT,
-    ECO_TUNDRA,
-    ECO_SWAMP,
-    ECO_BAMBOO,
-    ECO_MANGROVE,
-    ECO_COUNT
-} Ecology;
-
-typedef enum {
-    RESOURCE_FEATURE_NONE,
-    RESOURCE_FEATURE_FARMLAND,
-    RESOURCE_FEATURE_PASTURE,
-    RESOURCE_FEATURE_FOREST,
-    RESOURCE_FEATURE_MINE,
-    RESOURCE_FEATURE_FISHERY,
-    RESOURCE_FEATURE_SALT_LAKE,
-    RESOURCE_FEATURE_GEOTHERMAL,
-    RESOURCE_FEATURE_COUNT
-} ResourceFeature;
-
-typedef enum {
-    RESOURCE_FOOD,
-    RESOURCE_LIVESTOCK,
-    RESOURCE_WOOD,
-    RESOURCE_STONE,
-    RESOURCE_ORE,
-    RESOURCE_WATER,
-    RESOURCE_POPULATION,
-    RESOURCE_MONEY,
-    RESOURCE_TYPE_COUNT
-} ResourceType;
-
-typedef struct {
-    int value[RESOURCE_TYPE_COUNT];
-} ResourceVector;
-
-typedef enum {
-    CIV_METRIC_GOVERNANCE,
-    CIV_METRIC_COHESION,
-    CIV_METRIC_PRODUCTION,
-    CIV_METRIC_MILITARY,
-    CIV_METRIC_COMMERCE,
-    CIV_METRIC_LOGISTICS,
-    CIV_METRIC_INNOVATION,
-    CIV_METRIC_COUNT
-} CivilizationMetric;
-
-typedef struct {
-    Geography geography;
-    Climate climate;
-    Ecology ecology;
-    ResourceFeature resource;
-    int owner;
-    int province_id;
-    int elevation;
-    int moisture;
-    int temperature;
-    int resource_variation;
-    int river;
-} Tile;
-
-typedef struct {
-    char name[NAME_LEN];
-    char symbol;
-    COLORREF color;
-    int alive;
-    int population;
-    int territory;
-    int aggression;
-    int expansion;
-    int defense;
-    int culture;
-    int governance;
-    int cohesion;
-    int production;
-    int military;
-    int commerce;
-    int logistics;
-    int innovation;
-    int adaptation;
-    int capital_city;
-    int disorder;
-    int disorder_resource;
-    int disorder_plague;
-    int disorder_migration;
-    int disorder_stability;
-} Civilization;
-
-typedef struct {
-    int alive;
-    int owner;
-    char name[NAME_LEN];
-    int x;
-    int y;
-    int population;
-    int radius;
-    int capital;
-    int port;
-    int port_x;
-    int port_y;
-    int port_region;
-} City;
-
-typedef struct {
-    int food;
-    int livestock;
-    int wood;
-    int stone;
-    int minerals;
-    int water;
-    int pop_capacity;
-    int money;
-    int habitability;
-    int attack;
-    int defense;
-} TerrainStats;
-
-typedef struct {
-    int city_id;
-    int tiles;
-    int population;
-    int food;
-    int livestock;
-    int wood;
-    int stone;
-    int minerals;
-    int water;
-    int pop_capacity;
-    int money;
-    int habitability;
-    int attack;
-    int defense;
-} RegionSummary;
-
-typedef struct {
-    int population;
-    int territory;
-    int cities;
-    int ports;
-    int food;
-    int livestock;
-    int wood;
-    int stone;
-    int minerals;
-    int water;
-    int pop_capacity;
-    int money;
-    int habitability;
-    int resource_score;
-} CountrySummary;
+#include "constants.h"
+#include "world_types.h"
+#include "sim_types.h"
 
 typedef struct {
     Tile (*world)[MAP_W];
@@ -259,9 +52,13 @@ typedef struct {
 } GameState;
 
 extern Tile world[MAP_H][MAP_W];
+extern RiverPath river_paths[MAX_RIVER_PATHS];
+extern MaritimeRoute maritime_routes[MAX_MARITIME_ROUTES];
 extern Civilization civs[MAX_CIVS];
 extern City cities[MAX_CITIES];
 extern GameState g_game;
+extern int river_path_count;
+extern int maritime_route_count;
 extern int civ_count;
 extern int city_count;
 extern int year;
@@ -297,6 +94,7 @@ extern int map_zoom_percent;
 extern int map_offset_x;
 extern int map_offset_y;
 extern int map_legend_collapsed;
+extern int world_visual_revision;
 
 extern const int SPEED_MS[3];
 extern const char *SPEED_NAMES[3];

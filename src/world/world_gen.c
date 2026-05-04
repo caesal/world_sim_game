@@ -4,28 +4,14 @@
 #include "world/noise.h"
 #include "world/rivers.h"
 #include "world/terrain_query.h"
+#include "world/world_smoothing.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
+static const WorldGenConfig DEFAULT_WORLD_GEN_CONFIG = {45, 34, 28, 17, 10, 93, 93, 10, 7, 17};
 static WorldGenConfig gen_config;
-
-WorldGenConfig world_gen_config_from_globals(void) {
-    WorldGenConfig config;
-
-    config.ocean = ocean_slider;
-    config.continent = continent_slider;
-    config.relief = relief_slider;
-    config.moisture = moisture_slider;
-    config.drought = drought_slider;
-    config.vegetation = vegetation_slider;
-    config.bias_forest = bias_forest_slider;
-    config.bias_desert = bias_desert_slider;
-    config.bias_mountain = bias_mountain_slider;
-    config.bias_wetland = bias_wetland_slider;
-    return config;
-}
 
 static int nearby_land_count(int x, int y) {
     int count = 0;
@@ -199,35 +185,6 @@ static void compute_rain_shadow(int elevation[MAP_H][MAP_W], int sea_level,
     }
 }
 
-static Climate majority_neighbor_climate(int x, int y, Climate fallback) {
-    int counts[CLIMATE_COUNT] = {0};
-    int best = fallback;
-    int best_count = -1;
-    int dy;
-    int dx;
-
-    for (dy = -1; dy <= 1; dy++) {
-        for (dx = -1; dx <= 1; dx++) {
-            int nx = x + dx;
-            int ny = y + dy;
-            Climate climate;
-            if (dx == 0 && dy == 0) continue;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-            if (!is_land(world[ny][nx].geography)) continue;
-            climate = world[ny][nx].climate;
-            counts[climate]++;
-        }
-    }
-
-    for (dx = 0; dx < CLIMATE_COUNT; dx++) {
-        if (counts[dx] > best_count) {
-            best = (Climate)dx;
-            best_count = counts[dx];
-        }
-    }
-    return best;
-}
-
 static Geography classify_geography(int elevation, int sea_level, int nearby_water, int relief, int moisture,
                                      int temperature, Climate climate) {
     int coast_band = 1 + gen_config.ocean * 5 / 100;
@@ -394,7 +351,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
     int moisture_seed;
     int temperature_seed;
 
-    gen_config = config ? *config : world_gen_config_from_globals();
+    gen_config = config ? *config : DEFAULT_WORLD_GEN_CONFIG;
     target_land_percent = 100 - gen_config.ocean * 72 / 100;
     target_land_tiles = MAP_W * MAP_H * target_land_percent / 100;
     threshold_index = clamp(MAP_W * MAP_H - target_land_tiles, 0, MAP_W * MAP_H - 1);
@@ -524,7 +481,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             if (is_land(world[y][x].geography)) {
-                world[y][x].climate = majority_neighbor_climate(x, y, world[y][x].climate);
+                world[y][x].climate = world_majority_neighbor_climate(x, y, world[y][x].climate);
             } else {
                 world[y][x].climate = CLIMATE_OCEANIC;
             }
@@ -538,9 +495,4 @@ void generate_world_with_config(const WorldGenConfig *config) {
     }
 
     generate_rivers(gen_config.moisture, gen_config.bias_wetland);
-}
-
-void generate_world(void) {
-    WorldGenConfig config = world_gen_config_from_globals();
-    generate_world_with_config(&config);
 }

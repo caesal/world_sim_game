@@ -1,5 +1,30 @@
 # Version Log
 
+## Ver0.1.6
+
+Implemented features and fixes:
+
+1. Bumped the active prototype version to Ver0.1.6
+2. Added smoother cartographic map rendering layers for political fills, coast halos, country borders, province borders, coastlines, map labels, and subtle grid overlays
+3. Added a render-layer cache so ordinary repaint events do not rebuild the full map surface every time
+4. Added explicit river path objects for continuous visual river rendering while keeping the tile `river` flag for resource logic
+5. Restyled city, capital, harbor, hill, and mountain map markers toward an old political-map look while reusing existing icon assets
+6. Added map labels for countries and cities with simple overlap avoidance
+7. Rebalanced diplomacy formulas so prosperous, resource-rich neighbors can still gain peaceful trade stability
+8. Added explicit maritime route paths between ports with dashed sea-lane rendering
+9. Added route-based port migration, maritime diplomacy contact, maritime trade contribution, and scoped overseas expansion from ports
+10. Added city-level age and sex population cohorts with derived country population totals
+11. Added population pressure, carrying-capacity pressure, cohort migration, soldier casualty population loss, and an Info-tab population pyramid
+12. Replaced flat plague population loss with persistent city outbreaks, percentage deaths, spread pressure, disorder impact, immunity, and dark green map visualization
+13. Added infected maritime route tint hooks for plague exposure along sea lanes
+14. Reduced duplicate monthly maritime route rebuilds by coordinating route refresh from the simulation tick
+15. Cached diplomacy border-contact statistics so monthly diplomacy no longer scans the full map once per civilization pair
+16. Cached population country summaries so monthly systems and panels do less repeated aggregation
+17. Split shared core declarations into `constants.h`, `world_types.h`, and `sim_types.h`, keeping `game_types.h` as the compatibility entry point
+18. Removed unnecessary render-to-world-generation and world-port-to-game-state header coupling
+19. Added the current targeted diagnostic for map border, label, performance, and river-polish work to guide the next cleanup pass
+20. Verified the source tree keeps every `.c` and `.h` file under 500 lines
+
 ## Ver0.1.5
 
 Implemented features:

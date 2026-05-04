@@ -1,5 +1,7 @@
 ﻿#include "render_internal.h"
 
+#include "sim/plague.h"
+
 void draw_mode_buttons(HDC hdc, RECT client) {
     const char *names_en[4] = {"All", "Climate", "Geography", "Political"};
     const char *names_zh[4] = {"全部", "气候", "地理", "政治"};
@@ -140,6 +142,7 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("ADP", "适应"), civs[civ_id].adaptation, RGB(116, 145, 94), tr("Dynamic adaptation from environment, resources, culture, and disorder", "由环境、资源、文化和混乱度动态决定的适应力"), &tooltip_text);
             y += 3 * (metric_h + 6) + 4;
         }
+        y = draw_population_pyramid(hdc, client, x, y, inner_w, civ_id, body_font);
         draw_text_line(hdc, x, y, tr("Country Resources", "国家资源"), RGB(205, 214, 222));
         y += 22;
         {
@@ -173,6 +176,21 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
             draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("STAB", "稳定"), civs[civ_id].disorder_stability, RGB(82, 114, 153), tr("Stability pressure reduction", "稳定因素"), &tooltip_text);
             y += metric_h + 18;
+        }
+        if (plague_civ_active_count(civ_id) > 0) {
+            draw_text_line(hdc, x, y, tr("Plague Status", "瘟疫状态"), RGB(205, 214, 222));
+            y += 22;
+            {
+                RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
+                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("ACT", "感染"), plague_civ_active_count(civ_id), RGB(35, 115, 72), tr("Active plague cities", "正在感染的城市"), &tooltip_text);
+                m = metric_grid_rect(x, y, quad_w, metric_h, 1);
+                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("SEV", "烈度"), plague_civ_peak_severity(civ_id), RGB(22, 96, 62), tr("Peak plague severity", "最高瘟疫烈度"), &tooltip_text);
+                m = metric_grid_rect(x, y, quad_w, metric_h, 2);
+                draw_metric_box(hdc, m, ICON_POPULATION, metric_label("DEAD", "死亡"), plague_civ_deaths_total(civ_id), RGB(76, 92, 78), tr("Total plague deaths", "瘟疫累计死亡"), &tooltip_text);
+                m = metric_grid_rect(x, y, quad_w, metric_h, 3);
+                draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LEFT", "剩余"), plague_civ_months_left(civ_id), RGB(56, 128, 78), tr("Longest months remaining", "最长剩余月份"), &tooltip_text);
+                y += metric_h + 18;
+            }
         }
     } else {
         SelectObject(hdc, title_font);

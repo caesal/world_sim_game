@@ -1,12 +1,14 @@
 ﻿#include "sim/simulation.h"
 
-#include "world/world_gen.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
 #include "sim/expansion.h"
+#include "sim/maritime.h"
+#include "sim/plague.h"
+#include "sim/population.h"
+#include "sim/ports.h"
 #include "sim/province.h"
 #include "sim/war.h"
-#include "world/ports.h"
 #include "world/terrain_query.h"
 
 #include <stdio.h>
@@ -28,6 +30,7 @@ static void recalculate_territory(void) {
             if (owner >= 0 && owner < civ_count && civs[owner].alive) civs[owner].territory++;
         }
     }
+    population_sync_all();
     for (i = 0; i < civ_count; i++) {
         if (civs[i].territory <= 0 || civs[i].population <= 0) civs[i].alive = 0;
     }
@@ -56,7 +59,7 @@ static int find_empty_land(int *out_x, int *out_y) {
         int y = rnd(MAP_H);
         TerrainStats stats = tile_stats(x, y);
         if (is_land(world[y][x].geography) && world[y][x].owner == -1 && world[y][x].province_id == -1 &&
-            stats.habitability > 1 && !province_city_too_close(x, y, CITY_MIN_DISTANCE) &&
+            stats.habitability > 2 && !province_city_too_close(x, y, CITY_MIN_DISTANCE) &&
             province_city_site_has_room(x, y, -1, 3)) {
             *out_x = x;
             *out_y = y;
@@ -82,6 +85,7 @@ static void make_city_name(char *buffer, size_t buffer_size, int owner, int x, i
 
 static int create_city(int owner, int x, int y, int population, int capital) {
     City *city;
+    int city_id;
 
     if (city_count >= MAX_CITIES) {
         OutputDebugStringA("World Sim: MAX_CITIES reached; city creation skipped.\n");
@@ -101,7 +105,10 @@ static int create_city(int owner, int x, int y, int population, int capital) {
     city->port_x = -1;
     city->port_y = -1;
     city->port_region = -1;
-    return city_count++;
+    city->population_ready = 0;
+    city_id = city_count++;
+    population_init_city(city_id, population);
+    return city_id;
 }
 
 int city_at(int x, int y) {
@@ -145,6 +152,8 @@ void world_recalculate_territory(void) {
 void world_invalidate_region_cache(void) {
     province_invalidate_region_cache();
     country_summary_dirty = 1;
+    population_mark_dirty();
+    world_visual_revision++;
 }
 
 int city_for_tile(int x, int y) {
@@ -162,12 +171,13 @@ static void rebuild_country_summary_cache(void) {
 
     memset(country_summary_cache, 0, sizeof(country_summary_cache));
     for (i = 0; i < civ_count; i++) {
-        country_summary_cache[i].population = civs[i].population;
+        country_summary_cache[i].population = 0;
         country_summary_cache[i].territory = civs[i].territory;
     }
     for (i = 0; i < city_count; i++) {
         if (cities[i].alive && cities[i].owner >= 0 && cities[i].owner < civ_count) {
             country_summary_cache[cities[i].owner].cities++;
+            country_summary_cache[cities[i].owner].population += cities[i].population;
             if (cities[i].port) country_summary_cache[cities[i].owner].ports++;
         }
     }
@@ -253,10 +263,11 @@ int add_civilization_at(const char *name, char symbol, int aggression, int expan
 
     civ_count++;
     recalculate_territory();
+    population_sync_all();
     return 1;
 }
 
-static void seed_default_civilizations(void) {
+void simulation_seed_default_civilizations(void) {
     const char *names[MAX_CIVS] = {
         "Red Dominion", "Blue League", "Green Pact", "Gold Union",
         "Violet Realm", "Orange Clans", "Teal Coast", "Rose March",
@@ -282,16 +293,7 @@ static void seed_default_civilizations(void) {
 }
 
 static void update_city_growth_and_regions(void) {
-    int i;
-
-    for (i = 0; i < city_count; i++) {
-        City *city = &cities[i];
-        TerrainStats stats;
-        if (!city->alive || city->owner < 0 || city->owner >= civ_count || !civs[city->owner].alive) continue;
-        stats = tile_stats(city->x, city->y);
-        city->population = clamp(city->population + stats.food + stats.livestock / 2 + stats.water / 2 +
-                                 stats.pop_capacity + stats.habitability - 10, 1, MAX_POPULATION);
-    }
+    population_update_month();
     province_invalidate_region_cache();
 }
 
@@ -306,14 +308,10 @@ static void random_event(char *log, size_t log_size) {
 
     switch (rnd(5)) {
         case 0:
-            civ->population += 15 + civ->culture * 3;
             append_log(log, log_size, "Festival in %s. ", civ->name);
             break;
         case 1:
-            civ->population = clamp(civ->population - (8 + rnd(28)), 0, MAX_POPULATION);
-            civ->disorder_plague = clamp(civ->disorder_plague + 2, 0, 10);
-            civ->disorder = clamp(civ->disorder + 2, 0, 10);
-            append_log(log, log_size, "Plague hit %s. ", civ->name);
+            if (plague_seed_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
             break;
         case 2:
             civ->defense = clamp(civ->defense + 1, 0, 10);
@@ -397,35 +395,48 @@ static int compute_dynamic_adaptation(int civ_id, int resource_score) {
 
 void simulate_one_month(void) {
     int i;
+    int city_count_before_expansion;
     int resource_scores[MAX_CIVS];
     char log[512];
 
     log[0] = '\0';
+    population_sync_all();
     compute_owned_resource_scores(resource_scores);
     for (i = 0; i < civ_count; i++) {
         Civilization *civ = &civs[i];
         int resources;
-        int growth;
+        int pressure;
+        int pressure_disorder;
+        int scarcity_disorder;
         if (!civ->alive) continue;
         resources = resource_scores[i];
-        growth = resources / 2 + civ->governance / 2 + civ->cohesion / 2 + civ->logistics / 3 +
-                 civ->territory / 35 + rnd(6) - 4;
-        civ->population = clamp(civ->population + growth, 0, MAX_POPULATION);
-        civ->disorder_resource = clamp(10 - resources, 0, 10);
+        pressure = population_pressure_for_civ(i);
+        pressure_disorder = clamp((pressure - 95) / 12, 0, 10);
+        scarcity_disorder = clamp(12 - resources, 0, 10) / 2;
+        civ->disorder_resource = clamp(pressure_disorder + scarcity_disorder -
+                                       civ->governance / 5 - civ->logistics / 6, 0, 10);
         civ->disorder_plague = clamp(civ->disorder_plague - 1, 0, 10);
         civ->disorder_migration = clamp(civ->disorder_migration - 1, 0, 10);
         civ->disorder_stability = clamp(civ->disorder_stability - 1, 0, 10);
-        civ->disorder = clamp(civ->disorder + (resources < 10 ? 1 : -1) - civ->governance / 8 - civ->cohesion / 8, 0, 10);
+        civ->disorder = clamp(civ->disorder + (civ->disorder_resource > 5 ? 1 : -1) +
+                              civ->disorder_plague / 4 + civ->disorder_migration / 5 -
+                              civ->governance / 8 - civ->cohesion / 8, 0, 10);
         civ->adaptation = compute_dynamic_adaptation(i, resources);
     }
 
     update_city_growth_and_regions();
     ports_update_migration();
     country_summary_dirty = 1;
+    city_count_before_expansion = city_count;
     for (i = 0; i < civ_count; i++) {
         if (!civs[i].alive) continue;
         expansion_update_civilization(i, resource_scores[i], log, sizeof(log));
     }
+    if (city_count != city_count_before_expansion) {
+        ports_refresh_city_regions();
+        maritime_rebuild_routes();
+    }
+    plague_update_month();
 
     random_event(log, sizeof(log));
     recalculate_territory();
@@ -440,22 +451,26 @@ void simulate_one_month(void) {
     if (living_civilizations() <= 1) auto_run = 0;
 }
 
-void reset_simulation(void) {
-    diplomacy_reset();
-    war_reset();
+void simulation_reset_state(void) {
     year = 0;
     month = 1;
     civ_count = 0;
     city_count = 0;
-    selected_x = -1;
-    selected_y = -1;
-    selected_civ = -1;
+    maritime_reset();
+    plague_reset();
     world_invalidate_region_cache();
-    generate_world();
-    ports_reset_regions();
-    world_invalidate_region_cache();
-    seed_default_civilizations();
-    recalculate_territory();
-    diplomacy_update_contacts();
-    auto_run = 0;
+}
+
+void simulation_apply_civilization_edit(int civ_id, const char *name, char symbol,
+                                        int aggression, int expansion, int defense, int culture) {
+    Civilization *civ;
+
+    if (civ_id < 0 || civ_id >= civ_count) return;
+    civ = &civs[civ_id];
+    if (name && name[0] != '\0') snprintf(civ->name, NAME_LEN, "%s", name);
+    if (symbol != '\0') civ->symbol = symbol;
+    civ->aggression = clamp(aggression, 0, 10);
+    civ->expansion = clamp(expansion, 0, 10);
+    civ->defense = clamp(defense, 0, 10);
+    civ->culture = clamp(culture, 0, 10);
 }

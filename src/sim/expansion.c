@@ -1,8 +1,8 @@
 ﻿#include "expansion.h"
 
+#include "sim/maritime.h"
 #include "sim/simulation.h"
 #include "world/terrain_query.h"
-#include "world/world_gen.h"
 
 #include <stdlib.h>
 
@@ -78,8 +78,8 @@ static int create_expansion_outpost(int civ_id, int x, int y, int target_score, 
     if (target_score < threshold) return -1;
 
     stats = tile_stats(x, y);
-    population = 55 + stats.food * 7 + stats.water * 5 + stats.pop_capacity * 7 +
-                 stats.money * 4 + resource_pressure * 5 + rnd(70);
+    population = 28 + stats.food * 3 + stats.water * 3 + stats.pop_capacity * 3 +
+                 stats.money * 2 + resource_pressure * 2 + rnd(30);
     city_id = world_create_city(civ_id, x, y, population, 0);
     if (city_id >= 0) world_claim_city_region(city_id, civ_id);
     return city_id;
@@ -111,6 +111,7 @@ static int expansion_target_score(int civ_id, int x, int y, int resource_pressur
     TerrainStats stats = tile_stats(x, y);
     CountrySummary country = summarize_country(civ_id);
     int score = world_terrain_resource_value(stats);
+    int habitability_escape = clamp(4 - country.habitability, 0, 4);
     int food_need = clamp(6 - country.food, 0, 6);
     int herd_need = clamp(5 - country.livestock, 0, 5);
     int wood_need = clamp(5 - country.wood, 0, 5);
@@ -122,6 +123,7 @@ static int expansion_target_score(int civ_id, int x, int y, int resource_pressur
     score += stats.wood * wood_need * 2 + stats.stone * stone_need * 2 + stats.minerals * ore_need * 3;
     score += stats.water * water_need * 3 + stats.money * 4 + stats.pop_capacity * 3;
     score += resource_pressure * 8;
+    score += habitability_escape * clamp(stats.habitability - country.habitability, 0, 6) * 12;
     if (world[y][x].river) score += 24;
     if (world_is_coastal_land_tile(x, y)) score += 12;
     if (world[y][x].temperature >= 35 && world[y][x].temperature <= 76 && stats.water >= 3) score += 16;
@@ -219,8 +221,8 @@ static void maybe_found_city(int civ_id, int resource_pressure) {
     if (best_x >= 0 && best_score > threshold) {
         TerrainStats stats = tile_stats(best_x, best_y);
         int city_id = world_create_city(civ_id, best_x, best_y,
-                                        70 + stats.food * 8 + stats.water * 5 +
-                                        stats.pop_capacity * 7 + rnd(90), 0);
+                                        32 + stats.food * 3 + stats.water * 3 +
+                                        stats.pop_capacity * 3 + rnd(35), 0);
         if (city_id >= 0) world_claim_city_region(city_id, civ_id);
     }
 }
@@ -229,6 +231,8 @@ static void resolve_expansion(int civ_id, int resource_score, char *log, size_t 
     int tx;
     int ty;
     Civilization *civ = &civs[civ_id];
+    CountrySummary country = summarize_country(civ_id);
+    int habitability_escape = clamp(4 - country.habitability, 0, 4);
     int drive;
     int cost;
     int target_score = 0;
@@ -239,9 +243,10 @@ static void resolve_expansion(int civ_id, int resource_score, char *log, size_t 
 
     cost = world_tile_cost(tx, ty);
     drive = civ->logistics * 6 + civ->governance * 2 + civ->cohesion + civ->adaptation * 2 + civ->expansion * 3 +
-            resource_pressure * 7 + target_score / 6 + rnd(40) + civ->population / 180 - cost * 4;
+            resource_pressure * 7 + habitability_escape * 9 + target_score / 6 + rnd(40) +
+            civ->population / 180 - cost * 4;
 
-    if (drive > 58 + clamp(resource_score - 24, 0, 12)) {
+    if (drive > 58 + clamp(resource_score - 24, 0, 12) - habitability_escape * 3) {
         int province_result = apply_expansion_claim(civ_id, tx, ty, target_score, resource_pressure);
         if (province_result == -2) append_log(log, log_size, "%s founded a frontier province. ", civ->name);
         else append_log(log, log_size, "%s settled new land. ", civ->name);
@@ -258,4 +263,5 @@ void expansion_update_civilization(int civ_id, int resource_score, char *log, si
     if (resource_score > 26 && attempts > 1 && rnd(100) < 45) attempts--;
     while (attempts-- > 0) resolve_expansion(civ_id, resource_score, log, log_size);
     maybe_found_city(civ_id, resource_pressure);
+    maritime_try_overseas_expansion(civ_id, resource_score, log, log_size);
 }

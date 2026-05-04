@@ -5,13 +5,14 @@
 #include "render/render.h"
 #include "sim/simulation.h"
 #include "ui/ui_layout.h"
+#include "ui/ui_sliders.h"
 #include "ui/ui_types.h"
 #include "world/terrain_query.h"
-#include "world/world_gen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windowsx.h>
 
 static int tracking_mouse_leave = 0;
 static FormControls form;
@@ -108,15 +109,11 @@ static void apply_form_to_selected_civ(HWND hwnd) {
 
     GetWindowTextA(form.name_edit, name, sizeof(name));
     GetWindowTextA(form.symbol_edit, symbol_text, sizeof(symbol_text));
-    if (name[0] != '\0') {
-        snprintf(civs[civ_id].name, NAME_LEN, "%s", name);
-    }
-    if (symbol_text[0] != '\0') civs[civ_id].symbol = symbol_text[0];
-
-    civs[civ_id].aggression = read_int_control_clamped(form.aggression_edit, civs[civ_id].aggression, 0, 10);
-    civs[civ_id].expansion = read_int_control_clamped(form.expansion_edit, civs[civ_id].expansion, 0, 10);
-    civs[civ_id].defense = read_int_control_clamped(form.defense_edit, civs[civ_id].defense, 0, 10);
-    civs[civ_id].culture = read_int_control_clamped(form.culture_edit, civs[civ_id].culture, 0, 10);
+    simulation_apply_civilization_edit(civ_id, name, symbol_text[0],
+                                       read_int_control_clamped(form.aggression_edit, civs[civ_id].aggression, 0, 10),
+                                       read_int_control_clamped(form.expansion_edit, civs[civ_id].expansion, 0, 10),
+                                       read_int_control_clamped(form.defense_edit, civs[civ_id].defense, 0, 10),
+                                       read_int_control_clamped(form.culture_edit, civs[civ_id].culture, 0, 10));
     selected_civ = civ_id;
     InvalidateRect(hwnd, NULL, FALSE);
 }
@@ -179,59 +176,6 @@ static void create_form_controls(HWND hwnd) {
     form.apply_button = CreateWindowA("BUTTON", "Apply Selected", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                                       0, 0, 150, 30, hwnd, (HMENU)ID_APPLY_BUTTON, GetModuleHandle(NULL), NULL);
     layout_form_controls(hwnd);
-}
-
-static int divider_hit_test(HWND hwnd, int mouse_x, int mouse_y) {
-    RECT client;
-    int divider_x;
-
-    GetClientRect(hwnd, &client);
-    divider_x = client.right - side_panel_w;
-    return mouse_y >= TOP_BAR_H && mouse_x >= divider_x - 6 && mouse_x <= divider_x + 6;
-}
-
-static RECT setup_slider_rect(HWND hwnd, int index) {
-    RECT client;
-    RECT rect;
-    int x;
-    int section_gap = index >= WORLD_SLIDER_BIAS_FOREST ? 34 : 0;
-
-    GetClientRect(hwnd, &client);
-    x = client.right - side_panel_w + FORM_X_PAD;
-    rect.left = x + 158;
-    rect.right = client.right - FORM_X_PAD - 8;
-    rect.top = TOP_BAR_H + 292 + index * 34 + section_gap;
-    rect.bottom = rect.top + 10;
-    return rect;
-}
-
-static int setup_slider_hit_test(HWND hwnd, int mouse_x, int mouse_y) {
-    int i;
-
-    if (panel_tab != PANEL_MAP) return -1;
-    for (i = 0; i < WORLD_SLIDER_COUNT; i++) {
-        RECT track = setup_slider_rect(hwnd, i);
-        RECT hit = {track.left - 8, track.top - 14, track.right + 8, track.bottom + 14};
-        if (point_in_rect(hit, mouse_x, mouse_y)) return i;
-    }
-    return -1;
-}
-
-static void update_setup_slider(HWND hwnd, int index, int mouse_x) {
-    RECT track = setup_slider_rect(hwnd, index);
-    int value = clamp((mouse_x - track.left) * 100 / (track.right - track.left), 0, 100);
-
-    if (index == WORLD_SLIDER_OCEAN) ocean_slider = value;
-    else if (index == WORLD_SLIDER_CONTINENT) continent_slider = value;
-    else if (index == WORLD_SLIDER_RELIEF) relief_slider = value;
-    else if (index == WORLD_SLIDER_MOISTURE) moisture_slider = value;
-    else if (index == WORLD_SLIDER_DROUGHT) drought_slider = value;
-    else if (index == WORLD_SLIDER_VEGETATION) vegetation_slider = value;
-    else if (index == WORLD_SLIDER_BIAS_FOREST) bias_forest_slider = value;
-    else if (index == WORLD_SLIDER_BIAS_DESERT) bias_desert_slider = value;
-    else if (index == WORLD_SLIDER_BIAS_MOUNTAIN) bias_mountain_slider = value;
-    else if (index == WORLD_SLIDER_BIAS_WETLAND) bias_wetland_slider = value;
-    InvalidateRect(hwnd, NULL, FALSE);
 }
 
 static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
@@ -500,8 +444,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             else if (LOWORD(wparam) == ID_APPLY_BUTTON) apply_form_to_selected_civ(hwnd);
             return 0;
         case WM_TIMER:
-            if (wparam == TIMER_ID && auto_run) {
-                simulate_one_month();
+            if (wparam == TIMER_ID && game_tick_auto_run()) {
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;

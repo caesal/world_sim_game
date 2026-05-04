@@ -1,8 +1,14 @@
 ﻿#include "game.h"
 
 #include "core/game_types.h"
+#include "sim/diplomacy.h"
+#include "sim/maritime.h"
+#include "sim/ports.h"
 #include "sim/simulation.h"
+#include "sim/war.h"
 #include "ui/ui.h"
+#include "world/ports.h"
+#include "world/world_gen.h"
 
 #include <string.h>
 
@@ -10,8 +16,46 @@ void game_toggle_auto_run(void) {
     auto_run = !auto_run;
 }
 
+static WorldGenConfig game_world_gen_config_from_globals(void) {
+    WorldGenConfig config;
+
+    config.ocean = ocean_slider;
+    config.continent = continent_slider;
+    config.relief = relief_slider;
+    config.moisture = moisture_slider;
+    config.drought = drought_slider;
+    config.vegetation = vegetation_slider;
+    config.bias_forest = bias_forest_slider;
+    config.bias_desert = bias_desert_slider;
+    config.bias_mountain = bias_mountain_slider;
+    config.bias_wetland = bias_wetland_slider;
+    return config;
+}
+
 void game_request_new_world(void) {
-    reset_simulation();
+    WorldGenConfig config = game_world_gen_config_from_globals();
+
+    diplomacy_reset();
+    war_reset();
+    simulation_reset_state();
+    selected_x = -1;
+    selected_y = -1;
+    selected_civ = -1;
+    generate_world_with_config(&config);
+    ports_reset_regions();
+    world_invalidate_region_cache();
+    simulation_seed_default_civilizations();
+    world_recalculate_territory();
+    ports_refresh_city_regions();
+    maritime_rebuild_routes();
+    diplomacy_update_contacts();
+    auto_run = 0;
+}
+
+int game_tick_auto_run(void) {
+    if (!auto_run) return 0;
+    simulate_one_month();
+    return 1;
 }
 
 int run_game(void) {
@@ -21,7 +65,7 @@ int run_game(void) {
     HWND hwnd;
     MSG msg;
 
-    reset_simulation();
+    game_request_new_world();
     memset(&wc, 0, sizeof(wc));
     wc.lpfnWndProc = window_proc;
     wc.hInstance = instance;

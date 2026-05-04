@@ -7,7 +7,7 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.5 is a Windows graphical sandbox prototype written in C.
+Ver0.1.6 is a Windows graphical sandbox prototype written in C.
 
 You can:
 
@@ -58,6 +58,17 @@ You can:
 45. Show Chinese two-character stat labels beside icons when the UI language is Chinese
 46. Keep versioned design PDFs in `docs` with version-matched filenames
 47. Keep `.c` and `.h` files under the 500-line module size rule
+48. Draw smoother cartographic country borders, province borders, coastlines, political fills, labels, and subtle map grid overlays
+49. Render continuous river path objects instead of scattered tile-center fragments
+50. Restyle city, capital, harbor, hill, and mountain map markers toward an old political map look while reusing existing assets
+51. Rebalance diplomacy so prosperous neighboring civilizations can stabilize relations through trade fit instead of drifting into tension only because they are self-sufficient
+52. Add explicit maritime route paths for port-to-port contact, migration, diplomacy exposure, overseas expansion, and dashed sea-lane rendering
+53. Add city-level age/sex population cohorts, derived country population summaries, soldier casualty population loss, and an Info-tab population pyramid
+54. Replace flat plague events with persistent city outbreaks, percentage deaths, spread pressure, disorder impact, and dark green map visualization
+55. Cache expensive map render layers across ordinary repaints and avoid duplicate maritime route rebuilds during monthly simulation
+56. Cache diplomacy border contacts and population summaries so monthly updates do less repeated full-map aggregation
+57. Split core shared types into narrower `constants.h`, `world_types.h`, and `sim_types.h` headers while keeping `game_types.h` as the compatibility entry point
+58. Document the current map-rendering and river-polish diagnostic for the next targeted cleanup pass
 
 ## Controls
 
@@ -96,18 +107,12 @@ build.bat
 world_sim.exe
 ```
 
-The direct command is:
-
-```bash
-gcc -O2 -Wall -Wextra -I. -Isrc src/main.c src/game/game.c src/core/game_state.c src/data/game_tables.c src/world/world_gen.c src/world/terrain_query.c src/world/rivers.c src/sim/simulation.c src/world/noise.c src/world/ports.c src/sim/civilization_metrics.c src/sim/province.c src/sim/expansion.c src/sim/diplomacy.c src/sim/war.c src/render/render.c src/render/render_common.c src/render/map_render.c src/render/panel_info.c src/render/panel_diplomacy.c src/render/panel_map.c src/render/icons.c src/ui/ui_layout.c src/ui/ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
-./world_sim.exe
-```
-
+The full source list changes as modules are split, so `Makefile` and `build.bat` are the canonical build commands.
 If you are using PowerShell, add the MSYS2 compiler folder for the current terminal session first:
 
 ```powershell
 $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
-gcc -O2 -Wall -Wextra -I. -Isrc src\main.c src\game\game.c src\core\game_state.c src\data\game_tables.c src\world\world_gen.c src\world\terrain_query.c src\world\rivers.c src\sim\simulation.c src\world\noise.c src\world\ports.c src\sim\civilization_metrics.c src\sim\province.c src\sim\expansion.c src\sim\diplomacy.c src\sim\war.c src\render\render.c src\render\render_common.c src\render\map_render.c src\render\panel_info.c src\render\panel_diplomacy.c src\render\panel_map.c src\render\icons.c src\ui\ui_layout.c src\ui\ui.c -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
+.\build.bat
 .\world_sim.exe
 ```
 
@@ -115,16 +120,17 @@ gcc -O2 -Wall -Wextra -I. -Isrc src\main.c src\game\game.c src\core\game_state.c
 
 1. `src/main.c` starts the program
 2. `src/game/game.c` and `src/game/game.h` own game startup and the main message loop
-3. `src/core/game_types.h` contains shared constants, enums, structs, typedefs, extern state, and common helper declarations
-4. `src/core` contains shared state definitions, common helper implementations, and the version marker
-5. `src/world/world_gen.c` and `src/world/world_gen.h` contain top-level world generation
-6. `src/sim/simulation.c` and `src/sim/simulation.h` contain civilization seeding, summaries, and month/year simulation coordination
-7. `src/render` contains drawing-only map, panel, border, icon, and legend rendering split by responsibility
-8. `src/ui` contains Win32 input, form controls, buttons, sliders, and UI layout helpers
-9. `src/data` contains editable geography, climate, ecology, resource, and civilization metric tables
-10. `src/world` contains support modules for generation, noise, rivers, ports, and terrain queries
-11. `src/sim` contains civilization metrics, province logic, diplomacy, expansion, and war simulation submodules
-12. `assets/icons` contains the PNG icons used by the right-side information panel
-13. `Makefile` contains the canonical build command
-14. `build.bat` mirrors the same source list for Windows command prompts
-15. `docs/ver0.1.5_province_expansion_logic.pdf` and `docs/ver0.1.5_diplomacy_war_framework.pdf` track the design references for this version
+3. `src/core/game_types.h` contains shared extern state and compatibility includes for shared game types
+4. `src/core/constants.h`, `src/core/world_types.h`, and `src/core/sim_types.h` split shared constants, world structs, and simulation structs by responsibility
+5. `src/core` contains shared state definitions, common helper implementations, and the version marker
+6. `src/world/world_gen.c` and `src/world/world_gen.h` contain top-level world generation
+7. `src/sim/simulation.c` and `src/sim/simulation.h` contain civilization seeding, summaries, and month/year simulation coordination
+8. `src/render` contains drawing-only map, panel, border, icon, route, plague, label, and legend rendering split by responsibility
+9. `src/ui` contains Win32 input, form controls, buttons, sliders, and UI layout helpers
+10. `src/data` contains editable geography, climate, ecology, resource, and civilization metric tables
+11. `src/world` contains support modules for generation, smoothing, noise, rivers, ports, and terrain queries
+12. `src/sim` contains civilization metrics, province logic, population, plague, ports, maritime, diplomacy, expansion, and war simulation submodules
+13. `assets/icons` contains the PNG icons used by the right-side information panel
+14. `Makefile` contains the canonical build command
+15. `build.bat` mirrors the same source list for Windows command prompts
+16. `docs/ver0.1.5_province_expansion_logic.pdf` and `docs/ver0.1.5_diplomacy_war_framework.pdf` track the design references used by the current simulation systems

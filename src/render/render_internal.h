@@ -2,7 +2,10 @@
 #define RENDER_INTERNAL_H
 
 #include "render.h"
+#include "border_paths.h"
 #include "icons.h"
+#include "map_labels.h"
+#include "plague_render.h"
 #include "core/version.h"
 #include "data/game_tables.h"
 #include "sim/simulation.h"
@@ -11,7 +14,6 @@
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
 #include "world/terrain_query.h"
-#include "world/world_gen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +48,7 @@ int tile_bottom(MapLayout layout, int y);
 void draw_crisp_map_surface(HDC hdc, MapLayout layout);
 void draw_land_texture(HDC hdc, MapLayout layout, int x, int y);
 void draw_rivers(HDC hdc, RECT client, MapLayout layout);
-void draw_borders(HDC hdc, RECT client, MapLayout layout);
+void draw_maritime_routes(HDC hdc, RECT client, MapLayout layout);
 void draw_cities(HDC hdc, MapLayout layout);
 void draw_selected_tile(HDC hdc, MapLayout layout);
 
@@ -59,6 +61,7 @@ void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int va
 void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT body_font);
 void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
+int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int civ_id, HFONT body_font);
 void draw_side_panel(HDC hdc, RECT client);
 void draw_bottom_bar(HDC hdc, RECT client);
 void draw_map_legend(HDC hdc, RECT client);
