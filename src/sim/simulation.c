@@ -17,11 +17,13 @@
 
 static CountrySummary country_summary_cache[MAX_CIVS];
 static int country_summary_dirty = 1;
+static unsigned int territory_contact_hash = 0;
 
 static void recalculate_territory(void) {
     int i;
     int y;
     int x;
+    unsigned int next_hash = 2166136261u;
 
     for (i = 0; i < civ_count; i++) civs[i].territory = 0;
     for (y = 0; y < MAP_H; y++) {
@@ -38,6 +40,8 @@ static void recalculate_territory(void) {
         for (x = 0; x < MAP_W; x++) {
             int owner = world[y][x].owner;
             if (owner >= 0 && (owner >= civ_count || !civs[owner].alive)) world[y][x].owner = -1;
+            next_hash = (next_hash ^ (unsigned int)(world[y][x].owner + 2)) * 16777619u;
+            next_hash = (next_hash ^ (unsigned int)(world[y][x].province_id + 2)) * 16777619u;
         }
     }
     for (i = 0; i < city_count; i++) {
@@ -47,6 +51,10 @@ static void recalculate_territory(void) {
             cities[i].owner = -1;
             cities[i].capital = 0;
         }
+    }
+    if (next_hash != territory_contact_hash) {
+        territory_contact_hash = next_hash;
+        diplomacy_mark_contacts_dirty();
     }
     world_invalidate_region_cache();
 }
@@ -434,7 +442,9 @@ void simulate_one_month(void) {
     }
     if (city_count != city_count_before_expansion) {
         ports_refresh_city_regions();
-        maritime_rebuild_routes();
+        maritime_mark_routes_dirty();
+        maritime_ensure_routes();
+        diplomacy_mark_contacts_dirty();
     }
     plague_update_month();
 
@@ -458,6 +468,7 @@ void simulation_reset_state(void) {
     city_count = 0;
     maritime_reset();
     plague_reset();
+    territory_contact_hash = 0;
     world_invalidate_region_cache();
 }
 
@@ -473,4 +484,5 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
     civ->expansion = clamp(expansion, 0, 10);
     civ->defense = clamp(defense, 0, 10);
     civ->culture = clamp(culture, 0, 10);
+    world_visual_revision++;
 }

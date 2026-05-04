@@ -16,7 +16,16 @@ typedef struct {
     int valid;
 } MapLayerCache;
 
+typedef struct {
+    HDC dc;
+    HBITMAP bitmap;
+    HBITMAP old_bitmap;
+    int width;
+    int height;
+} WindowBackbuffer;
+
 static MapLayerCache map_cache;
+static WindowBackbuffer window_backbuffer;
 
 static void release_map_cache(void) {
     if (map_cache.dc && map_cache.old_bitmap) SelectObject(map_cache.dc, map_cache.old_bitmap);
@@ -66,6 +75,23 @@ static int ensure_map_cache(HDC hdc, RECT client, MapLayout layout) {
     return 1;
 }
 
+static int can_preview_map_cache(RECT client) {
+    return map_interaction_preview && map_cache.valid &&
+           map_cache.width == client.right - client.left &&
+           map_cache.height == client.bottom - client.top &&
+           map_cache.side_w == side_panel_w &&
+           map_cache.display == display_mode &&
+           map_cache.revision == world_visual_revision;
+}
+
+static void draw_map_cache_preview(HDC hdc, RECT client, MapLayout layout) {
+    fill_rect(hdc, client, RGB(79, 160, 215));
+    SetStretchBltMode(hdc, COLORONCOLOR);
+    StretchBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
+               map_cache.dc, map_cache.map_x, map_cache.map_y,
+               map_cache.draw_w, map_cache.draw_h, SRCCOPY);
+}
+
 static void render_map_layers(HDC hdc, RECT client, MapLayout layout) {
     int min_x;
     int max_x;
@@ -93,12 +119,15 @@ static void render_map_layers(HDC hdc, RECT client, MapLayout layout) {
     }
     draw_cities(hdc, layout);
     draw_plague_city_overlay(hdc, client, layout);
-    draw_map_labels(hdc, client, layout);
     draw_map_grid_overlay(hdc, client, layout);
 }
 
 static void draw_cached_map_layers(HDC hdc, RECT client, MapLayout layout) {
     if (!map_cache_matches(client, layout)) {
+        if (can_preview_map_cache(client)) {
+            draw_map_cache_preview(hdc, client, layout);
+            return;
+        }
         if (ensure_map_cache(hdc, client, layout)) render_map_layers(map_cache.dc, client, layout);
         else render_map_layers(hdc, client, layout);
     }
@@ -109,6 +138,7 @@ static void render_world(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
 
     draw_cached_map_layers(hdc, client, layout);
+    draw_map_labels(hdc, client, layout);
     draw_selected_tile(hdc, layout);
     draw_top_bar(hdc, client);
     draw_bottom_bar(hdc, client);
@@ -116,22 +146,46 @@ static void render_world(HDC hdc, RECT client) {
     draw_side_panel(hdc, client);
 }
 
+static void release_window_backbuffer(void) {
+    if (window_backbuffer.dc && window_backbuffer.old_bitmap) {
+        SelectObject(window_backbuffer.dc, window_backbuffer.old_bitmap);
+    }
+    if (window_backbuffer.bitmap) DeleteObject(window_backbuffer.bitmap);
+    if (window_backbuffer.dc) DeleteDC(window_backbuffer.dc);
+    memset(&window_backbuffer, 0, sizeof(window_backbuffer));
+}
+
+static int ensure_window_backbuffer(HDC hdc, int width, int height) {
+    if (width <= 0 || height <= 0) return 0;
+    if (window_backbuffer.dc && window_backbuffer.width == width && window_backbuffer.height == height) return 1;
+    release_window_backbuffer();
+    window_backbuffer.dc = CreateCompatibleDC(hdc);
+    window_backbuffer.bitmap = CreateCompatibleBitmap(hdc, width, height);
+    if (!window_backbuffer.dc || !window_backbuffer.bitmap) {
+        release_window_backbuffer();
+        return 0;
+    }
+    window_backbuffer.old_bitmap = SelectObject(window_backbuffer.dc, window_backbuffer.bitmap);
+    window_backbuffer.width = width;
+    window_backbuffer.height = height;
+    return 1;
+}
+
 void paint_window(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
     RECT client;
-    HDC mem_dc;
-    HBITMAP bitmap;
-    HBITMAP old_bitmap;
+    int width;
+    int height;
 
     GetClientRect(hwnd, &client);
-    mem_dc = CreateCompatibleDC(hdc);
-    bitmap = CreateCompatibleBitmap(hdc, client.right - client.left, client.bottom - client.top);
-    old_bitmap = SelectObject(mem_dc, bitmap);
-    render_world(mem_dc, client);
-    BitBlt(hdc, 0, 0, client.right - client.left, client.bottom - client.top, mem_dc, 0, 0, SRCCOPY);
-    SelectObject(mem_dc, old_bitmap);
-    DeleteObject(bitmap);
-    DeleteDC(mem_dc);
+    width = client.right - client.left;
+    height = client.bottom - client.top;
+    if (ensure_window_backbuffer(hdc, width, height)) {
+        render_world(window_backbuffer.dc, client);
+        BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
+    } else {
+        render_world(hdc, client);
+    }
     EndPaint(hwnd, &ps);
 }

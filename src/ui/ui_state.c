@@ -25,6 +25,7 @@ int initial_civ_count = 4;
 int map_zoom_percent = 120;
 int map_offset_x = 0;
 int map_offset_y = 0;
+int map_interaction_preview = 0;
 int map_legend_collapsed = 0;
 
 const int MAP_DISPLAY_MODES[4] = {DISPLAY_ALL, DISPLAY_CLIMATE, DISPLAY_GEOGRAPHY, DISPLAY_POLITICAL};

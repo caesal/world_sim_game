@@ -305,6 +305,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
         invalidate_side_panel(hwnd);
     }
     if (dragging_map) {
+        map_interaction_preview = 1;
         map_offset_x += mouse_x - last_mouse_x;
         map_offset_y += mouse_y - last_mouse_y;
         last_mouse_x = mouse_x;
@@ -337,10 +338,12 @@ static void handle_mouse_leave(HWND hwnd) {
 }
 
 static void handle_mouse_up(HWND hwnd) {
+    int was_dragging_map = dragging_map;
     if (dragging_panel || dragging_slider >= 0 || dragging_map) {
         dragging_panel = 0;
         dragging_slider = -1;
         dragging_map = 0;
+        if (was_dragging_map) map_interaction_preview = 0;
         ReleaseCapture();
         InvalidateRect(hwnd, NULL, FALSE);
     }
@@ -352,6 +355,7 @@ static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     GetClientRect(hwnd, &client);
     if (mouse_x >= client.right - side_panel_w || mouse_y < TOP_BAR_H || mouse_y > client.bottom - BOTTOM_BAR_H) return;
     dragging_map = 1;
+    map_interaction_preview = 1;
     last_mouse_x = mouse_x;
     last_mouse_y = mouse_y;
     SetCapture(hwnd);
@@ -385,6 +389,9 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
         map_offset_x += point.x - (after.map_x + tile_x_scaled * after.draw_w / 100000);
         map_offset_y += point.y - (after.map_y + tile_y_scaled * after.draw_h / 100000);
     }
+    map_interaction_preview = 1;
+    KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
+    SetTimer(hwnd, MAP_PREVIEW_TIMER_ID, 140, NULL);
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -419,9 +426,7 @@ int is_game_shortcut(WPARAM key) {
     return key == VK_SPACE || key == VK_F1 || key == VK_F2 || key == VK_F5 || key == VK_ESCAPE;
 }
 
-int is_game_char_shortcut(WPARAM key) {
-    return key == ' ';
-}
+int is_game_char_shortcut(WPARAM key) { return key == ' '; }
 
 int handle_char_shortcut(HWND hwnd, WPARAM key) {
     if (key == ' ') return handle_shortcut(hwnd, VK_SPACE);
@@ -444,6 +449,12 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             else if (LOWORD(wparam) == ID_APPLY_BUTTON) apply_form_to_selected_civ(hwnd);
             return 0;
         case WM_TIMER:
+            if (wparam == MAP_PREVIEW_TIMER_ID) {
+                map_interaction_preview = 0;
+                KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
+                InvalidateRect(hwnd, NULL, FALSE);
+                return 0;
+            }
             if (wparam == TIMER_ID && game_tick_auto_run()) {
                 InvalidateRect(hwnd, NULL, FALSE);
             }
@@ -479,6 +490,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             return 1;
         case WM_DESTROY:
             KillTimer(hwnd, TIMER_ID);
+            KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
             PostQuitMessage(0);
             return 0;
         default:

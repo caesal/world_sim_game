@@ -21,6 +21,7 @@ static unsigned short sea_dist[MAP_H][MAP_W];
 static int sea_mark[MAP_H][MAP_W];
 static signed char sea_prev_dir[MAP_H][MAP_W];
 static int sea_mark_id = 1;
+static int maritime_routes_dirty = 1;
 
 typedef struct {
     int x;
@@ -35,7 +36,16 @@ typedef struct {
 void maritime_reset(void) {
     memset(maritime_routes, 0, sizeof(maritime_routes));
     maritime_route_count = 0;
+    maritime_routes_dirty = 1;
     world_visual_revision++;
+}
+
+void maritime_mark_routes_dirty(void) {
+    maritime_routes_dirty = 1;
+}
+
+void maritime_ensure_routes(void) {
+    if (maritime_routes_dirty) maritime_rebuild_routes();
 }
 
 static int city_sea_entry(int city_id, int *sea_x, int *sea_y, int *region) {
@@ -217,7 +227,8 @@ void maritime_rebuild_routes(void) {
     int port_count = 0;
     int i;
 
-    maritime_reset();
+    memset(maritime_routes, 0, sizeof(maritime_routes));
+    maritime_route_count = 0;
     ports_refresh_city_regions();
     for (i = 0; i < city_count; i++) {
         if (ports_city_is_valid_port(i)) ports[port_count++] = i;
@@ -230,12 +241,14 @@ void maritime_rebuild_routes(void) {
             if (best_city[slot] >= 0) add_route_if_path_exists(ports[i], best_city[slot]);
         }
     }
+    maritime_routes_dirty = 0;
     world_visual_revision++;
 }
 
 int maritime_route_between_cities(int city_a, int city_b, int *distance) {
     int i;
 
+    maritime_ensure_routes();
     for (i = 0; i < maritime_route_count; i++) {
         MaritimeRoute *route = &maritime_routes[i];
         if (!route->active) continue;
@@ -252,6 +265,7 @@ void maritime_update_migration(void) {
     int i;
     int changed = 0;
 
+    maritime_ensure_routes();
     for (i = 0; i < maritime_route_count; i++) {
         MaritimeRoute *route = &maritime_routes[i];
         City *a;
@@ -285,6 +299,7 @@ void maritime_update_migration(void) {
 int maritime_has_contact(int civ_a, int civ_b) {
     int i;
 
+    maritime_ensure_routes();
     for (i = 0; i < maritime_route_count; i++) {
         City *a;
         City *b;
@@ -301,6 +316,7 @@ int maritime_trade_bonus(int civ_a, int civ_b) {
     int i;
     int best = 0;
 
+    maritime_ensure_routes();
     for (i = 0; i < maritime_route_count; i++) {
         MaritimeRoute *route = &maritime_routes[i];
         City *a;
@@ -418,6 +434,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
     int chance;
 
     if (!civs[civ_id].alive || city_count >= MAX_CITIES) return;
+    maritime_ensure_routes();
     chance = clamp(5 + pressure * 4 + civs[civ_id].logistics * 2 +
                    civs[civ_id].commerce * 2 + civs[civ_id].expansion * 2, 4, 62);
     if (rnd(100) >= chance) return;

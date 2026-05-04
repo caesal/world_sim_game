@@ -94,6 +94,7 @@ extern int map_zoom_percent;
 extern int map_offset_x;
 extern int map_offset_y;
 extern int map_legend_collapsed;
+extern int map_interaction_preview;
 extern int world_visual_revision;
 
 extern const int SPEED_MS[3];

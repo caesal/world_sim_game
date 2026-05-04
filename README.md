@@ -7,7 +7,7 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.6 is a Windows graphical sandbox prototype written in C.
+Ver0.1.7 is a Windows graphical sandbox prototype written in C.
 
 You can:
 
@@ -69,6 +69,13 @@ You can:
 56. Cache diplomacy border contacts and population summaries so monthly updates do less repeated full-map aggregation
 57. Split core shared types into narrower `constants.h`, `world_types.h`, and `sim_types.h` headers while keeping `game_types.h` as the compatibility entry point
 58. Document the current map-rendering and river-polish diagnostic for the next targeted cleanup pass
+59. Use a fast transformed cached-map preview while wheel zooming or right-drag panning, then rebuild high-quality layers after input settles
+60. Cache the 800x600 base terrain bitmap separately from zoom and pan layout
+61. Draw labels outside the expensive cached map layer so name edits repaint correctly without forcing full map rebuilds
+62. Reuse the full-window paint backbuffer instead of allocating one on every paint
+63. Rebuild maritime routes only when port/city route data is marked dirty
+64. Rebuild diplomacy contact scans only when territory/contact data changes
+65. Skip the full-map plague region overlay when no city has an active plague
 
 ## Controls
 

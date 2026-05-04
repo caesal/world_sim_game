@@ -1,5 +1,27 @@
 # Version Log
 
+## Ver0.1.7
+
+Implemented fixes:
+
+1. Bumped the active prototype notes to Ver0.1.7
+2. Added a fast cached-map preview path for mouse-wheel zoom and right-button map dragging
+3. Deferred expensive high-quality map layer rebuilds until zoom or drag input settles
+4. Cached the 800x600 base terrain bitmap by display mode and visual revision, so pan and zoom no longer regenerate base tile pixels
+5. Moved map labels out of the expensive cached map layer, preventing stale country labels after civilization edits
+6. Incremented the visual revision when civilization names, symbols, or visible traits are edited
+7. Reused a full-window paint backbuffer instead of creating and deleting a compatible bitmap for every paint
+8. Added event-style maritime route dirty marking and route ensuring
+9. Stopped route rebuilds from calling `maritime_reset()`, avoiding duplicate route clearing and duplicate visual revision bumps
+10. Marked maritime routes dirty when a city becomes a port and rebuilt them only when needed
+11. Added diplomacy contact dirty marking so border/contact cache scans are skipped when territory contacts have not changed
+12. Added a territory hash in the monthly recalculation path so diplomacy contact scans are marked dirty only when owner/province data changes
+13. Kept population, plague, maritime, and overseas expansion systems in place because they were explicitly requested gameplay features before this performance pass
+14. Skipped full-map plague overlay allocation and tile scanning when no city currently has active plague
+15. Verified the project builds with `build.bat`
+16. Verified no `.c` or `.h` file exceeds the 500-line rule
+17. Verified no `.c` file includes another `.c` file
+
 ## Ver0.1.6
 
 Implemented features and fixes:

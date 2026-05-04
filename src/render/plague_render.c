@@ -17,6 +17,15 @@ static void blit_overlay(HDC hdc, HDC surface_dc, MapLayout layout) {
                surface_dc, 0, 0, MAP_W, MAP_H, blend);
 }
 
+static int any_visible_plague(void) {
+    int i;
+
+    for (i = 0; i < city_count; i++) {
+        if (plague_city_active(i)) return 1;
+    }
+    return 0;
+}
+
 void draw_plague_region_overlay(HDC hdc, RECT client, MapLayout layout) {
     BITMAPINFO info;
     unsigned int *pixels;
@@ -27,7 +36,7 @@ void draw_plague_region_overlay(HDC hdc, RECT client, MapLayout layout) {
     int y;
     int saved_dc;
 
-    if (layout.draw_w <= 0 || layout.draw_h <= 0) return;
+    if (layout.draw_w <= 0 || layout.draw_h <= 0 || !any_visible_plague()) return;
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
     info.bmiHeader.biWidth = MAP_W;

@@ -35,6 +35,7 @@ void ports_maybe_make_city_port(int city_id) {
     city->port_x = x;
     city->port_y = y;
     city->port_region = region;
+    maritime_mark_routes_dirty();
     world_invalidate_region_cache();
 }
 

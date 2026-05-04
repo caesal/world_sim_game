@@ -4,6 +4,8 @@
 #include "core/game_types.h"
 
 void maritime_reset(void);
+void maritime_mark_routes_dirty(void);
+void maritime_ensure_routes(void);
 void maritime_rebuild_routes(void);
 void maritime_update_migration(void);
 int maritime_route_between_cities(int city_a, int city_b, int *distance);

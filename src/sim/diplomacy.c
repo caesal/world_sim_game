@@ -12,6 +12,7 @@
 
 static DiplomacyRelation diplomacy_matrix[MAX_CIVS][MAX_CIVS];
 static BorderContactCache border_contact_cache;
+static int diplomacy_contacts_dirty = 1;
 
 static void set_relation_pair(int civ_a, int civ_b, DiplomacyRelation relation) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
@@ -42,12 +43,18 @@ void diplomacy_reset(void) {
 
     memset(&border_contact_cache, 0, sizeof(border_contact_cache));
     border_contact_cache.dirty = 1;
+    diplomacy_contacts_dirty = 1;
     for (a = 0; a < MAX_CIVS; a++) {
         for (b = 0; b < MAX_CIVS; b++) {
             diplomacy_matrix[a][b] = default_relation(a == b ? DIPLOMACY_PEACE : DIPLOMACY_NONE,
                                                        a == b ? 100 : 50);
         }
     }
+}
+
+void diplomacy_mark_contacts_dirty(void) {
+    border_contact_cache.dirty = 1;
+    diplomacy_contacts_dirty = 1;
 }
 
 static int is_valid_civ(int civ_id) {
@@ -63,9 +70,11 @@ static int is_natural_barrier_tile(int x, int y) {
            geography == GEO_LAKE || geography == GEO_BAY || geography == GEO_COAST;
 }
 
+static void rebuild_border_contact_cache(void);
+
 static int pair_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier) {
     if (border_contact_cache.dirty) {
-        diplomacy_update_contacts();
+        rebuild_border_contact_cache();
     }
     if (border_length) *border_length = border_contact_cache.border_length[civ_a][civ_b];
     if (natural_barrier) *natural_barrier = border_contact_cache.natural_barrier[civ_a][civ_b];
@@ -303,7 +312,8 @@ void diplomacy_update_contacts(void) {
     int a;
     int b;
 
-    rebuild_border_contact_cache();
+    if (!diplomacy_contacts_dirty && !border_contact_cache.dirty) return;
+    if (border_contact_cache.dirty) rebuild_border_contact_cache();
     for (a = 0; a < civ_count; a++) {
         if (!is_valid_civ(a)) continue;
         for (b = a + 1; b < civ_count; b++) {
@@ -326,6 +336,7 @@ void diplomacy_update_contacts(void) {
             set_relation_pair(a, b, relation);
         }
     }
+    diplomacy_contacts_dirty = 0;
 }
 
 void diplomacy_update_year(void) {

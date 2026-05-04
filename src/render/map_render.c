@@ -1,14 +1,31 @@
 ﻿#include "render_internal.h"
 
-void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
-    BITMAPINFO info;
-    unsigned int *pixels;
+typedef struct {
+    HDC dc;
     HBITMAP bitmap;
-    HDC surface_dc;
     HBITMAP old_bitmap;
-    int x;
-    int y;
+    unsigned int *pixels;
+    int display;
+    int revision;
+    int valid;
+} BaseMapSurfaceCache;
 
+static BaseMapSurfaceCache base_surface_cache;
+
+static void release_base_surface_cache(void) {
+    if (base_surface_cache.dc && base_surface_cache.old_bitmap) {
+        SelectObject(base_surface_cache.dc, base_surface_cache.old_bitmap);
+    }
+    if (base_surface_cache.bitmap) DeleteObject(base_surface_cache.bitmap);
+    if (base_surface_cache.dc) DeleteDC(base_surface_cache.dc);
+    memset(&base_surface_cache, 0, sizeof(base_surface_cache));
+}
+
+static int ensure_base_surface_cache(HDC hdc) {
+    BITMAPINFO info;
+
+    if (base_surface_cache.dc && base_surface_cache.bitmap && base_surface_cache.pixels) return 1;
+    release_base_surface_cache();
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
     info.bmiHeader.biWidth = MAP_W;
@@ -16,29 +33,43 @@ void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
-
-    surface_dc = CreateCompatibleDC(hdc);
-    bitmap = CreateDIBSection(hdc, &info, DIB_RGB_COLORS, (void **)&pixels, NULL, 0);
-    if (!surface_dc || !bitmap || !pixels) {
-        if (bitmap) DeleteObject(bitmap);
-        if (surface_dc) DeleteDC(surface_dc);
-        return;
+    base_surface_cache.dc = CreateCompatibleDC(hdc);
+    base_surface_cache.bitmap = CreateDIBSection(hdc, &info, DIB_RGB_COLORS,
+                                                 (void **)&base_surface_cache.pixels, NULL, 0);
+    if (!base_surface_cache.dc || !base_surface_cache.bitmap || !base_surface_cache.pixels) {
+        release_base_surface_cache();
+        return 0;
     }
-    old_bitmap = SelectObject(surface_dc, bitmap);
+    base_surface_cache.old_bitmap = SelectObject(base_surface_cache.dc, base_surface_cache.bitmap);
+    return 1;
+}
+
+static void rebuild_base_surface_cache(void) {
+    int x;
+    int y;
 
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             COLORREF color = tile_display_color(x, y);
-            pixels[y * MAP_W + x] = GetBValue(color) | (GetGValue(color) << 8) | (GetRValue(color) << 16);
+            base_surface_cache.pixels[y * MAP_W + x] =
+                GetBValue(color) | (GetGValue(color) << 8) | (GetRValue(color) << 16);
         }
+    }
+    base_surface_cache.display = display_mode;
+    base_surface_cache.revision = world_visual_revision;
+    base_surface_cache.valid = 1;
+}
+
+void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
+    if (!ensure_base_surface_cache(hdc)) return;
+    if (!base_surface_cache.valid || base_surface_cache.display != display_mode ||
+        base_surface_cache.revision != world_visual_revision) {
+        rebuild_base_surface_cache();
     }
 
     SetStretchBltMode(hdc, COLORONCOLOR);
     StretchBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
-               surface_dc, 0, 0, MAP_W, MAP_H, SRCCOPY);
-    SelectObject(surface_dc, old_bitmap);
-    DeleteObject(bitmap);
-    DeleteDC(surface_dc);
+               base_surface_cache.dc, 0, 0, MAP_W, MAP_H, SRCCOPY);
 }
 
 static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int y);
