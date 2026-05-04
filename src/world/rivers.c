@@ -56,28 +56,6 @@ static int path_contains(RiverPoint *points, int count, int x, int y) {
     return 0;
 }
 
-static int find_mouth_near(int x, int y, int radius, RiverPoint *mouth) {
-    int best_distance = 9999;
-    int found = 0;
-    int dy;
-    int dx;
-
-    for (dy = -radius; dy <= radius; dy++) {
-        for (dx = -radius; dx <= radius; dx++) {
-            int nx = x + dx;
-            int ny = y + dy;
-            int distance = dx * dx + dy * dy;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-            if (!water_mouth_tile(nx, ny) || distance >= best_distance) continue;
-            best_distance = distance;
-            mouth->x = nx;
-            mouth->y = ny;
-            found = 1;
-        }
-    }
-    return found;
-}
-
 static int source_is_valid(int x, int y, int tributary_source) {
     Geography geography;
     int near_rivers;
@@ -192,6 +170,7 @@ static void accept_river_path(RiverPoint *points, int count, int joined_river, i
 
     if (river_path_count >= MAX_RIVER_PATHS || count < 22) return;
     if (!reached_mouth && !joined_river) return;
+    if (!tributary_hint && !reached_mouth) return;
     if (tributary_hint && !joined_river && !reached_mouth) return;
     river = &river_paths[river_path_count];
     memset(river, 0, sizeof(*river));
@@ -207,7 +186,6 @@ static void accept_river_path(RiverPoint *points, int count, int joined_river, i
 
 static void trace_river_from(int start_x, int start_y, int tributary_hint) {
     RiverPoint points[MAX_RIVER_POINTS];
-    RiverPoint mouth;
     int count = 1;
     int joined_river = 0;
     int reached_mouth = 0;
@@ -235,11 +213,6 @@ static void trace_river_from(int start_x, int start_y, int tributary_hint) {
         }
     }
 
-    if (!reached_mouth && !joined_river && count >= 24 &&
-        find_mouth_near(points[count - 1].x, points[count - 1].y, 5, &mouth)) {
-        points[count++] = mouth;
-        reached_mouth = 1;
-    }
     if ((reached_mouth || joined_river) && count >= 22) {
         accept_river_path(points, count, joined_river, reached_mouth, tributary_hint);
     }

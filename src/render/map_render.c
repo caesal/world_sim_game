@@ -113,19 +113,19 @@ static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int
 static POINT river_screen_point(const RiverPath *river, int index, MapLayout layout) {
     RiverPoint point = river->points[index];
     POINT screen;
-    int jitter = clamp((layout.tile_size + 3) / 5, 1, 3);
+    int jitter = layout.tile_size >= 9 ? 1 : 0;
     int seed = point.x * 31 + point.y * 17 + index * 13 + river->order * 19;
     int jx = seed % 7 - 3;
     int jy = seed / 7 % 7 - 3;
 
-    screen.x = (tile_left(layout, point.x) + tile_right(layout, point.x)) / 2 + jx * jitter / 3;
-    screen.y = (tile_top(layout, point.y) + tile_bottom(layout, point.y)) / 2 + jy * jitter / 3;
+    screen.x = (tile_left(layout, point.x) + tile_right(layout, point.x)) / 2 + jx * jitter / 4;
+    screen.y = (tile_top(layout, point.y) + tile_bottom(layout, point.y)) / 2 + jy * jitter / 4;
     return screen;
 }
 
 static int river_pixel_width(const RiverPath *river, MapLayout layout) {
-    int zoom_bonus = layout.tile_size >= 8 ? 1 : 0;
-    return clamp(river->width + zoom_bonus, 1, 4);
+    int main_bonus = river->order >= 3 && layout.tile_size >= 8 ? 1 : 0;
+    return clamp(river->width - 1 + main_bonus, 1, 2);
 }
 
 static void draw_river_path_stroke(HDC hdc, const RiverPath *river, MapLayout layout,

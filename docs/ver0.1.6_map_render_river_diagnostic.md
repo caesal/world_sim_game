@@ -17,10 +17,10 @@ This diagnostic records the targeted polish pass requested before the next rende
 11. Current river acceptance already rejects pure dead-end rivers, but `trace_river_from()` can attach a nearby mouth within radius 5 after tracing stops, which can create an unnatural final jump.
 12. No `.c` or `.h` file exceeded 500 lines during this diagnostic.
 
-## Targeted Follow-Up Plan
+## Implemented Targeted Fixes
 
-1. In `border_paths.c`, reduce country/coast alpha and stroke widths, raise the province-border zoom gate, and reduce coast halo strength.
-2. In `map_labels.c`, make country label shadows lighter, gate labels by zoom and territory size, and show fewer city labels at medium zoom.
-3. In `map_render.c`, reduce river visual width and jitter.
-4. In `rivers.c`, tighten mouth acceptance so main rivers reach water directly and tributaries either join an accepted river or reach water.
-5. In `render.c`, keep the existing cache and avoid a larger caching rewrite unless a later pass explicitly requests it.
+1. `border_paths.c` now uses lighter political fill, weaker coast halo, thinner country/coast strokes, lower border alpha, and a higher province-border zoom gate.
+2. `map_labels.c` now uses lighter label outlines, fewer total labels, country label gating by zoom/territory size, and stricter city-label priority at medium zoom.
+3. `map_render.c` now draws thinner river strokes and greatly reduces river point jitter.
+4. `rivers.c` no longer accepts traced rivers by jumping to a nearby water tile after the path fails. Main rivers must directly reach ocean, bay, or lake; tributaries must join an accepted river or directly reach water.
+5. `render.c` keeps the existing render-layer cache. A larger cache split remains a possible later performance pass if needed.

@@ -22,8 +22,12 @@ Implemented features and fixes:
 16. Cached population country summaries so monthly systems and panels do less repeated aggregation
 17. Split shared core declarations into `constants.h`, `world_types.h`, and `sim_types.h`, keeping `game_types.h` as the compatibility entry point
 18. Removed unnecessary render-to-world-generation and world-port-to-game-state header coupling
-19. Added the current targeted diagnostic for map border, label, performance, and river-polish work to guide the next cleanup pass
-20. Verified the source tree keeps every `.c` and `.h` file under 500 lines
+19. Added and implemented the targeted diagnostic for map border, label, performance, and river-polish work
+20. Reduced wall-like country/coast/province outlines with lower alpha, thinner screen-space strokes, and stricter province-border zoom gates
+21. Reduced low-zoom label clutter and made country/city labels clearer with lighter outlines and stricter label priority
+22. Made visual river strokes thinner with less jitter
+23. Tightened river validity so main rivers directly reach ocean, bay, or lake, while tributaries must join an accepted river or directly reach water
+24. Verified the source tree keeps every `.c` and `.h` file under 500 lines
 
 ## Ver0.1.5
 
