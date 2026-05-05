@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-Tile world[MAP_H][MAP_W];
+Tile world[MAX_MAP_H][MAX_MAP_W];
 RiverPath river_paths[MAX_RIVER_PATHS];
 MaritimeRoute maritime_routes[MAX_MARITIME_ROUTES];
 Civilization civs[MAX_CIVS];
@@ -22,6 +22,11 @@ int selected_civ = -1;
 int auto_run = 0;
 int speed_index = 0;
 int world_visual_revision = 1;
+int map_w = DEFAULT_MAP_W;
+int map_h = DEFAULT_MAP_H;
+int map_size_index = MAP_SIZE_MEDIUM;
+int pending_map_size = MAP_SIZE_MEDIUM;
+int world_generated = 0;
 
 GameState g_game = {
     world,
@@ -115,4 +120,24 @@ COLORREF blend_color(COLORREF base, COLORREF overlay, int percent) {
 
 int point_in_rect(RECT rect, int x, int y) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+void map_size_dimensions(int size, int *out_w, int *out_h) {
+    int width = DEFAULT_MAP_W;
+    int height = DEFAULT_MAP_H;
+
+    if (size == MAP_SIZE_SMALL) {
+        width = 640;
+        height = 360;
+    } else if (size == MAP_SIZE_LARGE) {
+        width = 960;
+        height = 540;
+    }
+    if (out_w) *out_w = width;
+    if (out_h) *out_h = height;
+}
+
+void set_active_map_size(int size) {
+    map_size_index = clamp(size, 0, MAP_SIZE_COUNT - 1);
+    map_size_dimensions(map_size_index, &map_w, &map_h);
 }

@@ -1,5 +1,6 @@
 #include "population.h"
 
+#include "core/dirty_flags.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
 #include "world/terrain_query.h"
@@ -62,6 +63,7 @@ static void ensure_city_population(int city_id) {
 
 void population_mark_dirty(void) {
     population_cache_dirty = 1;
+    dirty_mark_population();
 }
 
 void population_init_city(int city_id, int total_population) {
@@ -262,7 +264,7 @@ void population_update_month(void) {
         if (month == 12) age_city_one_year(i);
     }
     population_sync_all();
-    world_invalidate_region_cache();
+    world_invalidate_population_cache();
 }
 
 int population_migrate_between_cities(int from_city, int to_city, int amount) {
@@ -283,7 +285,7 @@ int population_migrate_between_cities(int from_city, int to_city, int amount) {
     population_sync_city(from_city);
     population_sync_city(to_city);
     population_mark_dirty();
-    world_invalidate_region_cache();
+    world_invalidate_population_cache();
     return moved;
 }
 
@@ -305,7 +307,7 @@ int population_apply_casualties(int civ_id, int casualties) {
     civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration + removed / 2000, 0, 10);
     civs[civ_id].disorder = clamp(civs[civ_id].disorder + removed / 2500, 0, 10);
     population_sync_all();
-    world_invalidate_region_cache();
+    world_invalidate_population_cache();
     return removed;
 }
 
@@ -358,6 +360,6 @@ int population_apply_plague(int civ_id, int severity) {
     civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + severity / 2 + removed / 1200, 0, 10);
     civs[civ_id].disorder = clamp(civs[civ_id].disorder + severity / 4 + removed / 1800, 0, 10);
     population_sync_all();
-    world_invalidate_region_cache();
+    world_invalidate_population_cache();
     return removed;
 }

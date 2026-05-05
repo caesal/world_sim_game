@@ -9,9 +9,9 @@ typedef struct {
     int y;
 } SeaFrontierNode;
 
-static int shallow_sea_region[MAP_H][MAP_W];
+static int shallow_sea_region[MAX_MAP_H][MAX_MAP_W];
 static int shallow_sea_dirty = 1;
-static SeaFrontierNode sea_frontier[MAP_W * MAP_H];
+static SeaFrontierNode sea_frontier[MAX_MAP_W * MAX_MAP_H];
 
 static int is_sea_water(Geography geography) {
     return geography == GEO_OCEAN || geography == GEO_BAY;

@@ -9,8 +9,8 @@ typedef struct {
 
 #define CARTO_SCALE 4
 
-static unsigned char mask_a[MAP_W * MAP_H];
-static unsigned char mask_b[MAP_W * MAP_H];
+static unsigned char mask_a[MAX_MAP_W * MAX_MAP_H];
+static unsigned char mask_b[MAX_MAP_W * MAX_MAP_H];
 
 static unsigned int premul(COLORREF color, int alpha) {
     unsigned int r = (unsigned int)(GetRValue(color) * alpha / 255);
@@ -180,7 +180,36 @@ static void blur_current_mask(int passes) {
 
     for (i = 0; i < passes; i++) {
         blur_once(mask_a, mask_b);
-        memcpy(mask_a, mask_b, sizeof(mask_a));
+        memcpy(mask_a, mask_b, (size_t)MAP_W * MAP_H);
+    }
+}
+
+static void filter_current_mask(int passes, int fill_threshold, int keep_threshold) {
+    int pass;
+
+    for (pass = 0; pass < passes; pass++) {
+        int x;
+        int y;
+
+        for (y = 0; y < MAP_H; y++) {
+            for (x = 0; x < MAP_W; x++) {
+                int neighbors = 0;
+                int dy;
+                int dx;
+                int active = mask_a[y * MAP_W + x] >= 128;
+
+                for (dy = -1; dy <= 1; dy++) {
+                    int sy = clamp(y + dy, 0, MAP_H - 1);
+                    for (dx = -1; dx <= 1; dx++) {
+                        int sx = clamp(x + dx, 0, MAP_W - 1);
+                        if (mask_a[sy * MAP_W + sx] >= 128) neighbors++;
+                    }
+                }
+                mask_b[y * MAP_W + x] = (active ? neighbors >= keep_threshold :
+                                                   neighbors >= fill_threshold) ? 255 : 0;
+            }
+        }
+        memcpy(mask_a, mask_b, (size_t)MAP_W * MAP_H);
     }
 }
 
@@ -225,13 +254,14 @@ void draw_coast_halo(HDC hdc, RECT client, MapLayout layout) {
     pixels = begin_overlay(hdc, &memory_dc, &bitmap, &old_bitmap);
     if (!pixels) return;
     build_land_mask();
-    blur_current_mask(1);
+    filter_current_mask(1, 6, 3);
+    blur_current_mask(3);
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             int idx = y * MAP_W + x;
             int alpha;
             if (is_land(world[y][x].geography)) continue;
-            alpha = clamp(mask_a[idx] - 28, 0, 110) * 34 / 110;
+            alpha = clamp(mask_a[idx] - 22, 0, 112) * 28 / 112;
             if (alpha > 0) pixels[idx] = premul(RGB(142, 190, 177), alpha);
         }
     }
@@ -348,8 +378,8 @@ void draw_country_border_paths(HDC hdc, RECT client, MapLayout layout) {
     HBITMAP old_bitmap;
     unsigned int *pixels;
     int i;
-    int outer = layout.tile_size >= 7 ? 4 : 3;
-    int inner = layout.tile_size >= 7 ? 2 : 1;
+    int outer = layout.tile_size >= 7 ? 3 : 2;
+    int inner = 1;
 
     (void)client;
     pixels = begin_vector_layer(hdc, &memory_dc, &bitmap, &old_bitmap);
@@ -358,11 +388,12 @@ void draw_country_border_paths(HDC hdc, RECT client, MapLayout layout) {
     for (i = 0; i < civ_count; i++) {
         if (!civs[i].alive) continue;
         build_owner_mask(i);
-        blur_current_mask(1);
+        filter_current_mask(1, 6, 3);
+        blur_current_mask(2);
         draw_iso_mask(memory_dc, layout, RGB(42, 38, 31), outer);
         draw_iso_mask(memory_dc, layout, blend_color(civs[i].color, RGB(50, 40, 32), 20), inner);
     }
-    finish_vector_layer(hdc, layout, memory_dc, bitmap, old_bitmap, pixels, 145);
+    finish_vector_layer(hdc, layout, memory_dc, bitmap, old_bitmap, pixels, 132);
 }
 
 void draw_coastline_paths(HDC hdc, RECT client, MapLayout layout) {
@@ -370,7 +401,7 @@ void draw_coastline_paths(HDC hdc, RECT client, MapLayout layout) {
     HBITMAP bitmap;
     HBITMAP old_bitmap;
     unsigned int *pixels;
-    int outer = layout.tile_size >= 7 ? 3 : 2;
+    int outer = 2;
     int inner = 1;
 
     (void)client;
@@ -378,10 +409,11 @@ void draw_coastline_paths(HDC hdc, RECT client, MapLayout layout) {
     if (!pixels) return;
     SetBkMode(memory_dc, TRANSPARENT);
     build_land_mask();
-    blur_current_mask(1);
+    filter_current_mask(1, 6, 3);
+    blur_current_mask(2);
     draw_iso_mask(memory_dc, layout, RGB(24, 45, 39), outer);
     draw_iso_mask(memory_dc, layout, RGB(64, 112, 94), inner);
-    finish_vector_layer(hdc, layout, memory_dc, bitmap, old_bitmap, pixels, 125);
+    finish_vector_layer(hdc, layout, memory_dc, bitmap, old_bitmap, pixels, 112);
 }
 
 void draw_map_grid_overlay(HDC hdc, RECT client, MapLayout layout) {

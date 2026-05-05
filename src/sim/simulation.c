@@ -1,5 +1,6 @@
 ﻿#include "sim/simulation.h"
 
+#include "core/dirty_flags.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
 #include "sim/expansion.h"
@@ -161,7 +162,14 @@ void world_invalidate_region_cache(void) {
     province_invalidate_region_cache();
     country_summary_dirty = 1;
     population_mark_dirty();
+    dirty_mark_territory();
     world_visual_revision++;
+}
+
+void world_invalidate_population_cache(void) {
+    province_invalidate_region_summary();
+    country_summary_dirty = 1;
+    population_mark_dirty();
 }
 
 int city_for_tile(int x, int y) {
@@ -240,6 +248,7 @@ int add_civilization_at(const char *name, char symbol, int aggression, int expan
     int city_id;
     Civilization *civ;
 
+    if (!world_generated) return 0;
     if (civ_count >= MAX_CIVS) return 0;
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H || !is_land(world[y][x].geography) ||
         world[y][x].owner != -1 || world[y][x].province_id != -1 ||
@@ -300,167 +309,6 @@ void simulation_seed_default_civilizations(void) {
     }
 }
 
-static void update_city_growth_and_regions(void) {
-    population_update_month();
-    province_invalidate_region_cache();
-}
-
-static void random_event(char *log, size_t log_size) {
-    int id;
-    Civilization *civ;
-
-    if (civ_count == 0 || rnd(100) > 18) return;
-    id = rnd(civ_count);
-    civ = &civs[id];
-    if (!civ->alive) return;
-
-    switch (rnd(5)) {
-        case 0:
-            append_log(log, log_size, "Festival in %s. ", civ->name);
-            break;
-        case 1:
-            if (plague_seed_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
-            break;
-        case 2:
-            civ->defense = clamp(civ->defense + 1, 0, 10);
-            civ->disorder_stability = clamp(civ->disorder_stability + 1, 0, 10);
-            civ->disorder = clamp(civ->disorder - 1, 0, 10);
-            append_log(log, log_size, "%s fortified borders. ", civ->name);
-            break;
-        case 3:
-            civ->aggression = clamp(civ->aggression + 1, 0, 10);
-            append_log(log, log_size, "%s became ambitious. ", civ->name);
-            break;
-        default:
-            civ->expansion = clamp(civ->expansion + 1, 0, 10);
-            civ->disorder_migration = clamp(civ->disorder_migration + 1, 0, 10);
-            civ->disorder = clamp(civ->disorder + 1, 0, 10);
-            append_log(log, log_size, "%s started migrating. ", civ->name);
-            break;
-    }
-}
-
-static int living_civilizations(void) {
-    int i;
-    int living = 0;
-    for (i = 0; i < civ_count; i++) {
-        if (civs[i].alive) living++;
-    }
-    return living;
-}
-
-static void compute_owned_resource_scores(int scores[MAX_CIVS]) {
-    int totals[MAX_CIVS] = {0};
-    int counts[MAX_CIVS] = {0};
-    int i;
-    int x;
-    int y;
-
-    for (i = 0; i < MAX_CIVS; i++) scores[i] = 0;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int owner = world[y][x].owner;
-            if (owner >= 0 && owner < civ_count && civs[owner].alive) {
-                TerrainStats stats = tile_stats(x, y);
-                totals[owner] += stats.food + stats.livestock + stats.wood + stats.stone +
-                                 stats.minerals + stats.water + stats.pop_capacity + stats.money +
-                                 stats.habitability;
-                counts[owner]++;
-            }
-        }
-    }
-    for (i = 0; i < civ_count; i++) {
-        scores[i] = counts[i] > 0 ? totals[i] / (counts[i] * 2) : 0;
-    }
-}
-
-static int compute_dynamic_adaptation(int civ_id, int resource_score) {
-    CountrySummary summary = summarize_country(civ_id);
-    Civilization *civ = &civs[civ_id];
-    int resource_diversity = 0;
-    int hardship;
-    int social_capacity;
-    int instability;
-    int score;
-
-    if (summary.food >= 5) resource_diversity++;
-    if (summary.livestock >= 5) resource_diversity++;
-    if (summary.wood >= 5) resource_diversity++;
-    if (summary.stone >= 5) resource_diversity++;
-    if (summary.minerals >= 5) resource_diversity++;
-    if (summary.water >= 5) resource_diversity++;
-    if (summary.money >= 5) resource_diversity++;
-
-    hardship = clamp(10 - summary.habitability, 0, 10) +
-               clamp(5 - summary.food, 0, 5) +
-               clamp(5 - summary.water, 0, 5);
-    social_capacity = civ->culture + civ->cohesion + civ->logistics + civ->innovation;
-    instability = civ->disorder + civ->disorder_plague / 2 + civ->disorder_migration / 2;
-    score = social_capacity / 4 + hardship / 3 + resource_diversity / 2 +
-            clamp(18 - resource_score, 0, 10) / 3 - instability / 2;
-    return clamp(score, 0, 10);
-}
-
-void simulate_one_month(void) {
-    int i;
-    int city_count_before_expansion;
-    int resource_scores[MAX_CIVS];
-    char log[512];
-
-    log[0] = '\0';
-    population_sync_all();
-    compute_owned_resource_scores(resource_scores);
-    for (i = 0; i < civ_count; i++) {
-        Civilization *civ = &civs[i];
-        int resources;
-        int pressure;
-        int pressure_disorder;
-        int scarcity_disorder;
-        if (!civ->alive) continue;
-        resources = resource_scores[i];
-        pressure = population_pressure_for_civ(i);
-        pressure_disorder = clamp((pressure - 95) / 12, 0, 10);
-        scarcity_disorder = clamp(12 - resources, 0, 10) / 2;
-        civ->disorder_resource = clamp(pressure_disorder + scarcity_disorder -
-                                       civ->governance / 5 - civ->logistics / 6, 0, 10);
-        civ->disorder_plague = clamp(civ->disorder_plague - 1, 0, 10);
-        civ->disorder_migration = clamp(civ->disorder_migration - 1, 0, 10);
-        civ->disorder_stability = clamp(civ->disorder_stability - 1, 0, 10);
-        civ->disorder = clamp(civ->disorder + (civ->disorder_resource > 5 ? 1 : -1) +
-                              civ->disorder_plague / 4 + civ->disorder_migration / 5 -
-                              civ->governance / 8 - civ->cohesion / 8, 0, 10);
-        civ->adaptation = compute_dynamic_adaptation(i, resources);
-    }
-
-    update_city_growth_and_regions();
-    ports_update_migration();
-    country_summary_dirty = 1;
-    city_count_before_expansion = city_count;
-    for (i = 0; i < civ_count; i++) {
-        if (!civs[i].alive) continue;
-        expansion_update_civilization(i, resource_scores[i], log, sizeof(log));
-    }
-    if (city_count != city_count_before_expansion) {
-        ports_refresh_city_regions();
-        maritime_mark_routes_dirty();
-        maritime_ensure_routes();
-        diplomacy_mark_contacts_dirty();
-    }
-    plague_update_month();
-
-    random_event(log, sizeof(log));
-    recalculate_territory();
-    diplomacy_update_contacts();
-    month++;
-    if (month > 12) {
-        month = 1;
-        year = clamp(year + 1, 0, 99999);
-        diplomacy_update_year();
-        war_update_year();
-    }
-    if (living_civilizations() <= 1) auto_run = 0;
-}
-
 void simulation_reset_state(void) {
     year = 0;
     month = 1;
@@ -484,5 +332,5 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
     civ->expansion = clamp(expansion, 0, 10);
     civ->defense = clamp(defense, 0, 10);
     civ->culture = clamp(culture, 0, 10);
-    world_visual_revision++;
+    dirty_mark_labels();
 }

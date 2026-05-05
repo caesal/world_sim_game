@@ -11,7 +11,7 @@
 #include "sim_types.h"
 
 typedef struct {
-    Tile (*world)[MAP_W];
+    Tile (*world)[MAX_MAP_W];
     Civilization *civs;
     City *cities;
     int *civ_count;
@@ -51,7 +51,7 @@ typedef struct {
     int *map_legend_collapsed;
 } GameState;
 
-extern Tile world[MAP_H][MAP_W];
+extern Tile world[MAX_MAP_H][MAX_MAP_W];
 extern RiverPath river_paths[MAX_RIVER_PATHS];
 extern MaritimeRoute maritime_routes[MAX_MARITIME_ROUTES];
 extern Civilization civs[MAX_CIVS];
@@ -96,6 +96,11 @@ extern int map_offset_y;
 extern int map_legend_collapsed;
 extern int map_interaction_preview;
 extern int world_visual_revision;
+extern int map_w;
+extern int map_h;
+extern int map_size_index;
+extern int pending_map_size;
+extern int world_generated;
 
 extern const int SPEED_MS[3];
 extern const char *SPEED_NAMES[3];
@@ -108,5 +113,7 @@ int rnd(int max);
 void append_log(char *log, size_t log_size, const char *format, ...);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
 int point_in_rect(RECT rect, int x, int y);
+void map_size_dimensions(int size, int *out_w, int *out_h);
+void set_active_map_size(int size);
 
 #endif

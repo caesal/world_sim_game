@@ -3,6 +3,19 @@
 
 #include "core/game_types.h"
 
+enum {
+    WORLD_GEN_DEFAULT_OCEAN = 50,
+    WORLD_GEN_DEFAULT_CONTINENT = 50,
+    WORLD_GEN_DEFAULT_RELIEF = 50,
+    WORLD_GEN_DEFAULT_MOISTURE = 50,
+    WORLD_GEN_DEFAULT_DROUGHT = 50,
+    WORLD_GEN_DEFAULT_VEGETATION = 50,
+    WORLD_GEN_DEFAULT_BIAS_FOREST = 50,
+    WORLD_GEN_DEFAULT_BIAS_DESERT = 50,
+    WORLD_GEN_DEFAULT_BIAS_MOUNTAIN = 50,
+    WORLD_GEN_DEFAULT_BIAS_WETLAND = 50
+};
+
 typedef struct {
     int ocean;
     int continent;
@@ -15,6 +28,8 @@ typedef struct {
     int bias_mountain;
     int bias_wetland;
 } WorldGenConfig;
+
+extern const WorldGenConfig DEFAULT_WORLD_GEN_CONFIG;
 
 void generate_world_with_config(const WorldGenConfig *config);
 

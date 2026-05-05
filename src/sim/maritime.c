@@ -1,5 +1,6 @@
 #include "maritime.h"
 
+#include "core/dirty_flags.h"
 #include "sim/population.h"
 #include "sim/plague.h"
 #include "sim/ports.h"
@@ -15,11 +16,11 @@
 #define MARITIME_MAX_SEARCH_NODES 52000
 #define MARITIME_TARGET_KEEP 8
 
-static POINT sea_queue[MAP_W * MAP_H];
+static POINT sea_queue[MAX_MAP_W * MAX_MAP_H];
 static POINT raw_path[MARITIME_MAX_ROUTE_DISTANCE + 2];
-static unsigned short sea_dist[MAP_H][MAP_W];
-static int sea_mark[MAP_H][MAP_W];
-static signed char sea_prev_dir[MAP_H][MAP_W];
+static unsigned short sea_dist[MAX_MAP_H][MAX_MAP_W];
+static int sea_mark[MAX_MAP_H][MAX_MAP_W];
+static signed char sea_prev_dir[MAX_MAP_H][MAX_MAP_W];
 static int sea_mark_id = 1;
 static int maritime_routes_dirty = 1;
 
@@ -37,7 +38,7 @@ void maritime_reset(void) {
     memset(maritime_routes, 0, sizeof(maritime_routes));
     maritime_route_count = 0;
     maritime_routes_dirty = 1;
-    world_visual_revision++;
+    dirty_mark_maritime();
 }
 
 void maritime_mark_routes_dirty(void) {
@@ -242,7 +243,7 @@ void maritime_rebuild_routes(void) {
         }
     }
     maritime_routes_dirty = 0;
-    world_visual_revision++;
+    dirty_mark_maritime();
 }
 
 int maritime_route_between_cities(int city_a, int city_b, int *distance) {
@@ -293,7 +294,7 @@ void maritime_update_migration(void) {
             }
         }
     }
-    if (changed) world_invalidate_region_cache();
+    if (changed) world_invalidate_population_cache();
 }
 
 int maritime_has_contact(int civ_a, int civ_b) {

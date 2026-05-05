@@ -16,6 +16,7 @@ int world_create_city(int owner, int x, int y, int population, int capital);
 void world_claim_city_region(int city_id, int owner);
 void world_recalculate_territory(void);
 void world_invalidate_region_cache(void);
+void world_invalidate_population_cache(void);
 int add_civilization_at(const char *name, char symbol, int aggression, int expansion,
                         int defense, int culture, int preferred_x, int preferred_y);
 void simulation_reset_state(void);

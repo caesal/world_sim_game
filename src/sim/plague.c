@@ -1,5 +1,6 @@
 #include "plague.h"
 
+#include "core/dirty_flags.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
@@ -36,7 +37,7 @@ int plague_seed_city(int city_id, int severity, int months) {
     if (state->active) {
         state->severity = clamp(state->severity + severity / 3, 1, 10);
         state->months_left = clamp(state->months_left + months / 3, 1, PLAGUE_MAX_DURATION);
-        world_visual_revision++;
+        dirty_mark_plague();
         return 1;
     }
     state->active = 1;
@@ -45,7 +46,7 @@ int plague_seed_city(int city_id, int severity, int months) {
     state->months_left = clamp(months, PLAGUE_MIN_DURATION, PLAGUE_MAX_DURATION);
     state->origin_city = city_id;
     state->age_months = 0;
-    world_visual_revision++;
+    dirty_mark_plague();
     return 1;
 }
 
@@ -119,7 +120,7 @@ static void try_infect_city(int source_city, int target_city, int chance, int ro
                      PLAGUE_MIN_DURATION + rnd(8));
     if (route_id >= 0 && route_id < MAX_MARITIME_ROUTES) {
         route_exposure[route_id] = clamp(route_exposure[route_id] + city_plagues[source_city].severity + 2, 0, 10);
-        world_visual_revision++;
+        dirty_mark_plague();
     }
 }
 
@@ -155,7 +156,7 @@ static void spread_by_maritime_from_city(int source_city) {
         else if (route->to_city == source_city) target = route->from_city;
         if (!valid_city(target)) continue;
         route_exposure[i] = clamp(route_exposure[i] + severity / 2, 0, 10);
-        world_visual_revision++;
+        dirty_mark_plague();
         chance = severity * 3 + clamp(42 - route->distance / 10, 0, 34);
         if (cities[target].owner == cities[source_city].owner) chance += 4;
         try_infect_city(source_city, target, chance, i);
@@ -235,14 +236,17 @@ void plague_update_month(void) {
     int i;
     int any_change = 0;
 
-    if (decay_route_exposure()) world_visual_revision++;
+    if (decay_route_exposure()) {
+        dirty_mark_plague();
+    }
     decay_city_immunity();
     for (i = 0; i < city_count; i++) update_active_city(i, active_by_civ, severity_by_civ, deaths_by_civ, &any_change);
     apply_plague_disorder(active_by_civ, severity_by_civ, deaths_by_civ);
     if (rnd(1000) < 10) any_change |= plague_seed_random_outbreak();
     if (any_change) {
+        dirty_mark_plague();
         population_sync_all();
-        world_invalidate_region_cache();
+        world_invalidate_population_cache();
     }
 }
 

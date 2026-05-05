@@ -94,10 +94,7 @@ static void add_civ_from_form(HWND hwnd) {
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
-static int selected_tile_owner(void) {
-    if (selected_x < 0 || selected_y < 0) return -1;
-    return world[selected_y][selected_x].owner;
-}
+static int selected_tile_owner(void) { return selected_x < 0 || selected_y < 0 ? -1 : world[selected_y][selected_x].owner; }
 
 static void apply_form_to_selected_civ(HWND hwnd) {
     char name[NAME_LEN];
@@ -143,7 +140,7 @@ static void layout_form_controls(HWND hwnd) {
     panel_x = client.right - side_panel_w + FORM_X_PAD;
     y = client.bottom - 214;
 
-    MoveWindow(form.initial_civs_edit, panel_x + 150, TOP_BAR_H + 254, 48, 24, TRUE);
+    MoveWindow(form.initial_civs_edit, panel_x + 150, TOP_BAR_H + 300, 48, 24, TRUE);
     MoveWindow(form.name_edit, panel_x, y, 160, 24, TRUE);
     MoveWindow(form.symbol_edit, panel_x + 176, y, 50, 24, TRUE);
     y += 60;
@@ -170,7 +167,7 @@ static void create_form_controls(HWND hwnd) {
     form.expansion_edit = create_edit(hwnd, "5");
     form.defense_edit = create_edit(hwnd, "5");
     form.culture_edit = create_edit(hwnd, "5");
-    form.initial_civs_edit = create_edit(hwnd, "4");
+    form.initial_civs_edit = create_edit(hwnd, "0");
     form.add_button = CreateWindowA("BUTTON", "Add Civilization", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
                                     0, 0, 140, 30, hwnd, (HMENU)ID_ADD_BUTTON, GetModuleHandle(NULL), NULL);
     form.apply_button = CreateWindowA("BUTTON", "Apply Selected", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
@@ -185,6 +182,7 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     int y;
     int owner;
 
+    if (!world_generated) return;
     GetClientRect(hwnd, &client);
     layout = get_map_layout(client);
     if (mouse_x < layout.map_x || mouse_y < layout.map_y ||
@@ -206,11 +204,7 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
-static void set_speed(HWND hwnd, int index) {
-    speed_index = clamp(index, 0, 2);
-    KillTimer(hwnd, TIMER_ID);
-    SetTimer(hwnd, TIMER_ID, SPEED_MS[speed_index], NULL);
-}
+static void set_speed(int index) { speed_index = clamp(index, 0, 2); }
 
 static void read_world_setup_controls(void) {
     if (form.initial_civs_edit) {
@@ -243,7 +237,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     for (i = 0; i < 3; i++) {
         if (point_in_rect(get_speed_button_rect(client, i), mouse_x, mouse_y)) {
-            set_speed(hwnd, i);
+            set_speed(i);
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -260,6 +254,13 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         for (i = 0; i < 4; i++) {
             if (point_in_rect(get_mode_button_rect(client, i), mouse_x, mouse_y)) {
                 display_mode = MAP_DISPLAY_MODES[i];
+                InvalidateRect(hwnd, NULL, FALSE);
+                return;
+            }
+        }
+        for (i = 0; i < MAP_SIZE_COUNT; i++) {
+            if (point_in_rect(get_map_size_button_rect(client, i), mouse_x, mouse_y)) {
+                pending_map_size = i;
                 InvalidateRect(hwnd, NULL, FALSE);
                 return;
             }
@@ -437,7 +438,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
     switch (msg) {
         case WM_CREATE:
             create_form_controls(hwnd);
-            SetTimer(hwnd, TIMER_ID, SPEED_MS[speed_index], NULL);
+            SetTimer(hwnd, TIMER_ID, FRAME_TIMER_MS, NULL);
             return 0;
         case WM_SIZE:
             side_panel_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);

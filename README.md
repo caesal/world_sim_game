@@ -7,7 +7,7 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.7 is a Windows graphical sandbox prototype written in C.
+Ver0.1.8 is a Windows graphical sandbox prototype written in C.
 
 You can:
 
@@ -76,6 +76,23 @@ You can:
 63. Rebuild maritime routes only when port/city route data is marked dirty
 64. Rebuild diplomacy contact scans only when territory/contact data changes
 65. Skip the full-map plague region overlay when no city has an active plague
+66. Drive rendering from a fixed frame timer while simulation speed controls schedule month ticks through elapsed time
+67. Use a simulation scheduler wrapper so auto-run queues at most one pending month of work per frame
+68. Add central dirty flags for world, territory, province, population, plague, maritime, and label render state
+69. Split population-only cache invalidation from territory/province invalidation so ordinary births, deaths, and migration do not force border/coast cache rebuilds
+70. Draw city markers and plague city cores as lightweight dynamic overlays outside the expensive cached map layer
+71. Start on a blank ungenerated map instead of auto-building a world at launch
+72. Choose Small 640x360, Medium 800x450, or Large 960x540 active map sizes from the Map tab
+73. Default map generation sliders to 50 and default initial civilizations to 0
+74. Use the selected active map dimensions for generation, rendering layout, tile selection, rivers, ports, simulation scans, and map caches
+75. Run monthly simulation through smaller scheduler phases instead of one large frame-blocking step
+76. Use speed-aware scheduler budgets so faster speeds can process more bounded work per frame
+77. Cache terrain, political, coast, and border/static map layers separately so dynamic overlays do not rebuild the whole map
+78. Draw maritime routes and plague overlays as dynamic layers above the static cached map
+79. Animate plague visuals with render-only interpolation, soft dark-green infection clouds, pulsing city cores, and fading infected sea-route intensity
+80. Keep plague rendering read-only from simulation state while still reflecting monthly plague severity
+81. Skip territory recalculation in the monthly phase when expansion did not change ownership or city count
+82. Fix Chinese age-structure labels in the population pyramid
 
 ## Controls
 

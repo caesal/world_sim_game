@@ -1,8 +1,18 @@
 #ifndef WORLD_SIM_CONSTANTS_H
 #define WORLD_SIM_CONSTANTS_H
 
-#define MAP_W 800
-#define MAP_H 600
+#define MAX_MAP_W 960
+#define MAX_MAP_H 540
+#define MAP_SIZE_SMALL 0
+#define MAP_SIZE_MEDIUM 1
+#define MAP_SIZE_LARGE 2
+#define MAP_SIZE_COUNT 3
+#define DEFAULT_MAP_W 800
+#define DEFAULT_MAP_H 450
+extern int map_w;
+extern int map_h;
+#define MAP_W map_w
+#define MAP_H map_h
 #define MAX_CIVS 16
 #define MAX_CITIES 128
 #define NAME_LEN 64
@@ -15,6 +25,7 @@
 #define BOTTOM_BAR_H 44
 #define TIMER_ID 1
 #define MAP_PREVIEW_TIMER_ID 2
+#define FRAME_TIMER_MS 33
 #define FORM_X_PAD 18
 #define CITY_MIN_DISTANCE 18
 #define MAX_POPULATION 2000000000

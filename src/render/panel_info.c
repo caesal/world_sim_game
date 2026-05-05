@@ -68,7 +68,7 @@ static RECT setup_slider_rect(RECT client, int index) {
     int section_gap = index >= WORLD_SLIDER_BIAS_FOREST ? 34 : 0;
     rect.left = x + 158;
     rect.right = client.right - FORM_X_PAD - 8;
-    rect.top = TOP_BAR_H + 292 + index * 34 + section_gap;
+    rect.top = TOP_BAR_H + 344 + index * 34 + section_gap;
     rect.bottom = rect.top + 10;
     return rect;
 }

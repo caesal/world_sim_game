@@ -12,16 +12,20 @@ typedef struct {
     int y;
 } ProvinceFrontierNode;
 
-static int province_cache[MAP_H][MAP_W];
+static int province_cache[MAX_MAP_H][MAX_MAP_W];
 static int province_cache_dirty = 1;
 static RegionSummary region_summary_cache[MAX_CITIES];
 static int region_summary_dirty = 1;
-static int province_claim_cost[MAP_H][MAP_W];
-static int province_border_distance[MAP_H][MAP_W];
-static ProvinceFrontierNode province_frontier[MAP_W * MAP_H];
+static int province_claim_cost[MAX_MAP_H][MAX_MAP_W];
+static int province_border_distance[MAX_MAP_H][MAX_MAP_W];
+static ProvinceFrontierNode province_frontier[MAX_MAP_W * MAX_MAP_H];
 
 void province_invalidate_region_cache(void) {
     province_cache_dirty = 1;
+    region_summary_dirty = 1;
+}
+
+void province_invalidate_region_summary(void) {
     region_summary_dirty = 1;
 }
 

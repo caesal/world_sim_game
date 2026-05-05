@@ -4,13 +4,17 @@ setlocal
 gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\main.c ^
   src\game\game.c ^
+  src\game\game_loop.c ^
   src\core\game_state.c ^
+  src\core\dirty_flags.c ^
   src\data\game_tables.c ^
   src\world\world_gen.c ^
   src\world\terrain_query.c ^
   src\world\world_smoothing.c ^
   src\world\rivers.c ^
   src\sim\simulation.c ^
+  src\sim\simulation_month.c ^
+  src\sim\simulation_scheduler.c ^
   src\world\noise.c ^
   src\world\ports.c ^
   src\sim\ports.c ^
@@ -29,6 +33,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\map_labels.c ^
   src\render\maritime_render.c ^
   src\render\plague_render.c ^
+  src\render\plague_visual.c ^
   src\render\panel_population.c ^
   src\render\panel_info.c ^
   src\render\panel_diplomacy.c ^

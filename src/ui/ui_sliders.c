@@ -21,7 +21,7 @@ RECT setup_slider_rect(HWND hwnd, int index) {
     x = client.right - side_panel_w + FORM_X_PAD;
     rect.left = x + 158;
     rect.right = client.right - FORM_X_PAD - 8;
-    rect.top = TOP_BAR_H + 292 + index * 34 + section_gap;
+    rect.top = TOP_BAR_H + 344 + index * 34 + section_gap;
     rect.bottom = rect.top + 10;
     return rect;
 }

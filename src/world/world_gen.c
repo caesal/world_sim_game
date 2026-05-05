@@ -10,8 +10,9 @@
 #include <string.h>
 #include <time.h>
 
-static const WorldGenConfig DEFAULT_WORLD_GEN_CONFIG = {45, 34, 28, 17, 10, 93, 93, 10, 7, 17};
+const WorldGenConfig DEFAULT_WORLD_GEN_CONFIG = {WORLD_GEN_DEFAULT_OCEAN, WORLD_GEN_DEFAULT_CONTINENT, WORLD_GEN_DEFAULT_RELIEF, WORLD_GEN_DEFAULT_MOISTURE, WORLD_GEN_DEFAULT_DROUGHT, WORLD_GEN_DEFAULT_VEGETATION, WORLD_GEN_DEFAULT_BIAS_FOREST, WORLD_GEN_DEFAULT_BIAS_DESERT, WORLD_GEN_DEFAULT_BIAS_MOUNTAIN, WORLD_GEN_DEFAULT_BIAS_WETLAND};
 static WorldGenConfig gen_config;
+#define COPY_ACTIVE_TILES(dst, src) do { int _row; for (_row = 0; _row < MAP_H; _row++) memcpy((dst)[_row], (src)[_row], (size_t)MAP_W * sizeof((dst)[_row][0])); } while (0)
 
 static int nearby_land_count(int x, int y) {
     int count = 0;
@@ -43,11 +44,11 @@ static int compare_ints(const void *left, const void *right) {
     return (a > b) - (a < b);
 }
 
-static void smooth_field(int field[MAP_H][MAP_W], int passes) {
+static void smooth_field(int field[MAX_MAP_H][MAX_MAP_W], int passes) {
     int pass;
 
     for (pass = 0; pass < passes; pass++) {
-        static int next[MAP_H][MAP_W];
+        static int next[MAX_MAP_H][MAX_MAP_W];
         int y;
         int x;
 
@@ -103,10 +104,10 @@ static int latitude_coldness(int x, int y, int axis) {
     return clamp(100 - edge_dist * 200 / (max_pos > 0 ? max_pos : 1), 0, 100);
 }
 
-static void compute_ocean_distance(int elevation[MAP_H][MAP_W], int sea_level,
-                                   int distance[MAP_H][MAP_W]) {
-    static int queue_x[MAP_W * MAP_H];
-    static int queue_y[MAP_W * MAP_H];
+static void compute_ocean_distance(int elevation[MAX_MAP_H][MAX_MAP_W], int sea_level,
+                                   int distance[MAX_MAP_H][MAX_MAP_W]) {
+    static int queue_x[MAX_MAP_W * MAX_MAP_H];
+    static int queue_y[MAX_MAP_W * MAX_MAP_H];
     int head = 0;
     int tail = 0;
     int x;
@@ -152,8 +153,8 @@ static void compute_ocean_distance(int elevation[MAP_H][MAP_W], int sea_level,
     }
 }
 
-static void compute_rain_shadow(int elevation[MAP_H][MAP_W], int sea_level,
-                                int wind_x, int wind_y, int shadow[MAP_H][MAP_W]) {
+static void compute_rain_shadow(int elevation[MAX_MAP_H][MAX_MAP_W], int sea_level,
+                                int wind_x, int wind_y, int shadow[MAX_MAP_H][MAX_MAP_W]) {
     int x;
     int y;
 
@@ -333,12 +334,12 @@ void generate_world_with_config(const WorldGenConfig *config) {
     int y;
     int x;
     int pass;
-    static int elevation[MAP_H][MAP_W];
-    static int moisture[MAP_H][MAP_W];
-    static int temperature[MAP_H][MAP_W];
-    static int sorted_elevation[MAP_W * MAP_H];
-    static int ocean_distance[MAP_H][MAP_W];
-    static int rain_shadow[MAP_H][MAP_W];
+    static int elevation[MAX_MAP_H][MAX_MAP_W];
+    static int moisture[MAX_MAP_H][MAX_MAP_W];
+    static int temperature[MAX_MAP_H][MAX_MAP_W];
+    static int sorted_elevation[MAX_MAP_W * MAX_MAP_H];
+    static int ocean_distance[MAX_MAP_H][MAX_MAP_W];
+    static int rain_shadow[MAX_MAP_H][MAX_MAP_W];
     int target_land_percent;
     int target_land_tiles;
     int threshold_index;
@@ -463,8 +464,8 @@ void generate_world_with_config(const WorldGenConfig *config) {
     }
 
     for (pass = 0; pass < (gen_config.ocean < 15 ? 5 : 2); pass++) {
-        static Tile next[MAP_H][MAP_W];
-        memcpy(next, world, sizeof(world));
+        static Tile next[MAX_MAP_H][MAX_MAP_W];
+        COPY_ACTIVE_TILES(next, world);
         for (y = 1; y < MAP_H - 1; y++) {
             for (x = 1; x < MAP_W - 1; x++) {
                 int land = nearby_land_count(x, y);
@@ -475,7 +476,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
                 if (!is_land(world[y][x].geography) && land >= (gen_config.ocean < 15 ? 4 : 6)) next[y][x].geography = GEO_PLAIN;
             }
         }
-        memcpy(world, next, sizeof(world));
+        COPY_ACTIVE_TILES(world, next);
     }
 
     for (y = 0; y < MAP_H; y++) {

@@ -1,5 +1,26 @@
 # Version Log
 
+## Ver0.1.8
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.1.8
+2. Split the monthly simulation scheduler further so expansion runs by civilization instead of as one whole-map phase
+3. Split plague, random event, territory, diplomacy, and calendar work into separate monthly scheduler phases
+4. Added speed-aware scheduler budgets so normal and fast speeds can process more bounded work per frame
+5. Skipped monthly territory recalculation when expansion did not change city count or territory revision
+6. Reworked the render cache into separate terrain, political, coast, and border/static-map layers
+7. Moved maritime routes and plague overlays out of the expensive static map cache
+8. Added render-only plague visual interpolation so outbreaks pulse, fade, and breathe between monthly simulation ticks
+9. Changed plague map visualization from flat tile/province tint to soft dark-green infection clouds around infected cities
+10. Made infected maritime routes use smoothly fading plague visual intensity instead of jumping directly with monthly exposure values
+11. Kept plague visual code read-only from simulation state
+12. Fixed Chinese population-pyramid labels for age structure, male, female, children, working age, elderly, fertile, recruitable, and pressure
+13. Updated `Makefile` and `build.bat` for the new render and scheduler modules
+14. Verified the project builds with `build.bat`
+15. Verified no `.c` or `.h` file exceeds the 500-line rule
+16. Verified no `.c` file includes another `.c` file
+
 ## Ver0.1.7
 
 Implemented fixes:
@@ -21,6 +42,18 @@ Implemented fixes:
 15. Verified the project builds with `build.bat`
 16. Verified no `.c` or `.h` file exceeds the 500-line rule
 17. Verified no `.c` file includes another `.c` file
+18. Added a fixed-frame runtime tick so rendering stays decoupled from month-speed intervals
+19. Added a simulation scheduler wrapper that caps auto-run backlog to one pending month per frame
+20. Added central dirty-flag APIs for world, territory, province, population, plague, maritime, labels, and render layers
+21. Marked dirty state at world reset, territory changes, civilization edits, population changes, plague changes, and maritime route changes
+22. Split population-only cache invalidation from region/territory invalidation so births, deaths, casualties, and migration update summaries without rebuilding province ownership caches
+23. Moved city markers and plague city cores out of the expensive cached map layer so dynamic population visuals redraw cheaply
+24. Kept the old `simulate_one_month()` entry point available while routing auto-run through the scheduler foundation
+25. Added selectable active map sizes: Small 640x360, Medium 800x450, and Large 960x540
+26. Changed startup to a blank ungenerated map state so the player explicitly generates from the Map tab or with F5
+27. Changed generation defaults to centered sliders at 50 and initial civilizations at 0
+28. Added active map dimension globals over max-size 960x540 static storage so the first variable-size pass avoids a risky full dynamic allocation rewrite
+29. Updated world generation, rendering layout, tile hit tests, rivers, ports, and simulation scans to use the active map dimensions
 
 ## Ver0.1.6
 

@@ -42,10 +42,10 @@ int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int c
 
     (void)client;
     SelectObject(hdc, body_font);
-    draw_text_line(hdc, x, y, tr("Age Structure", "年龄结构"), RGB(205, 214, 222));
+    draw_text_line(hdc, x, y, tr("Age Structure", "\u5E74\u9F84\u7ED3\u6784"), RGB(205, 214, 222));
     y += 20;
-    draw_text_line(hdc, center - bar_w / 2 - 24, y, tr("Male", "男"), RGB(178, 190, 202));
-    draw_text_line(hdc, center + 40, y, tr("Female", "女"), RGB(178, 190, 202));
+    draw_text_line(hdc, center - bar_w / 2 - 24, y, tr("Male", "\u7537"), RGB(178, 190, 202));
+    draw_text_line(hdc, center + 40, y, tr("Female", "\u5973"), RGB(178, 190, 202));
     y += 18;
 
     for (i = POP_COHORT_COUNT - 1; i >= 0; i--) {
@@ -60,15 +60,15 @@ int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int c
     }
     y += 6;
     snprintf(text, sizeof(text), "%s %d  %s %d  %s %d",
-             tr("Children", "儿童"), summary.children,
-             tr("Working", "劳力"), summary.working,
-             tr("Elder", "老人"), summary.elder);
+             tr("Children", "\u513F\u7AE5"), summary.children,
+             tr("Working", "\u52B3\u529B"), summary.working,
+             tr("Elder", "\u8001\u4EBA"), summary.elder);
     draw_text_line(hdc, x, y, text, RGB(178, 190, 202));
     y += 18;
     snprintf(text, sizeof(text), "%s %d  %s %d  %s %d%%",
-             tr("Fertile", "育龄"), summary.fertile,
-             tr("Recruitable", "征召"), summary.recruitable,
-             tr("Pressure", "压力"), summary.pressure);
+             tr("Fertile", "\u80B2\u9F84"), summary.fertile,
+             tr("Recruitable", "\u5F81\u53EC"), summary.recruitable,
+             tr("Pressure", "\u538B\u529B"), summary.pressure);
     draw_text_line(hdc, x, y, text, RGB(178, 190, 202));
     return y + 24;
 }

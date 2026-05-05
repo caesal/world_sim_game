@@ -6,6 +6,7 @@
 #include "icons.h"
 #include "map_labels.h"
 #include "plague_render.h"
+#include "plague_visual.h"
 #include "core/version.h"
 #include "data/game_tables.h"
 #include "sim/simulation.h"

@@ -2,6 +2,9 @@
 
 static void draw_map_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font) {
     int y = TOP_BAR_H + 58;
+    const char *size_en[3] = {"Small", "Medium", "Large"};
+    const char *size_zh[3] = {"小", "中", "大"};
+    int i;
 
     SelectObject(hdc, title_font);
     draw_text_line(hdc, x, y, tr("Map View", "地图视角"), RGB(245, 245, 245));
@@ -12,14 +15,20 @@ static void draw_map_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
     SelectObject(hdc, title_font);
     draw_text_line(hdc, x, y, tr("World Generation", "世界生成"), RGB(245, 245, 245));
     SelectObject(hdc, body_font);
-    draw_text_line(hdc, x, y + 30, tr("Initial civilizations", "初始文明数量"), RGB(200, 210, 218));
+    draw_text_line(hdc, x, y + 30, tr("Map size", "地图大小"), RGB(200, 210, 218));
+    for (i = 0; i < 3; i++) {
+        RECT button = get_map_size_button_rect(client, i);
+        fill_rect(hdc, button, i == pending_map_size ? RGB(76, 95, 112) : RGB(35, 45, 54));
+        draw_center_text(hdc, button, ui_language == UI_LANG_ZH ? size_zh[i] : size_en[i], RGB(236, 242, 246));
+    }
+    draw_text_line(hdc, x, y + 92, tr("Initial civilizations", "初始文明数量"), RGB(200, 210, 218));
     draw_setup_slider(hdc, client, WORLD_SLIDER_OCEAN, tr("Ocean", "海陆比例"), ocean_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_CONTINENT, tr("Fragment", "大陆破碎"), continent_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_RELIEF, tr("Relief", "地势起伏"), relief_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_MOISTURE, tr("Moisture", "湿润度"), moisture_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_DROUGHT, tr("Drought", "干旱度"), drought_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_VEGETATION, tr("Vegetation", "植被密度"), vegetation_slider);
-    draw_text_line(hdc, x, TOP_BAR_H + 496, tr("Advanced Terrain Bias", "高级地形偏好"), RGB(245, 245, 245));
+    draw_text_line(hdc, x, TOP_BAR_H + 558, tr("Advanced Terrain Bias", "高级地形偏好"), RGB(245, 245, 245));
     draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_FOREST, tr("Forest", "森林"), bias_forest_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_DESERT, tr("Desert", "沙漠"), bias_desert_slider);
     draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_MOUNTAIN, tr("Mountain", "山脉"), bias_mountain_slider);

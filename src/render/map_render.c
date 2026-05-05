@@ -5,6 +5,8 @@ typedef struct {
     HBITMAP bitmap;
     HBITMAP old_bitmap;
     unsigned int *pixels;
+    int width;
+    int height;
     int display;
     int revision;
     int valid;
@@ -24,7 +26,8 @@ static void release_base_surface_cache(void) {
 static int ensure_base_surface_cache(HDC hdc) {
     BITMAPINFO info;
 
-    if (base_surface_cache.dc && base_surface_cache.bitmap && base_surface_cache.pixels) return 1;
+    if (base_surface_cache.dc && base_surface_cache.bitmap && base_surface_cache.pixels &&
+        base_surface_cache.width == MAP_W && base_surface_cache.height == MAP_H) return 1;
     release_base_surface_cache();
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
@@ -41,6 +44,8 @@ static int ensure_base_surface_cache(HDC hdc) {
         return 0;
     }
     base_surface_cache.old_bitmap = SelectObject(base_surface_cache.dc, base_surface_cache.bitmap);
+    base_surface_cache.width = MAP_W;
+    base_surface_cache.height = MAP_H;
     return 1;
 }
 

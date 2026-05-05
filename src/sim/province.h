@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 
 void province_invalidate_region_cache(void);
+void province_invalidate_region_summary(void);
 int province_city_for_tile(int x, int y);
 RegionSummary province_summarize_city_region(int city_id);
 int province_city_too_close(int x, int y, int min_distance);
