@@ -49,6 +49,9 @@ typedef struct {
     int *map_offset_x;
     int *map_offset_y;
     int *map_legend_collapsed;
+    int *plague_fog_alpha;
+    int *region_size_slider;
+    int *worldgen_scroll_offset;
 } GameState;
 
 extern Tile world[MAX_MAP_H][MAX_MAP_W];
@@ -94,6 +97,9 @@ extern int map_zoom_percent;
 extern int map_offset_x;
 extern int map_offset_y;
 extern int map_legend_collapsed;
+extern int plague_fog_alpha;
+extern int region_size_slider;
+extern int worldgen_scroll_offset;
 extern int map_interaction_preview;
 extern int world_visual_revision;
 extern int map_w;
@@ -104,9 +110,9 @@ extern int world_generated;
 
 extern const int SPEED_MS[3];
 extern const char *SPEED_NAMES[3];
-extern const COLORREF CIV_COLORS[MAX_CIVS];
-extern const int MAP_DISPLAY_MODES[4];
-extern const char *MAP_DISPLAY_NAMES[4];
+extern const Color32 CIV_COLORS[MAX_CIVS];
+extern const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT];
+extern const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT];
 
 int clamp(int value, int min, int max);
 int rnd(int max);

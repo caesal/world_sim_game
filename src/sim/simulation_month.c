@@ -185,12 +185,21 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
         case SIM_MONTH_EXPANSION:
             while (state->expansion_civ < civ_count) {
-                int civ_id = state->expansion_civ++;
-                if (civs[civ_id].alive) {
-                    expansion_update_civilization(civ_id, state->resource_scores[civ_id],
-                                                  state->log, sizeof(state->log));
+                int civ_id = state->expansion_civ;
+
+                if (!civs[civ_id].alive) {
+                    state->expansion_civ++;
+                    continue;
+                }
+                if (expansion_work_done(&state->expansion_work)) {
+                    expansion_work_begin(&state->expansion_work, civ_id, state->resource_scores[civ_id]);
+                }
+                expansion_work_step(&state->expansion_work, state->log, sizeof(state->log));
+                if (!expansion_work_done(&state->expansion_work)) {
                     return 1;
                 }
+                state->expansion_civ++;
+                return 1;
             }
             if (world_visual_revision != state->territory_revision_before_expansion ||
                 city_count != state->city_count_before_expansion) {

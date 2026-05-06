@@ -14,15 +14,20 @@ int world_select_city_site_in_province(int city_id, int min_border_distance, int
                                        int *out_x, int *out_y);
 int world_create_city(int owner, int x, int y, int population, int capital);
 void world_claim_city_region(int city_id, int owner);
+void world_mark_province_partition_dirty(int owner);
 void world_recalculate_territory(void);
 void world_invalidate_region_cache(void);
 void world_invalidate_population_cache(void);
-int add_civilization_at(const char *name, char symbol, int aggression, int expansion,
-                        int defense, int culture, int preferred_x, int preferred_y);
+int add_civilization_at(const char *name, char symbol, int military, int logistics,
+                        int governance, int cohesion, int production, int commerce,
+                        int innovation, int preferred_x, int preferred_y);
 void simulation_reset_state(void);
 void simulation_seed_default_civilizations(void);
 void simulation_apply_civilization_edit(int civ_id, const char *name, char symbol,
-                                        int aggression, int expansion, int defense, int culture);
+                                        int military, int logistics,
+                                        int governance, int cohesion,
+                                        int production, int commerce,
+                                        int innovation);
 void simulate_one_month(void);
 
 #endif

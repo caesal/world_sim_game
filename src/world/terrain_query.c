@@ -1,9 +1,13 @@
 ﻿#include "terrain_query.h"
 
+#include "core/game_types.h"
 #include "data/game_tables.h"
 
 #include <stdlib.h>
 #include <string.h>
+
+static TerrainStats tile_stats_cache[MAX_MAP_H][MAX_MAP_W];
+static int tile_stats_cache_valid = 0;
 
 static void add_table_stats(TerrainStats *stats, TableStats delta) {
     stats->food += delta.food;
@@ -89,7 +93,7 @@ static int is_coastal_land_tile(int x, int y) {
     return is_land(world[y][x].geography) && sea_water_near_land(x, y, 2);
 }
 
-TerrainStats tile_stats(int x, int y) {
+static TerrainStats compute_tile_stats_uncached(int x, int y) {
     TerrainStats stats = terrain_stats_base(world[y][x].geography, world[y][x].climate, world[y][x].river);
     int variation = world[y][x].resource_variation - 50;
     int base_habitability = stats.habitability;
@@ -113,6 +117,31 @@ TerrainStats tile_stats(int x, int y) {
     if (world[y][x].river) stats.defense = clamp(stats.defense + 1, 0, 8);
     clamp_terrain_stats(&stats);
     return stats;
+}
+
+void terrain_stats_invalidate_cache(void) {
+    tile_stats_cache_valid = 0;
+}
+
+void terrain_stats_rebuild_cache(void) {
+    int x;
+    int y;
+
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            tile_stats_cache[y][x] = compute_tile_stats_uncached(x, y);
+        }
+    }
+    tile_stats_cache_valid = 1;
+}
+
+TerrainStats tile_stats(int x, int y) {
+    TerrainStats empty;
+
+    memset(&empty, 0, sizeof(empty));
+    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return empty;
+    if (!tile_stats_cache_valid) terrain_stats_rebuild_cache();
+    return tile_stats_cache[y][x];
 }
 
 static int tile_cost(int x, int y) {

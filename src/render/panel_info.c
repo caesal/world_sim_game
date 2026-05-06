@@ -1,12 +1,15 @@
-﻿#include "render_internal.h"
+﻿#include "render_panel_internal.h"
 
 #include "sim/plague.h"
+#include "sim/regions.h"
+#include "ui/ui_theme.h"
+#include "ui/ui_worldgen_layout.h"
 
 void draw_mode_buttons(HDC hdc, RECT client) {
-    const char *names_en[4] = {"All", "Climate", "Geography", "Political"};
-    const char *names_zh[4] = {"全部", "气候", "地理", "政治"};
+    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political"};
+    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治"};
     int i;
-    for (i = 0; i < 4; i++) {
+    for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);
         int mode = MAP_DISPLAY_MODES[i];
         fill_rect(hdc, button, mode == display_mode ? RGB(49, 63, 76) : RGB(36, 46, 56));
@@ -19,20 +22,20 @@ void draw_top_bar(HDC hdc, RECT client) {
     RECT year_box = {client.right / 2 - 112, 9, client.right / 2 + 112, 50};
     RECT language_button = get_language_button_rect(client);
     char text[80];
-    HFONT title_font = CreateFontA(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, ANSI_CHARSET,
+    HFONT title_font = CreateFontW(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                                   DEFAULT_PITCH | FF_SWISS, "Microsoft YaHei UI");
+                                   DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
     HFONT old_font;
 
-    fill_rect(hdc, bar, RGB(52, 153, 216));
-    fill_rect(hdc, year_box, RGB(42, 42, 42));
+    fill_rect(hdc, bar, ui_theme_color(UI_COLOR_CHROME));
+    fill_rect(hdc, year_box, RGB(38, 43, 42));
     snprintf(text, sizeof(text), "%s %d  %s %d", tr("Year", "年"), year, tr("Month", "月"), month);
     old_font = SelectObject(hdc, title_font);
-    draw_center_text(hdc, year_box, text, RGB(199, 230, 107));
+    draw_center_text(hdc, year_box, text, RGB(222, 205, 132));
     SelectObject(hdc, old_font);
     DeleteObject(title_font);
     draw_text_line(hdc, 18, 20, WORLD_SIM_VERSION_LABEL, RGB(245, 250, 255));
-    fill_rect(hdc, language_button, RGB(39, 81, 111));
+    fill_rect(hdc, language_button, RGB(58, 68, 64));
     draw_center_text(hdc, language_button, ui_language == UI_LANG_ZH ? "中文" : "EN", RGB(245, 250, 255));
 }
 
@@ -51,42 +54,66 @@ const char *capital_name_for_civ(int civ_id) {
 }
 
 void draw_panel_tabs(HDC hdc, RECT client) {
-    const char *names_en[PANEL_TAB_COUNT] = {"Info", "Civ", "Diplomacy", "Map"};
-    const char *names_zh[PANEL_TAB_COUNT] = {"信息", "文明", "外交", "地图"};
+    const char *names_en[PANEL_TAB_COUNT] = {"Select", "Country", "Diplomacy", "Pop", "Plague", "World", "Debug"};
+    const char *names_zh[PANEL_TAB_COUNT] = {"选择", "国家", "外交", "人口", "瘟疫", "世界", "调试"};
     int i;
 
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         RECT tab = get_panel_tab_rect(client, i);
-        fill_rect(hdc, tab, i == panel_tab ? RGB(56, 68, 80) : RGB(39, 47, 56));
+        fill_rect(hdc, tab, i == panel_tab ? RGB(77, 80, 68) : RGB(43, 49, 52));
         draw_center_text(hdc, tab, tr(names_en[i], names_zh[i]), RGB(238, 243, 247));
     }
 }
 
-static RECT setup_slider_rect(RECT client, int index) {
-    RECT rect;
+static WorldgenSliderLayout plague_slider_layout(RECT client) {
+    WorldgenSliderLayout slider;
     int x = client.right - side_panel_w + FORM_X_PAD;
-    int section_gap = index >= WORLD_SLIDER_BIAS_FOREST ? 34 : 0;
-    rect.left = x + 158;
-    rect.right = client.right - FORM_X_PAD - 8;
-    rect.top = TOP_BAR_H + 344 + index * 34 + section_gap;
-    rect.bottom = rect.top + 10;
-    return rect;
+    int width = side_panel_w - FORM_X_PAD * 2 - 8;
+    int y = TOP_BAR_H + 154;
+
+    slider.label.left = x;
+    slider.label.top = y;
+    slider.label.right = x + width - 58;
+    slider.label.bottom = y + 18;
+    slider.value.left = x + width - 50;
+    slider.value.top = y;
+    slider.value.right = x + width;
+    slider.value.bottom = y + 18;
+    slider.track.left = x;
+    slider.track.top = y + 24;
+    slider.track.right = x + width;
+    slider.track.bottom = y + 34;
+    slider.hit.left = x - 8;
+    slider.hit.top = y - 4;
+    slider.hit.right = x + width + 8;
+    slider.hit.bottom = y + 42;
+    return slider;
 }
 
 void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int value) {
-    RECT track = setup_slider_rect(client, index);
-    RECT fill = track;
-    int label_x = client.right - side_panel_w + FORM_X_PAD;
-    int knob_x = track.left + (track.right - track.left) * value / 100;
-    RECT knob = {knob_x - 7, track.top - 8, knob_x + 7, track.top + 18};
-    char text[80];
+    WorldgenLayout layout;
+    WorldgenSliderLayout slider;
+    RECT fill;
+    int knob_x;
+    RECT knob;
     char value_text[16];
 
-    snprintf(text, sizeof(text), "%s", name);
+    if (index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
+        slider = plague_slider_layout(client);
+    } else {
+        worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
+        slider = layout.sliders[index];
+    }
+    fill = slider.track;
+    knob_x = slider.track.left + (slider.track.right - slider.track.left) * value / 100;
+    knob.left = knob_x - 7;
+    knob.top = slider.track.top - 8;
+    knob.right = knob_x + 7;
+    knob.bottom = slider.track.top + 18;
     snprintf(value_text, sizeof(value_text), "%d", value);
-    draw_text_line(hdc, label_x, track.top - 8, text, RGB(205, 214, 222));
-    draw_text_line(hdc, track.left - 28, track.top - 8, value_text, RGB(232, 238, 244));
-    fill_rect(hdc, track, RGB(82, 94, 104));
+    draw_text_rect(hdc, slider.label, name, RGB(205, 214, 222), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, slider.value, value_text, RGB(232, 238, 244), DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
+    fill_rect(hdc, slider.track, RGB(82, 94, 104));
     fill.right = knob_x;
     fill_rect(hdc, fill, RGB(82, 136, 171));
     fill_rect(hdc, knob, RGB(232, 238, 244));
@@ -205,6 +232,9 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         TerrainStats stats = tile_stats(selected_x, selected_y);
         int city_id = city_at(selected_x, selected_y);
         int region_id = city_for_tile(selected_x, selected_y);
+        int natural_region_id = world[selected_y][selected_x].region_id;
+        const NaturalRegion *natural_region = regions_get(natural_region_id);
+        char natural_region_name[80];
         const char *province_name = region_id >= 0 ? cities[region_id].name : tr("Unorganized Land", "未设行省");
         int metric_food = stats.food;
         int metric_livestock = stats.livestock;
@@ -220,6 +250,23 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         int province_tiles = 0;
         int province_population = 0;
 
+        if (region_id < 0 && natural_region) {
+            snprintf(natural_region_name, sizeof(natural_region_name), "%s %d",
+                     tr("Natural Region", "自然区域"), natural_region->id + 1);
+            province_name = natural_region_name;
+            metric_food = natural_region->average_stats.food;
+            metric_livestock = natural_region->average_stats.livestock;
+            metric_wood = natural_region->average_stats.wood;
+            metric_stone = natural_region->average_stats.stone;
+            metric_ore = natural_region->average_stats.minerals;
+            metric_water = natural_region->average_stats.water;
+            metric_pop = natural_region->average_stats.pop_capacity;
+            metric_money = natural_region->average_stats.money;
+            metric_live = natural_region->habitability;
+            metric_attack = natural_region->average_stats.attack;
+            metric_defense = natural_region->average_stats.defense;
+            province_tiles = natural_region->tile_count;
+        }
         if (region_id >= 0) {
             RegionSummary summary = summarize_city_region(region_id);
             metric_food = summary.food;
@@ -267,6 +314,16 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
                 draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 20;
             }
             snprintf(text, sizeof(text), "%s %d  %s %d", tr("Tiles", "地块"), province_tiles, tr("Pop", "人口"), province_population);
+            draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 22;
+        } else if (natural_region) {
+            snprintf(text, sizeof(text), "%s %d  %s: %d,%d",
+                     tr("Tiles", "地块"), province_tiles,
+                     tr("Capital", "首府"), natural_region->capital_x, natural_region->capital_y);
+            draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 20;
+            snprintf(text, sizeof(text), "%s %d  %s %d  %s %d",
+                     tr("Develop", "开发"), natural_region->development_score,
+                     tr("Defense", "防御"), natural_region->natural_defense,
+                     tr("Cradle", "摇篮"), natural_region->cradle_score);
             draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 22;
         } else {
             draw_text_line(hdc, x, y, tr("No province has been established here.", "这里还没有建立行省。"), RGB(180, 190, 198)); y += 22;
@@ -352,13 +409,10 @@ void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font
     }
 
     SelectObject(hdc, title_font);
-    draw_text_line(hdc, x, client.bottom - 262, tr("Civilization Form", "文明表单"), RGB(245, 245, 245));
+    draw_text_line(hdc, x, client.bottom - 116, tr("Civilization Placement", "文明放置"), RGB(245, 245, 245));
     SelectObject(hdc, body_font);
-    draw_text_line(hdc, x, client.bottom - 235, tr("Name", "名字"), RGB(200, 210, 218));
-    draw_text_line(hdc, x + 176, client.bottom - 235, tr("Symbol", "符号"), RGB(200, 210, 218));
-    draw_text_line(hdc, x, client.bottom - 175, tr("Military", "军备"), RGB(200, 210, 218));
-    draw_text_line(hdc, x + 82, client.bottom - 175, tr("Logistics", "后勤"), RGB(200, 210, 218));
-    draw_text_line(hdc, x + 164, client.bottom - 175, tr("Governance", "治理"), RGB(200, 210, 218));
-    draw_text_line(hdc, x + 246, client.bottom - 175, tr("Cohesion", "凝聚"), RGB(200, 210, 218));
-    draw_text_line(hdc, x, client.bottom - 64, tr("F1 add. F2 apply. Select empty land before adding.", "F1 添加，F2 应用。添加前先选空地。"), RGB(160, 171, 180));
+    draw_text_line(hdc, x, client.bottom - 88,
+                   tr("Use the World page controls to add or edit civilizations.",
+                      "使用世界页控件添加或编辑文明。"),
+                   RGB(160, 171, 180));
 }

@@ -1,6 +1,6 @@
 #include "map_labels.h"
 
-#include "render_internal.h"
+#include "render_map_internal.h"
 
 #define MAX_RENDER_LABELS 72
 
@@ -35,7 +35,7 @@ static RECT label_rect_for_text(HDC hdc, int x, int y, const char *text, int pad
     RECT rect;
     SIZE size;
 
-    GetTextExtentPoint32A(hdc, text, (int)strlen(text), &size);
+    measure_text_utf8(hdc, text, &size);
     rect.left = x - pad;
     rect.top = y - pad;
     rect.right = x + size.cx + pad;
@@ -46,15 +46,15 @@ static RECT label_rect_for_text(HDC hdc, int x, int y, const char *text, int pad
 static RECT label_rect_for_centered_text(HDC hdc, int cx, int y, const char *text, int pad) {
     SIZE size;
 
-    GetTextExtentPoint32A(hdc, text, (int)strlen(text), &size);
+    measure_text_utf8(hdc, text, &size);
     return label_rect_for_text(hdc, cx - size.cx / 2, y, text, pad);
 }
 
 static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *used, int *used_count) {
     int font_height = layout.tile_size >= 5 ? 28 : 21;
-    HFONT font = CreateFontA(font_height, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+    HFONT font = CreateFontW(font_height, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                             DEFAULT_PITCH, "Microsoft YaHei UI");
+                             DEFAULT_PITCH, L"Microsoft YaHei UI");
     HFONT old_font = SelectObject(hdc, font);
     int civ_id;
 
@@ -90,9 +90,9 @@ static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *us
 }
 
 static void draw_city_labels(HDC hdc, RECT client, MapLayout layout, RECT *used, int *used_count) {
-    HFONT font = CreateFontA(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+    HFONT font = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-                             DEFAULT_PITCH, "Microsoft YaHei UI");
+                             DEFAULT_PITCH, L"Microsoft YaHei UI");
     HFONT old_font = SelectObject(hdc, font);
     int i;
 

@@ -1,8 +1,8 @@
-#include "render_internal.h"
+#include "render_map_internal.h"
 
 #define MAX_ROUTE_SCREEN_POINTS (MAX_MARITIME_ROUTE_POINTS * 2)
 
-static void route_land_push(POINT tile, int *out_x, int *out_y) {
+static void route_land_push(MapPoint tile, int *out_x, int *out_y) {
     int radius = 5;
     int dx;
     int dy;
@@ -25,7 +25,7 @@ static void route_land_push(POINT tile, int *out_x, int *out_y) {
 }
 
 static POINT maritime_screen_point(const MaritimeRoute *route, int index, MapLayout layout) {
-    POINT tile = route->points[index];
+    MapPoint tile = route->points[index];
     POINT screen;
     int push_x;
     int push_y;

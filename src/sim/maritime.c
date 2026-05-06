@@ -4,6 +4,7 @@
 #include "sim/population.h"
 #include "sim/plague.h"
 #include "sim/ports.h"
+#include "sim/regions.h"
 #include "sim/simulation.h"
 #include "world/ports.h"
 #include "world/terrain_query.h"
@@ -16,8 +17,8 @@
 #define MARITIME_MAX_SEARCH_NODES 52000
 #define MARITIME_TARGET_KEEP 8
 
-static POINT sea_queue[MAX_MAP_W * MAX_MAP_H];
-static POINT raw_path[MARITIME_MAX_ROUTE_DISTANCE + 2];
+static MapPoint sea_queue[MAX_MAP_W * MAX_MAP_H];
+static MapPoint raw_path[MARITIME_MAX_ROUTE_DISTANCE + 2];
 static unsigned short sea_dist[MAX_MAP_H][MAX_MAP_W];
 static int sea_mark[MAX_MAP_H][MAX_MAP_W];
 static signed char sea_prev_dir[MAX_MAP_H][MAX_MAP_W];
@@ -30,6 +31,7 @@ typedef struct {
     int sea_x;
     int sea_y;
     int region;
+    int land_region_id;
     int score;
     int direct_distance;
 } MaritimeTarget;
@@ -76,13 +78,13 @@ static int route_tile_ok(int x, int y, int region) {
     return ports_tile_shallow_region_near_land(x, y) == region;
 }
 
-static void append_sampled_point(POINT *points, int *count, POINT point) {
+static void append_sampled_point(MapPoint *points, int *count, MapPoint point) {
     if (*count <= 0 || points[*count - 1].x != point.x || points[*count - 1].y != point.y) {
         if (*count < MAX_MARITIME_ROUTE_POINTS) points[(*count)++] = point;
     }
 }
 
-static int sample_route_points(int raw_count, POINT *points, int *point_count) {
+static int sample_route_points(int raw_count, MapPoint *points, int *point_count) {
     int i;
     int stride = raw_count / (MAX_MARITIME_ROUTE_POINTS - 2) + 1;
     int last_dx = 0;
@@ -104,7 +106,7 @@ static int sample_route_points(int raw_count, POINT *points, int *point_count) {
 }
 
 static int find_sea_path(int sx, int sy, int ex, int ey, int region,
-                         POINT *points, int *point_count, int *distance) {
+                         MapPoint *points, int *point_count, int *distance) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int head = 0;
     int tail = 0;
@@ -126,7 +128,7 @@ static int find_sea_path(int sx, int sy, int ex, int ey, int region,
     tail++;
 
     while (head < tail && tail < MARITIME_MAX_SEARCH_NODES) {
-        POINT node = sea_queue[head++];
+        MapPoint node = sea_queue[head++];
         int i;
         if (node.x == ex && node.y == ey) {
             found = 1;
@@ -164,7 +166,7 @@ static int find_sea_path(int sx, int sy, int ex, int ey, int region,
 
 static int add_route_if_path_exists(int city_a, int city_b) {
     MaritimeRoute *route;
-    POINT points[MAX_MARITIME_ROUTE_POINTS];
+    MapPoint points[MAX_MARITIME_ROUTE_POINTS];
     int point_count = 0;
     int distance = 0;
     int ax;
@@ -368,39 +370,43 @@ static void keep_maritime_target(MaritimeTarget targets[MARITIME_TARGET_KEEP], M
     }
 }
 
-static int target_base_score(int civ_id, int x, int y, int pressure) {
-    TerrainStats stats = tile_stats(x, y);
-    int score = world_terrain_resource_value(stats);
+static int target_region_score(int civ_id, const NaturalRegion *region, int pressure) {
+    int score;
 
-    score += stats.water * 5 + stats.food * 4 + stats.pop_capacity * 4 + stats.money * 4;
-    score += stats.wood * 2 + stats.stone * 2 + stats.minerals * 3 + pressure * 8;
+    if (!region) return -1000000;
+    score = region->development_score + region->cradle_score / 2;
+    score += region->average_stats.water * 5 + region->average_stats.food * 4;
+    score += region->average_stats.pop_capacity * 4 + region->average_stats.money * 4;
+    score += region->average_stats.wood * 2 + region->average_stats.stone * 2;
+    score += region->average_stats.minerals * 3 + pressure * 8;
+    score += region->resource_diversity * 10 + region->habitability * 7;
     score += civs[civ_id].logistics * 4 + civs[civ_id].commerce * 4 + civs[civ_id].expansion * 3;
-    score -= world_tile_cost(x, y) * 8;
-    if (world_nearby_enemy_border(civ_id, x, y, 3)) score -= 110;
+    score -= region->movement_difficulty * 8;
+    if (world_nearby_enemy_border(civ_id, region->center_x, region->center_y, 3)) score -= 110;
     return score;
 }
 
 static int collect_overseas_targets(int civ_id, int pressure, MaritimeTarget targets[MARITIME_TARGET_KEEP]) {
-    int tries;
+    int i;
     int found = 0;
 
-    for (tries = 0; tries < MARITIME_TARGET_KEEP; tries++) targets[tries].score = -1000000;
-    for (tries = 0; tries < 850; tries++) {
+    for (i = 0; i < MARITIME_TARGET_KEEP; i++) targets[i].score = -1000000;
+    for (i = 0; i < region_count; i++) {
+        const NaturalRegion *region = regions_get(i);
         MaritimeTarget candidate;
         int port_city;
         int direct;
-        int x = rnd(MAP_W);
-        int y = rnd(MAP_H);
-        if (!is_land(world[y][x].geography) || world[y][x].owner != -1 || world[y][x].province_id != -1) continue;
-        if (!world_is_coastal_land_tile(x, y) || city_at(x, y) >= 0) continue;
-        if (!world_city_site_has_room(x, y, civ_id, 4)) continue;
-        if (!ports_find_nearby_sea_entry(x, y, &candidate.sea_x, &candidate.sea_y)) continue;
+        if (!region || !region->alive || region->owner_civ >= 0 || !region->has_port_site) continue;
+        if (region->capital_x < 0 || region->port_x < 0 || region->port_y < 0) continue;
+        if (city_at(region->capital_x, region->capital_y) >= 0) continue;
+        if (!ports_find_nearby_sea_entry(region->port_x, region->port_y, &candidate.sea_x, &candidate.sea_y)) continue;
         candidate.region = ports_tile_shallow_region_near_land(candidate.sea_x, candidate.sea_y);
         if (!civ_port_in_region(civ_id, candidate.region, candidate.sea_x, candidate.sea_y, &port_city, &direct)) continue;
-        candidate.x = x;
-        candidate.y = y;
+        candidate.land_region_id = i;
+        candidate.x = region->capital_x;
+        candidate.y = region->capital_y;
         candidate.direct_distance = direct;
-        candidate.score = target_base_score(civ_id, x, y, pressure) - direct / 3 + rnd(24);
+        candidate.score = target_region_score(civ_id, region, pressure) - direct / 3 + rnd(24);
         keep_maritime_target(targets, candidate);
         found = 1;
     }
@@ -408,7 +414,7 @@ static int collect_overseas_targets(int civ_id, int pressure, MaritimeTarget tar
 }
 
 static int path_distance_to_target(int civ_id, MaritimeTarget target, int *distance) {
-    POINT points[MAX_MARITIME_ROUTE_POINTS];
+    MapPoint points[MAX_MARITIME_ROUTE_POINTS];
     int point_count;
     int i;
     int best = 1000000;
@@ -441,20 +447,14 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
     if (rnd(100) >= chance) return;
     if (!collect_overseas_targets(civ_id, pressure, targets)) return;
     for (i = 0; i < MARITIME_TARGET_KEEP && targets[i].score > -1000000; i++) {
-        TerrainStats stats;
         int distance;
         int threshold;
-        int city_id;
         if (!path_distance_to_target(civ_id, targets[i], &distance)) continue;
         targets[i].score -= distance / 2;
         threshold = 152 - pressure * 4 - civs[civ_id].logistics * 3 -
                     civs[civ_id].commerce * 2 - civs[civ_id].expansion * 2;
         if (targets[i].score < threshold) continue;
-        stats = tile_stats(targets[i].x, targets[i].y);
-        city_id = world_create_city(civ_id, targets[i].x, targets[i].y,
-                                    30 + stats.food * 3 + stats.water * 3 + stats.money * 2 + rnd(35), 0);
-        if (city_id < 0) continue;
-        world_claim_city_region(city_id, civ_id);
+        if (!regions_claim_for_civ(targets[i].land_region_id, civ_id, -1, 1)) continue;
         append_log(log, log_size, "%s founded an overseas province. ", civs[civ_id].name);
         return;
     }

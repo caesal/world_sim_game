@@ -1,6 +1,7 @@
 ﻿#include "render_internal.h"
 
 #include "core/dirty_flags.h"
+#include "render/cartography_layers.h"
 
 typedef struct {
     HDC dc;
@@ -111,19 +112,20 @@ static int rebuild_cached_layer(HDC hdc, LayerCache *cache, RECT client, MapLayo
 }
 
 static void draw_political_extra(HDC hdc, RECT client, MapLayout layout) {
-    if (world_generated) draw_political_region_fills(hdc, client, layout);
+    if (world_generated) draw_cartography_political_fills(hdc, client, layout);
 }
 
 static void draw_coast_extra(HDC hdc, RECT client, MapLayout layout) {
-    if (world_generated) draw_coast_halo(hdc, client, layout);
+    if (world_generated) draw_cartography_coast_halo(hdc, client, layout);
 }
 
 static void draw_border_extra(HDC hdc, RECT client, MapLayout layout) {
     if (world_generated && layout.tile_size >= 1) {
         draw_rivers(hdc, client, layout);
-        draw_province_border_paths(hdc, client, layout);
-        draw_country_border_paths(hdc, client, layout);
-        draw_coastline_paths(hdc, client, layout);
+        draw_cartography_region_borders(hdc, client, layout);
+        draw_cartography_province_borders(hdc, client, layout);
+        draw_cartography_country_borders(hdc, client, layout);
+        draw_cartography_coastline(hdc, client, layout);
     }
     draw_map_grid_overlay(hdc, client, layout);
 }
@@ -139,7 +141,8 @@ static int can_preview_map_cache(RECT client) {
 
 static void draw_map_cache_preview(HDC hdc, RECT client, MapLayout layout) {
     fill_rect(hdc, client, RGB(79, 160, 215));
-    SetStretchBltMode(hdc, COLORONCOLOR);
+    SetStretchBltMode(hdc, HALFTONE);
+    SetBrushOrgEx(hdc, 0, 0, NULL);
     StretchBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
                border_cache.dc, border_cache.map_x, border_cache.map_y,
                border_cache.draw_w, border_cache.draw_h, SRCCOPY);
@@ -189,10 +192,13 @@ static void render_world(HDC hdc, RECT client) {
         draw_plague_region_overlay(hdc, client, layout);
         dirty_clear_render_plague();
         draw_cities(hdc, layout);
-        draw_plague_city_overlay(hdc, client, layout);
         draw_map_labels(hdc, client, layout);
         dirty_clear_render_labels();
         draw_selected_tile(hdc, layout);
+    } else {
+        dirty_clear_render_maritime();
+        dirty_clear_render_plague();
+        dirty_clear_render_labels();
     }
     draw_top_bar(hdc, client);
     draw_bottom_bar(hdc, client);

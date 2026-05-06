@@ -9,13 +9,10 @@
 #include <string.h>
 
 #define MAX_ACTIVE_WARS (MAX_CIVS * MAX_CIVS / 2)
-#define GAME_POPULATION_SCALE 100
-#define LEGION_SIZE 1000
-#define PEACE_ARMY_RATE 0
-#define WAR_MOBILIZATION_RATE 2
-#define EXTREME_MOBILIZATION_RATE 4
-#define LEGION_WAR_FOOD_UPKEEP 0
-#define LEGION_WAR_MONEY_UPKEEP 0
+#define LEGION_SIZE 250
+/* War upkeep/economy hooks are intentionally deferred; this module models mobilization and casualties. */
+#define WAR_MOBILIZATION_RATE 10
+#define EXTREME_MOBILIZATION_RATE 18
 
 static ActiveWar active_wars[MAX_ACTIVE_WARS];
 
@@ -28,7 +25,7 @@ static int resource_deficit_value(int value, int target) {
 }
 
 static int mobilized_soldiers(int civ_id, int extreme) {
-    int recruitable = population_recruitable_for_civ(civ_id) * GAME_POPULATION_SCALE;
+    int recruitable = population_recruitable_for_civ(civ_id);
     int rate = extreme ? EXTREME_MOBILIZATION_RATE : WAR_MOBILIZATION_RATE;
 
     return clamp(recruitable * rate / 100, 0, MAX_POPULATION);
@@ -37,7 +34,7 @@ static int mobilized_soldiers(int civ_id, int extreme) {
 static int effective_legions(int soldiers) {
     int legions = soldiers / LEGION_SIZE;
 
-    if (soldiers % LEGION_SIZE >= 600) legions++;
+    if (soldiers % LEGION_SIZE >= LEGION_SIZE * 3 / 5) legions++;
     return legions;
 }
 
@@ -201,9 +198,8 @@ static void apply_population_casualties(int civ_id, int soldier_casualties) {
     int population_losses;
 
     if (soldier_casualties <= 0) return;
-    population_losses = (soldier_casualties + GAME_POPULATION_SCALE - 1) / GAME_POPULATION_SCALE;
-    population_apply_casualties(civ_id, population_losses);
-    plague_notify_war_casualties(civ_id, population_losses);
+    population_losses = population_apply_casualties(civ_id, soldier_casualties);
+    if (population_losses > 0) plague_notify_war_casualties(civ_id, population_losses);
 }
 
 static void update_supply_state(ActiveWar *war) {

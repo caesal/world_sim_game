@@ -2,6 +2,7 @@
 #define WORLD_SIM_SIMULATION_MONTH_H
 
 #include "core/game_types.h"
+#include "sim/expansion.h"
 
 typedef struct {
     int active;
@@ -13,6 +14,7 @@ typedef struct {
     int resource_scores[MAX_CIVS];
     int resource_totals[MAX_CIVS];
     int resource_counts[MAX_CIVS];
+    ExpansionWorkState expansion_work;
     char log[512];
 } SimulationMonthState;
 

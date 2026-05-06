@@ -5,30 +5,37 @@
 
 #define ID_NAME_EDIT 101
 #define ID_SYMBOL_EDIT 102
-#define ID_AGGRESSION_EDIT 103
-#define ID_EXPANSION_EDIT 104
-#define ID_DEFENSE_EDIT 105
-#define ID_CULTURE_EDIT 106
-#define ID_ADD_BUTTON 107
-#define ID_APPLY_BUTTON 108
-#define ID_INITIAL_CIVS_EDIT 109
+#define ID_MILITARY_EDIT 103
+#define ID_LOGISTICS_EDIT 104
+#define ID_GOVERNANCE_EDIT 105
+#define ID_COHESION_EDIT 106
+#define ID_PRODUCTION_EDIT 107
+#define ID_COMMERCE_EDIT 108
+#define ID_INNOVATION_EDIT 109
+#define ID_ADD_BUTTON 110
+#define ID_APPLY_BUTTON 111
+#define ID_INITIAL_CIVS_EDIT 112
 
 typedef enum {
     DISPLAY_OVERVIEW,
     DISPLAY_CLIMATE,
     DISPLAY_GEOGRAPHY,
+    DISPLAY_REGIONS,
     DISPLAY_POLITICAL,
     DISPLAY_ALL
 } DisplayMode;
 
 typedef enum {
-    PANEL_INFO,
-    PANEL_CIV,
+    PANEL_SELECTION,
+    PANEL_COUNTRY,
     PANEL_DIPLOMACY,
-    PANEL_MAP
+    PANEL_POPULATION,
+    PANEL_PLAGUE,
+    PANEL_WORLD,
+    PANEL_DEBUG
 } PanelTab;
 
-#define PANEL_TAB_COUNT 4
+#define PANEL_TAB_COUNT 7
 
 typedef enum {
     WORLD_SLIDER_OCEAN,
@@ -41,7 +48,10 @@ typedef enum {
     WORLD_SLIDER_BIAS_DESERT,
     WORLD_SLIDER_BIAS_MOUNTAIN,
     WORLD_SLIDER_BIAS_WETLAND,
-    WORLD_SLIDER_COUNT
+    WORLD_SLIDER_COUNT,
+    UI_SLIDER_REGION_SIZE = WORLD_SLIDER_COUNT,
+    UI_SLIDER_PLAGUE_FOG_ALPHA,
+    UI_SLIDER_COUNT
 } WorldSetupSlider;
 
 typedef enum {
@@ -60,10 +70,13 @@ typedef struct {
 typedef struct {
     HWND name_edit;
     HWND symbol_edit;
-    HWND aggression_edit;
-    HWND expansion_edit;
-    HWND defense_edit;
-    HWND culture_edit;
+    HWND military_edit;
+    HWND logistics_edit;
+    HWND governance_edit;
+    HWND cohesion_edit;
+    HWND production_edit;
+    HWND commerce_edit;
+    HWND innovation_edit;
     HWND initial_civs_edit;
     HWND add_button;
     HWND apply_button;

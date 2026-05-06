@@ -1,10 +1,8 @@
 #ifndef WORLD_SIM_SIM_TYPES_H
 #define WORLD_SIM_SIM_TYPES_H
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
 #include "constants.h"
+#include "value_types.h"
 #include "world_types.h"
 
 typedef enum {
@@ -25,7 +23,7 @@ typedef struct {
     int sea_region;
     int distance;
     int point_count;
-    POINT points[MAX_MARITIME_ROUTE_POINTS];
+    MapPoint points[MAX_MARITIME_ROUTE_POINTS];
 } MaritimeRoute;
 
 typedef enum {
@@ -61,7 +59,7 @@ typedef struct {
 typedef struct {
     char name[NAME_LEN];
     char symbol;
-    COLORREF color;
+    Color32 color;
     int alive;
     int population;
     int territory;

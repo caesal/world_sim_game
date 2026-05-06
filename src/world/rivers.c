@@ -2,12 +2,19 @@
 
 #include "terrain_query.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static const int RIVER_DIRS[8][2] = {
     {1, 0}, {1, 1}, {0, 1}, {-1, 1},
     {-1, 0}, {-1, -1}, {0, -1}, {1, -1}
 };
+
+static signed short down_x[MAX_MAP_H][MAX_MAP_W];
+static signed short down_y[MAX_MAP_H][MAX_MAP_W];
+static int flow_accum[MAX_MAP_H][MAX_MAP_W];
+static int sorted_tiles[MAX_MAP_W * MAX_MAP_H];
+static int river_candidates[MAX_MAP_W * MAX_MAP_H];
 
 static int water_mouth_tile(int x, int y) {
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
@@ -22,10 +29,7 @@ static int nearby_water_count(int x, int y, int radius) {
 
     for (dy = -radius; dy <= radius; dy++) {
         for (dx = -radius; dx <= radius; dx++) {
-            int nx = x + dx;
-            int ny = y + dy;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-            if (water_mouth_tile(nx, ny)) count++;
+            if (water_mouth_tile(x + dx, y + dy)) count++;
         }
     }
     return count;
@@ -47,174 +51,113 @@ static int nearby_river_count(int x, int y, int radius) {
     return count;
 }
 
-static int path_contains(RiverPoint *points, int count, int x, int y) {
-    int i;
-
-    for (i = count - 1; i >= 0; i--) {
-        if (points[i].x == x && points[i].y == y) return 1;
-    }
-    return 0;
+static int flow_rank(int x, int y) {
+    return world[y][x].elevation * MAX_MAP_W * MAX_MAP_H + y * MAX_MAP_W + x;
 }
 
-static int source_is_valid(int x, int y, int tributary_source) {
-    Geography geography;
-    int near_rivers;
-
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    geography = world[y][x].geography;
-    if (!is_land(geography) || nearby_water_count(x, y, 5) > 0) return 0;
-    near_rivers = nearby_river_count(x, y, tributary_source ? 24 : 11);
-    if (!tributary_source && near_rivers > 0) return 0;
-    if (tributary_source && (near_rivers == 0 || nearby_river_count(x, y, 5) > 0)) return 0;
-    if (world[y][x].elevation < (tributary_source ? 50 : 56) + rnd(18)) return 0;
-    if (world[y][x].moisture < 28 + rnd(34)) return 0;
-    return geography == GEO_MOUNTAIN || geography == GEO_HILL ||
-           geography == GEO_PLATEAU || geography == GEO_BASIN;
+static int receiver_score(int x, int y, int nx, int ny) {
+    int diagonal = x != nx && y != ny;
+    return world[ny][nx].elevation * 32 + world_tile_cost(nx, ny) * 5 -
+           world[ny][nx].moisture / 3 + (diagonal ? 5 : 0);
 }
 
-static int turn_penalty(int prev_dx, int prev_dy, int dx, int dy) {
-    int dot;
-
-    if (prev_dx == 0 && prev_dy == 0) return 0;
-    dot = prev_dx * dx + prev_dy * dy;
-    if (dot < 0) return 34;
-    if (dot == 0) return 7;
-    return 0;
-}
-
-static int next_step_score(int x, int y, int nx, int ny, int prev_dx, int prev_dy, int prefer_join) {
-    int dx = nx - x;
-    int dy = ny - y;
-    int climb = world[ny][nx].elevation - world[y][x].elevation;
-    int diagonal = dx != 0 && dy != 0;
-    int water_pull = nearby_water_count(nx, ny, 3) * 7;
-    int score = world[ny][nx].elevation * 5 - world[ny][nx].moisture / 2;
-
-    if (climb > 0) score += climb * 20;
-    else score += climb * 3;
-    score += diagonal ? 3 : 0;
-    score += turn_penalty(prev_dx, prev_dy, dx, dy);
-    score -= water_pull;
-    if (prefer_join) score -= nearby_river_count(nx, ny, 5) * 18;
-    score += rnd(12);
-    return score;
-}
-
-static int choose_next_step(RiverPoint *points, int count, int *out_x, int *out_y,
-                            int *joined_river, int *reached_mouth, int prefer_join) {
-    int x = points[count - 1].x;
-    int y = points[count - 1].y;
-    int prev_dx = count > 1 ? x - points[count - 2].x : 0;
-    int prev_dy = count > 1 ? y - points[count - 2].y : 0;
+static void choose_downhill_receiver(int x, int y) {
     int best_score = 1000000;
-    int best_x = x;
-    int best_y = y;
-    int found = 0;
-    int start = rnd(8);
+    int best_x = -1;
+    int best_y = -1;
     int i;
 
-    *joined_river = 0;
-    *reached_mouth = 0;
+    down_x[y][x] = -1;
+    down_y[y][x] = -1;
+    if (!is_land(world[y][x].geography)) return;
     for (i = 0; i < 8; i++) {
-        int dir = (start + i) % 8;
-        int nx = x + RIVER_DIRS[dir][0];
-        int ny = y + RIVER_DIRS[dir][1];
+        int nx = x + RIVER_DIRS[i][0];
+        int ny = y + RIVER_DIRS[i][1];
         int score;
-
         if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-        if (water_mouth_tile(nx, ny) && count >= 18) {
-            *out_x = nx;
-            *out_y = ny;
-            *reached_mouth = 1;
-            return 1;
+        if (water_mouth_tile(nx, ny)) {
+            down_x[y][x] = (signed short)nx;
+            down_y[y][x] = (signed short)ny;
+            return;
         }
         if (!is_land(world[ny][nx].geography)) continue;
-        if (path_contains(points, count, nx, ny)) continue;
-        if (world[ny][nx].river && count >= (prefer_join ? 8 : 14)) {
-            *out_x = nx;
-            *out_y = ny;
-            *joined_river = 1;
-            return 1;
-        }
-        if (world[ny][nx].elevation > world[y][x].elevation + 5 && count > 10) continue;
-        if (nearby_river_count(nx, ny, 3) > 2 && count < 18) continue;
-        score = next_step_score(x, y, nx, ny, prev_dx, prev_dy, prefer_join);
+        if (flow_rank(nx, ny) >= flow_rank(x, y)) continue;
+        score = receiver_score(x, y, nx, ny);
         if (score < best_score) {
             best_score = score;
             best_x = nx;
             best_y = ny;
-            found = 1;
         }
     }
-
-    if (!found) return 0;
-    *out_x = best_x;
-    *out_y = best_y;
-    return 1;
+    down_x[y][x] = (signed short)best_x;
+    down_y[y][x] = (signed short)best_y;
 }
 
-static void mark_river_tiles(const RiverPath *river) {
+static int compare_tile_flow_desc(const void *a, const void *b) {
+    int ia = *(const int *)a;
+    int ib = *(const int *)b;
+    int ax = ia % MAX_MAP_W;
+    int ay = ia / MAX_MAP_W;
+    int bx = ib % MAX_MAP_W;
+    int by = ib / MAX_MAP_W;
+    return flow_accum[by][bx] - flow_accum[ay][ax];
+}
+
+static int collect_sorted_land_tiles(void) {
+    int counts[101] = {0};
+    int offsets[101];
+    int next[101];
+    int x;
+    int y;
+    int e;
+    int total = 0;
+
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            if (!is_land(world[y][x].geography)) continue;
+            counts[clamp(world[y][x].elevation, 0, 100)]++;
+            total++;
+        }
+    }
+    offsets[100] = 0;
+    for (e = 99; e >= 0; e--) offsets[e] = offsets[e + 1] + counts[e + 1];
+    memcpy(next, offsets, sizeof(next));
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int elev;
+            if (!is_land(world[y][x].geography)) continue;
+            elev = clamp(world[y][x].elevation, 0, 100);
+            sorted_tiles[next[elev]++] = y * MAX_MAP_W + x;
+        }
+    }
+    return total;
+}
+
+static void compute_flow_field(void) {
+    int land_count = collect_sorted_land_tiles();
     int i;
+    int x;
+    int y;
 
-    for (i = 0; i < river->point_count; i++) {
-        int x = river->points[i].x;
-        int y = river->points[i].y;
-        if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) continue;
-        if (is_land(world[y][x].geography)) world[y][x].river = 1;
-    }
-}
-
-static void accept_river_path(RiverPoint *points, int count, int joined_river, int reached_mouth, int tributary_hint) {
-    RiverPath *river;
-    int i;
-
-    if (river_path_count >= MAX_RIVER_PATHS || count < 22) return;
-    if (!reached_mouth && !joined_river) return;
-    if (!tributary_hint && !reached_mouth) return;
-    if (tributary_hint && !joined_river && !reached_mouth) return;
-    river = &river_paths[river_path_count];
-    memset(river, 0, sizeof(*river));
-    river->active = 1;
-    river->point_count = clamp(count, 0, MAX_RIVER_POINTS);
-    river->flow = river->point_count + (reached_mouth ? 32 : 0);
-    river->order = joined_river || tributary_hint ? 1 : (river->point_count > 95 ? 3 : 2);
-    river->width = clamp(river->order + river->flow / 130, 1, 3);
-    for (i = 0; i < river->point_count; i++) river->points[i] = points[i];
-    mark_river_tiles(river);
-    river_path_count++;
-}
-
-static void trace_river_from(int start_x, int start_y, int tributary_hint) {
-    RiverPoint points[MAX_RIVER_POINTS];
-    int count = 1;
-    int joined_river = 0;
-    int reached_mouth = 0;
-    int steps;
-
-    points[0].x = start_x;
-    points[0].y = start_y;
-    for (steps = 0; steps < MAX_RIVER_POINTS - 1; steps++) {
-        int nx;
-        int ny;
-        int joined = 0;
-        int mouth_reached = 0;
-
-        if (!choose_next_step(points, count, &nx, &ny, &joined, &mouth_reached, tributary_hint)) break;
-        points[count].x = nx;
-        points[count].y = ny;
-        count++;
-        if (joined) {
-            joined_river = 1;
-            break;
-        }
-        if (mouth_reached) {
-            reached_mouth = 1;
-            break;
+    memset(flow_accum, 0, sizeof(flow_accum));
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            choose_downhill_receiver(x, y);
+            if (is_land(world[y][x].geography)) {
+                flow_accum[y][x] = 1 + world[y][x].moisture / 18 +
+                                   (world[y][x].geography == GEO_MOUNTAIN ? 1 : 0);
+            }
         }
     }
-
-    if ((reached_mouth || joined_river) && count >= 22) {
-        accept_river_path(points, count, joined_river, reached_mouth, tributary_hint);
+    for (i = 0; i < land_count; i++) {
+        int idx = sorted_tiles[i];
+        int cx = idx % MAX_MAP_W;
+        int cy = idx / MAX_MAP_W;
+        int nx = down_x[cy][cx];
+        int ny = down_y[cy][cx];
+        if (nx >= 0 && ny >= 0 && is_land(world[ny][nx].geography)) {
+            flow_accum[ny][nx] += flow_accum[cy][cx];
+        }
     }
 }
 
@@ -229,21 +172,117 @@ static void reset_rivers(void) {
     }
 }
 
-void generate_rivers(int moisture, int bias_wetland) {
-    int target = clamp(18 + (moisture + bias_wetland) / 5, 16, MAX_RIVER_PATHS);
-    int main_target = clamp(target * 2 / 3, 10, target);
-    int pass;
+static int source_candidate_ok(int x, int y, int threshold, int tributary) {
+    if (!is_land(world[y][x].geography)) return 0;
+    if (flow_accum[y][x] < threshold) return 0;
+    if (world[y][x].elevation < (tributary ? 42 : 48)) return 0;
+    if (nearby_water_count(x, y, 4) > 0) return 0;
+    if (nearby_river_count(x, y, tributary ? 5 : 9) > 0) return 0;
+    return world[y][x].moisture >= 24 || flow_accum[y][x] >= threshold + 60;
+}
 
-    reset_rivers();
-    for (pass = 0; pass < target; pass++) {
-        int tries;
-        for (tries = 0; tries < 900; tries++) {
-            int rx = rnd(MAP_W);
-            int ry = rnd(MAP_H);
-            if (source_is_valid(rx, ry, pass >= main_target)) {
-                trace_river_from(rx, ry, pass >= main_target);
-                break;
-            }
+static int collect_river_candidates(int threshold, int tributary) {
+    int count = 0;
+    int x;
+    int y;
+
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            if (!source_candidate_ok(x, y, threshold, tributary)) continue;
+            river_candidates[count++] = y * MAX_MAP_W + x;
         }
     }
+    qsort(river_candidates, (size_t)count, sizeof(river_candidates[0]), compare_tile_flow_desc);
+    return count;
+}
+
+static void mark_river_tiles(const RiverPath *river) {
+    int i;
+
+    for (i = 0; i < river->point_count; i++) {
+        int x = river->points[i].x;
+        int y = river->points[i].y;
+        if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) continue;
+        if (is_land(world[y][x].geography)) world[y][x].river = 1;
+    }
+}
+
+static void accept_river_path(RiverPoint *points, int count, int max_flow,
+                              int reached_mouth, int joined_river) {
+    RiverPath *river;
+    int i;
+
+    if (river_path_count >= MAX_RIVER_PATHS || count < 14) return;
+    if (!reached_mouth && !joined_river) return;
+    river = &river_paths[river_path_count];
+    memset(river, 0, sizeof(*river));
+    river->active = 1;
+    river->point_count = clamp(count, 0, MAX_RIVER_POINTS);
+    river->flow = max_flow;
+    river->order = clamp(1 + max_flow / 180, 1, 5);
+    river->width = clamp(1 + max_flow / 360, 1, 4);
+    for (i = 0; i < river->point_count; i++) river->points[i] = points[i];
+    mark_river_tiles(river);
+    river_path_count++;
+}
+
+static void trace_flow_path(int start_x, int start_y, int tributary) {
+    RiverPoint points[MAX_RIVER_POINTS];
+    int count = 1;
+    int x = start_x;
+    int y = start_y;
+    int max_flow = flow_accum[y][x];
+    int reached_mouth = 0;
+    int joined_river = 0;
+
+    points[0].x = x;
+    points[0].y = y;
+    while (count < MAX_RIVER_POINTS) {
+        int nx = down_x[y][x];
+        int ny = down_y[y][x];
+        if (nx < 0 || ny < 0) break;
+        points[count].x = nx;
+        points[count].y = ny;
+        count++;
+        if (water_mouth_tile(nx, ny)) {
+            reached_mouth = 1;
+            break;
+        }
+        if (!is_land(world[ny][nx].geography)) break;
+        if (world[ny][nx].river && count >= (tributary ? 7 : 12)) {
+            joined_river = 1;
+            break;
+        }
+        max_flow = max(max_flow, flow_accum[ny][nx]);
+        x = nx;
+        y = ny;
+    }
+    if (!tributary && !reached_mouth) return;
+    if (tributary && !reached_mouth && !joined_river) return;
+    accept_river_path(points, count, max_flow, reached_mouth, joined_river);
+}
+
+static void trace_candidate_pass(int threshold, int target, int tributary) {
+    int count = collect_river_candidates(threshold, tributary);
+    int i;
+
+    for (i = 0; i < count && river_path_count < target; i++) {
+        int idx = river_candidates[i];
+        int x = idx % MAX_MAP_W;
+        int y = idx / MAX_MAP_W;
+        if (!source_candidate_ok(x, y, threshold, tributary)) continue;
+        trace_flow_path(x, y, tributary);
+    }
+}
+
+void generate_rivers(int moisture, int bias_wetland) {
+    int target = clamp(14 + (moisture + bias_wetland) / 7, 12, MAX_RIVER_PATHS);
+    int main_target = clamp(target * 2 / 3, 8, target);
+    int threshold = clamp(180 - moisture - bias_wetland / 2, 55, 170);
+
+    reset_rivers();
+    compute_flow_field();
+    trace_candidate_pass(threshold, main_target, 0);
+    if (river_path_count < main_target) trace_candidate_pass(threshold * 3 / 4, main_target, 0);
+    trace_candidate_pass(max(35, threshold / 2), target, 1);
 }

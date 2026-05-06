@@ -50,7 +50,7 @@ void dirty_mark_population(void) {
 }
 
 void dirty_mark_plague(void) {
-    mark(DIRTY_RENDER_PLAGUE | DIRTY_RENDER_LABELS | DIRTY_RENDER_MARITIME);
+    mark(DIRTY_RENDER_PLAGUE);
 }
 
 void dirty_mark_maritime(void) {

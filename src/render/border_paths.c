@@ -1,6 +1,6 @@
 #include "border_paths.h"
 
-#include "render_internal.h"
+#include "render_map_internal.h"
 
 typedef struct {
     float x;

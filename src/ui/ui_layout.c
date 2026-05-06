@@ -37,7 +37,7 @@ RECT get_mode_button_rect(RECT client, int index) {
     RECT rect;
     int panel_x = client.right - side_panel_w + FORM_X_PAD;
     rect.left = panel_x;
-    rect.top = TOP_BAR_H + 74 + index * 34;
+    rect.top = TOP_BAR_H + 126 + index * 32;
     rect.right = panel_x + side_panel_w - FORM_X_PAD * 2;
     rect.bottom = rect.top + 28;
     return rect;
@@ -49,7 +49,7 @@ RECT get_map_size_button_rect(RECT client, int index) {
     int gap = 8;
     int button_w = (side_panel_w - FORM_X_PAD * 2 - gap * 2) / 3;
     rect.left = panel_x + index * (button_w + gap);
-    rect.top = TOP_BAR_H + 268;
+    rect.top = TOP_BAR_H + 128;
     rect.right = rect.left + button_w;
     rect.bottom = rect.top + 28;
     return rect;

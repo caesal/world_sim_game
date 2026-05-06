@@ -5,6 +5,5 @@
 #include "ui/ui_layout.h"
 
 void draw_plague_region_overlay(HDC hdc, RECT client, MapLayout layout);
-void draw_plague_city_overlay(HDC hdc, RECT client, MapLayout layout);
 
 #endif

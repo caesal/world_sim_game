@@ -88,6 +88,7 @@ typedef struct {
     ResourceFeature resource;
     int owner;
     int province_id;
+    int region_id;
     int elevation;
     int moisture;
     int temperature;

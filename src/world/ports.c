@@ -1,5 +1,6 @@
 ﻿#include "ports.h"
 
+#include "core/game_types.h"
 #include "terrain_query.h"
 
 #include <stdlib.h>

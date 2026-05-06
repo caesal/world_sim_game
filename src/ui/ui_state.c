@@ -2,7 +2,7 @@
 #include "world/world_gen.h"
 
 int display_mode = DISPLAY_ALL;
-int panel_tab = PANEL_MAP;
+int panel_tab = PANEL_WORLD;
 int ui_language = UI_LANG_EN;
 int side_panel_w = DEFAULT_SIDE_PANEL_W;
 int dragging_panel = 0;
@@ -28,6 +28,9 @@ int map_offset_x = 0;
 int map_offset_y = 0;
 int map_interaction_preview = 0;
 int map_legend_collapsed = 0;
+int plague_fog_alpha = 45;
+int region_size_slider = 50;
+int worldgen_scroll_offset = 0;
 
-const int MAP_DISPLAY_MODES[4] = {DISPLAY_ALL, DISPLAY_CLIMATE, DISPLAY_GEOGRAPHY, DISPLAY_POLITICAL};
-const char *MAP_DISPLAY_NAMES[4] = {"All", "Climate", "Geography", "Political"};
+const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT] = {DISPLAY_ALL, DISPLAY_CLIMATE, DISPLAY_GEOGRAPHY, DISPLAY_REGIONS, DISPLAY_POLITICAL};
+const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political"};

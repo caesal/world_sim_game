@@ -66,28 +66,31 @@ GameState g_game = {
     &map_zoom_percent,
     &map_offset_x,
     &map_offset_y,
-    &map_legend_collapsed
+    &map_legend_collapsed,
+    &plague_fog_alpha,
+    &region_size_slider,
+    &worldgen_scroll_offset
 };
 
 const int SPEED_MS[3] = {1000, 250, 50};
 const char *SPEED_NAMES[3] = {"Slow", "Normal", "Fast"};
-const COLORREF CIV_COLORS[MAX_CIVS] = {
-    RGB(232, 31, 39),
-    RGB(34, 88, 230),
-    RGB(18, 205, 42),
-    RGB(244, 188, 40),
-    RGB(168, 76, 210),
-    RGB(232, 112, 37),
-    RGB(20, 184, 170),
-    RGB(220, 70, 145),
-    RGB(165, 102, 44),
-    RGB(72, 165, 224),
-    RGB(145, 191, 71),
-    RGB(205, 118, 150),
-    RGB(114, 93, 189),
-    RGB(209, 156, 44),
-    RGB(78, 139, 122),
-    RGB(191, 89, 89)
+const Color32 CIV_COLORS[MAX_CIVS] = {
+    COLOR32_RGB(232, 31, 39),
+    COLOR32_RGB(34, 88, 230),
+    COLOR32_RGB(18, 205, 42),
+    COLOR32_RGB(244, 188, 40),
+    COLOR32_RGB(168, 76, 210),
+    COLOR32_RGB(232, 112, 37),
+    COLOR32_RGB(20, 184, 170),
+    COLOR32_RGB(220, 70, 145),
+    COLOR32_RGB(165, 102, 44),
+    COLOR32_RGB(72, 165, 224),
+    COLOR32_RGB(145, 191, 71),
+    COLOR32_RGB(205, 118, 150),
+    COLOR32_RGB(114, 93, 189),
+    COLOR32_RGB(209, 156, 44),
+    COLOR32_RGB(78, 139, 122),
+    COLOR32_RGB(191, 89, 89)
 };
 
 int clamp(int value, int min, int max) {

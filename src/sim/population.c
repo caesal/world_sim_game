@@ -214,8 +214,14 @@ static void age_city_one_year(int city_id) {
     for (i = 0; i < POP_COHORT_COUNT - 1; i++) add_cohort(&cities[city_id].population_cohorts[i + 1], moved[i]);
 }
 
+static int reproductive_male_count(PopulationSummary summary) {
+    return summary.cohorts[POP_AGE_18_24].male + summary.cohorts[POP_AGE_25_39].male +
+           summary.cohorts[POP_AGE_40_54].male;
+}
+
 static int monthly_births(int city_id, PopulationSummary summary, TerrainStats stats) {
-    int fertile_couples = summary.fertile < summary.male ? summary.fertile : summary.male;
+    int fertile_males = reproductive_male_count(summary);
+    int fertile_couples = summary.fertile < fertile_males ? summary.fertile : fertile_males;
     int rate = 28 + stats.food * 4 + stats.water * 4 + stats.habitability * 3;
     int owner = cities[city_id].owner;
 

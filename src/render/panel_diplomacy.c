@@ -1,10 +1,10 @@
-﻿#include "render_internal.h"
+﻿#include "render_panel_internal.h"
 
 static int displayed_civ_id(void) {
     int owner = selected_tile_owner();
 
-    if (owner >= 0 && owner < civ_count) return owner;
-    if (selected_civ >= 0 && selected_civ < civ_count) return selected_civ;
+    if (owner >= 0 && owner < civ_count && civs[owner].alive) return owner;
+    if (selected_civ >= 0 && selected_civ < civ_count && civs[selected_civ].alive) return selected_civ;
     return -1;
 }
 
@@ -224,6 +224,7 @@ void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
         RECT badge;
 
         if (i == civ_id) continue;
+        if (!civs[i].alive) continue;
         relation = diplomacy_relation(civ_id, i);
         if (relation.state == DIPLOMACY_NONE) continue;
         if (y > client.bottom - 330) {
@@ -271,7 +272,8 @@ void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
                             RGB(128, 148, 170), tr("Truce years left", "剩余停战年数"), &tooltip_text);
             y += 2 * (metric_h + 6) + 4;
         }
-        if (relation.state == DIPLOMACY_VASSAL && relation.overlord >= 0 && relation.overlord < civ_count) {
+        if (relation.state == DIPLOMACY_VASSAL && relation.overlord >= 0 &&
+            relation.overlord < civ_count && civs[relation.overlord].alive) {
             snprintf(text, sizeof(text), "%s: %s", tr("Overlord", "宗主"), civs[relation.overlord].name);
             draw_text_line(hdc, x + 24, y, text, RGB(190, 176, 210));
             y += 20;

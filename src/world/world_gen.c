@@ -5,14 +5,15 @@
 #include "world/rivers.h"
 #include "world/terrain_query.h"
 #include "world/world_smoothing.h"
+#include "world/world_seed.h"
 
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
-const WorldGenConfig DEFAULT_WORLD_GEN_CONFIG = {WORLD_GEN_DEFAULT_OCEAN, WORLD_GEN_DEFAULT_CONTINENT, WORLD_GEN_DEFAULT_RELIEF, WORLD_GEN_DEFAULT_MOISTURE, WORLD_GEN_DEFAULT_DROUGHT, WORLD_GEN_DEFAULT_VEGETATION, WORLD_GEN_DEFAULT_BIAS_FOREST, WORLD_GEN_DEFAULT_BIAS_DESERT, WORLD_GEN_DEFAULT_BIAS_MOUNTAIN, WORLD_GEN_DEFAULT_BIAS_WETLAND};
+const WorldGenConfig DEFAULT_WORLD_GEN_CONFIG = {WORLD_GEN_DEFAULT_OCEAN, WORLD_GEN_DEFAULT_CONTINENT, WORLD_GEN_DEFAULT_RELIEF, WORLD_GEN_DEFAULT_MOISTURE, WORLD_GEN_DEFAULT_DROUGHT, WORLD_GEN_DEFAULT_VEGETATION, WORLD_GEN_DEFAULT_BIAS_FOREST, WORLD_GEN_DEFAULT_BIAS_DESERT, WORLD_GEN_DEFAULT_BIAS_MOUNTAIN, WORLD_GEN_DEFAULT_BIAS_WETLAND, 0u, 1};
 static WorldGenConfig gen_config;
 #define COPY_ACTIVE_TILES(dst, src) do { int _row; for (_row = 0; _row < MAP_H; _row++) memcpy((dst)[_row], (src)[_row], (size_t)MAP_W * sizeof((dst)[_row][0])); } while (0)
+#define COPY_ACTIVE_INT_FIELD(dst, src) do { int _row; for (_row = 0; _row < MAP_H; _row++) memcpy((dst)[_row], (src)[_row], (size_t)MAP_W * sizeof((dst)[_row][0])); } while (0)
 
 static int nearby_land_count(int x, int y) {
     int count = 0;
@@ -31,12 +32,6 @@ static int nearby_land_count(int x, int y) {
     return count;
 }
 
-
-static void seed_random(void) {
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    srand((unsigned int)(time(NULL) ^ GetTickCount() ^ counter.LowPart ^ GetCurrentProcessId()));
-}
 
 static int compare_ints(const void *left, const void *right) {
     int a = *(const int *)left;
@@ -71,7 +66,7 @@ static void smooth_field(int field[MAX_MAP_H][MAX_MAP_W], int passes) {
                 next[y][x] = total / count;
             }
         }
-        memcpy(field, next, sizeof(next));
+        COPY_ACTIVE_INT_FIELD(field, next);
     }
 }
 
@@ -353,11 +348,12 @@ void generate_world_with_config(const WorldGenConfig *config) {
     int temperature_seed;
 
     gen_config = config ? *config : DEFAULT_WORLD_GEN_CONFIG;
+    if (gen_config.random_seed) gen_config.seed = world_random_seed();
+    world_seed_rng(gen_config.seed);
     target_land_percent = 100 - gen_config.ocean * 72 / 100;
     target_land_tiles = MAP_W * MAP_H * target_land_percent / 100;
     threshold_index = clamp(MAP_W * MAP_H - target_land_tiles, 0, MAP_W * MAP_H - 1);
 
-    seed_random();
     climate_axis = rnd(4);
     wind_x = rnd(2) ? 1 : -1;
     wind_y = rnd(3) - 1;
@@ -384,6 +380,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
             world[y][x].resource = RESOURCE_FEATURE_NONE;
             world[y][x].owner = -1;
             world[y][x].province_id = -1;
+            world[y][x].region_id = -1;
             world[y][x].river = 0;
             elevation[y][x] = (base_elevation * (100 - fragment_weight) + broken_elevation * fragment_weight) / 100 +
                               edge_falloff - 22 + (gen_config.relief - 50) / 5;
@@ -496,4 +493,6 @@ void generate_world_with_config(const WorldGenConfig *config) {
     }
 
     generate_rivers(gen_config.moisture, gen_config.bias_wetland);
+    terrain_stats_invalidate_cache();
+    terrain_stats_rebuild_cache();
 }

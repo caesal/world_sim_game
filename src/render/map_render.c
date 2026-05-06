@@ -1,4 +1,4 @@
-﻿#include "render_internal.h"
+﻿#include "render_map_internal.h"
 
 typedef struct {
     HDC dc;
@@ -11,6 +11,8 @@ typedef struct {
     int revision;
     int valid;
 } BaseMapSurfaceCache;
+
+#define BASE_VISUAL_SCALE 2
 
 static BaseMapSurfaceCache base_surface_cache;
 
@@ -27,12 +29,13 @@ static int ensure_base_surface_cache(HDC hdc) {
     BITMAPINFO info;
 
     if (base_surface_cache.dc && base_surface_cache.bitmap && base_surface_cache.pixels &&
-        base_surface_cache.width == MAP_W && base_surface_cache.height == MAP_H) return 1;
+        base_surface_cache.width == MAP_W * BASE_VISUAL_SCALE &&
+        base_surface_cache.height == MAP_H * BASE_VISUAL_SCALE) return 1;
     release_base_surface_cache();
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
-    info.bmiHeader.biWidth = MAP_W;
-    info.bmiHeader.biHeight = -MAP_H;
+    info.bmiHeader.biWidth = MAP_W * BASE_VISUAL_SCALE;
+    info.bmiHeader.biHeight = -MAP_H * BASE_VISUAL_SCALE;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
@@ -44,20 +47,48 @@ static int ensure_base_surface_cache(HDC hdc) {
         return 0;
     }
     base_surface_cache.old_bitmap = SelectObject(base_surface_cache.dc, base_surface_cache.bitmap);
-    base_surface_cache.width = MAP_W;
-    base_surface_cache.height = MAP_H;
+    base_surface_cache.width = MAP_W * BASE_VISUAL_SCALE;
+    base_surface_cache.height = MAP_H * BASE_VISUAL_SCALE;
     return 1;
+}
+
+static unsigned int packed_color(COLORREF color) {
+    return GetBValue(color) | (GetGValue(color) << 8) | (GetRValue(color) << 16);
+}
+
+static COLORREF sampled_base_color(int x, int y) {
+    int sx = clamp(x / BASE_VISUAL_SCALE, 0, MAP_W - 1);
+    int sy = clamp(y / BASE_VISUAL_SCALE, 0, MAP_H - 1);
+    int r = 0;
+    int g = 0;
+    int b = 0;
+    int weight = 0;
+    int dy;
+    int dx;
+
+    for (dy = -1; dy <= 1; dy++) {
+        for (dx = -1; dx <= 1; dx++) {
+            int nx = clamp(sx + dx, 0, MAP_W - 1);
+            int ny = clamp(sy + dy, 0, MAP_H - 1);
+            int w = dx == 0 && dy == 0 ? 8 : (dx == 0 || dy == 0 ? 2 : 1);
+            COLORREF color = tile_display_color(nx, ny);
+            r += GetRValue(color) * w;
+            g += GetGValue(color) * w;
+            b += GetBValue(color) * w;
+            weight += w;
+        }
+    }
+    return RGB(r / weight, g / weight, b / weight);
 }
 
 static void rebuild_base_surface_cache(void) {
     int x;
     int y;
 
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            COLORREF color = tile_display_color(x, y);
-            base_surface_cache.pixels[y * MAP_W + x] =
-                GetBValue(color) | (GetGValue(color) << 8) | (GetRValue(color) << 16);
+    for (y = 0; y < base_surface_cache.height; y++) {
+        for (x = 0; x < base_surface_cache.width; x++) {
+            base_surface_cache.pixels[y * base_surface_cache.width + x] =
+                packed_color(sampled_base_color(x, y));
         }
     }
     base_surface_cache.display = display_mode;
@@ -72,9 +103,10 @@ void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
         rebuild_base_surface_cache();
     }
 
-    SetStretchBltMode(hdc, COLORONCOLOR);
+    SetStretchBltMode(hdc, HALFTONE);
+    SetBrushOrgEx(hdc, 0, 0, NULL);
     StretchBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
-               base_surface_cache.dc, 0, 0, MAP_W, MAP_H, SRCCOPY);
+               base_surface_cache.dc, 0, 0, base_surface_cache.width, base_surface_cache.height, SRCCOPY);
 }
 
 static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int y);
@@ -149,13 +181,9 @@ static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int
 static POINT river_screen_point(const RiverPath *river, int index, MapLayout layout) {
     RiverPoint point = river->points[index];
     POINT screen;
-    int jitter = layout.tile_size >= 9 ? 1 : 0;
-    int seed = point.x * 31 + point.y * 17 + index * 13 + river->order * 19;
-    int jx = seed % 7 - 3;
-    int jy = seed / 7 % 7 - 3;
 
-    screen.x = (tile_left(layout, point.x) + tile_right(layout, point.x)) / 2 + jx * jitter / 4;
-    screen.y = (tile_top(layout, point.y) + tile_bottom(layout, point.y)) / 2 + jy * jitter / 4;
+    screen.x = (tile_left(layout, point.x) + tile_right(layout, point.x)) / 2;
+    screen.y = (tile_top(layout, point.y) + tile_bottom(layout, point.y)) / 2;
     return screen;
 }
 
@@ -164,18 +192,46 @@ static int river_pixel_width(const RiverPath *river, MapLayout layout) {
     return clamp(river->width - 1 + main_bonus, 1, 2);
 }
 
+static int chaikin_smooth_points(const POINT *input, int input_count, POINT *output, int output_max) {
+    int count = 0;
+    int i;
+
+    if (input_count <= 0 || output_max <= 0) return 0;
+    output[count++] = input[0];
+    for (i = 0; i < input_count - 1 && count + 2 < output_max; i++) {
+        POINT a = input[i];
+        POINT b = input[i + 1];
+        POINT q;
+        POINT r;
+        q.x = (a.x * 3 + b.x) / 4;
+        q.y = (a.y * 3 + b.y) / 4;
+        r.x = (a.x + b.x * 3) / 4;
+        r.y = (a.y + b.y * 3) / 4;
+        output[count++] = q;
+        output[count++] = r;
+    }
+    if (count < output_max) output[count++] = input[input_count - 1];
+    return count;
+}
+
 static void draw_river_path_stroke(HDC hdc, const RiverPath *river, MapLayout layout,
                                    int width, COLORREF color) {
     POINT points[MAX_RIVER_POINTS];
+    POINT smooth_a[MAX_RIVER_POINTS * 2];
+    POINT smooth_b[MAX_RIVER_POINTS * 4];
     HPEN pen;
     HPEN old_pen;
     int i;
+    int count_a;
+    int count_b;
 
     if (!river->active || river->point_count < 2) return;
     for (i = 0; i < river->point_count; i++) points[i] = river_screen_point(river, i, layout);
+    count_a = chaikin_smooth_points(points, river->point_count, smooth_a, MAX_RIVER_POINTS * 2);
+    count_b = chaikin_smooth_points(smooth_a, count_a, smooth_b, MAX_RIVER_POINTS * 4);
     pen = CreatePen(PS_SOLID, width, color);
     old_pen = SelectObject(hdc, pen);
-    Polyline(hdc, points, river->point_count);
+    Polyline(hdc, smooth_b, count_b);
     SelectObject(hdc, old_pen);
     DeleteObject(pen);
 }

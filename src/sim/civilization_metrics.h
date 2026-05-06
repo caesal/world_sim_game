@@ -9,5 +9,9 @@ void derive_civilization_metrics_from_traits_and_birthplace(Civilization *civ,
                                                             int defense,
                                                             int culture,
                                                             TerrainStats birth);
+void apply_civilization_core_metrics(Civilization *civ,
+                                     int governance, int cohesion, int production, int military,
+                                     int commerce, int logistics, int innovation,
+                                     TerrainStats birth, int birthplace_bonus);
 
 #endif

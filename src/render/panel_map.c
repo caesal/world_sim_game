@@ -1,62 +1,32 @@
-﻿#include "render_internal.h"
+﻿#include "render_panel_internal.h"
 
-static void draw_map_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font) {
-    int y = TOP_BAR_H + 58;
-    const char *size_en[3] = {"Small", "Medium", "Large"};
-    const char *size_zh[3] = {"小", "中", "大"};
-    int i;
-
-    SelectObject(hdc, title_font);
-    draw_text_line(hdc, x, y, tr("Map View", "地图视角"), RGB(245, 245, 245));
-    SelectObject(hdc, body_font);
-    draw_mode_buttons(hdc, client);
-
-    y = TOP_BAR_H + 216;
-    SelectObject(hdc, title_font);
-    draw_text_line(hdc, x, y, tr("World Generation", "世界生成"), RGB(245, 245, 245));
-    SelectObject(hdc, body_font);
-    draw_text_line(hdc, x, y + 30, tr("Map size", "地图大小"), RGB(200, 210, 218));
-    for (i = 0; i < 3; i++) {
-        RECT button = get_map_size_button_rect(client, i);
-        fill_rect(hdc, button, i == pending_map_size ? RGB(76, 95, 112) : RGB(35, 45, 54));
-        draw_center_text(hdc, button, ui_language == UI_LANG_ZH ? size_zh[i] : size_en[i], RGB(236, 242, 246));
-    }
-    draw_text_line(hdc, x, y + 92, tr("Initial civilizations", "初始文明数量"), RGB(200, 210, 218));
-    draw_setup_slider(hdc, client, WORLD_SLIDER_OCEAN, tr("Ocean", "海陆比例"), ocean_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_CONTINENT, tr("Fragment", "大陆破碎"), continent_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_RELIEF, tr("Relief", "地势起伏"), relief_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_MOISTURE, tr("Moisture", "湿润度"), moisture_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_DROUGHT, tr("Drought", "干旱度"), drought_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_VEGETATION, tr("Vegetation", "植被密度"), vegetation_slider);
-    draw_text_line(hdc, x, TOP_BAR_H + 558, tr("Advanced Terrain Bias", "高级地形偏好"), RGB(245, 245, 245));
-    draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_FOREST, tr("Forest", "森林"), bias_forest_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_DESERT, tr("Desert", "沙漠"), bias_desert_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_MOUNTAIN, tr("Mountain", "山脉"), bias_mountain_slider);
-    draw_setup_slider(hdc, client, WORLD_SLIDER_BIAS_WETLAND, tr("Wetland", "湿地"), bias_wetland_slider);
-    draw_text_line(hdc, x, client.bottom - 64, tr("F5 rebuilds with these settings.", "F5 使用这些设置重建世界。"), RGB(160, 171, 180));
-}
+#include "game/game_loop.h"
+#include "ui/ui_theme.h"
 
 void draw_side_panel(HDC hdc, RECT client) {
     int x = client.right - side_panel_w + 18;
     RECT panel = {client.right - side_panel_w, TOP_BAR_H, client.right, client.bottom};
     RECT divider = {client.right - side_panel_w - 3, TOP_BAR_H, client.right - side_panel_w + 3, client.bottom};
-    HFONT title_font = CreateFontA(21, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, ANSI_CHARSET,
+    HFONT title_font = CreateFontW(21, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                                   DEFAULT_PITCH | FF_SWISS, "Microsoft YaHei UI");
-    HFONT body_font = CreateFontA(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, ANSI_CHARSET,
+                                   DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+    HFONT body_font = CreateFontW(17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                                  DEFAULT_PITCH | FF_SWISS, "Microsoft YaHei UI");
+                                  DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
     HFONT old_font;
 
-    fill_rect(hdc, panel, RGB(31, 37, 43));
-    fill_rect(hdc, divider, RGB(71, 82, 92));
+    fill_rect(hdc, panel, ui_theme_color(UI_COLOR_PANEL));
+    fill_rect(hdc, divider, ui_theme_color(UI_COLOR_PANEL_LINE));
     draw_panel_tabs(hdc, client);
 
     old_font = SelectObject(hdc, title_font);
-    if (panel_tab == PANEL_INFO) draw_info_tab(hdc, client, x, TOP_BAR_H + 58, title_font, body_font);
-    else if (panel_tab == PANEL_CIV) draw_civ_tab(hdc, client, x, title_font, body_font);
+    if (panel_tab == PANEL_SELECTION) draw_selection_panel(hdc, client, x, title_font, body_font);
+    else if (panel_tab == PANEL_COUNTRY) draw_country_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_DIPLOMACY) draw_diplomacy_tab(hdc, client, x, title_font, body_font);
-    else draw_map_tab(hdc, client, x, title_font, body_font);
+    else if (panel_tab == PANEL_POPULATION) draw_population_panel(hdc, client, x, title_font, body_font);
+    else if (panel_tab == PANEL_PLAGUE) draw_plague_panel(hdc, client, x, title_font, body_font);
+    else if (panel_tab == PANEL_WORLD) draw_worldgen_panel(hdc, client, x, title_font, body_font);
+    else draw_debug_panel(hdc, client, x, title_font, body_font);
 
     SelectObject(hdc, old_font);
     DeleteObject(title_font);
@@ -69,22 +39,34 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     char text[256];
     const char *speed_name_zh[3] = {"慢速", "中速", "快速"};
     const char *speed_name = ui_language == UI_LANG_ZH ? speed_name_zh[speed_index] : SPEED_NAMES[speed_index];
+    int actual_ms = game_loop_actual_ms_per_month();
+    int pending = game_loop_pending_months();
+    char speed_detail[64];
     int i;
 
-    fill_rect(hdc, bar, RGB(30, 34, 38));
-    fill_rect(hdc, play, auto_run ? RGB(68, 88, 104) : RGB(42, 58, 72));
+    fill_rect(hdc, bar, ui_theme_color(UI_COLOR_CHROME));
+    fill_rect(hdc, play, auto_run ? RGB(87, 93, 78) : RGB(48, 56, 58));
     draw_center_text(hdc, play, auto_run ? "||" : ">", RGB(245, 248, 250));
 
     for (i = 0; i < 3; i++) {
         RECT button = get_speed_button_rect(client, i);
-        fill_rect(hdc, button, i == speed_index ? RGB(84, 110, 132) : RGB(42, 58, 72));
+        fill_rect(hdc, button, i == speed_index ? RGB(87, 93, 78) : RGB(48, 56, 58));
         draw_center_text(hdc, button, i == 0 ? ">" : (i == 1 ? ">>" : ">>>"), RGB(235, 240, 244));
     }
 
-    snprintf(text, sizeof(text), "%s    %s: %s (%s/%s)    %s    F1 %s    F2 %s    F5 %s",
-              tr("Space toggles run/pause", "空格开始/暂停"),
-              tr("Speed", "速度"), speed_name, speed_seconds_text(speed_index), tr("month", "月"),
-              tr("Wheel zoom", "滚轮缩放"), tr("add", "添加"), tr("apply", "应用"), tr("new world", "新世界"));
+    if (auto_run && actual_ms > 0) {
+        snprintf(speed_detail, sizeof(speed_detail), "%s/%s %s %.2fs/%s%s%d",
+                 speed_seconds_text(speed_index), tr("month", "月"), tr("actual", "实际"),
+                 actual_ms / 1000.0, tr("month", "月"),
+                 pending > 0 ? tr(" queue ", " 队列 ") : "", pending);
+    } else {
+        snprintf(speed_detail, sizeof(speed_detail), "%s/%s %s",
+                 speed_seconds_text(speed_index), tr("month", "月"), tr("target", "目标"));
+    }
+    snprintf(text, sizeof(text), "%s: %s (%s)    %s    F5 %s    F1/F2 %s",
+              tr("Speed", "速度"), speed_name, speed_detail,
+              tr("Space play/pause", "空格播放/暂停"),
+              tr("World", "世界"), tr("Country commands", "国家命令"));
     draw_text_line(hdc, 216, client.bottom - 29, text, RGB(225, 230, 235));
 }
 

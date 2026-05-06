@@ -299,7 +299,7 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         int desire_b = war_desire(civ_b, civ_a, relation);
         if (desire_a >= 70 || desire_b >= 70) {
             int started = desire_a >= desire_b ? war_start(civ_a, civ_b) : war_start(civ_b, civ_a);
-            if (started) relation.state = DIPLOMACY_WAR;
+            if (started) relation = diplomacy_matrix[civ_a][civ_b];
         } else if (relation.border_tension < 35 && relation.relation_score > 45) {
             relation.state = DIPLOMACY_PEACE;
         }
@@ -355,11 +355,15 @@ void diplomacy_update_year(void) {
 
 DiplomacyStatus diplomacy_status(int civ_a, int civ_b) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS) return DIPLOMACY_NONE;
+    if (civ_a >= civ_count || civ_b >= civ_count || !civs[civ_a].alive || !civs[civ_b].alive) return DIPLOMACY_NONE;
     return diplomacy_matrix[civ_a][civ_b].state;
 }
 
 DiplomacyRelation diplomacy_relation(int civ_a, int civ_b) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS) {
+        return default_relation(DIPLOMACY_NONE, 50);
+    }
+    if (civ_a >= civ_count || civ_b >= civ_count || !civs[civ_a].alive || !civs[civ_b].alive) {
         return default_relation(DIPLOMACY_NONE, 50);
     }
     return diplomacy_matrix[civ_a][civ_b];

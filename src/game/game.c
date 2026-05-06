@@ -6,10 +6,12 @@
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/ports.h"
+#include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
 #include "ui/ui.h"
 #include "world/ports.h"
+#include "world/terrain_query.h"
 #include "world/world_gen.h"
 
 #include <string.h>
@@ -25,10 +27,12 @@ static void clear_world_tiles(void) {
             world[y][x].climate = CLIMATE_OCEANIC;
             world[y][x].owner = -1;
             world[y][x].province_id = -1;
+            world[y][x].region_id = -1;
         }
     }
     river_path_count = 0;
     maritime_route_count = 0;
+    regions_reset();
 }
 
 static void game_start_blank_world(void) {
@@ -62,6 +66,8 @@ static WorldGenConfig game_world_gen_config_from_globals(void) {
     config.bias_desert = bias_desert_slider;
     config.bias_mountain = bias_mountain_slider;
     config.bias_wetland = bias_wetland_slider;
+    config.seed = 0u;
+    config.random_seed = 1;
     return config;
 }
 
@@ -81,6 +87,7 @@ void game_request_new_world(void) {
     generate_world_with_config(&config);
     world_generated = 1;
     ports_reset_regions();
+    regions_generate(region_size_slider);
     world_invalidate_region_cache();
     simulation_seed_default_civilizations();
     world_recalculate_territory();
@@ -89,6 +96,53 @@ void game_request_new_world(void) {
     diplomacy_update_contacts();
     dirty_mark_world();
     auto_run = 0;
+}
+
+void game_request_regenerate_regions(void) {
+    if (!world_generated || civ_count > 0) return;
+    regions_generate(region_size_slider);
+    selected_x = -1;
+    selected_y = -1;
+    selected_civ = -1;
+}
+
+int game_request_add_civilization_from_selection(const char *name, char symbol,
+                                                int military, int logistics,
+                                                int governance, int cohesion,
+                                                int production, int commerce,
+                                                int innovation) {
+    int x = -1;
+    int y = -1;
+    int before_count = civ_count;
+
+    if (!world_generated) return -1;
+    if (selected_x >= 0 && selected_y >= 0 &&
+        is_land(world[selected_y][selected_x].geography) &&
+        world[selected_y][selected_x].owner == -1) {
+        x = selected_x;
+        y = selected_y;
+    }
+    if (!add_civilization_at(name, symbol, military, logistics, governance, cohesion,
+                             production, commerce, innovation, x, y)) return -1;
+    selected_civ = before_count;
+    return selected_civ;
+}
+
+int game_request_edit_selected_civilization(const char *name, char symbol,
+                                            int military, int logistics,
+                                            int governance, int cohesion,
+                                            int production, int commerce,
+                                            int innovation) {
+    int civ_id = selected_civ;
+
+    if (civ_id < 0 || civ_id >= civ_count) {
+        if (selected_x >= 0 && selected_y >= 0) civ_id = world[selected_y][selected_x].owner;
+    }
+    if (civ_id < 0 || civ_id >= civ_count) return 0;
+    simulation_apply_civilization_edit(civ_id, name, symbol, military, logistics, governance,
+                                       cohesion, production, commerce, innovation);
+    selected_civ = civ_id;
+    return 1;
 }
 
 int game_tick_auto_run(void) {

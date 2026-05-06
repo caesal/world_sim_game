@@ -8,7 +8,10 @@
 #include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/ports.h"
+#include "sim/regions.h"
 #include "sim/province.h"
+#include "sim/province_partition.h"
+#include "sim/spawn.h"
 #include "sim/war.h"
 #include "world/terrain_query.h"
 
@@ -40,9 +43,17 @@ static void recalculate_territory(void) {
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             int owner = world[y][x].owner;
-            if (owner >= 0 && (owner >= civ_count || !civs[owner].alive)) world[y][x].owner = -1;
-            next_hash = (next_hash ^ (unsigned int)(world[y][x].owner + 2)) * 16777619u;
-            next_hash = (next_hash ^ (unsigned int)(world[y][x].province_id + 2)) * 16777619u;
+            if (owner >= 0 && (owner >= civ_count || !civs[owner].alive)) {
+                world[y][x].owner = -1;
+                world[y][x].province_id = -1;
+            }
+        }
+    }
+    for (i = 0; i < region_count; i++) {
+        int owner = natural_regions[i].owner_civ;
+        if (owner >= 0 && (owner >= civ_count || !civs[owner].alive)) {
+            natural_regions[i].owner_civ = -1;
+            natural_regions[i].city_id = -1;
         }
     }
     for (i = 0; i < city_count; i++) {
@@ -53,29 +64,17 @@ static void recalculate_territory(void) {
             cities[i].capital = 0;
         }
     }
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            next_hash = (next_hash ^ (unsigned int)(world[y][x].owner + 2)) * 16777619u;
+            next_hash = (next_hash ^ (unsigned int)(world[y][x].province_id + 2)) * 16777619u;
+        }
+    }
     if (next_hash != territory_contact_hash) {
         territory_contact_hash = next_hash;
         diplomacy_mark_contacts_dirty();
     }
     world_invalidate_region_cache();
-}
-
-static int find_empty_land(int *out_x, int *out_y) {
-    int tries;
-
-    for (tries = 0; tries < 12000; tries++) {
-        int x = rnd(MAP_W);
-        int y = rnd(MAP_H);
-        TerrainStats stats = tile_stats(x, y);
-        if (is_land(world[y][x].geography) && world[y][x].owner == -1 && world[y][x].province_id == -1 &&
-            stats.habitability > 2 && !province_city_too_close(x, y, CITY_MIN_DISTANCE) &&
-            province_city_site_has_room(x, y, -1, 3)) {
-            *out_x = x;
-            *out_y = y;
-            return 1;
-        }
-    }
-    return 0;
 }
 
 static void make_city_name(char *buffer, size_t buffer_size, int owner, int x, int y, int capital) {
@@ -120,6 +119,19 @@ static int create_city(int owner, int x, int y, int population, int capital) {
     return city_id;
 }
 
+static int starting_population_for_region(int x, int y, int region_id) {
+    TerrainStats stats = tile_stats(x, y);
+    const NaturalRegion *region = regions_get(region_id);
+    int base = 6000 + stats.food * 1200 + stats.water * 1200 + stats.pop_capacity * 1400 +
+               stats.habitability * 900 + stats.money * 450;
+
+    if (region) {
+        base += min(region->tile_count, 1400) * 7 + region->development_score * 90;
+        if (region->has_port_site) base += 2500;
+    }
+    return clamp(base + rnd(max(1, base / 5)), 7000, 70000);
+}
+
 int city_at(int x, int y) {
     int i;
 
@@ -151,7 +163,15 @@ int world_create_city(int owner, int x, int y, int population, int capital) {
 }
 
 void world_claim_city_region(int city_id, int owner) {
+    int region_id = regions_region_for_city(city_id);
+
+    if (regions_claim_for_civ(region_id, owner, city_id, 0)) return;
+    /* Legacy fallback for debug/old saves where a city is not inside a generated natural region. */
     province_claim_city_region(city_id, owner);
+}
+
+void world_mark_province_partition_dirty(int owner) {
+    province_mark_partition_dirty(owner);
 }
 
 void world_recalculate_territory(void) {
@@ -241,20 +261,19 @@ CountrySummary summarize_country(int civ_id) {
     return country_summary_cache[civ_id];
 }
 
-int add_civilization_at(const char *name, char symbol, int aggression, int expansion,
-                        int defense, int culture, int preferred_x, int preferred_y) {
+int add_civilization_at(const char *name, char symbol, int military, int logistics,
+                        int governance, int cohesion, int production, int commerce,
+                        int innovation, int preferred_x, int preferred_y) {
     int x = preferred_x;
     int y = preferred_y;
     int city_id;
+    int region_id;
     Civilization *civ;
 
     if (!world_generated) return 0;
     if (civ_count >= MAX_CIVS) return 0;
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H || !is_land(world[y][x].geography) ||
-        world[y][x].owner != -1 || world[y][x].province_id != -1 ||
-        province_city_too_close(x, y, CITY_MIN_DISTANCE)) {
-        if (!find_empty_land(&x, &y)) return 0;
-    }
+    if (!spawn_select_civilization_cradle(x, y, &x, &y)) return 0;
+    region_id = x >= 0 && x < MAP_W && y >= 0 && y < MAP_H ? world[y][x].region_id : -1;
 
     civ = &civs[civ_count];
     memset(civ, 0, sizeof(*civ));
@@ -262,21 +281,26 @@ int add_civilization_at(const char *name, char symbol, int aggression, int expan
     civ->symbol = symbol;
     civ->color = CIV_COLORS[civ_count % MAX_CIVS];
     civ->alive = 1;
-    civ->population = 120 + tile_stats(x, y).food * 10 + rnd(80);
-    civ->aggression = clamp(aggression, 0, 10);
-    civ->expansion = clamp(expansion, 0, 10);
-    civ->defense = clamp(defense, 0, 10);
-    civ->culture = clamp(culture, 0, 10);
+    civ->population = starting_population_for_region(x, y, region_id);
     {
         TerrainStats birth = tile_stats(x, y);
-        derive_civilization_metrics_from_traits_and_birthplace(civ, aggression, expansion, defense, culture, birth);
+        apply_civilization_core_metrics(civ, governance, cohesion, production, military,
+                                        commerce, logistics, innovation, birth, 1);
     }
     civ->capital_city = -1;
 
-    world[y][x].owner = civ_count;
-    city_id = create_city(civ_count, x, y, civ->population / 2, 1);
+    city_id = create_city(civ_count, x, y, civ->population, 1);
+    if (city_id < 0) {
+        memset(civ, 0, sizeof(*civ));
+        return 0;
+    }
     civ->capital_city = city_id;
-    if (city_id >= 0) province_claim_city_region(city_id, civ_count);
+    if (!regions_claim_as_province(region_id, civ_count, city_id)) {
+        if (city_id == city_count - 1) city_count--;
+        else cities[city_id].alive = 0;
+        memset(civ, 0, sizeof(*civ));
+        return 0;
+    }
 
     civ_count++;
     recalculate_territory();
@@ -295,17 +319,22 @@ void simulation_seed_default_civilizations(void) {
         'R', 'B', 'G', 'Y', 'V', 'O', 'T', 'M',
         'I', 'K', 'A', 'Z', 'C', 'S', 'J', 'P'
     };
-    const int traits[MAX_CIVS][4] = {
-        {8, 7, 4, 3}, {3, 4, 8, 6}, {5, 6, 5, 7}, {4, 6, 5, 8},
-        {6, 5, 6, 6}, {7, 5, 5, 4}, {4, 7, 4, 7}, {5, 5, 7, 5},
-        {2, 6, 8, 8}, {9, 5, 5, 3}, {5, 8, 4, 6}, {3, 7, 6, 7},
-        {8, 6, 4, 5}, {4, 4, 9, 8}, {3, 6, 5, 9}, {6, 7, 6, 4}
+    const int traits[MAX_CIVS][7] = {
+        {8, 7, 4, 3, 6, 5, 4}, {3, 4, 8, 6, 5, 5, 6},
+        {5, 6, 5, 7, 6, 6, 7}, {4, 6, 5, 8, 6, 8, 7},
+        {6, 5, 6, 6, 6, 6, 6}, {7, 5, 5, 4, 6, 5, 4},
+        {4, 7, 4, 7, 5, 7, 6}, {5, 5, 7, 5, 6, 5, 6},
+        {2, 6, 8, 8, 6, 7, 8}, {9, 5, 5, 3, 6, 4, 4},
+        {5, 8, 4, 6, 7, 7, 5}, {3, 7, 6, 7, 6, 7, 7},
+        {8, 6, 4, 5, 6, 5, 5}, {4, 4, 9, 8, 6, 6, 8},
+        {3, 6, 5, 9, 5, 7, 8}, {6, 7, 6, 4, 7, 6, 5}
     };
     int i;
     int count = clamp(initial_civ_count, 0, MAX_CIVS);
 
     for (i = 0; i < count; i++) {
-        add_civilization_at(names[i], symbols[i], traits[i][0], traits[i][1], traits[i][2], traits[i][3], -1, -1);
+        add_civilization_at(names[i], symbols[i], traits[i][0], traits[i][1], traits[i][2],
+                            traits[i][3], traits[i][4], traits[i][5], traits[i][6], -1, -1);
     }
 }
 
@@ -321,16 +350,22 @@ void simulation_reset_state(void) {
 }
 
 void simulation_apply_civilization_edit(int civ_id, const char *name, char symbol,
-                                        int aggression, int expansion, int defense, int culture) {
+                                        int military, int logistics,
+                                        int governance, int cohesion,
+                                        int production, int commerce,
+                                        int innovation) {
     Civilization *civ;
+    TerrainStats birth;
 
     if (civ_id < 0 || civ_id >= civ_count) return;
     civ = &civs[civ_id];
     if (name && name[0] != '\0') snprintf(civ->name, NAME_LEN, "%s", name);
     if (symbol != '\0') civ->symbol = symbol;
-    civ->aggression = clamp(aggression, 0, 10);
-    civ->expansion = clamp(expansion, 0, 10);
-    civ->defense = clamp(defense, 0, 10);
-    civ->culture = clamp(culture, 0, 10);
+    memset(&birth, 0, sizeof(birth));
+    if (civ->capital_city >= 0 && civ->capital_city < city_count) {
+        birth = tile_stats(cities[civ->capital_city].x, cities[civ->capital_city].y);
+    }
+    apply_civilization_core_metrics(civ, governance, cohesion, production, military,
+                                    commerce, logistics, innovation, birth, 0);
     dirty_mark_labels();
 }

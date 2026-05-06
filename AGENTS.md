@@ -18,6 +18,7 @@ Future coding agents working in this repository must follow these rules:
 14. Update the build command or Makefile when adding source files.
 15. Keep every `.c` and `.h` file at 500 lines or less. If a file grows past that, split it by responsibility before adding more work.
 16. Before editing, produce a function-to-module plan. Then implement that exact plan.
+17. New files should not include `core/game_types.h` unless they truly need legacy global state. Prefer narrower headers such as `core/constants.h`, `core/world_types.h`, `core/sim_types.h`, or module-specific headers.
 
 ## Code Review Rules
 

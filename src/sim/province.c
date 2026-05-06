@@ -1,5 +1,6 @@
 ﻿#include "province.h"
 
+#include "sim/province_partition.h"
 #include "sim/simulation.h"
 #include "sim/ports.h"
 #include "world/terrain_query.h"
@@ -19,6 +20,15 @@ static int region_summary_dirty = 1;
 static int province_claim_cost[MAX_MAP_H][MAX_MAP_W];
 static int province_border_distance[MAX_MAP_H][MAX_MAP_W];
 static ProvinceFrontierNode province_frontier[MAX_MAP_W * MAX_MAP_H];
+
+int province_city_id(int province_id) {
+    return province_id >= 0 && province_id < city_count ? province_id : -1;
+}
+
+int province_owner(int province_id) {
+    int city_id = province_city_id(province_id);
+    return city_id >= 0 && cities[city_id].alive ? cities[city_id].owner : -1;
+}
 
 void province_invalidate_region_cache(void) {
     province_cache_dirty = 1;
@@ -186,7 +196,6 @@ static int province_entry_cost(int city_id, int x, int y, int from_x, int from_y
     else if (world[y][x].geography == GEO_BASIN) cost -= 1;
     if (stats.habitability >= 7) cost -= 2;
     if (stats.water >= 7) cost -= 1;
-    cost += ((x * 17 + y * 31 + city_id * 13) % 7) - 3;
     return clamp(cost, 3, 28);
 }
 
@@ -343,12 +352,18 @@ void province_claim_city_region(int city_id, int owner) {
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             if (world[y][x].province_id == city_id) {
+                if (world[y][x].owner >= 0 && world[y][x].owner != owner) {
+                    province_mark_partition_dirty(world[y][x].owner);
+                }
                 world[y][x].owner = owner;
+                world[y][x].province_id = -1;
                 has_existing_region = 1;
             }
         }
     }
     if (has_existing_region) {
+        province_mark_partition_dirty(owner);
+        province_repartition_dirty();
         world_invalidate_region_cache();
         return;
     }
@@ -375,7 +390,7 @@ void province_claim_city_region(int city_id, int owner) {
                 if (world[ny][nx].province_id >= 0 && world[ny][nx].province_id != city_id) continue;
                 if (world[ny][nx].owner >= 0 && world[ny][nx].owner != owner) continue;
                 world[ny][nx].owner = owner;
-                world[ny][nx].province_id = city_id;
+                world[ny][nx].province_id = -1;
                 province_claim_cost[ny][nx] = core_cost;
                 province_frontier[tail].x = nx;
                 province_frontier[tail].y = ny;
@@ -391,16 +406,15 @@ void province_claim_city_region(int city_id, int owner) {
     }
 
     while (head < tail) {
-        static const int dirs[8][2] = {
-            {1, 0}, {-1, 0}, {0, 1}, {0, -1},
-            {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
+        static const int dirs[4][2] = {
+            {1, 0}, {-1, 0}, {0, 1}, {0, -1}
         };
         ProvinceFrontierNode node = province_frontier[head++];
         int direction;
 
         world[node.y][node.x].owner = owner;
-        world[node.y][node.x].province_id = city_id;
-        for (direction = 0; direction < 8; direction++) {
+        world[node.y][node.x].province_id = -1;
+        for (direction = 0; direction < 4; direction++) {
             int nx = node.x + dirs[direction][0];
             int ny = node.y + dirs[direction][1];
             int next_cost;
@@ -420,6 +434,8 @@ void province_claim_city_region(int city_id, int owner) {
             }
         }
     }
+    province_mark_partition_dirty(owner);
+    province_repartition_dirty();
     repair_city_location(city_id, city->capital ? 4 : 3);
     ports_maybe_make_city_port(city_id);
     world_invalidate_region_cache();

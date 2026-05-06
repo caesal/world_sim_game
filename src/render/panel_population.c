@@ -1,4 +1,4 @@
-#include "render_internal.h"
+#include "render_panel_internal.h"
 
 #include "sim/population.h"
 

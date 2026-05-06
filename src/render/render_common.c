@@ -1,4 +1,4 @@
-﻿#include "render_internal.h"
+﻿#include "render_common.h"
 
 void fill_rect(HDC hdc, RECT rect, COLORREF color) {
     HBRUSH brush = CreateSolidBrush(color);
@@ -65,6 +65,25 @@ void draw_center_text(HDC hdc, RECT rect, const char *text, COLORREF color) {
     SetTextColor(hdc, color);
     len = MultiByteToWideChar(CP_UTF8, 0, text, -1, wide_text, (int)(sizeof(wide_text) / sizeof(wide_text[0])));
     if (len > 0) DrawTextW(hdc, wide_text, -1, &rect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+}
+
+void draw_text_rect(HDC hdc, RECT rect, const char *text, COLORREF color, unsigned int format) {
+    WCHAR wide_text[512];
+    int len;
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, color);
+    len = MultiByteToWideChar(CP_UTF8, 0, text, -1, wide_text, (int)(sizeof(wide_text) / sizeof(wide_text[0])));
+    if (len > 0) DrawTextW(hdc, wide_text, -1, &rect, format);
+}
+
+void measure_text_utf8(HDC hdc, const char *text, SIZE *out_size) {
+    WCHAR wide_text[512];
+    int len;
+    if (!out_size) return;
+    out_size->cx = 0;
+    out_size->cy = 0;
+    len = MultiByteToWideChar(CP_UTF8, 0, text, -1, wide_text, (int)(sizeof(wide_text) / sizeof(wide_text[0])));
+    if (len > 0) GetTextExtentPoint32W(hdc, wide_text, len - 1, out_size);
 }
 
 const char *tr(const char *en, const char *zh) {
@@ -212,7 +231,7 @@ void draw_tooltip(HDC hdc, RECT client, const char *tooltip_text) {
     int height = 26;
 
     if (!tooltip_text || hover_x < 0 || hover_y < 0) return;
-    GetTextExtentPoint32A(hdc, tooltip_text, (int)strlen(tooltip_text), &text_size);
+    measure_text_utf8(hdc, tooltip_text, &text_size);
     width = clamp(text_size.cx + 24, 120, side_panel_w - FORM_X_PAD * 2);
     tip.left = hover_x + 14;
     tip.top = hover_y + 18;
@@ -267,6 +286,14 @@ COLORREF tile_display_color(int x, int y) {
             break;
         case DISPLAY_GEOGRAPHY:
             base = blend_color(geography_color(world[y][x].geography), overview_color(x, y), 35);
+            break;
+        case DISPLAY_REGIONS:
+            base = overview_color(x, y);
+            if (world[y][x].region_id >= 0) {
+                int id = world[y][x].region_id;
+                COLORREF region_color = RGB(92 + (id * 37) % 112, 105 + (id * 53) % 96, 86 + (id * 29) % 104);
+                base = blend_color(base, region_color, 44);
+            }
             break;
         case DISPLAY_POLITICAL:
             base = overview_color(x, y);
