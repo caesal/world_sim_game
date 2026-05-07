@@ -76,11 +76,19 @@ void draw_selection_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT b
     SelectObject(hdc, body_font);
     if (!world_generated) {
         ui_row_text(hdc, &cursor, tr("World", "世界"), tr("Not generated", "尚未生成"));
-        ui_row_text(hdc, &cursor, tr("Next", "下一步"), tr("Open World and generate a map.", "打开世界页生成地图。"));
+        ui_row_text(hdc, &cursor, tr("Next", "下一步"),
+                    tr("Generate a physical world first from World Setup.", "先在世界设置中生成物理世界。"));
+        return;
+    }
+    if (region_count <= 0) {
+        ui_row_text(hdc, &cursor, tr("Regions", "区域"), tr("Not generated", "尚未生成"));
+        ui_row_text(hdc, &cursor, tr("Next", "下一步"),
+                    tr("Generate natural regions before placing civilizations.", "放置文明前先生成自然区域。"));
         return;
     }
     if (selected_x < 0 || selected_y < 0) {
-        ui_row_text(hdc, &cursor, tr("Selection", "选择"), tr("Click any tile on the map.", "点击地图地块。"));
+        ui_row_text(hdc, &cursor, tr("Selection", "选择"),
+                    tr("Click a tile, city, or natural region on the map.", "点击地图上的地块、城市或自然区域。"));
         return;
     }
     city_id = city_at(selected_x, selected_y);

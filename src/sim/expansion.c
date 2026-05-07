@@ -4,6 +4,7 @@
 #include "sim/population.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/technology.h"
 
 #include <stdlib.h>
 
@@ -15,6 +16,8 @@ enum {
     EXPANSION_WORK_DONE
 };
 
+static int region_expansion_score(int civ_id, int region_id, int resource_pressure);
+
 int expansion_need_for_civ(int civ_id, int resource_score) {
     PopulationSummary population = population_country_summary(civ_id);
     int scarcity = clamp(22 - resource_score, 0, 22) * 4;
@@ -22,8 +25,11 @@ int expansion_need_for_civ(int civ_id, int resource_score) {
 }
 
 int expansion_threshold_for_civ(int civ_id) {
+    int threshold;
     if (civ_id < 0 || civ_id >= civ_count) return 100;
-    return clamp(106 - civs[civ_id].expansion * 4 - civs[civ_id].logistics / 2, 66, 112);
+    threshold = 106 - civs[civ_id].expansion * 4 - civs[civ_id].logistics / 2;
+    threshold = threshold * 100 / technology_expansion_percent(civ_id);
+    return clamp(threshold, 58, 112);
 }
 
 static int expansion_attempts_for_civ(int civ_id, int resource_score) {
@@ -33,8 +39,18 @@ static int expansion_attempts_for_civ(int civ_id, int resource_score) {
 
     if (expansion_need < threshold) return 0;
     attempts = 1 + (expansion_need - threshold) / 18 + civs[civ_id].expansion / 7;
+    if (technology_expansion_percent(civ_id) >= 120 && expansion_need >= threshold + 12) attempts++;
     if (resource_score > 26 && attempts > 1 && rnd(100) < 45) attempts--;
     return attempts;
+}
+
+static int has_adjacent_unowned_region(int civ_id, int resource_pressure) {
+    int i;
+
+    for (i = 0; i < region_count; i++) {
+        if (region_expansion_score(civ_id, i, resource_pressure) > -1000000) return 1;
+    }
+    return 0;
 }
 
 static void reset_work_best(ExpansionWorkState *work) {
@@ -151,7 +167,10 @@ int expansion_work_step(ExpansionWorkState *work, char *log, size_t log_size) {
         return 1;
     }
     if (work->stage == EXPANSION_WORK_OVERSEAS) {
-        maritime_try_overseas_expansion(work->civ_id, work->resource_score, log, log_size);
+        if (!has_adjacent_unowned_region(work->civ_id, work->resource_pressure) ||
+            work->resource_pressure >= expansion_threshold_for_civ(work->civ_id) + 22) {
+            maritime_try_overseas_expansion(work->civ_id, work->resource_score, log, log_size);
+        }
         work->stage = EXPANSION_WORK_DONE;
         work->active = 0;
         return 1;

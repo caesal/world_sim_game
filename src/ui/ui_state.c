@@ -31,6 +31,30 @@ int map_legend_collapsed = 0;
 int plague_fog_alpha = 45;
 int region_size_slider = 50;
 int worldgen_scroll_offset = 0;
+int country_show_fallen = 0;
+int country_detail_scroll_offset = 0;
+int pause_menu_open = 0;
+int selected_civ_color_index = -1;
+Color32 selected_civ_color = COLOR32_RGB(232, 31, 39);
+
+const Color32 UI_CIV_COLOR_PALETTE[CIV_COLOR_PALETTE_COUNT] = {
+    COLOR32_RGB(232, 31, 39),
+    COLOR32_RGB(34, 88, 230),
+    COLOR32_RGB(18, 205, 42),
+    COLOR32_RGB(244, 188, 40),
+    COLOR32_RGB(168, 76, 210),
+    COLOR32_RGB(232, 112, 37),
+    COLOR32_RGB(20, 184, 170),
+    COLOR32_RGB(220, 70, 145),
+    COLOR32_RGB(165, 102, 44),
+    COLOR32_RGB(72, 165, 224),
+    COLOR32_RGB(145, 191, 71),
+    COLOR32_RGB(205, 118, 150),
+    COLOR32_RGB(114, 93, 189),
+    COLOR32_RGB(209, 156, 44),
+    COLOR32_RGB(78, 139, 122),
+    COLOR32_RGB(191, 89, 89)
+};
 
 const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT] = {DISPLAY_ALL, DISPLAY_CLIMATE, DISPLAY_GEOGRAPHY, DISPLAY_REGIONS, DISPLAY_POLITICAL};
 const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political"};

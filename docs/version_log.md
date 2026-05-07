@@ -1,5 +1,22 @@
 # Version Log
 
+## Ver0.2.0
+
+Implemented features and fixes:
+
+1. Bumped the active prototype version to Ver0.2.0
+2. Added continuous mountain-chain generation with main ridges, branches, foothills, and debug metrics
+3. Strengthened natural-region boundary costs so mountains, canyons, rivers, coasts, and terrain transitions shape regions more strongly
+4. Added civilization technology stages 1-10 with innovation/resource/pressure-driven progress and localized stage names/effects
+5. Connected technology effects to expansion speed, resource output, deep-sea route stability, defense, battle odds, and long-held vassal annexation
+6. Rebalanced expansion so adjacent unowned natural regions remain the first priority before overseas expansion is considered
+7. Converted disorder to a 0-100 scale with monthly pressure/recovery, war-death impact, plague-death impact, and decade collapse checks
+8. Added collapse behavior that preserves the old capital remnant while splitting non-core natural regions into successor states
+9. Reworked active wars into 3-year battles based on current soldiers, technology modifiers, population casualties, peace pressure, and 20% bordering-province cession
+10. Added a Country Dashboard back-to-list control so selected-country detail and all-country list modes are clearly separated
+11. Updated README and version metadata for Ver0.2.0
+12. Verified the project builds with `build.bat`
+
 ## Ver0.1.8
 
 Implemented fixes:

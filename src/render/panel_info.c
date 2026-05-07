@@ -83,10 +83,14 @@ static WorldgenSliderLayout plague_slider_layout(RECT client) {
     slider.track.top = y + 24;
     slider.track.right = x + width;
     slider.track.bottom = y + 34;
+    slider.help.left = x;
+    slider.help.top = y + 40;
+    slider.help.right = x + width;
+    slider.help.bottom = y + 58;
     slider.hit.left = x - 8;
     slider.hit.top = y - 4;
     slider.hit.right = x + width + 8;
-    slider.hit.bottom = y + 42;
+    slider.hit.bottom = y + 60;
     return slider;
 }
 

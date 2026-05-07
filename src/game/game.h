@@ -1,5 +1,7 @@
-﻿#ifndef WORLD_SIM_GAME_H
+#ifndef WORLD_SIM_GAME_H
 #define WORLD_SIM_GAME_H
+
+#include "core/value_types.h"
 
 int run_game(void);
 void game_toggle_auto_run(void);
@@ -15,6 +17,8 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
                                             int governance, int cohesion,
                                             int production, int commerce,
                                             int innovation);
+void game_request_set_civilization_color(int civ_id, Color32 color);
+void game_request_after_load_map(void);
 int game_tick_auto_run(void);
 
 #endif

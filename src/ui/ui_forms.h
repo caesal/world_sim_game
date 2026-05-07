@@ -9,5 +9,8 @@ void ui_forms_write_civ(int civ_id);
 void ui_forms_add_civ(HWND hwnd);
 void ui_forms_apply_selected(HWND hwnd);
 void ui_forms_read_world_setup_controls(void);
+void ui_forms_write_world_setup_controls(void);
+int ui_forms_handle_metric_change(int control_id);
+int ui_forms_normalize_metric_edit(int control_id);
 
 #endif

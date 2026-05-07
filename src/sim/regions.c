@@ -8,6 +8,7 @@
 
 #include <limits.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #define REGION_SEED_TRIES 80
 #define REGION_TINY_DIVISOR 5
@@ -108,6 +109,19 @@ static int land_tile_count(void) {
         }
     }
     return count;
+}
+
+static int region_target_size_from_slider(int value) {
+    int v = clamp(value, 0, 100);
+    return 90 + v * 4 + v * v * 630 / 10000;
+}
+
+static void log_region_generation_debug(int slider, int target_size, int seeded_regions) {
+    char buffer[128];
+
+    snprintf(buffer, sizeof(buffer), "World Sim: region_slider=%d target_size=%d seeded_regions=%d final_regions=%d\n",
+             clamp(slider, 0, 100), target_size, seeded_regions, region_count);
+    OutputDebugStringA(buffer);
 }
 
 void regions_reset(void) {
@@ -448,7 +462,7 @@ void regions_generate(int region_size_value) {
     static int seed_x[MAX_NATURAL_REGIONS];
     static int seed_y[MAX_NATURAL_REGIONS];
     int land = land_tile_count();
-    int target_size = 220 + clamp(region_size_value, 0, 100) * 18;
+    int target_size = region_target_size_from_slider(region_size_value);
     int target_count;
 
     regions_reset();
@@ -464,6 +478,7 @@ void regions_generate(int region_size_value) {
     regions_shape_refine(target_size);
     rebuild_region_metadata();
     compute_direction_scores();
+    log_region_generation_debug(region_size_value, target_size, target_count);
     region_boundary_debug_summary();
     dirty_mark_territory();
     world_visual_revision++;

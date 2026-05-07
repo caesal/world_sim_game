@@ -12,6 +12,7 @@
 #include "sim/province.h"
 #include "sim/province_partition.h"
 #include "sim/spawn.h"
+#include "sim/technology.h"
 #include "sim/war.h"
 #include "world/terrain_query.h"
 
@@ -236,6 +237,7 @@ static void rebuild_country_summary_cache(void) {
     }
     for (i = 0; i < civ_count; i++) {
         CountrySummary *summary = &country_summary_cache[i];
+        int resource_percent = technology_resource_percent(i);
         if (summary->territory <= 0) continue;
         summary->food /= summary->territory;
         summary->livestock /= summary->territory;
@@ -246,6 +248,14 @@ static void rebuild_country_summary_cache(void) {
         summary->pop_capacity /= summary->territory;
         summary->money /= summary->territory;
         summary->habitability /= summary->territory;
+        summary->food = summary->food * resource_percent / 100;
+        summary->livestock = summary->livestock * resource_percent / 100;
+        summary->wood = summary->wood * resource_percent / 100;
+        summary->stone = summary->stone * resource_percent / 100;
+        summary->minerals = summary->minerals * resource_percent / 100;
+        summary->water = summary->water * resource_percent / 100;
+        summary->pop_capacity = summary->pop_capacity * resource_percent / 100;
+        summary->money = summary->money * resource_percent / 100;
         summary->resource_score = summary->food + summary->livestock + summary->water +
                                   summary->pop_capacity + summary->money + summary->habitability;
     }
@@ -288,6 +298,7 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
                                         commerce, logistics, innovation, birth, 1);
     }
     civ->capital_city = -1;
+    technology_initialize_civ(civ_count);
 
     city_id = create_city(civ_count, x, y, civ->population, 1);
     if (city_id < 0) {

@@ -14,9 +14,12 @@ void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body
     cursor.y += 30;
     SelectObject(hdc, body_font);
     ui_section(hdc, &cursor, tr("Map Overlay", "地图叠加"));
-    ui_row_int(hdc, &cursor, tr("Fog opacity", "瘟疫雾"), plague_fog_alpha);
+    ui_row_int(hdc, &cursor, tr("Fog opacity 0-100", "瘟疫雾 0-100"), plague_fog_alpha);
+    ui_row_text(hdc, &cursor, tr("Effect", "作用"),
+                tr("Viewer only; does not change plague severity, spread, or deaths.",
+                   "仅影响显示；不改变瘟疫烈度、传播或死亡。"));
     draw_setup_slider(hdc, client, UI_SLIDER_PLAGUE_FOG_ALPHA, tr("Plague Fog", "瘟疫雾"), plague_fog_alpha);
-    cursor.y = TOP_BAR_H + 226;
+    cursor.y = TOP_BAR_H + 252;
     ui_section(hdc, &cursor, tr("Active Cities", "感染城市"));
     for (i = 0; i < city_count; i++) {
         if (!cities[i].alive || !plague_city_active(i)) continue;

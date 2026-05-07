@@ -31,24 +31,28 @@ static void place_section(RECT *out, int x, int width, int *y, int scroll) {
 }
 
 static void place_slider(WorldgenSliderLayout *out, int x, int width, int *y, int scroll) {
-    RECT label = make_rect(x, *y, x + width - 58, *y + 18);
-    RECT value = make_rect(x + width - 50, *y, x + width, *y + 18);
+    RECT label = make_rect(x, *y, x + width - 106, *y + 18);
+    RECT value = make_rect(x + width - 98, *y, x + width, *y + 18);
     RECT track = make_rect(x, *y + 24, x + width, *y + 34);
-    RECT hit = make_rect(x - 8, *y - 4, x + width + 8, *y + 42);
+    RECT help = make_rect(x, *y + 40, x + width, *y + 58);
+    RECT hit = make_rect(x - 8, *y - 4, x + width + 8, *y + 60);
 
     out->label = offset_rect_y(label, -scroll);
     out->value = offset_rect_y(value, -scroll);
     out->track = offset_rect_y(track, -scroll);
+    out->help = offset_rect_y(help, -scroll);
     out->hit = offset_rect_y(hit, -scroll);
-    *y += 44;
+    *y += 66;
 }
 
 static void place_metric(WorldgenLayout *layout, int idx, int x, int y, int col_w, int scroll) {
     RECT label = make_rect(x, y, x + col_w - 6, y + 18);
     RECT input = make_rect(x, y + 20, x + col_w - 16, y + 44);
+    RECT help = make_rect(x, y + 47, x + col_w - 6, y + 83);
 
     layout->metric_label[idx] = offset_rect_y(label, -scroll);
     layout->metric_input[idx] = offset_rect_y(input, -scroll);
+    layout->metric_help[idx] = offset_rect_y(help, -scroll);
 }
 
 static int raw_content_height(RECT client, int panel_width) {
@@ -65,7 +69,10 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     int button_w = (width - gap * 2) / 3;
     int command_gap = 12;
     int command_w = (width - command_gap) / 2;
-    int col_w = width / 4;
+    int metric_gap = 12;
+    int metric_col_w = (width - metric_gap) / 2;
+    int swatch_size = 24;
+    int swatch_gap = 8;
     int bottom_margin = 18;
     int i;
 
@@ -75,15 +82,25 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
 
     layout->title = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 28), -scroll_offset);
     y += 36;
+    place_section(&layout->stage_section, panel_x, width, &y, scroll_offset);
+    for (i = 0; i < 4; i++) {
+        layout->stage_row[i] = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 19), -scroll_offset);
+        y += 21;
+    }
+    y += 6;
     place_section(&layout->map_size_section, panel_x, width, &y, scroll_offset);
     for (i = 0; i < MAP_SIZE_COUNT; i++) {
         RECT button = make_rect(panel_x + i * (button_w + gap), y, panel_x + i * (button_w + gap) + button_w, y + 28);
         layout->map_size_buttons[i] = offset_rect_y(button, -scroll_offset);
     }
-    y += 44;
+    y += 34;
+    layout->map_size_help = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
+    y += 26;
     layout->initial_label = offset_rect_y(make_rect(panel_x, y, panel_x + width - 86, y + 24), -scroll_offset);
     layout->initial_input = offset_rect_y(make_rect(panel_x + width - 76, y - 2, panel_x + width, y + 22), -scroll_offset);
-    y += 40;
+    y += 26;
+    layout->initial_help = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
+    y += 30;
 
     place_section(&layout->physical_section, panel_x, width, &y, scroll_offset);
     for (i = WORLD_SLIDER_OCEAN; i <= WORLD_SLIDER_VEGETATION; i++) {
@@ -103,20 +120,36 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     place_section(&layout->civ_section, panel_x, width, &y, scroll_offset);
     layout->civ_hint = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 20), -scroll_offset);
     y += 24;
+    layout->civ_range_help = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 40), -scroll_offset);
+    y += 44;
     layout->name_label = offset_rect_y(make_rect(panel_x, y, panel_x + 160, y + 18), -scroll_offset);
     layout->symbol_label = offset_rect_y(make_rect(panel_x + 176, y, panel_x + 238, y + 18), -scroll_offset);
     layout->name_input = offset_rect_y(make_rect(panel_x, y + 20, panel_x + 160, y + 44), -scroll_offset);
     layout->symbol_input = offset_rect_y(make_rect(panel_x + 176, y + 20, panel_x + 226, y + 44), -scroll_offset);
     y += 52;
-    place_metric(layout, WORLDGEN_METRIC_MILITARY, panel_x, y, col_w, scroll_offset);
-    place_metric(layout, WORLDGEN_METRIC_LOGISTICS, panel_x + col_w, y, col_w, scroll_offset);
-    place_metric(layout, WORLDGEN_METRIC_GOVERNANCE, panel_x + col_w * 2, y, col_w, scroll_offset);
-    place_metric(layout, WORLDGEN_METRIC_COHESION, panel_x + col_w * 3, y, col_w, scroll_offset);
-    y += 50;
-    place_metric(layout, WORLDGEN_METRIC_PRODUCTION, panel_x, y, col_w, scroll_offset);
-    place_metric(layout, WORLDGEN_METRIC_COMMERCE, panel_x + col_w, y, col_w, scroll_offset);
-    place_metric(layout, WORLDGEN_METRIC_INNOVATION, panel_x + col_w * 2, y, col_w, scroll_offset);
-    y += 52;
+    layout->civ_color_label = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
+    y += 22;
+    for (i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
+        int col = i % 8;
+        int row = i / 8;
+        RECT swatch = make_rect(panel_x + col * (swatch_size + swatch_gap),
+                                y + row * (swatch_size + swatch_gap),
+                                panel_x + col * (swatch_size + swatch_gap) + swatch_size,
+                                y + row * (swatch_size + swatch_gap) + swatch_size);
+        layout->civ_color_swatch[i] = offset_rect_y(swatch, -scroll_offset);
+    }
+    y += 2 * swatch_size + swatch_gap + 14;
+    place_metric(layout, WORLDGEN_METRIC_MILITARY, panel_x, y, metric_col_w, scroll_offset);
+    place_metric(layout, WORLDGEN_METRIC_LOGISTICS, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
+    y += 88;
+    place_metric(layout, WORLDGEN_METRIC_GOVERNANCE, panel_x, y, metric_col_w, scroll_offset);
+    place_metric(layout, WORLDGEN_METRIC_COHESION, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
+    y += 88;
+    place_metric(layout, WORLDGEN_METRIC_PRODUCTION, panel_x, y, metric_col_w, scroll_offset);
+    place_metric(layout, WORLDGEN_METRIC_COMMERCE, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
+    y += 88;
+    place_metric(layout, WORLDGEN_METRIC_INNOVATION, panel_x, y, metric_col_w, scroll_offset);
+    y += 88;
     layout->add_button = offset_rect_y(make_rect(panel_x, y, panel_x + command_w, y + 30), -scroll_offset);
     layout->apply_button = offset_rect_y(make_rect(panel_x + command_w + command_gap, y, panel_x + width, y + 30), -scroll_offset);
     y += 42;

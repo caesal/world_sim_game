@@ -69,7 +69,12 @@ GameState g_game = {
     &map_legend_collapsed,
     &plague_fog_alpha,
     &region_size_slider,
-    &worldgen_scroll_offset
+    &worldgen_scroll_offset,
+    &country_show_fallen,
+    &country_detail_scroll_offset,
+    &pause_menu_open,
+    &selected_civ_color_index,
+    &selected_civ_color
 };
 
 const int SPEED_MS[3] = {1000, 250, 50};

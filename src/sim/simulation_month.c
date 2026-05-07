@@ -2,6 +2,8 @@
 
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
+#include "sim/collapse.h"
+#include "sim/disorder.h"
 #include "sim/expansion.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
@@ -9,6 +11,7 @@
 #include "sim/ports.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
+#include "sim/technology.h"
 #include "sim/war.h"
 #include "world/terrain_query.h"
 
@@ -78,7 +81,7 @@ static int compute_dynamic_adaptation(int civ_id, int resource_score) {
     hardship = clamp(10 - summary.habitability, 0, 10) + clamp(5 - summary.food, 0, 5) +
                clamp(5 - summary.water, 0, 5);
     social_capacity = civ->culture + civ->cohesion + civ->logistics + civ->innovation;
-    instability = civ->disorder + civ->disorder_plague / 2 + civ->disorder_migration / 2;
+    instability = civ->disorder / 10 + civ->disorder_plague / 20 + civ->disorder_migration / 20;
     score = social_capacity / 4 + hardship / 3 + resource_diversity / 2 +
             clamp(18 - resource_score, 0, 10) / 3 - instability / 2;
     return clamp(score, 0, 10);
@@ -90,22 +93,9 @@ static void update_civilization_pressures(const int resource_scores[MAX_CIVS]) {
     for (i = 0; i < civ_count; i++) {
         Civilization *civ = &civs[i];
         int resources;
-        int pressure;
-        int pressure_disorder;
-        int scarcity_disorder;
         if (!civ->alive) continue;
         resources = resource_scores[i];
-        pressure = population_pressure_for_civ(i);
-        pressure_disorder = clamp((pressure - 95) / 12, 0, 10);
-        scarcity_disorder = clamp(12 - resources, 0, 10) / 2;
-        civ->disorder_resource = clamp(pressure_disorder + scarcity_disorder -
-                                       civ->governance / 5 - civ->logistics / 6, 0, 10);
-        civ->disorder_plague = clamp(civ->disorder_plague - 1, 0, 10);
-        civ->disorder_migration = clamp(civ->disorder_migration - 1, 0, 10);
-        civ->disorder_stability = clamp(civ->disorder_stability - 1, 0, 10);
-        civ->disorder = clamp(civ->disorder + (civ->disorder_resource > 5 ? 1 : -1) +
-                              civ->disorder_plague / 4 + civ->disorder_migration / 5 -
-                              civ->governance / 8 - civ->cohesion / 8, 0, 10);
+        disorder_update_month(i, resources);
         civ->adaptation = compute_dynamic_adaptation(i, resources);
     }
 }
@@ -125,8 +115,8 @@ static void random_event(char *log, size_t log_size) {
             break;
         case 2:
             civ->defense = clamp(civ->defense + 1, 0, 10);
-            civ->disorder_stability = clamp(civ->disorder_stability + 1, 0, 10);
-            civ->disorder = clamp(civ->disorder - 1, 0, 10);
+            civ->disorder_stability = clamp(civ->disorder_stability + 6, 0, 100);
+            civ->disorder = clamp(civ->disorder - 5, 0, 100);
             append_log(log, log_size, "%s fortified borders. ", civ->name);
             break;
         case 3:
@@ -135,8 +125,8 @@ static void random_event(char *log, size_t log_size) {
             break;
         default:
             civ->expansion = clamp(civ->expansion + 1, 0, 10);
-            civ->disorder_migration = clamp(civ->disorder_migration + 1, 0, 10);
-            civ->disorder = clamp(civ->disorder + 1, 0, 10);
+            civ->disorder_migration = clamp(civ->disorder_migration + 8, 0, 100);
+            civ->disorder = clamp(civ->disorder + 6, 0, 100);
             append_log(log, log_size, "%s started migrating. ", civ->name);
             break;
     }
@@ -171,6 +161,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
         case SIM_MONTH_CIVS:
             update_civilization_pressures(state->resource_scores);
+            technology_update_month();
             state->phase = SIM_MONTH_GROWTH_PORTS;
             break;
         case SIM_MONTH_GROWTH_PORTS:
@@ -236,6 +227,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 year = clamp(year + 1, 0, 99999);
                 diplomacy_update_year();
                 war_update_year();
+                if (year % 10 == 0) collapse_update_decade();
             }
             if (living_civilizations() <= 1) auto_run = 0;
             state->phase = SIM_MONTH_DONE;

@@ -23,7 +23,8 @@ static WorldgenSliderLayout plague_slider_layout(RECT client) {
     slider.label = (RECT){x, y, x + width - 58, y + 18};
     slider.value = (RECT){x + width - 50, y, x + width, y + 18};
     slider.track = (RECT){x, y + 24, x + width, y + 34};
-    slider.hit = (RECT){x - 8, y - 4, x + width + 8, y + 42};
+    slider.help = (RECT){x, y + 40, x + width, y + 58};
+    slider.hit = (RECT){x - 8, y - 4, x + width + 8, y + 60};
     return slider;
 }
 

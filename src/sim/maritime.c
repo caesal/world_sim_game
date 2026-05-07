@@ -6,6 +6,7 @@
 #include "sim/ports.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/technology.h"
 #include "world/ports.h"
 #include "world/terrain_query.h"
 
@@ -436,14 +437,17 @@ static int path_distance_to_target(int civ_id, MaritimeTarget target, int *dista
 
 void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, size_t log_size) {
     MaritimeTarget targets[MARITIME_TARGET_KEEP];
-    int pressure = clamp(18 - resource_score, 0, 14);
+    int pressure = max(population_pressure_for_civ(civ_id) / 8, clamp(18 - resource_score, 0, 14));
+    int sea_stability = technology_deep_sea_stability(civ_id);
     int i;
     int chance;
 
     if (!civs[civ_id].alive || city_count >= MAX_CITIES) return;
     maritime_ensure_routes();
-    chance = clamp(5 + pressure * 4 + civs[civ_id].logistics * 2 +
+    chance = clamp(3 + pressure * 3 + civs[civ_id].logistics * 2 +
                    civs[civ_id].commerce * 2 + civs[civ_id].expansion * 2, 4, 62);
+    if (sea_stability <= 0) chance = chance * 2 / 3;
+    else chance += sea_stability / 10;
     if (rnd(100) >= chance) return;
     if (!collect_overseas_targets(civ_id, pressure, targets)) return;
     for (i = 0; i < MARITIME_TARGET_KEEP && targets[i].score > -1000000; i++) {
@@ -454,7 +458,15 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
         threshold = 152 - pressure * 4 - civs[civ_id].logistics * 3 -
                     civs[civ_id].commerce * 2 - civs[civ_id].expansion * 2;
         if (targets[i].score < threshold) continue;
+        if (sea_stability > 0 && rnd(100) >= sea_stability) {
+            population_apply_casualties(civ_id, max(1, civs[civ_id].population / 200));
+            continue;
+        }
         if (!regions_claim_for_civ(targets[i].land_region_id, civ_id, -1, 1)) continue;
+        if (sea_stability > 0 && !civs[civ_id].deep_sea_route_unlocked_event_done) {
+            civs[civ_id].disorder = clamp(civs[civ_id].disorder - 25, 0, 100);
+            civs[civ_id].deep_sea_route_unlocked_event_done = 1;
+        }
         append_log(log, log_size, "%s founded an overseas province. ", civs[civ_id].name);
         return;
     }

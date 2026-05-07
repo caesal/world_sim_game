@@ -1,6 +1,7 @@
 ﻿#include "diplomacy.h"
 
 #include "sim/maritime.h"
+#include "sim/regions.h"
 #include "war.h"
 #include "sim/simulation.h"
 
@@ -32,6 +33,7 @@ static DiplomacyRelation default_relation(DiplomacyStatus state, int score) {
     relation.border_length = 0;
     relation.natural_barrier = 0;
     relation.years_known = state == DIPLOMACY_NONE ? 0 : 1;
+    relation.vassal_years = 0;
     relation.overlord = -1;
     relation.vassal = -1;
     return relation;
@@ -220,7 +222,7 @@ static int strength_score(int civ_id) {
 
     return summary.population / 800 + summary.food * 2 + summary.water * 2 + summary.money * 2 +
            summary.minerals * 2 + civ->military * 7 + civ->production * 4 +
-           civ->logistics * 4 + civ->cohesion * 3 - civ->disorder * 6;
+           civ->logistics * 4 + civ->cohesion * 3 - civ->disorder / 2;
 }
 
 static int resource_need_score(int civ_id) {
@@ -242,7 +244,7 @@ static int war_desire(int civ_a, int civ_b, DiplomacyRelation relation) {
     if (strength_delta > 0) desire += clamp(strength_delta / 8, 0, 25);
     desire -= (relation.trade_fit * 3) / 5;
     desire -= relation.truce_years_left > 0 ? 50 : 0;
-    desire -= civs[civ_a].disorder * 3;
+    desire -= civs[civ_a].disorder / 2;
     return clamp(desire, 0, 100);
 }
 
@@ -277,6 +279,19 @@ static void refresh_known_relation(int civ_a, int civ_b) {
     }
 #if DIPLOMACY_ENABLE_ADVANCED_STATES
     else if (relation.state == DIPLOMACY_VASSAL) {
+        relation.vassal_years++;
+        if (relation.overlord >= 0 && relation.overlord < civ_count &&
+            civs[relation.overlord].alive && civs[relation.overlord].tech_stage >= 10 &&
+            relation.vassal_years >= 100) {
+            int i;
+            int overlord = relation.overlord;
+            int vassal = relation.vassal;
+            for (i = 0; i < region_count; i++) {
+                if (natural_regions[i].owner_civ == vassal) regions_claim_for_civ(i, overlord, -1, 0);
+            }
+            civs[vassal].alive = 0;
+            relation.state = DIPLOMACY_PEACE;
+        }
         relation.border_tension = clamp(relation.border_tension - 4, 0, 100);
         relation.relation_score = clamp(relation.relation_score + relation.trade_fit / 25 -
                                         relation.resource_conflict / 30, 0, 100);
@@ -378,6 +393,7 @@ void diplomacy_force_war(int civ_a, int civ_b) {
     relation.state = DIPLOMACY_WAR;
     relation.truce_years_left = 0;
     relation.border_tension = clamp(relation.border_tension + 25, 0, 100);
+    relation.vassal_years = 0;
     relation.overlord = -1;
     relation.vassal = -1;
     set_relation_pair(civ_a, civ_b, relation);
@@ -393,6 +409,7 @@ void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score) 
     relation.truce_years_left = clamp(years, 0, 100);
     relation.relation_score = clamp(relation_score, 0, 100);
     relation.border_tension = clamp(relation.border_tension / 2, 0, 100);
+    relation.vassal_years = 0;
     relation.overlord = -1;
     relation.vassal = -1;
     set_relation_pair(civ_a, civ_b, relation);
@@ -409,6 +426,7 @@ void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
     relation.truce_years_left = 0;
     relation.relation_score = clamp(relation_score, 0, 100);
     relation.border_tension = clamp(relation.border_tension / 3, 0, 100);
+    relation.vassal_years = 0;
     relation.overlord = overlord;
     relation.vassal = vassal;
     set_relation_pair(overlord, vassal, relation);

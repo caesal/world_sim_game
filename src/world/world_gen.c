@@ -1,6 +1,7 @@
 ﻿#include "world/world_gen.h"
 
 #include "data/game_tables.h"
+#include "world/mountain_gen.h"
 #include "world/noise.h"
 #include "world/rivers.h"
 #include "world/terrain_query.h"
@@ -492,6 +493,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
         }
     }
 
+    world_apply_mountain_chains(gen_config.relief, gen_config.bias_mountain);
     generate_rivers(gen_config.moisture, gen_config.bias_wetland);
     terrain_stats_invalidate_cache();
     terrain_stats_rebuild_cache();

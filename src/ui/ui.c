@@ -2,7 +2,10 @@
 
 #include "game/game.h"
 #include "core/game_types.h"
+#include "io/map_save.h"
+#include "render/panel_country.h"
 #include "render/render.h"
+#include "ui/pause_menu.h"
 #include "ui/ui_forms.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_sliders.h"
@@ -51,12 +54,28 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     owner = selected_tile_owner();
     if (owner >= 0 && owner < civ_count) {
         selected_civ = owner;
+        country_detail_scroll_offset = 0;
         ui_forms_write_civ(owner);
     }
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
 static void set_speed(int index) { speed_index = clamp(index, 0, 2); }
+
+static void handle_pause_menu_action(HWND hwnd, int hit) {
+    if (hit == PAUSE_MENU_VERSION_LOG) {
+        pause_menu_show_version_log(hwnd);
+    } else if (hit == PAUSE_MENU_SAVE_MAP) {
+        save_current_map(hwnd);
+    } else if (hit == PAUSE_MENU_LOAD_MAP) {
+        if (load_map_from_file(hwnd)) {
+            ui_forms_write_world_setup_controls();
+            ui_forms_layout(hwnd);
+        }
+    } else if (hit == PAUSE_MENU_EXIT_GAME) {
+        DestroyWindow(hwnd);
+    }
+}
 
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
@@ -65,6 +84,12 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     int slider;
 
     GetClientRect(hwnd, &client);
+    if (pause_menu_open) {
+        int hit = pause_menu_hit_test(client, mouse_x, mouse_y);
+        if (hit != PAUSE_MENU_HIT_NONE) handle_pause_menu_action(hwnd, hit);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return;
+    }
     legend_toggle = get_map_legend_toggle_rect(client);
     if (!IsRectEmpty(&legend_toggle) && point_in_rect(legend_toggle, mouse_x, mouse_y)) {
         map_legend_collapsed = !map_legend_collapsed;
@@ -105,12 +130,44 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             }
         }
     }
+    if (panel_tab == PANEL_COUNTRY && mouse_x >= client.right - side_panel_w) {
+        int hit = country_panel_hit_test(client, mouse_x, mouse_y);
+        if (hit == COUNTRY_PANEL_HIT_TOGGLE_FALLEN) {
+            country_show_fallen = !country_show_fallen;
+            if (!country_show_fallen && selected_civ >= 0 && selected_civ < civ_count && !civs[selected_civ].alive) {
+                selected_civ = -1;
+            }
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit == COUNTRY_PANEL_HIT_BACK_TO_LIST) {
+            selected_civ = -1;
+            country_detail_scroll_offset = 0;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit >= 0 && hit < civ_count) {
+            selected_civ = hit;
+            country_detail_scroll_offset = 0;
+            ui_forms_write_civ(hit);
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+    }
     if (panel_tab == PANEL_WORLD) {
         WorldgenLayout layout;
         worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
         for (i = 0; i < MAP_SIZE_COUNT; i++) {
             if (point_in_rect(layout.map_size_buttons[i], mouse_x, mouse_y)) {
                 pending_map_size = i;
+                InvalidateRect(hwnd, NULL, FALSE);
+                return;
+            }
+        }
+        for (i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
+            if (point_in_rect(layout.civ_color_swatch[i], mouse_x, mouse_y)) {
+                selected_civ_color_index = i;
+                selected_civ_color = UI_CIV_COLOR_PALETTE[i];
                 InvalidateRect(hwnd, NULL, FALSE);
                 return;
             }
@@ -140,6 +197,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     int is_panel;
 
     GetClientRect(hwnd, &client);
+    if (pause_menu_open) return;
     if (!tracking_mouse_leave) {
         memset(&track, 0, sizeof(track));
         track.cbSize = sizeof(track);
@@ -205,6 +263,7 @@ static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
 
     GetClientRect(hwnd, &client);
+    if (pause_menu_open) return;
     if (mouse_x >= client.right - side_panel_w || mouse_y < TOP_BAR_H || mouse_y > client.bottom - BOTTOM_BAR_H) return;
     dragging_map = 1;
     map_interaction_preview = 1;
@@ -226,8 +285,13 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
     point.y = screen_y;
     ScreenToClient(hwnd, &point);
     GetClientRect(hwnd, &client);
+    if (pause_menu_open) return;
     if (steps == 0) steps = delta > 0 ? 1 : -1;
     if (point.x >= client.right - side_panel_w) {
+        if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+            if (country_panel_scroll(client, -steps * 72)) InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
         if (panel_tab == PANEL_WORLD && point.y >= TOP_BAR_H && point.y <= client.bottom) {
             int old_scroll = worldgen_scroll_offset;
             worldgen_scroll_offset = worldgen_layout_clamp_scroll(
@@ -260,6 +324,13 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
 }
 
 int handle_shortcut(HWND hwnd, WPARAM key) {
+    if (key == VK_ESCAPE) {
+        pause_menu_open = !pause_menu_open;
+        ui_forms_layout(hwnd);
+        InvalidateRect(hwnd, NULL, FALSE);
+        return 1;
+    }
+    if (pause_menu_open) return 1;
     if (key == VK_SPACE) {
         game_toggle_auto_run();
         InvalidateRect(hwnd, NULL, FALSE);
@@ -279,10 +350,6 @@ int handle_shortcut(HWND hwnd, WPARAM key) {
         InvalidateRect(hwnd, NULL, FALSE);
         return 1;
     }
-    if (key == VK_ESCAPE) {
-        DestroyWindow(hwnd);
-        return 1;
-    }
     return 0;
 }
 
@@ -293,6 +360,7 @@ int is_game_shortcut(WPARAM key) {
 int is_game_char_shortcut(WPARAM key) { return key == ' '; }
 
 int handle_char_shortcut(HWND hwnd, WPARAM key) {
+    if (pause_menu_open) return 1;
     if (key == ' ') return handle_shortcut(hwnd, VK_SPACE);
     return 0;
 }
@@ -309,6 +377,9 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             InvalidateRect(hwnd, NULL, FALSE);
             return 0;
         case WM_COMMAND:
+            if (pause_menu_open) return 0;
+            if (HIWORD(wparam) == EN_CHANGE && ui_forms_handle_metric_change(LOWORD(wparam))) return 0;
+            if (HIWORD(wparam) == EN_KILLFOCUS && ui_forms_normalize_metric_edit(LOWORD(wparam))) return 0;
             if (LOWORD(wparam) == ID_ADD_BUTTON) ui_forms_add_civ(hwnd);
             else if (LOWORD(wparam) == ID_APPLY_BUTTON) ui_forms_apply_selected(hwnd);
             return 0;
@@ -319,7 +390,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
-            if (wparam == TIMER_ID && game_tick_auto_run()) {
+            if (wparam == TIMER_ID && !pause_menu_open && game_tick_auto_run()) {
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;

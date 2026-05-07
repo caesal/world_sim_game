@@ -75,6 +75,9 @@ typedef struct {
     int logistics;
     int innovation;
     int adaptation;
+    int tech_stage;
+    int tech_progress;
+    int deep_sea_route_unlocked_event_done;
     int capital_city;
     int disorder;
     int disorder_resource;

@@ -5,11 +5,13 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\main.c ^
   src\game\game.c ^
   src\game\game_loop.c ^
+  src\io\map_save.c ^
   src\core\game_state.c ^
   src\core\dirty_flags.c ^
   src\data\game_tables.c ^
   src\world\world_gen.c ^
   src\world\world_seed.c ^
+  src\world\mountain_gen.c ^
   src\world\terrain_query.c ^
   src\world\world_smoothing.c ^
   src\world\rivers.c ^
@@ -20,9 +22,12 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\world\ports.c ^
   src\sim\ports.c ^
   src\sim\maritime.c ^
+  src\sim\disorder.c ^
+  src\sim\collapse.c ^
   src\sim\population.c ^
   src\sim\plague.c ^
   src\sim\civilization_metrics.c ^
+  src\sim\technology.c ^
   src\sim\province.c ^
   src\sim\province_partition.c ^
   src\sim\region_boundary.c ^
@@ -43,6 +48,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\maritime_render.c ^
   src\render\plague_render.c ^
   src\render\plague_visual.c ^
+  src\render\pause_menu_render.c ^
   src\render\panel_selection.c ^
   src\render\panel_country.c ^
   src\render\panel_population_page.c ^
@@ -56,13 +62,14 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\icons.c ^
   src\ui\ui_theme.c ^
   src\ui\ui_widgets.c ^
+  src\ui\pause_menu.c ^
   src\ui\ui_worldgen_layout.c ^
   src\ui\ui_state.c ^
   src\ui\ui_layout.c ^
   src\ui\ui_sliders.c ^
   src\ui\ui_forms.c ^
   src\ui\ui.c ^
-  -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -mwindows
+  -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -lcomdlg32 -mwindows
 if errorlevel 1 exit /b %errorlevel%
 
 endlocal

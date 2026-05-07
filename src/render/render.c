@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "render/cartography_layers.h"
+#include "render/pause_menu_render.h"
 
 typedef struct {
     HDC dc;
@@ -204,6 +205,7 @@ static void render_world(HDC hdc, RECT client) {
     draw_bottom_bar(hdc, client);
     draw_map_legend(hdc, client);
     draw_side_panel(hdc, client);
+    if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
 }
 
 void paint_window(HWND hwnd) {

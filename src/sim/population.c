@@ -227,7 +227,7 @@ static int monthly_births(int city_id, PopulationSummary summary, TerrainStats s
 
     if (owner >= 0 && owner < civ_count) rate += civs[owner].cohesion + civs[owner].governance / 2;
     if (summary.pressure > 100) rate -= (summary.pressure - 100) / 2;
-    if (owner >= 0 && owner < civ_count) rate -= civs[owner].disorder * 4 + civs[owner].disorder_plague * 3;
+    if (owner >= 0 && owner < civ_count) rate -= civs[owner].disorder / 3 + civs[owner].disorder_plague / 4;
     rate = clamp(rate, 0, 95);
     return (fertile_couples * rate + rnd(12000)) / 12000;
 }
@@ -310,8 +310,8 @@ int population_apply_casualties(int civ_id, int casualties) {
         if (removed < casualties) removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_55_64], casualties - removed));
         population_sync_city(city_id);
     }
-    civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration + removed / 2000, 0, 10);
-    civs[civ_id].disorder = clamp(civs[civ_id].disorder + removed / 2500, 0, 10);
+    civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration + removed / 2000, 0, 100);
+    civs[civ_id].disorder = clamp(civs[civ_id].disorder + removed / 2500, 0, 100);
     population_sync_all();
     world_invalidate_population_cache();
     return removed;
@@ -363,8 +363,8 @@ int population_apply_plague(int civ_id, int severity) {
         }
         population_sync_city(city_id);
     }
-    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + severity / 2 + removed / 1200, 0, 10);
-    civs[civ_id].disorder = clamp(civs[civ_id].disorder + severity / 4 + removed / 1800, 0, 10);
+    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + severity * 3 + removed / 1200, 0, 100);
+    civs[civ_id].disorder = clamp(civs[civ_id].disorder + severity + removed / 1800, 0, 100);
     population_sync_all();
     world_invalidate_population_cache();
     return removed;

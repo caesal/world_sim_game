@@ -8,6 +8,7 @@
 #define MAP_SIZE_LARGE 2
 #define MAP_SIZE_COUNT 3
 #define MAP_DISPLAY_MODE_COUNT 5
+#define CIV_COLOR_PALETTE_COUNT 16
 #define DEFAULT_MAP_W 800
 #define DEFAULT_MAP_H 450
 extern int map_w;

@@ -1,6 +1,7 @@
 #include "plague.h"
 
 #include "core/dirty_flags.h"
+#include "sim/disorder.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
@@ -83,7 +84,7 @@ static int city_outbreak_risk(int city_id) {
     risk += clamp(5 - stats.habitability, 0, 5) * 3;
     risk += city->port ? 5 : 0;
     risk += nearby_plague_pressure(city_id);
-    if (civ) risk += civ->disorder * 3 + civ->disorder_plague * 2;
+    if (civ) risk += civ->disorder / 2 + civ->disorder_plague / 2;
     risk -= city_plagues[city_id].immunity * 5;
     return clamp(risk, 0, 120);
 }
@@ -223,9 +224,9 @@ static void apply_plague_disorder(int active_by_civ[MAX_CIVS], int severity_by_c
     for (i = 0; i < civ_count; i++) {
         int pressure;
         if (!civs[i].alive || active_by_civ[i] <= 0) continue;
-        pressure = active_by_civ[i] + severity_by_civ[i] / 3 + deaths_by_civ[i] / 600;
-        civs[i].disorder_plague = clamp(pressure, civs[i].disorder_plague, 10);
-        civs[i].disorder = clamp(civs[i].disorder + clamp(pressure / 4, 0, 2), 0, 10);
+        pressure = active_by_civ[i] * 5 + severity_by_civ[i] + deaths_by_civ[i] / 120;
+        civs[i].disorder_plague = clamp(pressure, civs[i].disorder_plague, 100);
+        disorder_add_plague_deaths(i, deaths_by_civ[i]);
     }
 }
 
@@ -267,7 +268,7 @@ void plague_notify_war_casualties(int civ_id, int casualties) {
         int city_id = rnd(city_count);
         int chance;
         if (!valid_city(city_id) || cities[city_id].owner != civ_id) continue;
-        chance = clamp(casualties / 2 + civs[civ_id].disorder * 3 + city_outbreak_risk(city_id) / 4, 0, 55);
+        chance = clamp(casualties / 2 + civs[civ_id].disorder / 2 + city_outbreak_risk(city_id) / 4, 0, 55);
         if (rnd(100) < chance) {
             plague_seed_city(city_id, 3 + rnd(4), PLAGUE_MIN_DURATION + rnd(8));
             return;

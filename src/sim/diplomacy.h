@@ -23,6 +23,7 @@ typedef struct {
     int border_length;
     int natural_barrier;
     int years_known;
+    int vassal_years;
     int overlord;
     int vassal;
 } DiplomacyRelation;

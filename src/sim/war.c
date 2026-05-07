@@ -1,20 +1,23 @@
 ﻿#include "war.h"
 
 #include "diplomacy.h"
+#include "sim/disorder.h"
 #include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
+#include "sim/technology.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 #define MAX_ACTIVE_WARS (MAX_CIVS * MAX_CIVS / 2)
-#define LEGION_SIZE 250
 /* War upkeep/economy hooks are intentionally deferred; this module models mobilization and casualties. */
 #define WAR_MOBILIZATION_RATE 10
 #define EXTREME_MOBILIZATION_RATE 18
 
 static ActiveWar active_wars[MAX_ACTIVE_WARS];
+
+static int owned_province_count(int civ_id);
 
 static int is_valid_civ(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
@@ -29,13 +32,6 @@ static int mobilized_soldiers(int civ_id, int extreme) {
     int rate = extreme ? EXTREME_MOBILIZATION_RATE : WAR_MOBILIZATION_RATE;
 
     return clamp(recruitable * rate / 100, 0, MAX_POPULATION);
-}
-
-static int effective_legions(int soldiers) {
-    int legions = soldiers / LEGION_SIZE;
-
-    if (soldiers % LEGION_SIZE >= LEGION_SIZE * 3 / 5) legions++;
-    return legions;
 }
 
 static int has_border_province_contact(int civ_a, int civ_b) {
@@ -152,54 +148,15 @@ int war_current_soldiers_for_civ(int civ_id) {
     return at_war ? total : war_estimated_soldiers(civ_id);
 }
 
-static int army_success_chance(int civ_id, int opponent_id, int defending) {
-    CountrySummary summary = summarize_country(civ_id);
-    DiplomacyRelation relation = diplomacy_relation(civ_id, opponent_id);
-    Civilization *civ = &civs[civ_id];
-    int chance = 50;
-
-    chance += civ->military * 3 + civ->production * 2 + civ->logistics * 2;
-    chance += civ->innovation * 2 + civ->cohesion + civ->commerce;
-    chance += civ->adaptation * 2;
-    chance += defending ? civ->defense * 2 : civ->aggression;
-    chance += defending ? clamp(relation.natural_barrier / 20, 0, 12) : 0;
-    chance -= summary.food < 4 ? 15 : 0;
-    chance -= summary.money < 4 ? 10 : 0;
-    chance -= summary.water < 3 ? 5 : 0;
-    chance -= civ->disorder * 3;
-    return clamp(chance, 20, 85);
-}
-
-static int roll_successes(int soldiers, int chance) {
-    int rolls = effective_legions(soldiers);
-    int successes = 0;
-    int i;
-
-    for (i = 0; i < rolls; i++) {
-        int roll_chance = chance;
-        if (soldiers < LEGION_SIZE && rolls == 1) roll_chance -= 15;
-        if (rnd(100) < clamp(roll_chance, 5, 95)) successes++;
-    }
-    return successes;
-}
-
-static int apply_casualties(int *soldiers, int percent) {
-    int casualties;
-
-    if (*soldiers <= 0 || percent <= 0) return 0;
-    casualties = *soldiers * percent / 100;
-    if (casualties <= 0) casualties = 1;
-    if (casualties > *soldiers) casualties = *soldiers;
-    *soldiers -= casualties;
-    return casualties;
-}
-
 static void apply_population_casualties(int civ_id, int soldier_casualties) {
     int population_losses;
 
     if (soldier_casualties <= 0) return;
     population_losses = population_apply_casualties(civ_id, soldier_casualties);
-    if (population_losses > 0) plague_notify_war_casualties(civ_id, population_losses);
+    if (population_losses > 0) {
+        disorder_add_war_deaths(civ_id, population_losses);
+        plague_notify_war_casualties(civ_id, population_losses);
+    }
 }
 
 static void update_supply_state(ActiveWar *war) {
@@ -320,8 +277,8 @@ static void choose_new_capital(int loser, int winner) {
 static void handle_capital_loss(int loser, int winner) {
     int extra_used[MAX_CITIES] = {0};
 
-    civs[loser].disorder_stability = clamp(civs[loser].disorder_stability + 3, 0, 10);
-    civs[loser].disorder = clamp(civs[loser].disorder + 3, 0, 10);
+    civs[loser].disorder_stability = clamp(civs[loser].disorder_stability + 18, 0, 100);
+    civs[loser].disorder = clamp(civs[loser].disorder + 18, 0, 100);
     civs[loser].cohesion = clamp(civs[loser].cohesion - 1, 0, 10);
 
     if (!any_city_owned_by(loser)) {
@@ -331,13 +288,13 @@ static void handle_capital_loss(int loser, int winner) {
     }
 
     choose_new_capital(loser, winner);
-    if (civs[loser].disorder >= 7) {
+    if (civs[loser].disorder >= 70) {
         int province_id = pick_border_province(loser, winner, extra_used);
         if (province_id >= 0) {
             extra_used[province_id] = 1;
             cities[province_id].capital = 0;
             world_claim_city_region(province_id, winner);
-            civs[loser].disorder = clamp(civs[loser].disorder + 1, 0, 10);
+            civs[loser].disorder = clamp(civs[loser].disorder + 8, 0, 100);
         }
         choose_new_capital(loser, winner);
     }
@@ -357,8 +314,8 @@ static int transfer_border_provinces(int loser, int winner, int count) {
         cities[province_id].capital = 0;
         if (capital_lost) civs[loser].capital_city = -1;
         world_claim_city_region(province_id, winner);
-        civs[loser].disorder = clamp(civs[loser].disorder + 1, 0, 10);
-        civs[loser].disorder_stability = clamp(civs[loser].disorder_stability + 1, 0, 10);
+        civs[loser].disorder = clamp(civs[loser].disorder + 8, 0, 100);
+        civs[loser].disorder_stability = clamp(civs[loser].disorder_stability + 8, 0, 100);
         transferred++;
         if (capital_lost) handle_capital_loss(loser, winner);
     }
@@ -380,12 +337,13 @@ static void finish_war(ActiveWar *war, WarOutcome outcome, int margin) {
 
     if (winner >= 0 && loser >= 0 && is_valid_civ(winner) && is_valid_civ(loser)) {
         int transferred;
-        province_count = margin >= 3 ? 2 : 1;
+        (void)margin;
+        province_count = max(1, owned_province_count(loser) / 5);
         transferred = transfer_border_provinces(loser, winner, province_count);
         if (transferred == 0) {
-            civs[loser].disorder = clamp(civs[loser].disorder + 1, 0, 10);
+            civs[loser].disorder = clamp(civs[loser].disorder + 10, 0, 100);
         }
-        if (transferred == 0 || (civs[loser].disorder >= 8 && civs[loser].cohesion <= 3)) {
+        if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3)) {
             diplomacy_start_vassal(winner, loser, margin >= 3 ? 18 : 25);
         } else {
             diplomacy_start_truce(winner, loser, 10, margin >= 3 ? 20 : 30);
@@ -399,32 +357,59 @@ static void finish_war(ActiveWar *war, WarOutcome outcome, int margin) {
     memset(war, 0, sizeof(*war));
 }
 
-static WarOutcome settlement_outcome(ActiveWar *war, int success_a, int success_b) {
-    int score_a = war->soldiers_a + war->wins_a * 180 + success_a * 250;
-    int score_b = war->soldiers_b + war->wins_b * 180 + success_b * 250;
+static int owned_province_count(int civ_id) {
+    int i;
+    int count = 0;
 
-    if (score_a > score_b + 200) return WAR_OUTCOME_ATTACKER_WIN;
-    if (score_b > score_a + 200) return WAR_OUTCOME_DEFENDER_WIN;
+    for (i = 0; i < city_count; i++) {
+        if (cities[i].alive && cities[i].owner == civ_id) count++;
+    }
+    return count;
+}
+
+static int scaled_soldiers_for_battle(int civ_id, int soldiers, int defending) {
+    if (defending) soldiers = soldiers * technology_defense_army_percent(civ_id) / 100;
+    return max(1, soldiers);
+}
+
+static int casualty_per_mille(int *soldiers, int per_mille) {
+    int casualties;
+
+    if (*soldiers <= 0 || per_mille <= 0) return 0;
+    casualties = *soldiers * per_mille / 1000;
+    if (casualties <= 0) casualties = 1;
+    if (casualties > *soldiers) casualties = *soldiers;
+    *soldiers -= casualties;
+    return casualties;
+}
+
+static int peace_desire(int civ_id, int casualties, int initial_soldiers) {
+    int desire;
+
+    if (!is_valid_civ(civ_id)) return 100;
+    desire = civs[civ_id].disorder + (initial_soldiers > 0 ? casualties * 70 / initial_soldiers : 0);
+    desire += population_pressure_for_civ(civ_id) > 110 ? 12 : 0;
+    return clamp(desire, 0, 100);
+}
+
+static WarOutcome loser_outcome(int loser, ActiveWar *war) {
+    if (loser == war->attacker) return WAR_OUTCOME_DEFENDER_WIN;
+    if (loser == war->defender) return WAR_OUTCOME_ATTACKER_WIN;
     return WAR_OUTCOME_STALEMATE;
 }
 
-static int should_settle(ActiveWar *war) {
-    if (war->years >= 10) return 1;
-    if (effective_legions(war->soldiers_a) <= 0 || effective_legions(war->soldiers_b) <= 0) return 1;
-    if (war->supply_fail_a >= 3 || war->supply_fail_b >= 3) return 1;
-    if (war->initial_soldiers_a > 0 && war->casualties_a * 3 >= war->initial_soldiers_a * 2) return 1;
-    if (war->initial_soldiers_b > 0 && war->casualties_b * 3 >= war->initial_soldiers_b * 2) return 1;
-    return 0;
-}
-
 static void run_war_year(ActiveWar *war) {
+    int effective_a;
+    int effective_b;
     int chance_a;
     int chance_b;
-    int success_a;
-    int success_b;
-    int diff;
+    int roll;
+    int attacker_won;
     int casualties_a;
     int casualties_b;
+    int peace_a;
+    int peace_b;
+    int loser = -1;
     WarOutcome outcome;
 
     if (!is_valid_civ(war->attacker) || !is_valid_civ(war->defender)) {
@@ -432,35 +417,48 @@ static void run_war_year(ActiveWar *war) {
         return;
     }
 
-    update_supply_state(war);
-    chance_a = army_success_chance(war->attacker, war->defender, 0);
-    chance_b = army_success_chance(war->defender, war->attacker, 1);
-    success_a = roll_successes(war->soldiers_a, chance_a);
-    success_b = roll_successes(war->soldiers_b, chance_b);
-    diff = success_a - success_b;
+    war->years++;
+    if (war->initial_soldiers_a > 0 && war->soldiers_a * 3 <= war->initial_soldiers_a) {
+        finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 3);
+        return;
+    }
+    if (war->initial_soldiers_b > 0 && war->soldiers_b * 3 <= war->initial_soldiers_b) {
+        finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 3);
+        return;
+    }
+    if (war->years % 3 != 0) return;
 
-    if (diff > 0) {
-        casualties_a = apply_casualties(&war->soldiers_a, 5 + rnd(6) + clamp(diff, 0, 3) * 2);
-        casualties_b = apply_casualties(&war->soldiers_b, 15 + rnd(11) + clamp(diff - 1, 0, 3) * 8);
+    update_supply_state(war);
+    effective_a = scaled_soldiers_for_battle(war->attacker, war->soldiers_a, 0);
+    effective_b = scaled_soldiers_for_battle(war->defender, war->soldiers_b, 1);
+    chance_a = effective_a * 1000 / max(1, effective_a + effective_b);
+    chance_b = 1000 - chance_a;
+    chance_a += technology_battle_chance_bonus(war->attacker) * 10;
+    chance_b += technology_battle_chance_bonus(war->defender) * 10;
+    chance_a = chance_a * 1000 / max(1, chance_a + chance_b);
+    roll = rnd(1000);
+    attacker_won = roll < chance_a;
+
+    if (attacker_won) {
+        casualties_a = casualty_per_mille(&war->soldiers_a, 55);
+        casualties_b = casualty_per_mille(&war->soldiers_b, 80);
         war->wins_a++;
-    } else if (diff < 0) {
-        casualties_a = apply_casualties(&war->soldiers_a, 15 + rnd(11) + clamp(-diff - 1, 0, 3) * 8);
-        casualties_b = apply_casualties(&war->soldiers_b, 5 + rnd(6) + clamp(-diff, 0, 3) * 2);
-        war->wins_b++;
     } else {
-        casualties_a = apply_casualties(&war->soldiers_a, 10 + rnd(11));
-        casualties_b = apply_casualties(&war->soldiers_b, 10 + rnd(11));
+        casualties_a = casualty_per_mille(&war->soldiers_a, 80);
+        casualties_b = casualty_per_mille(&war->soldiers_b, 55);
+        war->wins_b++;
     }
 
     war->casualties_a += casualties_a;
     war->casualties_b += casualties_b;
     apply_population_casualties(war->attacker, casualties_a);
     apply_population_casualties(war->defender, casualties_b);
-    war->years++;
-
-    if (!should_settle(war)) return;
-    outcome = settlement_outcome(war, success_a, success_b);
-    finish_war(war, outcome, abs(war->wins_a - war->wins_b));
+    peace_a = peace_desire(war->attacker, war->casualties_a, war->initial_soldiers_a);
+    peace_b = peace_desire(war->defender, war->casualties_b, war->initial_soldiers_b);
+    if (!(peace_a >= 70 && peace_b >= 70)) return;
+    loser = civs[war->attacker].disorder >= civs[war->defender].disorder ? war->attacker : war->defender;
+    outcome = loser_outcome(loser, war);
+    finish_war(war, outcome, max(1, owned_province_count(loser) / 5));
 }
 
 void war_update_year(void) {

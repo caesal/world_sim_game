@@ -66,6 +66,11 @@ typedef struct {
     LocalizedText note;
 } BirthEnvironmentRule;
 
+typedef struct {
+    LocalizedText name;
+    LocalizedText effect;
+} TechnologyStageRule;
+
 /*
 World model quick-edit reference.
 
@@ -192,6 +197,7 @@ extern const ClimateRule CLIMATE_RULES[CLIMATE_COUNT];
 extern const EcologyRule ECOLOGY_RULES[ECO_COUNT];
 extern const ResourceFeatureRule RESOURCE_FEATURE_RULES[RESOURCE_FEATURE_COUNT];
 extern const CivilizationMetricRule CIVILIZATION_METRIC_RULES[CIV_METRIC_COUNT];
+extern const TechnologyStageRule TECHNOLOGY_STAGE_RULES[10];
 
 const char *localized_text(LocalizedText text, int language);
 

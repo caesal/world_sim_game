@@ -3,17 +3,18 @@
 #include "core/game_types.h"
 #include "sim/regions.h"
 #include "sim/regions_shape.h"
+#include "world/mountain_gen.h"
 #include "world/terrain_query.h"
 
 #include <stdio.h>
 
 static int natural_barrier_bonus(Geography geography) {
     switch (geography) {
-        case GEO_MOUNTAIN: return 28;
-        case GEO_CANYON: return 24;
-        case GEO_VOLCANO: return 26;
-        case GEO_HILL: return 8;
-        case GEO_PLATEAU: return 7;
+        case GEO_MOUNTAIN: return 46;
+        case GEO_CANYON: return 42;
+        case GEO_VOLCANO: return 44;
+        case GEO_HILL: return 10;
+        case GEO_PLATEAU: return 12;
         case GEO_WETLAND: return 5;
         default: return 0;
     }
@@ -24,14 +25,14 @@ int region_boundary_crossing_cost(int x, int y, int nx, int ny) {
     Tile *to = &world[ny][nx];
     int cost = 6 + world_tile_cost(nx, ny) * 4;
 
-    cost += abs(to->elevation - from->elevation) / 5;
-    if (to->geography != from->geography) cost += 12;
-    if (to->climate != from->climate) cost += 7;
+    cost += abs(to->elevation - from->elevation) / 3;
+    if (to->geography != from->geography) cost += 18;
+    if (to->climate != from->climate) cost += 9;
     if (to->ecology != from->ecology) cost += 4;
     cost += natural_barrier_bonus(from->geography) + natural_barrier_bonus(to->geography);
-    if (to->river != from->river) cost += 18;
-    else if (to->river && from->river) cost -= 6;
-    if (world_is_coastal_land_tile(x, y) != world_is_coastal_land_tile(nx, ny)) cost += 10;
+    if (to->river != from->river) cost += 26;
+    else if (to->river && from->river) cost -= 10;
+    if (world_is_coastal_land_tile(x, y) != world_is_coastal_land_tile(nx, ny)) cost += 18;
     if ((from->geography == GEO_PLAIN || from->geography == GEO_BASIN) &&
         (to->geography == GEO_PLAIN || to->geography == GEO_BASIN)) cost -= 4;
     return clamp(cost, 2, 120);
@@ -66,9 +67,9 @@ int region_boundary_compactness_penalty(int seed_x, int seed_y, int x, int y, in
     int target_radius = clamp(target_size / 26, 8, 48);
     int penalty = 0;
 
-    if (major > target_radius) penalty += (major - target_radius) * 6;
-    if (major > minor * 3 + 10) penalty += (major - minor * 3 - 10) * 9;
-    if (dx > target_radius * 2 || dy > target_radius * 2) penalty += 80;
+    if (major > target_radius) penalty += (major - target_radius) * 9;
+    if (major > minor * 2 + 8) penalty += (major - minor * 2 - 8) * 18;
+    if (dx > target_radius * 2 || dy > target_radius * 2) penalty += 140;
     return penalty;
 }
 
@@ -107,7 +108,8 @@ void region_boundary_debug_summary(void) {
         }
     }
     snprintf(buffer, sizeof(buffer),
-             "World Sim: regions=%d avg_area=%d max_elongation=%d%% sliver_merges=%d\n",
+             "World Sim: mountain_chain_count=%d average_chain_length=%d regions=%d avg_area=%d max_elongation=%d%% sliver_merges=%d\n",
+             world_mountain_chain_count(), world_mountain_average_chain_length(),
              active, active > 0 ? total / active : 0, max_elongation, regions_shape_last_merge_count());
     OutputDebugStringA(buffer);
 }

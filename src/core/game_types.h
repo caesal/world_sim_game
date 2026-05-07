@@ -52,6 +52,11 @@ typedef struct {
     int *plague_fog_alpha;
     int *region_size_slider;
     int *worldgen_scroll_offset;
+    int *country_show_fallen;
+    int *country_detail_scroll_offset;
+    int *pause_menu_open;
+    int *selected_civ_color_index;
+    Color32 *selected_civ_color;
 } GameState;
 
 extern Tile world[MAX_MAP_H][MAX_MAP_W];
@@ -100,6 +105,11 @@ extern int map_legend_collapsed;
 extern int plague_fog_alpha;
 extern int region_size_slider;
 extern int worldgen_scroll_offset;
+extern int country_show_fallen;
+extern int country_detail_scroll_offset;
+extern int pause_menu_open;
+extern int selected_civ_color_index;
+extern Color32 selected_civ_color;
 extern int map_interaction_preview;
 extern int world_visual_revision;
 extern int map_w;
@@ -111,6 +121,7 @@ extern int world_generated;
 extern const int SPEED_MS[3];
 extern const char *SPEED_NAMES[3];
 extern const Color32 CIV_COLORS[MAX_CIVS];
+extern const Color32 UI_CIV_COLOR_PALETTE[CIV_COLOR_PALETTE_COUNT];
 extern const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT];
 extern const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT];
 

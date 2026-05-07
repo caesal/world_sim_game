@@ -5,6 +5,7 @@
 #include "game/game_loop.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
+#include "sim/plague.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
@@ -143,6 +144,30 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
                                        cohesion, production, commerce, innovation);
     selected_civ = civ_id;
     return 1;
+}
+
+void game_request_set_civilization_color(int civ_id, Color32 color) {
+    if (civ_id < 0 || civ_id >= civ_count) return;
+    civs[civ_id].color = color;
+    dirty_mark_territory();
+    dirty_mark_labels();
+    world_visual_revision++;
+}
+
+void game_request_after_load_map(void) {
+    selected_x = -1;
+    selected_y = -1;
+    selected_civ = -1;
+    auto_run = 0;
+    game_loop_reset();
+    diplomacy_reset();
+    war_reset();
+    plague_reset();
+    world_invalidate_region_cache();
+    ports_refresh_city_regions();
+    diplomacy_update_contacts();
+    dirty_mark_world();
+    world_visual_revision++;
 }
 
 int game_tick_auto_run(void) {

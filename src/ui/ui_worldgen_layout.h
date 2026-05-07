@@ -21,6 +21,7 @@ typedef struct {
     RECT label;
     RECT value;
     RECT track;
+    RECT help;
     RECT hit;
 } WorldgenSliderLayout;
 
@@ -30,10 +31,14 @@ typedef struct {
     int max_scroll;
     int content_height;
     RECT title;
+    RECT stage_section;
+    RECT stage_row[4];
     RECT map_size_section;
     RECT map_size_buttons[MAP_SIZE_COUNT];
+    RECT map_size_help;
     RECT initial_label;
     RECT initial_input;
+    RECT initial_help;
     RECT physical_section;
     RECT terrain_section;
     RECT regions_section;
@@ -41,12 +46,16 @@ typedef struct {
     WorldgenSliderLayout sliders[UI_SLIDER_COUNT];
     RECT civ_section;
     RECT civ_hint;
+    RECT civ_range_help;
     RECT name_label;
     RECT name_input;
     RECT symbol_label;
     RECT symbol_input;
+    RECT civ_color_label;
+    RECT civ_color_swatch[CIV_COLOR_PALETTE_COUNT];
     RECT metric_label[WORLDGEN_CORE_METRIC_COUNT];
     RECT metric_input[WORLDGEN_CORE_METRIC_COUNT];
+    RECT metric_help[WORLDGEN_CORE_METRIC_COUNT];
     RECT add_button;
     RECT apply_button;
 } WorldgenLayout;

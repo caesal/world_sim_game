@@ -7,7 +7,12 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.1.8 is a Windows graphical sandbox prototype written in C.
+Ver0.2.0 is a Windows graphical sandbox prototype written in C.
+
+Ver0.2.0 focuses on system integration: continuous mountain chains, stronger natural-region boundaries,
+land-first region expansion, civilization technology stages, 0-100 disorder, collapse checks,
+3-year war battles with real population casualties, and a Country Dashboard that can switch between
+all-country list mode and selected-country detail mode.
 
 You can:
 
@@ -93,6 +98,14 @@ You can:
 80. Keep plague rendering read-only from simulation state while still reflecting monthly plague severity
 81. Skip territory recalculation in the monthly phase when expansion did not change ownership or city count
 82. Fix Chinese age-structure labels in the population pyramid
+83. Generate continuous mountain chains with ridges, branches, and foothills before river and natural-region passes
+84. Strengthen natural-region boundary costs around mountains, canyons, rivers, coastlines, and climate/ecology changes
+85. Track technology stages 1-10 for every civilization, with innovation and resources controlling progress
+86. Apply technology effects to expansion pace, resource output, deep-sea stability, defense, battle odds, and long-held vassals
+87. Use 0-100 disorder with monthly recovery/pressure drift, war-death and plague-death disorder impacts, and decade collapse checks
+88. Rework wars into 3-year battles using current soldiers, technology modifiers, real population casualties, peace pressure, and 20% bordering-province cession
+89. Keep normal expansion focused on neighboring unowned natural regions before considering overseas targets
+90. Add a Country Dashboard back-to-list control so selected-country detail no longer traps the user away from all countries
 
 ## Controls
 
@@ -105,7 +118,7 @@ You can:
 7. `F2` applies the form to the selected civilization
 8. `F5` generates a new random world using the right-side world setup
 9. `R` also generates a new random world when the map has keyboard focus
-10. `Esc` quits the game
+10. `Esc` opens the pause menu with Version Log, Save Map, Load Map, and Exit Game
 11. Left mouse click selects a tile or civilization
 12. Use the right-side tabs to switch between info, civilization controls, diplomacy, and map generation
 13. Drag the panel divider to resize the side controls
