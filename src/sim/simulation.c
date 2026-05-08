@@ -3,6 +3,8 @@
 #include "core/dirty_flags.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
+#include "sim/civ_colors.h"
+#include "sim/disorder.h"
 #include "sim/expansion.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
@@ -14,6 +16,7 @@
 #include "sim/spawn.h"
 #include "sim/technology.h"
 #include "sim/war.h"
+#include "data/country_names.h"
 #include "world/terrain_query.h"
 
 #include <stdio.h>
@@ -23,6 +26,83 @@
 static CountrySummary country_summary_cache[MAX_CIVS];
 static int country_summary_dirty = 1;
 static unsigned int territory_contact_hash = 0;
+
+static int is_default_manual_name(const char *name) {
+    return !name || !name[0] || strcmp(name, "New Realm") == 0;
+}
+
+int civilization_pick_unused_name_id(void) {
+    int used[COUNTRY_NAME_COUNT];
+    int i;
+
+    memset(used, 0, sizeof(used));
+    for (i = 0; i < civ_count; i++) {
+        if (!civs[i].custom_name && civs[i].name_id >= 0 && civs[i].name_id < COUNTRY_NAME_COUNT) {
+            used[civs[i].name_id] = 1;
+        }
+    }
+    for (i = 0; i < COUNTRY_NAME_COUNT; i++) {
+        int candidate = rnd(COUNTRY_NAME_COUNT);
+        if (!used[candidate]) return candidate;
+    }
+    for (i = 0; i < COUNTRY_NAME_COUNT; i++) {
+        if (!used[i]) return i;
+    }
+    return -1;
+}
+
+void civilization_assign_generated_name(Civilization *civ, int name_id) {
+    if (!civ) return;
+    civ->custom_name = 0;
+    civ->name_id = name_id;
+    if (name_id >= 0 && name_id < COUNTRY_NAME_COUNT) {
+        snprintf(civ->name, NAME_LEN, "%s", country_name_localized(name_id, 0));
+    } else {
+        snprintf(civ->name, NAME_LEN, "Country %d", civ_count + 1);
+    }
+}
+
+void civilization_set_custom_name(Civilization *civ, const char *name) {
+    if (!civ) return;
+    civ->custom_name = 1;
+    civ->name_id = -1;
+    snprintf(civ->name, NAME_LEN, "%s", name && name[0] ? name : "Custom Country");
+}
+
+const char *civilization_display_name_for_language(int civ_id, int language) {
+    static char fallback[4][NAME_LEN];
+    static int fallback_index = 0;
+    Civilization *civ;
+
+    if (civ_id < 0 || civ_id >= civ_count) return "";
+    civ = &civs[civ_id];
+    if (!civ->custom_name && civ->name_id >= 0 && civ->name_id < COUNTRY_NAME_COUNT) {
+        return country_name_localized(civ->name_id, language);
+    }
+    if (!civ->custom_name && civ->name_id < 0) {
+        char *buffer = fallback[fallback_index++ % 4];
+        snprintf(buffer, NAME_LEN, language == 1 ? "国家 %d" : "Country %d", civ_id + 1);
+        return buffer;
+    }
+    return civ->name;
+}
+
+const char *civilization_display_name(int civ_id) {
+    return civilization_display_name_for_language(civ_id, ui_language);
+}
+
+void civilization_migrate_loaded_names(void) {
+    int i;
+
+    for (i = 0; i < civ_count; i++) {
+        if (civs[i].name_id >= 0 && civs[i].name_id < COUNTRY_NAME_COUNT) {
+            civs[i].custom_name = 0;
+            continue;
+        }
+        civs[i].name_id = country_name_find_by_text(civs[i].name);
+        civs[i].custom_name = civs[i].name_id < 0;
+    }
+}
 
 static void recalculate_territory(void) {
     int i;
@@ -88,7 +168,9 @@ static void make_city_name(char *buffer, size_t buffer_size, int owner, int x, i
         "march", "gate", "fall", "haven", "wick", "brook", "den", "reach"
     };
 
-    if (capital && owner >= 0 && owner < civ_count) snprintf(buffer, buffer_size, "%s Capital", civs[owner].name);
+    if (capital && owner >= 0 && owner < civ_count) {
+        snprintf(buffer, buffer_size, "%s Capital", civilization_display_name_for_language(owner, 0));
+    }
     else snprintf(buffer, buffer_size, "%s%s Province", prefixes[(x * 3 + y) % 16], roots[(x + y * 5) % 16]);
 }
 
@@ -187,6 +269,10 @@ void world_invalidate_region_cache(void) {
     world_visual_revision++;
 }
 
+void world_invalidate_country_summary_cache(void) {
+    country_summary_dirty = 1;
+}
+
 void world_invalidate_population_cache(void) {
     province_invalidate_region_summary();
     country_summary_dirty = 1;
@@ -238,7 +324,9 @@ static void rebuild_country_summary_cache(void) {
     for (i = 0; i < civ_count; i++) {
         CountrySummary *summary = &country_summary_cache[i];
         int resource_percent = technology_resource_percent(i);
+        int disorder_percent = disorder_productivity_percent(civs[i].disorder);
         if (summary->territory <= 0) continue;
+        resource_percent = resource_percent * disorder_percent / 100;
         summary->food /= summary->territory;
         summary->livestock /= summary->territory;
         summary->wood /= summary->territory;
@@ -287,9 +375,10 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
 
     civ = &civs[civ_count];
     memset(civ, 0, sizeof(*civ));
-    strncpy(civ->name, name, NAME_LEN - 1);
+    if (is_default_manual_name(name)) civilization_assign_generated_name(civ, civilization_pick_unused_name_id());
+    else civilization_set_custom_name(civ, name);
     civ->symbol = symbol;
-    civ->color = CIV_COLORS[civ_count % MAX_CIVS];
+    civ->color = civilization_pick_auto_color(civ_count, region_id);
     civ->alive = 1;
     civ->population = starting_population_for_region(x, y, region_id);
     {
@@ -320,15 +409,11 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
 }
 
 void simulation_seed_default_civilizations(void) {
-    const char *names[MAX_CIVS] = {
-        "Red Dominion", "Blue League", "Green Pact", "Gold Union",
-        "Violet Realm", "Orange Clans", "Teal Coast", "Rose March",
-        "Ivory Compact", "Black Banner", "Amber League", "Azure Domain",
-        "Crimson Isles", "Silver Order", "Jade Senate", "Copper March"
-    };
     const char symbols[MAX_CIVS] = {
         'R', 'B', 'G', 'Y', 'V', 'O', 'T', 'M',
-        'I', 'K', 'A', 'Z', 'C', 'S', 'J', 'P'
+        'I', 'K', 'A', 'Z', 'C', 'S', 'J', 'P',
+        'Q', 'L', 'D', 'U', 'H', 'N', 'W', 'E',
+        'F', 'X', 'Q', 'V', 'L', 'O', 'M', 'R'
     };
     const int traits[MAX_CIVS][7] = {
         {8, 7, 4, 3, 6, 5, 4}, {3, 4, 8, 6, 5, 5, 6},
@@ -338,13 +423,21 @@ void simulation_seed_default_civilizations(void) {
         {2, 6, 8, 8, 6, 7, 8}, {9, 5, 5, 3, 6, 4, 4},
         {5, 8, 4, 6, 7, 7, 5}, {3, 7, 6, 7, 6, 7, 7},
         {8, 6, 4, 5, 6, 5, 5}, {4, 4, 9, 8, 6, 6, 8},
-        {3, 6, 5, 9, 5, 7, 8}, {6, 7, 6, 4, 7, 6, 5}
+        {3, 6, 5, 9, 5, 7, 8}, {6, 7, 6, 4, 7, 6, 5},
+        {4, 7, 6, 6, 7, 7, 6}, {6, 6, 5, 5, 7, 6, 5},
+        {5, 7, 7, 6, 6, 6, 7}, {7, 5, 5, 6, 6, 6, 5},
+        {4, 6, 8, 7, 5, 6, 6}, {5, 8, 5, 6, 7, 8, 7},
+        {6, 6, 5, 5, 8, 7, 6}, {4, 7, 6, 8, 5, 7, 7},
+        {7, 6, 4, 5, 7, 6, 5}, {3, 7, 7, 7, 6, 8, 6},
+        {8, 5, 5, 4, 7, 5, 5}, {5, 8, 6, 7, 6, 8, 7},
+        {4, 6, 8, 8, 5, 6, 8}, {6, 7, 5, 5, 8, 7, 6},
+        {3, 8, 7, 7, 6, 8, 7}, {7, 5, 6, 5, 7, 6, 6}
     };
     int i;
     int count = clamp(initial_civ_count, 0, MAX_CIVS);
 
     for (i = 0; i < count; i++) {
-        add_civilization_at(names[i], symbols[i], traits[i][0], traits[i][1], traits[i][2],
+        add_civilization_at("", symbols[i], traits[i][0], traits[i][1], traits[i][2],
                             traits[i][3], traits[i][4], traits[i][5], traits[i][6], -1, -1);
     }
 }
@@ -354,6 +447,8 @@ void simulation_reset_state(void) {
     month = 1;
     civ_count = 0;
     city_count = 0;
+    event_log_clear();
+    expansion_reset();
     maritime_reset();
     plague_reset();
     territory_contact_hash = 0;
@@ -370,7 +465,13 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
 
     if (civ_id < 0 || civ_id >= civ_count) return;
     civ = &civs[civ_id];
-    if (name && name[0] != '\0') snprintf(civ->name, NAME_LEN, "%s", name);
+    if (name && name[0] != '\0') {
+        const char *current_en = civilization_display_name_for_language(civ_id, 0);
+        const char *current_zh = civilization_display_name_for_language(civ_id, 1);
+        if (strcmp(name, current_en) != 0 && strcmp(name, current_zh) != 0) {
+            civilization_set_custom_name(civ, name);
+        }
+    }
     if (symbol != '\0') civ->symbol = symbol;
     memset(&birth, 0, sizeof(birth));
     if (civ->capital_city >= 0 && civ->capital_city < city_count) {

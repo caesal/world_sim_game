@@ -1,6 +1,7 @@
 #include "population.h"
 
 #include "core/dirty_flags.h"
+#include "sim/disorder.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
 #include "world/terrain_query.h"
@@ -224,12 +225,17 @@ static int monthly_births(int city_id, PopulationSummary summary, TerrainStats s
     int fertile_couples = summary.fertile < fertile_males ? summary.fertile : fertile_males;
     int rate = 28 + stats.food * 4 + stats.water * 4 + stats.habitability * 3;
     int owner = cities[city_id].owner;
+    int births;
 
     if (owner >= 0 && owner < civ_count) rate += civs[owner].cohesion + civs[owner].governance / 2;
     if (summary.pressure > 100) rate -= (summary.pressure - 100) / 2;
     if (owner >= 0 && owner < civ_count) rate -= civs[owner].disorder / 3 + civs[owner].disorder_plague / 4;
     rate = clamp(rate, 0, 95);
-    return (fertile_couples * rate + rnd(12000)) / 12000;
+    births = (fertile_couples * rate + rnd(12000)) / 12000;
+    if (owner >= 0 && owner < civ_count) {
+        births = births * disorder_population_growth_percent(civs[owner].disorder) / 100;
+    }
+    return max(0, births);
 }
 
 static int apply_city_deaths(int city_id, PopulationSummary summary, TerrainStats stats) {
@@ -250,27 +256,43 @@ static int apply_city_deaths(int city_id, PopulationSummary summary, TerrainStat
     return pressure_deaths + child_stress + old_deaths;
 }
 
-void population_update_month(void) {
-    int i;
+static void update_city_population_month(int city_id) {
+    PopulationSummary summary;
+    TerrainStats stats;
+    int births;
 
-    for (i = 0; i < city_count; i++) {
-        PopulationSummary summary;
-        TerrainStats stats;
-        int births;
-        if (!cities[i].alive) continue;
-        ensure_city_population(i);
-        summary = population_city_summary(i);
-        stats = tile_stats(cities[i].x, cities[i].y);
-        births = monthly_births(i, summary, stats);
-        if (births > 0) {
-            cities[i].population_cohorts[POP_AGE_0_4].male += births / 2;
-            cities[i].population_cohorts[POP_AGE_0_4].female += births - births / 2;
-        }
-        apply_city_deaths(i, summary, stats);
-        if (month == 12) age_city_one_year(i);
+    if (!cities[city_id].alive) return;
+    ensure_city_population(city_id);
+    summary = population_city_summary(city_id);
+    stats = tile_stats(cities[city_id].x, cities[city_id].y);
+    births = monthly_births(city_id, summary, stats);
+    if (births > 0) {
+        cities[city_id].population_cohorts[POP_AGE_0_4].male += births / 2;
+        cities[city_id].population_cohorts[POP_AGE_0_4].female += births - births / 2;
     }
+    apply_city_deaths(city_id, summary, stats);
+    if (month == 12) age_city_one_year(city_id);
+}
+
+int population_update_month_step(int *cursor, int batch_size) {
+    int processed = 0;
+
+    if (!cursor) return 1;
+    if (batch_size < 1) batch_size = 1;
+    while (*cursor < city_count && processed < batch_size) {
+        update_city_population_month(*cursor);
+        (*cursor)++;
+        processed++;
+    }
+    if (*cursor < city_count) return 0;
     population_sync_all();
     world_invalidate_population_cache();
+    return 1;
+}
+
+void population_update_month(void) {
+    int cursor = 0;
+    while (!population_update_month_step(&cursor, 32)) {}
 }
 
 int population_migrate_between_cities(int from_city, int to_city, int amount) {

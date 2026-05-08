@@ -8,6 +8,7 @@
 #include "sim/technology.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
 #define MAX_ACTIVE_WARS (MAX_CIVS * MAX_CIVS / 2)
@@ -16,6 +17,7 @@
 #define EXTREME_MOBILIZATION_RATE 18
 
 static ActiveWar active_wars[MAX_ACTIVE_WARS];
+static int total_started_wars = 0;
 
 static int owned_province_count(int civ_id);
 
@@ -83,6 +85,7 @@ static int empty_war_slot(void) {
 
 void war_reset(void) {
     memset(active_wars, 0, sizeof(active_wars));
+    total_started_wars = 0;
 }
 
 int war_start(int attacker, int defender) {
@@ -105,6 +108,14 @@ int war_start(int attacker, int defender) {
     war->initial_soldiers_b = mobilized_soldiers(defender, 0);
     war->soldiers_a = war->initial_soldiers_a;
     war->soldiers_b = war->initial_soldiers_b;
+    total_started_wars++;
+    {
+        char text[EVENT_LOG_LEN];
+        snprintf(text, sizeof(text), "[War] War started: %s vs %s.",
+                 civilization_display_name_for_language(attacker, 0),
+                 civilization_display_name_for_language(defender, 0));
+        event_log_push(text);
+    }
     diplomacy_force_war(attacker, defender);
     return 1;
 }
@@ -146,6 +157,10 @@ int war_current_soldiers_for_civ(int civ_id) {
         }
     }
     return at_war ? total : war_estimated_soldiers(civ_id);
+}
+
+int war_total_started_count(void) {
+    return total_started_wars;
 }
 
 static void apply_population_casualties(int civ_id, int soldier_casualties) {

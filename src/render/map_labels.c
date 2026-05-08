@@ -1,6 +1,7 @@
 #include "map_labels.h"
 
 #include "render_map_internal.h"
+#include "sim/simulation.h"
 
 #define MAX_RENDER_LABELS 72
 
@@ -23,11 +24,26 @@ static void remember_label(RECT *used, int *used_count, RECT rect) {
     (*used_count)++;
 }
 
-static void draw_label_text(HDC hdc, int x, int y, const char *text, COLORREF color) {
-    COLORREF outline = RGB(236, 220, 178);
+static int color_brightness(COLORREF color) {
+    return (GetRValue(color) * 299 + GetGValue(color) * 587 + GetBValue(color) * 114) / 1000;
+}
 
+static COLORREF readable_label_color(COLORREF base) {
+    return color_brightness(base) < 130 ? RGB(252, 244, 214) : RGB(35, 30, 24);
+}
+
+static COLORREF readable_outline_color(COLORREF text_color) {
+    return color_brightness(text_color) < 130 ? RGB(250, 238, 198) : RGB(22, 21, 18);
+}
+
+static void draw_label_text(HDC hdc, int x, int y, const char *text, COLORREF color) {
+    COLORREF outline = readable_outline_color(color);
+
+    draw_text_line(hdc, x - 1, y, text, outline);
     draw_text_line(hdc, x + 1, y, text, outline);
+    draw_text_line(hdc, x, y - 1, text, outline);
     draw_text_line(hdc, x, y + 1, text, outline);
+    draw_text_line(hdc, x + 1, y + 1, text, outline);
     draw_text_line(hdc, x, y, text, color);
 }
 
@@ -78,10 +94,12 @@ static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *us
         {
             int px = (int)(sx / samples);
             int py = (int)(sy / samples);
-            RECT rect = label_rect_for_centered_text(hdc, px, py - font_height / 2, civs[civ_id].name, 7);
+            const char *name = civilization_display_name(civ_id);
+            RECT rect = label_rect_for_centered_text(hdc, px, py - font_height / 2, name, 7);
             if (rect.right < client.left || rect.left > client.right - side_panel_w) continue;
             if (!label_is_open(used, *used_count, rect)) continue;
-            draw_label_text(hdc, rect.left + 7, rect.top + 3, civs[civ_id].name, RGB(56, 42, 30));
+            draw_label_text(hdc, rect.left + 7, rect.top + 3, name,
+                            readable_label_color(civs[civ_id].color));
             remember_label(used, used_count, rect);
         }
     }
@@ -117,7 +135,7 @@ static void draw_city_labels(HDC hdc, RECT client, MapLayout layout, RECT *used,
         }
         rect = label_rect_for_text(hdc, cx, cy, city->name, 5);
         if (!label_is_open(used, *used_count, rect)) continue;
-        draw_label_text(hdc, cx, cy, city->name, RGB(58, 45, 30));
+        draw_label_text(hdc, cx, cy, city->name, readable_label_color(civs[city->owner].color));
         remember_label(used, used_count, rect);
     }
     SelectObject(hdc, old_font);

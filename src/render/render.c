@@ -1,6 +1,7 @@
 ﻿#include "render_internal.h"
 
 #include "core/dirty_flags.h"
+#include "core/profiler.h"
 #include "render/cartography_layers.h"
 #include "render/pause_menu_render.h"
 
@@ -42,7 +43,11 @@ static int layer_cache_matches(const LayerCache *cache, RECT client, MapLayout l
            cache->draw_w == layout.draw_w &&
            cache->draw_h == layout.draw_h &&
            cache->side_w == side_panel_w &&
-           cache->display == display_mode &&
+           cache->display == display_mode;
+}
+
+static int layer_cache_revision_matches(const LayerCache *cache, RECT client, MapLayout layout) {
+    return layer_cache_matches(cache, client, layout) &&
            cache->revision == world_visual_revision;
 }
 
@@ -59,6 +64,7 @@ static int ensure_layer_cache(HDC hdc, LayerCache *cache, RECT client, MapLayout
             release_layer_cache(cache);
             return 0;
         }
+        profiler_add_gdi_recreate();
         cache->old_bitmap = SelectObject(cache->dc, cache->bitmap);
         cache->width = width;
         cache->height = height;
@@ -137,7 +143,8 @@ static int can_preview_map_cache(RECT client) {
            border_cache.height == client.bottom - client.top &&
            border_cache.side_w == side_panel_w &&
            border_cache.display == display_mode &&
-           border_cache.revision == world_visual_revision;
+           !dirty_render_terrain() && !dirty_render_political() &&
+           !dirty_render_coast() && !dirty_render_borders();
 }
 
 static void draw_map_cache_preview(HDC hdc, RECT client, MapLayout layout) {
@@ -161,23 +168,32 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
     }
     terrain_dirty = dirty_render_terrain() || !layer_cache_matches(&terrain_cache, client, layout);
     if (terrain_dirty) {
-        rebuild_cached_layer(hdc, &terrain_cache, client, layout, NULL, draw_terrain_layer);
+        if (rebuild_cached_layer(hdc, &terrain_cache, client, layout, NULL, draw_terrain_layer)) {
+            profiler_add_render_rebuild(PROFILER_RENDER_TERRAIN);
+        }
         dirty_clear_render_terrain();
     }
     political_dirty = terrain_dirty || dirty_render_political() ||
-                      !layer_cache_matches(&political_cache, client, layout);
+                      !layer_cache_revision_matches(&political_cache, client, layout);
     if (political_dirty) {
-        rebuild_cached_layer(hdc, &political_cache, client, layout, terrain_cache.dc, draw_political_extra);
+        if (rebuild_cached_layer(hdc, &political_cache, client, layout, terrain_cache.dc, draw_political_extra)) {
+            profiler_add_render_rebuild(PROFILER_RENDER_POLITICAL);
+        }
         dirty_clear_render_political();
     }
     coast_dirty = political_dirty || dirty_render_coast() || !layer_cache_matches(&coast_cache, client, layout);
     if (coast_dirty) {
-        rebuild_cached_layer(hdc, &coast_cache, client, layout, political_cache.dc, draw_coast_extra);
+        if (rebuild_cached_layer(hdc, &coast_cache, client, layout, political_cache.dc, draw_coast_extra)) {
+            profiler_add_render_rebuild(PROFILER_RENDER_COAST);
+        }
         dirty_clear_render_coast();
     }
-    border_dirty = coast_dirty || dirty_render_borders() || !layer_cache_matches(&border_cache, client, layout);
+    border_dirty = coast_dirty || dirty_render_borders() ||
+                   !layer_cache_revision_matches(&border_cache, client, layout);
     if (border_dirty) {
-        rebuild_cached_layer(hdc, &border_cache, client, layout, coast_cache.dc, draw_border_extra);
+        if (rebuild_cached_layer(hdc, &border_cache, client, layout, coast_cache.dc, draw_border_extra)) {
+            profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
+        }
         dirty_clear_render_borders();
     }
     if (border_cache.valid) BitBlt(hdc, 0, 0, border_cache.width, border_cache.height, border_cache.dc, 0, 0, SRCCOPY);
@@ -185,6 +201,7 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
 
 static void render_world(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
+    int labels_dirty = dirty_render_labels();
 
     draw_cached_static_map(hdc, client, layout);
     if (world_generated) {
@@ -194,6 +211,7 @@ static void render_world(HDC hdc, RECT client) {
         dirty_clear_render_plague();
         draw_cities(hdc, layout);
         draw_map_labels(hdc, client, layout);
+        if (labels_dirty) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
         dirty_clear_render_labels();
         draw_selected_tile(hdc, layout);
     } else {
@@ -212,6 +230,7 @@ void paint_window(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
     RECT client;
+    DWORD render_start = GetTickCount();
     int width;
     int height;
 
@@ -224,5 +243,6 @@ void paint_window(HWND hwnd) {
     } else {
         render_world(hdc, client);
     }
+    profiler_record_render_ms((int)(GetTickCount() - render_start));
     EndPaint(hwnd, &ps);
 }

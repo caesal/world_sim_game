@@ -15,7 +15,7 @@ extern int map_w;
 extern int map_h;
 #define MAP_W map_w
 #define MAP_H map_h
-#define MAX_CIVS 16
+#define MAX_CIVS 32
 #define MAX_CITIES 128
 #define MAX_NATURAL_REGIONS 768
 #define MAX_REGIONS MAX_NATURAL_REGIONS
@@ -40,5 +40,7 @@ extern int map_h;
 #define MAX_MARITIME_ROUTES 160
 #define MAX_MARITIME_ROUTE_POINTS 96
 #define POP_COHORT_COUNT 8
+#define EVENT_LOG_COUNT 256
+#define EVENT_LOG_LEN 160
 
 #endif

@@ -14,8 +14,18 @@ typedef struct {
     int age_months;
 } PlagueState;
 
+typedef struct {
+    int initialized;
+    int city_cursor;
+    int active_by_civ[MAX_CIVS];
+    int severity_by_civ[MAX_CIVS];
+    int deaths_by_civ[MAX_CIVS];
+    int any_change;
+} PlagueUpdateState;
+
 void plague_reset(void);
 void plague_update_month(void);
+int plague_update_month_step(PlagueUpdateState *state, int batch_size);
 int plague_seed_random_outbreak(void);
 int plague_seed_city(int city_id, int severity, int months);
 void plague_notify_migration(int from_city, int to_city, int migrants);

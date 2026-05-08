@@ -129,6 +129,7 @@ void regions_reset(void) {
     int y;
 
     region_count = 0;
+    regions_claim_cache_reset();
     memset(natural_regions, 0, sizeof(natural_regions));
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) world[y][x].region_id = -1;

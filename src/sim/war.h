@@ -34,6 +34,7 @@ int war_active_between(int civ_a, int civ_b);
 ActiveWar war_state_between(int civ_a, int civ_b);
 int war_estimated_soldiers(int civ_id);
 int war_current_soldiers_for_civ(int civ_id);
+int war_total_started_count(void);
 const char *war_outcome_name(WarOutcome outcome);
 
 #endif

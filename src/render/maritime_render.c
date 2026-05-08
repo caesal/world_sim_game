@@ -1,6 +1,7 @@
 #include "render_map_internal.h"
 
-#define MAX_ROUTE_SCREEN_POINTS (MAX_MARITIME_ROUTE_POINTS * 2)
+#define MAX_ROUTE_SCREEN_POINTS (MAX_MARITIME_ROUTE_POINTS * 8)
+#define ROUTE_SMOOTH_PASSES 2
 
 static void route_land_push(MapPoint tile, int *out_x, int *out_y) {
     int radius = 5;
@@ -45,25 +46,56 @@ static POINT maritime_screen_point(const MaritimeRoute *route, int index, MapLay
     return screen;
 }
 
-static int build_route_screen_points(const MaritimeRoute *route, MapLayout layout, POINT *points) {
-    POINT raw[MAX_MARITIME_ROUTE_POINTS];
+static int route_add_point(POINT *points, int count, int max_count, POINT point) {
+    if (count > 0 && points[count - 1].x == point.x && points[count - 1].y == point.y) return count;
+    if (count >= max_count) return count;
+    points[count++] = point;
+    return count;
+}
+
+static int smooth_route_pass(const POINT *src, int src_count, POINT *dst, int max_count) {
     int count = 0;
     int i;
 
-    if (!route->active || route->point_count < 2) return 0;
-    for (i = 0; i < route->point_count; i++) raw[i] = maritime_screen_point(route, i, layout);
-    points[count++] = raw[0];
-    for (i = 1; i < route->point_count && count + 2 < MAX_ROUTE_SCREEN_POINTS; i++) {
+    if (src_count <= 0 || max_count <= 0) return 0;
+    count = route_add_point(dst, count, max_count, src[0]);
+    for (i = 1; i < src_count && count + 2 < max_count; i++) {
         POINT q;
         POINT r;
-        q.x = (raw[i - 1].x * 3 + raw[i].x) / 4;
-        q.y = (raw[i - 1].y * 3 + raw[i].y) / 4;
-        r.x = (raw[i - 1].x + raw[i].x * 3) / 4;
-        r.y = (raw[i - 1].y + raw[i].y * 3) / 4;
-        points[count++] = q;
-        points[count++] = r;
+        q.x = (src[i - 1].x * 3 + src[i].x) / 4;
+        q.y = (src[i - 1].y * 3 + src[i].y) / 4;
+        r.x = (src[i - 1].x + src[i].x * 3) / 4;
+        r.y = (src[i - 1].y + src[i].y * 3) / 4;
+        count = route_add_point(dst, count, max_count, q);
+        count = route_add_point(dst, count, max_count, r);
     }
-    points[count++] = raw[route->point_count - 1];
+    return route_add_point(dst, count, max_count, src[src_count - 1]);
+}
+
+static int build_route_screen_points(const MaritimeRoute *route, MapLayout layout, POINT *points) {
+    POINT buffer_a[MAX_ROUTE_SCREEN_POINTS];
+    POINT buffer_b[MAX_ROUTE_SCREEN_POINTS];
+    const POINT *src = buffer_a;
+    POINT *dst = buffer_b;
+    int count = 0;
+    int pass;
+    int i;
+
+    if (!route->active || route->point_count < 2) return 0;
+    for (i = 0; i < route->point_count && count < MAX_ROUTE_SCREEN_POINTS; i++) {
+        count = route_add_point(buffer_a, count, MAX_ROUTE_SCREEN_POINTS,
+                                maritime_screen_point(route, i, layout));
+    }
+    for (pass = 0; pass < ROUTE_SMOOTH_PASSES && count >= 2; pass++) {
+        int next_count = smooth_route_pass(src, count, dst, MAX_ROUTE_SCREEN_POINTS);
+        const POINT *next_src = dst;
+        dst = (POINT *)(src == buffer_a ? buffer_a : buffer_b);
+        src = next_src;
+        count = next_count;
+    }
+    for (i = 0; i < count; i++) {
+        points[i] = src[i];
+    }
     return count;
 }
 

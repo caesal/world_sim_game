@@ -3,6 +3,7 @@
 
 #include "core/game_types.h"
 #include "sim/expansion.h"
+#include "sim/plague.h"
 
 typedef struct {
     int active;
@@ -11,10 +12,13 @@ typedef struct {
     int expansion_civ;
     int city_count_before_expansion;
     int territory_revision_before_expansion;
+    int run_quarterly;
+    int population_cursor;
     int resource_scores[MAX_CIVS];
     int resource_totals[MAX_CIVS];
     int resource_counts[MAX_CIVS];
     ExpansionWorkState expansion_work;
+    PlagueUpdateState plague_work;
     char log[512];
 } SimulationMonthState;
 

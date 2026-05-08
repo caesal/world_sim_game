@@ -44,5 +44,7 @@ void diplomacy_force_war(int civ_a, int civ_b);
 void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score);
 void diplomacy_start_vassal(int overlord, int vassal, int relation_score);
 const char *diplomacy_status_name(DiplomacyStatus status);
+int diplomacy_last_war_desire(int civ_id);
+const char *diplomacy_last_war_reason(int civ_id);
 
 #endif

@@ -124,7 +124,8 @@ void draw_selection_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT b
     if (city_id >= 0) {
         ui_section(hdc, &cursor, tr("City", "城市"));
         ui_row_text(hdc, &cursor, tr("Name", "名称"), cities[city_id].name);
-        ui_row_text(hdc, &cursor, tr("Owner", "所属"), cities[city_id].owner >= 0 ? civs[cities[city_id].owner].name : tr("None", "无"));
+        ui_row_text(hdc, &cursor, tr("Owner", "所属"),
+                    cities[city_id].owner >= 0 ? civilization_display_name(cities[city_id].owner) : tr("None", "无"));
         ui_row_int(hdc, &cursor, tr("Population", "人口"), cities[city_id].population);
         ui_row_text(hdc, &cursor, tr("Port", "港口"), cities[city_id].port ? tr("Yes", "有") : tr("No", "无"));
         ui_row_text(hdc, &cursor, tr("Capital", "首都"), cities[city_id].capital ? tr("Yes", "是") : tr("No", "否"));

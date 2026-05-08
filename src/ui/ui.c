@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "io/map_save.h"
 #include "render/panel_country.h"
+#include "render/panel_debug.h"
 #include "render/render.h"
 #include "ui/pause_menu.h"
 #include "ui/ui_forms.h"
@@ -122,6 +123,12 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
     }
     if (panel_tab == PANEL_DEBUG) {
+        int filter = debug_panel_event_filter_hit_test(client, mouse_x, mouse_y);
+        if (filter >= 0) {
+            debug_event_filter = filter;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
         for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
             if (point_in_rect(get_mode_button_rect(client, i), mouse_x, mouse_y)) {
                 display_mode = MAP_DISPLAY_MODES[i];
@@ -134,6 +141,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         int hit = country_panel_hit_test(client, mouse_x, mouse_y);
         if (hit == COUNTRY_PANEL_HIT_TOGGLE_FALLEN) {
             country_show_fallen = !country_show_fallen;
+            country_list_scroll_offset = 0;
             if (!country_show_fallen && selected_civ >= 0 && selected_civ < civ_count && !civs[selected_civ].alive) {
                 selected_civ = -1;
             }
@@ -142,7 +150,25 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
         if (hit == COUNTRY_PANEL_HIT_BACK_TO_LIST) {
             selected_civ = -1;
+            country_list_scroll_offset = 0;
             country_detail_scroll_offset = 0;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit == COUNTRY_PANEL_HIT_CIVIL_UNREST) {
+            if (selected_civ >= 0 && !game_request_trigger_civil_unrest(selected_civ)) MessageBeep(MB_ICONWARNING);
+            country_detail_scroll_offset = 0;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit <= COUNTRY_PANEL_HIT_SORT_POPULATION && hit >= COUNTRY_PANEL_HIT_SORT_DISORDER) {
+            int column = COUNTRY_PANEL_HIT_SORT_POPULATION - hit;
+            if (country_sort_column == column) country_sort_descending = !country_sort_descending;
+            else {
+                country_sort_column = column;
+                country_sort_descending = 1;
+            }
+            country_list_scroll_offset = 0;
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }

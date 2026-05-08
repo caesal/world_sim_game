@@ -25,7 +25,7 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
         return;
     }
     summary = population_country_summary(civ_id);
-    snprintf(text, sizeof(text), "%c %.63s", civs[civ_id].symbol, civs[civ_id].name);
+    snprintf(text, sizeof(text), "%c %.63s", civs[civ_id].symbol, civilization_display_name(civ_id));
     ui_row_text(hdc, &cursor, tr("Country", "国家"), text);
     draw_population_pyramid(hdc, client, x, cursor.y + 8, cursor.width, civ_id, body_font);
     cursor.y += 190;

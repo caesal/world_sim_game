@@ -43,6 +43,7 @@ int regions_select_spawn_region(int preferred_x, int preferred_y, int *out_regio
 int regions_claim_as_province(int region_id, int owner, int city_id);
 int regions_region_for_city(int city_id);
 int regions_region_has_owner_neighbor(int region_id, int owner);
+void regions_claim_cache_reset(void);
 int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int create_city);
 
 #endif

@@ -27,6 +27,9 @@ int map_h = DEFAULT_MAP_H;
 int map_size_index = MAP_SIZE_MEDIUM;
 int pending_map_size = MAP_SIZE_MEDIUM;
 int world_generated = 0;
+char event_log[EVENT_LOG_COUNT][EVENT_LOG_LEN];
+int event_log_count = 0;
+int event_log_next = 0;
 
 GameState g_game = {
     world,
@@ -71,7 +74,9 @@ GameState g_game = {
     &region_size_slider,
     &worldgen_scroll_offset,
     &country_show_fallen,
+    &country_list_scroll_offset,
     &country_detail_scroll_offset,
+    &debug_event_filter,
     &pause_menu_open,
     &selected_civ_color_index,
     &selected_civ_color
@@ -95,7 +100,23 @@ const Color32 CIV_COLORS[MAX_CIVS] = {
     COLOR32_RGB(114, 93, 189),
     COLOR32_RGB(209, 156, 44),
     COLOR32_RGB(78, 139, 122),
-    COLOR32_RGB(191, 89, 89)
+    COLOR32_RGB(191, 89, 89),
+    COLOR32_RGB(102, 173, 206),
+    COLOR32_RGB(196, 130, 55),
+    COLOR32_RGB(90, 176, 112),
+    COLOR32_RGB(202, 94, 127),
+    COLOR32_RGB(142, 152, 71),
+    COLOR32_RGB(98, 112, 200),
+    COLOR32_RGB(184, 86, 194),
+    COLOR32_RGB(86, 156, 150),
+    COLOR32_RGB(215, 142, 105),
+    COLOR32_RGB(124, 177, 82),
+    COLOR32_RGB(183, 103, 76),
+    COLOR32_RGB(72, 139, 191),
+    COLOR32_RGB(169, 137, 205),
+    COLOR32_RGB(189, 166, 83),
+    COLOR32_RGB(91, 157, 102),
+    COLOR32_RGB(214, 104, 104)
 };
 
 int clamp(int value, int min, int max) {
@@ -117,6 +138,40 @@ void append_log(char *log, size_t log_size, const char *format, ...) {
     va_start(args, format);
     vsnprintf(log + used, log_size - used, format, args);
     va_end(args);
+}
+
+void event_log_push(const char *text) {
+    static char last_event_base[EVENT_LOG_LEN];
+    static int repeat_count = 0;
+    int previous;
+
+    if (!text || !text[0]) return;
+    if (strcmp(last_event_base, text) == 0 && event_log_count > 0) {
+        repeat_count++;
+        previous = event_log_next - 1;
+        while (previous < 0) previous += EVENT_LOG_COUNT;
+        snprintf(event_log[previous % EVENT_LOG_COUNT], EVENT_LOG_LEN, "%s x%d", text, repeat_count);
+        return;
+    }
+    snprintf(last_event_base, sizeof(last_event_base), "%s", text);
+    repeat_count = 1;
+    snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", text);
+    event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
+    if (event_log_count < EVENT_LOG_COUNT) event_log_count++;
+}
+
+void event_log_clear(void) {
+    memset(event_log, 0, sizeof(event_log));
+    event_log_count = 0;
+    event_log_next = 0;
+}
+
+const char *event_log_get(int index) {
+    int pos;
+    if (index < 0 || index >= event_log_count) return "";
+    pos = event_log_next - 1 - index;
+    while (pos < 0) pos += EVENT_LOG_COUNT;
+    return event_log[pos % EVENT_LOG_COUNT];
 }
 
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent) {

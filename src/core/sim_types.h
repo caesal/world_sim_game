@@ -58,6 +58,8 @@ typedef struct {
 
 typedef struct {
     char name[NAME_LEN];
+    int name_id;
+    int custom_name;
     char symbol;
     Color32 color;
     int alive;

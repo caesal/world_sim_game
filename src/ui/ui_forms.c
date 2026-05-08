@@ -1,6 +1,7 @@
 #include "ui_forms.h"
 
 #include "game/game.h"
+#include "sim/simulation.h"
 #include "ui/ui_worldgen_layout.h"
 
 #include <stdio.h>
@@ -103,7 +104,7 @@ void ui_forms_write_civ(int civ_id) {
     char buffer[32];
 
     if (civ_id < 0 || civ_id >= civ_count) return;
-    SetWindowTextA(form.name_edit, civs[civ_id].name);
+    SetWindowTextA(form.name_edit, civilization_display_name(civ_id));
     snprintf(buffer, sizeof(buffer), "%c", civs[civ_id].symbol);
     SetWindowTextA(form.symbol_edit, buffer);
     write_int_control(form.military_edit, civs[civ_id].military);
@@ -124,7 +125,6 @@ void ui_forms_add_civ(HWND hwnd) {
 
     GetWindowTextA(form.name_edit, name, sizeof(name));
     GetWindowTextA(form.symbol_edit, symbol_text, sizeof(symbol_text));
-    if (name[0] == '\0') snprintf(name, sizeof(name), "New Realm");
     symbol = symbol_text[0] ? symbol_text[0] : (char)('A' + civ_count);
     civ_id = game_request_add_civilization_from_selection(
         name, symbol,

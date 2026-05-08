@@ -204,7 +204,7 @@ void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
     {
         RECT swatch = {x, y + 3, x + 18, y + 21};
         fill_rect(hdc, swatch, civs[civ_id].color);
-        snprintf(text, sizeof(text), "%c  %.63s", civs[civ_id].symbol, civs[civ_id].name);
+        snprintf(text, sizeof(text), "%c  %.63s", civs[civ_id].symbol, civilization_display_name(civ_id));
         draw_text_line(hdc, x + 28, y, text, RGB(245, 245, 245));
     }
     y += 26;
@@ -241,7 +241,7 @@ void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
         badge.right = client.right - FORM_X_PAD;
         badge.bottom = y + 23;
         snprintf(text, sizeof(text), "%c %.42s   %s %d",
-                 civs[i].symbol, civs[i].name, metric_label("REL", "关系"), relation.relation_score);
+                 civs[i].symbol, civilization_display_name(i), metric_label("REL", "关系"), relation.relation_score);
         draw_text_line(hdc, x + 24, y, text, RGB(230, 235, 240));
         draw_status_badge(hdc, badge, relation.state);
         y += 24;
@@ -274,7 +274,7 @@ void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
         }
         if (relation.state == DIPLOMACY_VASSAL && relation.overlord >= 0 &&
             relation.overlord < civ_count && civs[relation.overlord].alive) {
-            snprintf(text, sizeof(text), "%s: %s", tr("Overlord", "宗主"), civs[relation.overlord].name);
+            snprintf(text, sizeof(text), "%s: %s", tr("Overlord", "宗主"), civilization_display_name(relation.overlord));
             draw_text_line(hdc, x + 24, y, text, RGB(190, 176, 210));
             y += 20;
         }

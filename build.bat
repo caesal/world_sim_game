@@ -8,6 +8,8 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\io\map_save.c ^
   src\core\game_state.c ^
   src\core\dirty_flags.c ^
+  src\core\profiler.c ^
+  src\data\country_names.c ^
   src\data\game_tables.c ^
   src\world\world_gen.c ^
   src\world\world_seed.c ^
@@ -22,6 +24,8 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\world\ports.c ^
   src\sim\ports.c ^
   src\sim\maritime.c ^
+  src\sim\maritime_diag.c ^
+  src\sim\civ_colors.c ^
   src\sim\disorder.c ^
   src\sim\collapse.c ^
   src\sim\population.c ^
@@ -51,6 +55,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\pause_menu_render.c ^
   src\render\panel_selection.c ^
   src\render\panel_country.c ^
+  src\render\panel_country_detail.c ^
   src\render\panel_population_page.c ^
   src\render\panel_plague_page.c ^
   src\render\panel_worldgen.c ^

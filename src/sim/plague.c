@@ -230,25 +230,39 @@ static void apply_plague_disorder(int active_by_civ[MAX_CIVS], int severity_by_c
     }
 }
 
-void plague_update_month(void) {
-    int active_by_civ[MAX_CIVS] = {0};
-    int severity_by_civ[MAX_CIVS] = {0};
-    int deaths_by_civ[MAX_CIVS] = {0};
-    int i;
-    int any_change = 0;
+int plague_update_month_step(PlagueUpdateState *state, int batch_size) {
+    int processed = 0;
 
-    if (decay_route_exposure()) {
-        dirty_mark_plague();
+    if (!state) return 1;
+    if (batch_size < 1) batch_size = 1;
+    if (!state->initialized) {
+        memset(state, 0, sizeof(*state));
+        state->initialized = 1;
+        if (decay_route_exposure()) dirty_mark_plague();
+        decay_city_immunity();
     }
-    decay_city_immunity();
-    for (i = 0; i < city_count; i++) update_active_city(i, active_by_civ, severity_by_civ, deaths_by_civ, &any_change);
-    apply_plague_disorder(active_by_civ, severity_by_civ, deaths_by_civ);
-    if (rnd(1000) < 10) any_change |= plague_seed_random_outbreak();
-    if (any_change) {
+    while (state->city_cursor < city_count && processed < batch_size) {
+        update_active_city(state->city_cursor, state->active_by_civ, state->severity_by_civ,
+                           state->deaths_by_civ, &state->any_change);
+        state->city_cursor++;
+        processed++;
+    }
+    if (state->city_cursor < city_count) return 0;
+    apply_plague_disorder(state->active_by_civ, state->severity_by_civ, state->deaths_by_civ);
+    if (rnd(1000) < 10) state->any_change |= plague_seed_random_outbreak();
+    if (state->any_change) {
         dirty_mark_plague();
         population_sync_all();
         world_invalidate_population_cache();
     }
+    state->initialized = 0;
+    return 1;
+}
+
+void plague_update_month(void) {
+    PlagueUpdateState state;
+    memset(&state, 0, sizeof(state));
+    while (!plague_update_month_step(&state, 16)) {}
 }
 
 void plague_notify_migration(int from_city, int to_city, int migrants) {

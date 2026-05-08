@@ -41,7 +41,7 @@ void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body
         if (!civs[i].alive || plague_civ_active_count(i) <= 0) continue;
         if (cursor.y > cursor.bottom - 30) break;
         snprintf(text, sizeof(text), "%c %.36s  %s %d  %s %d  %s %d",
-                 civs[i].symbol, civs[i].name,
+                 civs[i].symbol, civilization_display_name(i),
                  tr("Cities", "城市"), plague_civ_active_count(i),
                  tr("Peak", "最高"), plague_civ_peak_severity(i),
                  tr("Deaths", "死亡"), plague_civ_deaths_total(i));

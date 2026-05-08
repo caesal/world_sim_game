@@ -1,6 +1,9 @@
 #include "regions.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "core/profiler.h"
+#include "sim/diplomacy.h"
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/simulation.h"
@@ -12,6 +15,71 @@ typedef struct {
     int region_id;
     int score;
 } RegionPick;
+
+static int claim_bounds_valid = 0;
+static int claim_min_x[MAX_NATURAL_REGIONS];
+static int claim_min_y[MAX_NATURAL_REGIONS];
+static int claim_max_x[MAX_NATURAL_REGIONS];
+static int claim_max_y[MAX_NATURAL_REGIONS];
+static int claim_tile_start[MAX_NATURAL_REGIONS];
+static int claim_tile_count[MAX_NATURAL_REGIONS];
+static int claim_tile_write[MAX_NATURAL_REGIONS];
+static int claim_tile_indices[MAX_MAP_W * MAX_MAP_H];
+
+void regions_claim_cache_reset(void) {
+    claim_bounds_valid = 0;
+}
+
+static void rebuild_claim_bounds(void) {
+    int i;
+    int x;
+    int y;
+
+    for (i = 0; i < MAX_NATURAL_REGIONS; i++) {
+        claim_min_x[i] = MAP_W;
+        claim_min_y[i] = MAP_H;
+        claim_max_x[i] = -1;
+        claim_max_y[i] = -1;
+        claim_tile_start[i] = 0;
+        claim_tile_count[i] = 0;
+        claim_tile_write[i] = 0;
+    }
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int id = world[y][x].region_id;
+            if (id < 0 || id >= region_count) continue;
+            claim_tile_count[id]++;
+            if (x < claim_min_x[id]) claim_min_x[id] = x;
+            if (y < claim_min_y[id]) claim_min_y[id] = y;
+            if (x > claim_max_x[id]) claim_max_x[id] = x;
+            if (y > claim_max_y[id]) claim_max_y[id] = y;
+        }
+    }
+    {
+        int offset = 0;
+        for (i = 0; i < region_count; i++) {
+            claim_tile_start[i] = offset;
+            claim_tile_write[i] = offset;
+            offset += claim_tile_count[i];
+        }
+        for (y = 0; y < MAP_H; y++) {
+            for (x = 0; x < MAP_W; x++) {
+                int id = world[y][x].region_id;
+                if (id < 0 || id >= region_count) continue;
+                claim_tile_indices[claim_tile_write[id]++] = y * MAP_W + x;
+            }
+        }
+    }
+    claim_bounds_valid = 1;
+}
+
+static int region_claim_tiles(int region_id, int *start, int *count) {
+    if (!claim_bounds_valid) rebuild_claim_bounds();
+    if (region_id < 0 || region_id >= region_count || claim_tile_count[region_id] <= 0) return 0;
+    *start = claim_tile_start[region_id];
+    *count = claim_tile_count[region_id];
+    return 1;
+}
 
 static int region_distance_penalty(const NaturalRegion *region) {
     int best = MAP_W * MAP_W + MAP_H * MAP_H;
@@ -205,12 +273,17 @@ static int create_region_admin_city(const NaturalRegion *region, int owner) {
 int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int create_city) {
     NaturalRegion *region;
     int admin_city;
-    int x;
-    int y;
+    DWORD claim_start;
+    int touched = 0;
+    int start;
+    int count;
+    int i;
 
     if (region_id < 0 || region_id >= region_count || owner < 0 || owner >= MAX_CIVS) return 0;
     region = &natural_regions[region_id];
     if (!region->alive) return 0;
+    if (!region_claim_tiles(region_id, &start, &count)) return 0;
+    claim_start = GetTickCount();
     admin_city = city_is_in_region(preferred_city_id, region_id) ? preferred_city_id : -1;
     if (admin_city < 0) admin_city = find_region_city(region_id, owner);
     if (admin_city < 0 && region->owner_civ == owner && city_can_admin_region(region->city_id, owner, region_id)) {
@@ -220,7 +293,10 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
         admin_city = create_region_admin_city(region, owner);
     }
     if (admin_city < 0) admin_city = find_nearest_owner_city(region, owner);
-    if (admin_city < 0) return 0;
+    if (admin_city < 0) {
+        profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));
+        return 0;
+    }
 
     if (admin_city >= 0 && admin_city < city_count) {
         cities[admin_city].owner = owner;
@@ -228,15 +304,30 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     }
     region->owner_civ = owner;
     region->city_id = admin_city;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            if (world[y][x].region_id != region_id) continue;
-            world[y][x].owner = owner;
-            world[y][x].province_id = admin_city;
+    profiler_add_scanned_tiles(count);
+    for (i = 0; i < count; i++) {
+        int index = claim_tile_indices[start + i];
+        int x = index % MAP_W;
+        int y = index / MAP_W;
+        int old_owner = world[y][x].owner;
+
+        if (old_owner != owner) {
+            if (old_owner >= 0 && old_owner < civ_count && civs[old_owner].territory > 0) {
+                civs[old_owner].territory--;
+            }
+            if (owner >= 0 && owner < civ_count) civs[owner].territory++;
         }
+        world[y][x].owner = owner;
+        world[y][x].province_id = admin_city;
+        touched++;
     }
+    profiler_add_claim_tiles_touched(touched);
     ports_maybe_make_city_port(admin_city);
     world_invalidate_region_cache();
+    dirty_mark_territory();
+    dirty_mark_labels();
+    diplomacy_mark_contacts_dirty();
+    profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));
     return 1;
 }
 

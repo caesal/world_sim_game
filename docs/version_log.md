@@ -1,5 +1,17 @@
 # Version Log
 
+## Ver0.2.1
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.1
+2. Smoothed maritime route rendering with render-side curve subdivision while keeping simulation route paths unchanged
+3. Added an ownership-revision safety check for political and border layer caches so claimed regions recolor immediately
+4. Marked territory and label layers explicitly after natural-region claims
+5. Clarified Country detail modifier rows so resource and technology percentages show the combined technology/disorder result and component values
+6. Updated the ESC Version Log and README for Ver0.2.1
+7. Verified the project builds with `build.bat`
+
 ## Ver0.2.0
 
 Implemented features and fixes:

@@ -57,22 +57,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "连续山脉与更强自然行省边界。\n"
-                 "文明科技阶段 1-10 与国家面板科技信息。\n"
-                 "陆地优先扩张、0-100 混乱、国家崩溃检查。\n"
-                 "战争改为每 3 年一场战斗，伤亡扣真实人口。\n"
-                 "Country 面板可从详情返回全部国家列表。\n"
-                 "保留 ESC 菜单、保存/读取地图和文明颜色调色板。",
+                 "海路航线使用渲染侧平滑曲线，减少折线感。\n"
+                 "扩张占领后立即刷新政治填色、边界和标签。\n"
+                 "国家详情显示科技与混乱共同作用后的总倍率。\n"
+                 "继续保留性能日志、ESC 菜单、保存/读取地图和文明颜色调色板。",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Continuous mountain chains and stronger natural-region boundaries.\n"
-                 "Civilization technology stages 1-10 with Country panel display.\n"
-                 "Land-first expansion, 0-100 disorder, and collapse checks.\n"
-                 "Wars now resolve in 3-year battles with real population casualties.\n"
-                 "Country Dashboard can return from detail view to the all-country list.\n"
-                 "ESC menu, map save/load, and civilization color palette remain available.",
+                 "Maritime routes use render-side smoothing to reduce jagged bends.\n"
+                 "Political fills, borders, and labels refresh immediately after region claims.\n"
+                 "Country detail shows combined technology and disorder modifiers.\n"
+                 "Performance logs, ESC menu, map save/load, and civilization color palette remain available.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

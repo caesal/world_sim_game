@@ -3,13 +3,44 @@
 #include "core/game_types.h"
 #include "game/game.h"
 #include "sim/regions.h"
+#include "sim/simulation.h"
 
 #include <commdlg.h>
 #include <stdio.h>
 #include <string.h>
 
-#define MAP_SAVE_VERSION 1
+#define MAP_SAVE_VERSION 2
 #define MAP_SAVE_PATH_MAX 1024
+
+typedef struct {
+    char name[NAME_LEN];
+    char symbol;
+    Color32 color;
+    int alive;
+    int population;
+    int territory;
+    int aggression;
+    int expansion;
+    int defense;
+    int culture;
+    int governance;
+    int cohesion;
+    int production;
+    int military;
+    int commerce;
+    int logistics;
+    int innovation;
+    int adaptation;
+    int tech_stage;
+    int tech_progress;
+    int deep_sea_route_unlocked_event_done;
+    int capital_city;
+    int disorder;
+    int disorder_resource;
+    int disorder_plague;
+    int disorder_migration;
+    int disorder_stability;
+} LegacyCivilizationV1;
 
 typedef struct {
     char magic[8];
@@ -168,7 +199,7 @@ static void fill_header(MapSaveHeader *header) {
 
 static int validate_header(const MapSaveHeader *header) {
     return memcmp(header->magic, MAP_SAVE_MAGIC, sizeof(header->magic)) == 0 &&
-           header->version == MAP_SAVE_VERSION &&
+           (header->version == 1 || header->version == MAP_SAVE_VERSION) &&
            header->map_w > 0 && header->map_w <= MAX_MAP_W &&
            header->map_h > 0 && header->map_h <= MAX_MAP_H &&
            header->civ_count >= 0 && header->civ_count <= MAX_CIVS &&
@@ -226,6 +257,62 @@ static int read_world_rows(FILE *file) {
         if (!read_block(file, world[y], sizeof(Tile), (size_t)map_w)) return 0;
     }
     return 1;
+}
+
+static int read_civilizations(FILE *file, int save_version) {
+    if (save_version >= 2) {
+        return read_block(file, civs, sizeof(Civilization), (size_t)civ_count);
+    }
+    {
+        LegacyCivilizationV1 legacy[MAX_CIVS];
+        int i;
+
+        if (!read_block(file, legacy, sizeof(LegacyCivilizationV1), (size_t)civ_count)) return 0;
+        for (i = 0; i < civ_count; i++) {
+            memset(&civs[i], 0, sizeof(civs[i]));
+            memcpy(civs[i].name, legacy[i].name, NAME_LEN);
+            civs[i].name[NAME_LEN - 1] = '\0';
+            civs[i].name_id = -1;
+            civs[i].custom_name = 1;
+            civs[i].symbol = legacy[i].symbol;
+            civs[i].color = legacy[i].color;
+            civs[i].alive = legacy[i].alive;
+            civs[i].population = legacy[i].population;
+            civs[i].territory = legacy[i].territory;
+            civs[i].aggression = legacy[i].aggression;
+            civs[i].expansion = legacy[i].expansion;
+            civs[i].defense = legacy[i].defense;
+            civs[i].culture = legacy[i].culture;
+            civs[i].governance = legacy[i].governance;
+            civs[i].cohesion = legacy[i].cohesion;
+            civs[i].production = legacy[i].production;
+            civs[i].military = legacy[i].military;
+            civs[i].commerce = legacy[i].commerce;
+            civs[i].logistics = legacy[i].logistics;
+            civs[i].innovation = legacy[i].innovation;
+            civs[i].adaptation = legacy[i].adaptation;
+            civs[i].tech_stage = legacy[i].tech_stage;
+            civs[i].tech_progress = legacy[i].tech_progress;
+            civs[i].deep_sea_route_unlocked_event_done = legacy[i].deep_sea_route_unlocked_event_done;
+            civs[i].capital_city = legacy[i].capital_city;
+            civs[i].disorder = legacy[i].disorder;
+            civs[i].disorder_resource = legacy[i].disorder_resource;
+            civs[i].disorder_plague = legacy[i].disorder_plague;
+            civs[i].disorder_migration = legacy[i].disorder_migration;
+            civs[i].disorder_stability = legacy[i].disorder_stability;
+        }
+        return 1;
+    }
+}
+
+static void normalize_loaded_technology(void) {
+    int i;
+
+    for (i = 0; i < civ_count; i++) {
+        civs[i].tech_stage = clamp(civs[i].tech_stage, 0, 10);
+        if (civs[i].tech_progress < 0) civs[i].tech_progress = 0;
+        if (civs[i].tech_stage >= 10) civs[i].tech_progress = 0;
+    }
 }
 
 int save_current_map(HWND hwnd) {
@@ -348,13 +435,15 @@ int load_map_from_file(HWND hwnd) {
         !read_block(file, river_paths, sizeof(RiverPath), (size_t)river_path_count) ||
         !read_block(file, maritime_routes, sizeof(MaritimeRoute), (size_t)maritime_route_count) ||
         !read_block(file, natural_regions, sizeof(NaturalRegion), (size_t)region_count) ||
-        !read_block(file, civs, sizeof(Civilization), (size_t)civ_count) ||
+        !read_civilizations(file, header.version) ||
         !read_block(file, cities, sizeof(City), (size_t)city_count)) {
         fclose(file);
         show_utf8_message(hwnd, "Could not read the full map save.", "Load Map", MB_OK | MB_ICONERROR);
         return 0;
     }
     fclose(file);
+    normalize_loaded_technology();
+    civilization_migrate_loaded_names();
     game_request_after_load_map();
     show_utf8_message(hwnd, "Loaded map save successfully.", "Load Map", MB_OK | MB_ICONINFORMATION);
     return 1;

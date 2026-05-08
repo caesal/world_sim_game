@@ -6,6 +6,7 @@ void technology_update_month(void);
 int technology_years_to_next(int civ_id);
 int technology_expansion_percent(int civ_id);
 int technology_resource_percent(int civ_id);
+int technology_progress_percent(int civ_id);
 int technology_deep_sea_stability(int civ_id);
 int technology_defense_army_percent(int civ_id);
 int technology_battle_chance_bonus(int civ_id);

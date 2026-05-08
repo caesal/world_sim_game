@@ -1,20 +1,44 @@
 #include "collapse.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_state.h"
+#include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
+#include "sim/maritime.h"
 #include "sim/population.h"
+#include "sim/ports.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
 
 #include <stdio.h>
 #include <string.h>
 
-static int collapse_chance(int disorder) {
-    if (disorder > 90) return 45;
-    if (disorder > 85) return 30;
-    if (disorder > 80) return 20;
-    if (disorder > 75) return 10;
+static char collapse_reasons[MAX_CIVS][128];
+static int immediate_attempt_month[MAX_CIVS];
+
+static int collapse_month_index(void) {
+    return year * 12 + month;
+}
+
+int collapse_decade_chance_for_disorder(int disorder) {
+    if (disorder >= 100) return 0;
+    if (disorder >= 95) return 65;
+    if (disorder >= 90) return 45;
+    if (disorder >= 85) return 30;
+    if (disorder >= 80) return 20;
+    if (disorder >= 75) return 10;
     return 0;
+}
+
+static void collapse_refresh_world(void) {
+    world_recalculate_territory();
+    population_sync_all();
+    ports_refresh_city_regions();
+    maritime_mark_routes_dirty();
+    diplomacy_mark_contacts_dirty();
+    dirty_mark_territory();
+    dirty_mark_labels();
+    world_visual_revision++;
 }
 
 static int capital_region_for_civ(int civ_id) {
@@ -23,20 +47,56 @@ static int capital_region_for_civ(int civ_id) {
     return regions_region_for_city(city_id);
 }
 
+CollapseBlockReason collapse_block_reason(int civ_id) {
+    int cap_region;
+    int i;
+    int owned_regions = 0;
+
+    if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
+        return COLLAPSE_BLOCK_NOT_ALIVE;
+    }
+    if (civ_count >= MAX_CIVS) return COLLAPSE_BLOCK_MAX_CIVS;
+    cap_region = capital_region_for_civ(civ_id);
+    if (cap_region < 0) return COLLAPSE_BLOCK_NO_CAPITAL_REGION;
+    for (i = 0; i < region_count; i++) {
+        if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id) continue;
+        owned_regions++;
+        if (i != cap_region) return COLLAPSE_BLOCK_NONE;
+    }
+    if (owned_regions <= 1) return COLLAPSE_BLOCK_ONLY_CORE_LEFT;
+    return COLLAPSE_BLOCK_NO_SPLITTABLE_REGION;
+}
+
+const char *collapse_block_reason_text(CollapseBlockReason reason) {
+    switch (reason) {
+        case COLLAPSE_BLOCK_NONE: return "Ready.";
+        case COLLAPSE_BLOCK_NOT_ALIVE: return "Country is invalid or has fallen.";
+        case COLLAPSE_BLOCK_MAX_CIVS: return "Country limit reached.";
+        case COLLAPSE_BLOCK_NO_CAPITAL_REGION: return "No valid capital region.";
+        case COLLAPSE_BLOCK_NO_SPLITTABLE_REGION: return "No splittable non-capital region.";
+        case COLLAPSE_BLOCK_ONLY_CORE_LEFT: return "Only capital/core region remains.";
+        case COLLAPSE_BLOCK_CITY_CAP: return "City limit reached.";
+        default: return "Unknown collapse blocker.";
+    }
+}
+
 static int create_successor_civ(int parent, int index, int seed_region) {
     Civilization *child;
     int child_id;
 
+    (void)index;
     if (civ_count >= MAX_CIVS) return -1;
     child_id = civ_count++;
     child = &civs[child_id];
     *child = civs[parent];
-    snprintf(child->name, sizeof(child->name), "%.40s Remnant %d", civs[parent].name, index + 1);
+    civilization_assign_generated_name(child, civilization_pick_unused_name_id());
     child->symbol = (char)('a' + (child_id % 26));
-    child->color = CIV_COLORS[child_id % MAX_CIVS];
+    child->color = civilization_pick_auto_color(child_id, seed_region);
     child->alive = 1;
     child->population = 0;
     child->territory = 0;
+    child->tech_stage = clamp(civs[parent].tech_stage, 0, 10);
+    child->tech_progress = civs[parent].tech_progress;
     child->disorder = clamp(civs[parent].disorder / 2, 20, 70);
     child->disorder_stability = 25;
     child->capital_city = -1;
@@ -102,15 +162,31 @@ static int add_neighbor_regions(int parent, int child, int seed_region, int cap_
     return claimed;
 }
 
-static void collapse_civ(int civ_id) {
-    int cap_region = capital_region_for_civ(civ_id);
+static int collapse_civ(int civ_id, CollapseCause cause) {
+    int cap_region;
     int formed = 0;
     int i;
+    CollapseBlockReason block;
 
+    if (civ_id < 0 || civ_id >= MAX_CIVS) {
+        event_log_push("[Collapse] Collapse blocked: invalid country.");
+        return 0;
+    }
+    cap_region = capital_region_for_civ(civ_id);
+    block = collapse_block_reason(civ_id);
+    if (block != COLLAPSE_BLOCK_NONE) {
+        char event_text[EVENT_LOG_LEN];
+        snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
+                 "Collapse blocked: %s", collapse_block_reason_text(block));
+        snprintf(event_text, sizeof(event_text), "[Collapse] %s", collapse_reasons[civ_id]);
+        event_log_push(event_text);
+        return 0;
+    }
     for (i = 0; i < region_count && formed < 4 && civ_count < MAX_CIVS; i++) {
         int child;
         if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id || i == cap_region) continue;
-        if (natural_regions[i].development_score < 30 && natural_regions[i].tile_count < 40) continue;
+        if (cause == COLLAPSE_CAUSE_PRESSURE &&
+            natural_regions[i].development_score < 30 && natural_regions[i].tile_count < 40) continue;
         child = create_successor_civ(civ_id, formed, i);
         if (child < 0) break;
         if (add_neighbor_regions(civ_id, child, i, cap_region) <= 0) {
@@ -120,9 +196,71 @@ static void collapse_civ(int civ_id) {
         diplomacy_start_truce(civ_id, child, 45, 20);
         formed++;
     }
-    civs[civ_id].disorder = clamp(civs[civ_id].disorder - 25, 0, 100);
-    world_recalculate_territory();
-    population_sync_all();
+    if (cause == COLLAPSE_CAUSE_PRESSURE) civs[civ_id].disorder = clamp(civs[civ_id].disorder - 25, 0, 100);
+    else civs[civ_id].disorder = 100;
+    if (formed > 0) {
+        snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
+                 "Collapse formed %d successor state%s.", formed, formed == 1 ? "" : "s");
+        collapse_refresh_world();
+    } else {
+        snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
+                 "Collapse failed: no splittable non-capital region.");
+    }
+    {
+        char event_text[EVENT_LOG_LEN];
+        snprintf(event_text, sizeof(event_text), "[Collapse] %s", collapse_reasons[civ_id]);
+        event_log_push(event_text);
+    }
+    return formed > 0;
+}
+
+int collapse_probability_for_disorder(int disorder) {
+    return collapse_decade_chance_for_disorder(disorder);
+}
+
+int collapse_can_trigger(int civ_id) {
+    return collapse_block_reason(civ_id) == COLLAPSE_BLOCK_NONE;
+}
+
+const char *collapse_trigger_block_reason(int civ_id) {
+    return collapse_block_reason_text(collapse_block_reason(civ_id));
+}
+
+const char *collapse_last_reason(int civ_id) {
+    if (civ_id < 0 || civ_id >= MAX_CIVS || !collapse_reasons[civ_id][0]) {
+        return "No collapse check yet.";
+    }
+    return collapse_reasons[civ_id];
+}
+
+int collapse_trigger(int civ_id, CollapseCause cause) {
+    return collapse_civ(civ_id, cause);
+}
+
+int collapse_check_immediate(int civ_id, CollapseCause cause) {
+    char event_text[EVENT_LOG_LEN];
+    int collapsed;
+    int now = collapse_month_index();
+
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive || civs[civ_id].disorder < 100) return 0;
+    if (immediate_attempt_month[civ_id] == now + 1 && cause != COLLAPSE_CAUSE_CIVIL_UNREST) return 0;
+    immediate_attempt_month[civ_id] = now + 1;
+    collapsed = collapse_civ(civ_id, cause);
+    snprintf(event_text, sizeof(event_text), "[Collapse] Immediate collapse %s for %.64s: %s",
+             collapsed ? "succeeded" : "failed",
+             civilization_display_name_for_language(civ_id, 0), collapse_last_reason(civ_id));
+    event_log_push(event_text);
+    return collapsed;
+}
+
+void collapse_update_immediate(void) {
+    int i;
+
+    for (i = 0; i < civ_count; i++) {
+        if (civs[i].alive && civs[i].disorder >= 100) {
+            collapse_check_immediate(i, COLLAPSE_CAUSE_PRESSURE);
+        }
+    }
 }
 
 void collapse_update_decade(void) {
@@ -130,8 +268,37 @@ void collapse_update_decade(void) {
 
     for (i = 0; i < civ_count; i++) {
         int chance;
+        int roll;
         if (!civs[i].alive) continue;
-        chance = collapse_chance(civs[i].disorder);
-        if (chance > 0 && rnd(100) < chance) collapse_civ(i);
+        if (civs[i].disorder >= 100) {
+            snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
+                     "Immediate collapse path owns disorder 100 checks.");
+            continue;
+        }
+        chance = collapse_decade_chance_for_disorder(civs[i].disorder);
+        if (chance <= 0) {
+            snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
+                     "No collapse risk: disorder %d below 75.", civs[i].disorder);
+            continue;
+        }
+        roll = rnd(100);
+        if (roll < chance) {
+            char event_text[EVENT_LOG_LEN];
+            snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
+                     "Decade check triggered: disorder %d, chance %d%%, rolled %d, needed below %d.",
+                     civs[i].disorder, chance, roll, chance);
+            snprintf(event_text, sizeof(event_text), "[Collapse] %.64s %.80s",
+                     civilization_display_name_for_language(i, 0), collapse_reasons[i]);
+            event_log_push(event_text);
+            collapse_civ(i, COLLAPSE_CAUSE_PRESSURE);
+        } else {
+            char event_text[EVENT_LOG_LEN];
+            snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
+                     "Decade check failed: disorder %d, chance %d%%, rolled %d, needed below %d.",
+                     civs[i].disorder, chance, roll, chance);
+            snprintf(event_text, sizeof(event_text), "[Collapse] %.64s %.80s",
+                     civilization_display_name_for_language(i, 0), collapse_reasons[i]);
+            event_log_push(event_text);
+        }
     }
 }

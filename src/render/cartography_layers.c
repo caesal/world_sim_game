@@ -267,7 +267,7 @@ static void rebuild_political(HDC hdc) {
         if (!civs[i].alive) continue;
         build_owner_mask(i);
         blur_mask(1);
-        apply_mask_overlay(&political_cache, civs[i].color, 42);
+        apply_mask_overlay(&political_cache, civs[i].color, 56);
     }
 }
 

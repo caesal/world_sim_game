@@ -59,6 +59,24 @@ typedef enum {
     UI_LANG_ZH
 } UiLanguage;
 
+typedef enum {
+    DEBUG_EVENT_FILTER_ALL,
+    DEBUG_EVENT_FILTER_EXPANSION,
+    DEBUG_EVENT_FILTER_WAR,
+    DEBUG_EVENT_FILTER_COLLAPSE,
+    DEBUG_EVENT_FILTER_PERFORMANCE,
+    DEBUG_EVENT_FILTER_COUNT
+} DebugEventFilter;
+
+typedef enum {
+    COUNTRY_SORT_POPULATION,
+    COUNTRY_SORT_PROVINCES,
+    COUNTRY_SORT_ARMY,
+    COUNTRY_SORT_TECH,
+    COUNTRY_SORT_DISORDER,
+    COUNTRY_SORT_COUNT
+} CountrySortColumn;
+
 typedef struct {
     int map_x;
     int map_y;

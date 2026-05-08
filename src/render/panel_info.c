@@ -137,7 +137,7 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         RECT swatch = {x, y + 3, x + 18, y + 21};
         CountrySummary country = summarize_country(civ_id);
         fill_rect(hdc, swatch, civs[civ_id].color);
-        snprintf(text, sizeof(text), "%c  %.63s", civs[civ_id].symbol, civs[civ_id].name);
+        snprintf(text, sizeof(text), "%c  %.63s", civs[civ_id].symbol, civilization_display_name(civ_id));
         SelectObject(hdc, title_font);
         draw_text_line(hdc, x + 28, y, text, RGB(245, 245, 245));
         y += 22;
@@ -314,7 +314,8 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 20;
         if (region_id >= 0) {
             if (cities[region_id].owner >= 0 && cities[region_id].owner < civ_count) {
-                snprintf(text, sizeof(text), "%s: %s", tr("Country", "国家"), civs[cities[region_id].owner].name);
+                snprintf(text, sizeof(text), "%s: %s", tr("Country", "国家"),
+                         civilization_display_name(cities[region_id].owner));
                 draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 20;
             }
             snprintf(text, sizeof(text), "%s %d  %s %d", tr("Tiles", "地块"), province_tiles, tr("Pop", "人口"), province_population);
@@ -396,7 +397,7 @@ void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font
     for (i = 0; i < civ_count && y < client.bottom - 500; i++) {
         RECT swatch = {x, y + 3, x + 15, y + 18};
         fill_rect(hdc, swatch, civs[i].color);
-        snprintf(text, sizeof(text), "%c  %.63s", civs[i].symbol, civs[i].name);
+        snprintf(text, sizeof(text), "%c  %.63s", civs[i].symbol, civilization_display_name(i));
         draw_text_line(hdc, x + 24, y, text, i == selected_civ ? RGB(255, 238, 150) : RGB(238, 238, 238));
         y += 19;
         if (ui_language == UI_LANG_ZH) {

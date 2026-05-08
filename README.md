@@ -7,12 +7,11 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.0 is a Windows graphical sandbox prototype written in C.
+Ver0.2.1 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.0 focuses on system integration: continuous mountain chains, stronger natural-region boundaries,
-land-first region expansion, civilization technology stages, 0-100 disorder, collapse checks,
-3-year war battles with real population casualties, and a Country Dashboard that can switch between
-all-country list mode and selected-country detail mode.
+Ver0.2.1 focuses on visual and feedback reliability: smoother maritime route rendering, immediate
+political fill refresh after region claims, clearer combined technology/disorder modifier display,
+and continued performance/debug visibility over the simulation scheduler.
 
 You can:
 
@@ -106,6 +105,10 @@ You can:
 88. Rework wars into 3-year battles using current soldiers, technology modifiers, real population casualties, peace pressure, and 20% bordering-province cession
 89. Keep normal expansion focused on neighboring unowned natural regions before considering overseas targets
 90. Add a Country Dashboard back-to-list control so selected-country detail no longer traps the user away from all countries
+91. Smooth maritime route rendering so sea lanes curve through existing route points instead of exposing every pathfinding bend
+92. Refresh political fills, country borders, province borders, and labels immediately after a natural region is claimed
+93. Show resource, population, and technology modifiers as final effective percentages with their technology/disorder components visible
+94. Keep the performance/debug panel available to verify scheduler backlog, slow phases, route diagnostics, and render cache rebuilds
 
 ## Controls
 
