@@ -38,6 +38,7 @@ int country_sort_column = COUNTRY_SORT_POPULATION;
 int country_sort_descending = 1;
 int country_detail_subtab = COUNTRY_DETAIL_OVERVIEW;
 int country_detail_scroll_offsets[8] = {0};
+int country_diplomacy_view = DIPLOMACY_VIEW_PEACE_TENSE;
 int debug_event_filter = DEBUG_EVENT_FILTER_ALL;
 int pause_menu_open = 0;
 int selected_civ_color_index = -1;

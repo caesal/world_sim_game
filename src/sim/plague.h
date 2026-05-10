@@ -27,6 +27,8 @@ void plague_reset(void);
 void plague_update_month(void);
 int plague_update_month_step(PlagueUpdateState *state, int batch_size);
 int plague_seed_random_outbreak(void);
+int plague_try_monthly_random_outbreak(void);
+int plague_months_since_random_outbreak(void);
 int plague_seed_city(int city_id, int severity, int months);
 void plague_notify_migration(int from_city, int to_city, int migrants);
 void plague_notify_war_casualties(int civ_id, int casualties);

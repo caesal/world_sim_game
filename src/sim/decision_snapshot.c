@@ -9,8 +9,8 @@
 #include <string.h>
 
 static int years_to_decade_check(void) {
-    int years_left = 10 - (year % 10);
-    return years_left <= 0 ? 10 : years_left;
+    int years_left = 25 - (year % 25);
+    return years_left <= 0 ? 25 : years_left;
 }
 
 void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {

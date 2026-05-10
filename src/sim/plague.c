@@ -17,6 +17,7 @@
 
 static PlagueState city_plagues[MAX_CITIES];
 static int route_exposure[MAX_MARITIME_ROUTES];
+static int last_random_outbreak_month = -6000;
 
 static int valid_city(int city_id) {
     return city_id >= 0 && city_id < city_count && cities[city_id].alive;
@@ -109,6 +110,19 @@ int plague_seed_random_outbreak(void) {
 void plague_reset(void) {
     memset(city_plagues, 0, sizeof(city_plagues));
     memset(route_exposure, 0, sizeof(route_exposure));
+    last_random_outbreak_month = -6000;
+}
+
+int plague_months_since_random_outbreak(void) {
+    return year * 12 + month - last_random_outbreak_month;
+}
+
+int plague_try_monthly_random_outbreak(void) {
+    if (rnd(100) >= 4) return 0;
+    if (plague_months_since_random_outbreak() < 50 * 12) return 0;
+    if (!plague_seed_random_outbreak()) return 0;
+    last_random_outbreak_month = year * 12 + month;
+    return 1;
 }
 
 static void try_infect_city(int source_city, int target_city, int chance, int route_id) {
@@ -228,7 +242,7 @@ static void apply_plague_disorder(int active_by_civ[MAX_CIVS], int severity_by_c
         int pressure;
         if (!civs[i].alive || active_by_civ[i] <= 0) continue;
         pressure = active_by_civ[i] * 5 + severity_by_civ[i] + deaths_by_civ[i] / 120;
-        civs[i].disorder_plague = clamp(pressure, civs[i].disorder_plague, 100);
+        disorder_add_plague_pressure(i, pressure);
         disorder_add_plague_deaths(i, deaths_by_civ[i]);
     }
 }
@@ -252,7 +266,6 @@ int plague_update_month_step(PlagueUpdateState *state, int batch_size) {
     }
     if (state->city_cursor < city_count) return 0;
     apply_plague_disorder(state->active_by_civ, state->severity_by_civ, state->deaths_by_civ);
-    if (rnd(1000) < 10) state->any_change |= plague_seed_random_outbreak();
     if (state->any_change) {
         dirty_mark_plague();
         population_sync_all();

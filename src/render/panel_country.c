@@ -1,6 +1,7 @@
 ﻿#include "render_panel_internal.h"
 #include "render/panel_country.h"
 #include "render/panel_country_detail.h"
+#include "render/panel_country_diplomacy.h"
 
 #include "sim/collapse.h"
 #include "sim/decision_snapshot.h"
@@ -77,7 +78,11 @@ static int country_sort_value(int civ_id, int column) {
     switch (clamp(column, 0, COUNTRY_SORT_COUNT - 1)) {
         case COUNTRY_SORT_PROVINCES: return country_province_count(civ_id);
         case COUNTRY_SORT_ARMY: return war_current_soldiers_for_civ(civ_id);
-        case COUNTRY_SORT_TECH: return clamp(civs[civ_id].tech_stage, 0, 10);
+        case COUNTRY_SORT_TECH: {
+            int stage = clamp(civs[civ_id].tech_stage, 0, 10);
+            int progress = clamp(technology_stage_progress_percent(civ_id), 0, 99);
+            return stage * 100 + progress;
+        }
         case COUNTRY_SORT_DISORDER: return civs[civ_id].disorder;
         default: return summarize_country(civ_id).population;
     }
@@ -421,6 +426,11 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
     }
     if (layout.selected_detail && point_in_rect_local(layout.back_to_list, mouse_x, mouse_y)) {
         return COUNTRY_PANEL_HIT_BACK_TO_LIST;
+    }
+    if (layout.selected_detail && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
+        int diplomacy_hit = country_diplomacy_view_hit_test(displayed_country(), layout.detail_viewport,
+                                                            layout.detail_scroll, mouse_x, mouse_y);
+        if (diplomacy_hit != COUNTRY_PANEL_HIT_NONE) return diplomacy_hit;
     }
     if (country_detail_civil_unrest_hit(layout.detail_viewport, mouse_x, mouse_y)) {
         return COUNTRY_PANEL_HIT_CIVIL_UNREST;

@@ -263,10 +263,12 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
                     metric_label("Resource", "资源"), metric_label("Plague", "瘟疫"),
                     metric_label("Migration", "迁徙"));
     draw_metric_pair(hdc, cursor, civs[civ_id].disorder_stability, civs[civ_id].disorder,
-                     ICON_COUNTRY_DEFENSE, ICON_DISORDER, metric_label("Stability", "稳定"),
+                     ICON_COUNTRY_DEFENSE, ICON_DISORDER, metric_label("War/Unrest", "战争/内乱"),
                      metric_label("Total", "总计"));
     snprintf(text, sizeof(text), "%d", vassal_governance_disorder(civ_id));
     ui_row_text(hdc, cursor, tr("Vassal governance burden", "附庸治理负担"), text);
+    snprintf(text, sizeof(text), "-%d / month", civs[civ_id].governance / 2 + civs[civ_id].cohesion / 2);
+    ui_row_text(hdc, cursor, tr("Monthly recovery", "本月恢复"), text);
     format_percent_components(text, sizeof(text), tech_resource * disorder_resource / 100,
                               tech_resource, disorder_resource);
     ui_row_text(hdc, cursor, tr("Resource Output", "资源产出"), text);
@@ -283,7 +285,7 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
         snprintf(risk, sizeof(risk), "%s", tr("No collapse risk", "无崩溃风险"));
     } else {
         snprintf(risk, sizeof(risk), "%d%%  %s", chance,
-                 tr("per 10 years", "每 10 年"));
+                 tr("per 25 years", "每 25 年"));
     }
     ui_row_text(hdc, cursor, tr("Collapse Risk", "崩溃风险"), risk);
     ui_row_text(hdc, cursor, tr("Collapse Check", "崩溃判定"), collapse_last_reason(civ_id));
@@ -291,8 +293,8 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
     if (civs[civ_id].disorder >= 100) {
         snprintf(text, sizeof(text), "%s", tr("Immediate path", "立即路径"));
     } else if (chance > 0) {
-        int years_left = 10 - (year % 10);
-        if (years_left <= 0) years_left = 10;
+        int years_left = 25 - (year % 25);
+        if (years_left <= 0) years_left = 25;
         snprintf(text, sizeof(text), "%d %s", years_left, tr("years", "年"));
     } else {
         snprintf(text, sizeof(text), "%s", tr("No scheduled roll", "无定期判定"));

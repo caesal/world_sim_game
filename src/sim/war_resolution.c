@@ -1,6 +1,7 @@
 #include "sim/war_resolution.h"
 
 #include "sim/diplomacy.h"
+#include "sim/disorder.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
 
@@ -113,8 +114,7 @@ static void choose_new_capital(int loser, int winner) {
 static void handle_capital_loss(int loser, int winner) {
     int extra_used[MAX_CITIES] = {0};
 
-    civs[loser].disorder_stability = clamp(civs[loser].disorder_stability + 18, 0, 100);
-    civs[loser].disorder = clamp(civs[loser].disorder + 18, 0, 100);
+    disorder_add_war_pressure(loser, 18);
     civs[loser].cohesion = clamp(civs[loser].cohesion - 1, 0, 10);
     if (!any_city_owned_by(loser)) {
         civs[loser].alive = 0;
@@ -128,7 +128,7 @@ static void handle_capital_loss(int loser, int winner) {
             extra_used[province_id] = 1;
             cities[province_id].capital = 0;
             world_claim_city_region(province_id, winner);
-            civs[loser].disorder = clamp(civs[loser].disorder + 8, 0, 100);
+            disorder_add_war_pressure(loser, 8);
         }
         choose_new_capital(loser, winner);
     }
@@ -189,8 +189,7 @@ static int transfer_side_border_provinces(int loser, int winner, int count) {
         cities[province_id].capital = 0;
         if (capital_lost) civs[province_owner].capital_city = -1;
         world_claim_city_region(province_id, winner);
-        civs[province_owner].disorder = clamp(civs[province_owner].disorder + 12, 0, 100);
-        civs[province_owner].disorder_stability = clamp(civs[province_owner].disorder_stability + 12, 0, 100);
+        disorder_add_war_pressure(province_owner, 12);
         transferred++;
         if (capital_lost) handle_capital_loss(province_owner, winner);
     }
@@ -221,7 +220,7 @@ void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margi
     if (winner >= 0 && loser >= 0 && is_valid_civ_id(winner) && is_valid_civ_id(loser)) {
         int side_count = side_owned_province_count(loser);
         int transferred = transfer_side_border_provinces(loser, winner, max(1, side_count / 5));
-        if (transferred == 0) civs[loser].disorder = clamp(civs[loser].disorder + 10, 0, 100);
+        if (transferred == 0) disorder_add_war_pressure(loser, 10);
         if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3)) {
             vassal_make(winner, loser, margin >= 3 ? 18 : 25);
         } else {

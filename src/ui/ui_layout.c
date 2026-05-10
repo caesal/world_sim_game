@@ -36,9 +36,12 @@ RECT get_speed_button_rect(RECT client, int index) {
 RECT get_mode_button_rect(RECT client, int index) {
     RECT rect;
     int panel_x = client.right - side_panel_w + FORM_X_PAD;
-    rect.left = panel_x;
-    rect.top = TOP_BAR_H + 126 + index * 32;
-    rect.right = panel_x + side_panel_w - FORM_X_PAD * 2;
+    int gap = 5;
+    int width = side_panel_w - FORM_X_PAD * 2;
+    int button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
+    rect.left = panel_x + index * (button_w + gap);
+    rect.top = TOP_BAR_H + 126;
+    rect.right = index == MAP_DISPLAY_MODE_COUNT - 1 ? panel_x + width : rect.left + button_w;
     rect.bottom = rect.top + 28;
     return rect;
 }

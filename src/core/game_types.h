@@ -114,6 +114,7 @@ extern int country_sort_column;
 extern int country_sort_descending;
 extern int country_detail_subtab;
 extern int country_detail_scroll_offsets[8];
+extern int country_diplomacy_view;
 extern int debug_event_filter;
 extern int pause_menu_open;
 extern int selected_civ_color_index;
@@ -129,6 +130,47 @@ extern char event_log[EVENT_LOG_COUNT][EVENT_LOG_LEN];
 extern int event_log_count;
 extern int event_log_next;
 
+typedef enum {
+    EVENT_TYPE_GENERIC,
+    EVENT_TYPE_EXPANSION_CLAIMED,
+    EVENT_TYPE_WAR_STARTED,
+    EVENT_TYPE_BATTLE_RESOLVED,
+    EVENT_TYPE_TRUCE_SIGNED,
+    EVENT_TYPE_COLLAPSE_SUCCEEDED,
+    EVENT_TYPE_COLLAPSE_FAILED,
+    EVENT_TYPE_PLAGUE_STARTED,
+    EVENT_TYPE_PLAGUE_SPREAD,
+    EVENT_TYPE_PLAGUE_ENDED,
+    EVENT_TYPE_VASSAL_CREATED,
+    EVENT_TYPE_VASSAL_RELEASED,
+    EVENT_TYPE_VASSAL_TRANSFERRED,
+    EVENT_TYPE_PERFORMANCE_THROTTLED,
+    EVENT_TYPE_DEEP_SEA_ROUTE_CREATED,
+    EVENT_TYPE_DEEP_SEA_ROUTE_FAILED,
+    EVENT_TYPE_CIVIL_UNREST_TRIGGERED
+} EventLogType;
+
+typedef enum {
+    EVENT_SEVERITY_INFO,
+    EVENT_SEVERITY_WARNING,
+    EVENT_SEVERITY_DANGER
+} EventLogSeverity;
+
+typedef struct {
+    int year;
+    int month;
+    EventLogType type;
+    EventLogSeverity severity;
+    int civ_id;
+    int target_id;
+    int region_id;
+    int city_id;
+    int param_a;
+    int param_b;
+    int repeat_count;
+    char raw_message[EVENT_LOG_LEN];
+} EventLogEntry;
+
 extern const int SPEED_MS[SPEED_COUNT];
 extern const char *SPEED_NAMES[SPEED_COUNT];
 extern const Color32 CIV_COLORS[MAX_CIVS];
@@ -140,8 +182,12 @@ int clamp(int value, int min, int max);
 int rnd(int max);
 void append_log(char *log, size_t log_size, const char *format, ...);
 void event_log_push(const char *text);
+void event_log_push_structured(EventLogType type, EventLogSeverity severity, int civ_id,
+                               int target_id, int region_id, int city_id,
+                               int param_a, int param_b, const char *raw_message);
 void event_log_clear(void);
 const char *event_log_get(int index);
+EventLogType event_log_get_type(int index);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
 int point_in_rect(RECT rect, int x, int y);
 void map_size_dimensions(int size, int *out_w, int *out_h);

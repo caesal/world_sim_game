@@ -70,7 +70,7 @@ int vassal_direct_count(int overlord) {
 
 int vassal_governance_disorder(int overlord) {
     int n = vassal_direct_count(overlord);
-    return clamp(8 * n + 3 * n * n, 0, 100);
+    return clamp(n * 10, 0, 100);
 }
 
 int vassal_callable_soldiers(int vassal) {

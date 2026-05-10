@@ -8,7 +8,7 @@
 
 RECT pause_menu_panel_rect(RECT client) {
     int width = 380;
-    int height = 286;
+    int height = 332;
     int cx = (client.left + client.right) / 2;
     int cy = (client.top + client.bottom) / 2;
     RECT rect = {cx - width / 2, cy - height / 2, cx + width / 2, cy + height / 2};
@@ -34,6 +34,7 @@ int pause_menu_hit_test(RECT client, int x, int y) {
 
 const char *pause_menu_button_label(int index) {
     switch (index) {
+        case PAUSE_MENU_RESUME_GAME: return ui_language == UI_LANG_ZH ? "返回游戏" : "Resume Game";
         case PAUSE_MENU_VERSION_LOG: return ui_language == UI_LANG_ZH ? "版本日志" : "Version Log";
         case PAUSE_MENU_SAVE_MAP: return ui_language == UI_LANG_ZH ? "保存地图" : "Save Map";
         case PAUSE_MENU_LOAD_MAP: return ui_language == UI_LANG_ZH ? "读取地图" : "Load Map";
@@ -57,18 +58,16 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "海路航线使用渲染侧平滑曲线，减少折线感。\n"
-                 "扩张占领后立即刷新政治填色、边界和标签。\n"
-                 "国家详情显示科技与混乱共同作用后的总倍率。\n"
-                 "继续保留性能日志、ESC 菜单、保存/读取地图和文明颜色调色板。",
+                 "ESC 菜单新增返回游戏按钮。\n"
+                 "保存地图现在会打开保存对话框，可选择目录并重命名。\n"
+                 "保留外交二级页、随机陆海边缘、混乱来源桶与调试工具。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Maritime routes use render-side smoothing to reduce jagged bends.\n"
-                 "Political fills, borders, and labels refresh immediately after region claims.\n"
-                 "Country detail shows combined technology and disorder modifiers.\n"
-                 "Performance logs, ESC menu, map save/load, and civilization color palette remain available.",
+                 "The ESC menu now has a direct Resume Game button.\n"
+                 "Save Map opens a Save As dialog so you can choose the folder and rename the save.\n"
+                 "Diplomacy subviews, randomized land edges, disorder buckets, and debug tools remain available.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

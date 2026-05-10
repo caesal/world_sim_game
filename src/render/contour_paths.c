@@ -309,7 +309,10 @@ static void flush_segments_to_cache(ContourKind kind, ContourCache *cache) {
         raw_count = collect_polyline(i, raw_hg);
         if (raw_count < 3) continue;
         for (j = 0; j < raw_count; j++) raw[j] = (ContourPoint){(short)(raw_hg[j].x * FIX_PER_HALF), (short)(raw_hg[j].y * FIX_PER_HALF)};
-        if (path_len_fixed(raw, raw_count) < (kind == CONTOUR_PROVINCE ? 72 : 36)) continue;
+        if (kind != CONTOUR_COAST &&
+            path_len_fixed(raw, raw_count) < (kind == CONTOUR_PROVINCE ? 72 : 36)) {
+            continue;
+        }
         simple_count = simplify_rdp(raw, raw_count, simple, kind == CONTOUR_PROVINCE ? 18 : 12);
         smooth_count = smooth_chaikin(simple, simple_count, smooth);
         count = smooth_count > 1 ? smooth_count : simple_count;
@@ -371,7 +374,7 @@ static void draw_layer(HDC hdc, RECT client, MapLayout layout, ContourKind kind,
 
 void contour_paths_draw_coastline(HDC hdc, RECT client, MapLayout layout) {
     ensure_contour_cache(CONTOUR_COAST, dirty_revision_coast(), 0);
-    draw_layer(hdc, client, layout, CONTOUR_COAST, RGB(18, 42, 39), 2, RGB(86, 132, 104), 1, 8);
+    draw_layer(hdc, client, layout, CONTOUR_COAST, RGB(18, 42, 39), 2, RGB(86, 132, 104), 1, 0);
 }
 
 void contour_paths_draw_country_borders(HDC hdc, RECT client, MapLayout layout) {

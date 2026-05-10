@@ -110,16 +110,6 @@ static void build_land_mask(void) {
     }
 }
 
-static void build_owner_mask(int owner) {
-    int x, y;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int active = alive_owner(owner) && world[y][x].owner == owner;
-            mask_a[y * MAP_W + x] = active ? 255 : 0;
-        }
-    }
-}
-
 static void blur_once(const unsigned char *src, unsigned char *dst) {
     int x, y;
     for (y = 0; y < MAP_H; y++) {
@@ -170,24 +160,19 @@ static void filter_mask(int passes, int fill_threshold, int keep_threshold) {
     }
 }
 
-static void apply_mask_overlay(CartoCache *cache, COLORREF color, int max_alpha) {
-    int i;
-    for (i = 0; i < MAP_W * MAP_H; i++) {
-        int alpha = mask_a[i] * max_alpha / 255;
-        if (alpha > 0) blend_pixel(&cache->pixels[i], color, alpha);
-    }
-}
-
 static void rebuild_political(HDC hdc) {
-    int i;
+    int x;
+    int y;
     int alpha = display_mode == DISPLAY_POLITICAL ? 144 : 88;
     if (!ensure_cache(hdc, &political_cache, 1)) return;
     clear_cache(&political_cache, dirty_revision_ownership());
-    for (i = 0; i < civ_count; i++) {
-        if (!civs[i].alive) continue;
-        build_owner_mask(i);
-        blur_mask(1);
-        apply_mask_overlay(&political_cache, civs[i].color, alpha);
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int owner = world[y][x].owner;
+            if (alive_owner(owner)) {
+                blend_pixel(&political_cache.pixels[y * MAP_W + x], civs[owner].color, alpha);
+            }
+        }
     }
 }
 

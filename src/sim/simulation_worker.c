@@ -20,7 +20,7 @@ static volatile LONG visual_completed_months = 0;
 static char worker_status[64] = "Idle";
 
 static int budget_for_speed(int speed) {
-    static const int budgets[SPEED_COUNT] = {4, 8, 12, 16, 22};
+    static const int budgets[SPEED_COUNT] = {3, 4, 5, 6, 8};
     return budgets[clamp(speed, 0, SPEED_COUNT - 1)];
 }
 
@@ -59,7 +59,7 @@ static DWORD WINAPI worker_main(void *unused) {
         int used_ms = 0;
         int completed;
         int pending;
-        int severe_overload;
+        int performance_limited;
         int has_work;
 
         last_tick = now;
@@ -72,9 +72,16 @@ static DWORD WINAPI worker_main(void *unused) {
 
         state_write_lock();
         pending = sim_scheduler_pending_months();
-        severe_overload = actual_ms_per_month > target_ms * 10 && pending > 0;
-        accumulator_ms = severe_overload ? 0 : min(accumulator_ms + elapsed, max(target_ms * 8, 250));
-        while (!severe_overload && accumulator_ms >= target_ms) {
+        performance_limited = actual_ms_per_month > 0 &&
+                              actual_ms_per_month > target_ms * 3 / 2 &&
+                              pending > 0;
+        accumulator_ms = performance_limited ? 0 : min(accumulator_ms + elapsed, max(target_ms * 4, 120));
+        if (pending >= sim_scheduler_pending_month_cap()) {
+            sim_scheduler_trim_pending_months(2);
+            pending = sim_scheduler_pending_months();
+            overloaded_flag = 1;
+        }
+        while (!performance_limited && accumulator_ms >= target_ms) {
             if (!sim_scheduler_can_accept_month()) {
                 overloaded_flag = 1;
                 accumulator_ms = target_ms - 1;
@@ -89,19 +96,22 @@ static DWORD WINAPI worker_main(void *unused) {
 
         if (has_work) {
             DWORD start = GetTickCount();
-            set_status("Running simulation");
+            set_status(performance_limited ? "Performance limited; backlog prevented" : "Running simulation");
             do {
+                int remaining;
                 state_write_lock();
                 if (!sim_scheduler_has_pending_work()) {
                     state_write_unlock();
                     break;
                 }
-                sim_scheduler_run_budget(1);
+                remaining = max(1, budget_ms - used_ms);
+                sim_scheduler_run_for_ms(remaining);
                 completed = sim_scheduler_take_completed_months();
                 pending_months_snapshot = sim_scheduler_pending_months();
                 state_write_unlock();
                 record_completed_months(completed, &last_month_tick);
                 used_ms = (int)(GetTickCount() - start);
+                if (used_ms >= budget_ms || completed == 0) break;
             } while (used_ms < budget_ms);
             state_write_lock();
             has_work = sim_scheduler_has_pending_work();

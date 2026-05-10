@@ -1,5 +1,16 @@
 # Version Log
 
+## Ver0.2.3
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.3
+2. Added a first-position ESC menu Resume Game button so players can close the menu without pressing ESC again
+3. Changed Save Map to open a Save As dialog, allowing the player to pick the destination folder and rename the `.wsgmap` file
+4. Updated the ESC Version Log and README for the new pause/save behavior
+5. Added the Ver0.2.3 side document
+6. Verified the project builds with `build.bat`
+
 ## Ver0.2.2
 
 Implemented fixes:

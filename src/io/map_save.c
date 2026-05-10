@@ -220,6 +220,23 @@ static void make_save_filename(char *path, size_t path_size) {
     if (!join_path(path, path_size, save_folder, file_name)) path[0] = '\0';
 }
 
+static int pick_save_destination(HWND hwnd, char *path, DWORD path_size) {
+    OPENFILENAMEA save_file;
+
+    make_save_filename(path, path_size);
+    if (path[0] == '\0') return 0;
+    memset(&save_file, 0, sizeof(save_file));
+    save_file.lStructSize = sizeof(save_file);
+    save_file.hwndOwner = hwnd;
+    save_file.lpstrFilter = "World Sim Map (*.wsgmap)\0*.wsgmap\0All Files\0*.*\0";
+    save_file.lpstrInitialDir = save_folder;
+    save_file.lpstrFile = path;
+    save_file.nMaxFile = path_size;
+    save_file.lpstrDefExt = "wsgmap";
+    save_file.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+    return GetSaveFileNameA(&save_file) ? 1 : 0;
+}
+
 static int write_world_rows(FILE *file) {
     int y;
 
@@ -329,8 +346,8 @@ int save_current_map(HWND hwnd) {
         show_utf8_message(hwnd, "Could not create saves/maps.", "Save Map", MB_OK | MB_ICONERROR);
         return 0;
     }
-    make_save_filename(path, sizeof(path));
-    if (path[0] == '\0') {
+    if (!pick_save_destination(hwnd, path, sizeof(path))) {
+        if (CommDlgExtendedError() == 0) return 0;
         show_utf8_message(hwnd, "The map save path is too long.", "Save Map", MB_OK | MB_ICONERROR);
         return 0;
     }

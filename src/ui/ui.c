@@ -66,7 +66,9 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
 static void set_speed(int index) { speed_index = clamp(index, 0, SPEED_COUNT - 1); }
 
 static void handle_pause_menu_action(HWND hwnd, int hit) {
-    if (hit == PAUSE_MENU_VERSION_LOG) {
+    if (hit == PAUSE_MENU_RESUME_GAME) {
+        pause_menu_open = 0;
+    } else if (hit == PAUSE_MENU_VERSION_LOG) {
         pause_menu_show_version_log(hwnd);
     } else if (hit == PAUSE_MENU_SAVE_MAP) {
         save_current_map(hwnd);
@@ -168,6 +170,13 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             hit > COUNTRY_PANEL_HIT_SUBTAB_BASE - COUNTRY_DETAIL_TAB_COUNT) {
             country_detail_subtab = COUNTRY_PANEL_HIT_SUBTAB_BASE - hit;
             country_detail_subtab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit <= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE &&
+            hit >= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - DIPLOMACY_VIEW_OTHER) {
+            country_diplomacy_view = COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - hit;
+            country_detail_scroll_offsets[COUNTRY_DETAIL_DIPLOMACY] = 0;
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }

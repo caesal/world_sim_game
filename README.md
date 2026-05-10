@@ -7,11 +7,11 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.2 is a Windows graphical sandbox prototype written in C.
+Ver0.2.3 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.2 focuses on subordinate-state consistency: vassals now behave as direct subjects of an
-overlord, wars route through the overlord, vassal troops and resource tribute use explicit ledgers,
-and collapse/cession/UI feedback now respect vassal independence rules.
+Ver0.2.3 focuses on ESC menu usability and save control: the pause menu has a direct
+Resume Game button, and Save Map now opens a Save As dialog so players can choose
+the folder and rename `.wsgmap` files.
 
 You can:
 
@@ -113,7 +113,7 @@ You can:
 96. Route declarations against vassals to their overlord and prevent vassals from starting ordinary wars
 97. Let overlords call up to 70% of each direct vassal army while tracking vassal casualties in the unified army ledger
 98. Transfer 40% of vassal non-money resource output to the overlord by deducting it from the vassal summary
-99. Add vassal governance burden to disorder as `min(100, 8n + 3n*n)` for direct vassal count
+99. Add vassal governance burden to disorder as `min(100, 10n)` for direct vassal count
 100. Release vassals on overlord collapse and keep successor states independent after a vassal collapse
 
 ## Controls
@@ -129,7 +129,7 @@ You can:
 9. `F2` applies the form to the selected civilization
 10. `F5` generates a new random world using the right-side world setup
 11. `R` also generates a new random world when the map has keyboard focus
-12. `Esc` opens the pause menu with Version Log, Save Map, Load Map, and Exit Game
+12. `Esc` opens the pause menu with Resume Game, Version Log, Save Map, Load Map, and Exit Game
 13. Left mouse click selects a tile or civilization
 14. Use the right-side tabs to switch between info, civilization controls, diplomacy, and map generation
 15. Drag the panel divider to resize the side controls

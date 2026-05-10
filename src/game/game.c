@@ -209,7 +209,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
         return 0;
     }
     state_write_lock();
-    disorder_set(civ_id, 100);
+    disorder_set_civil_unrest(civ_id);
     collapsed = collapse_check_immediate(civ_id, COLLAPSE_CAUSE_CIVIL_UNREST);
     if (collapsed) {
         snprintf(event_text, sizeof(event_text), "[Collapse] Civil unrest triggered in %.64s: %s",

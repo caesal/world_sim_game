@@ -1,6 +1,7 @@
 ﻿#include "maritime.h"
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
+#include "sim/disorder.h"
 #include "sim/population.h"
 #include "sim/plague.h"
 #include "sim/ports.h"
@@ -444,6 +445,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
         if (sea_stability > 0 && rnd(100) >= sea_stability) {
             int payload = clamp(max(600, civs[civ_id].population / 70), 600, 35000);
             population_apply_casualties(civ_id, payload);
+            disorder_add_migration_pressure(civ_id, payload / 2500 + 1);
             append_log(log, log_size, "[Expansion] %s lost an entire deep-sea voyage. ",
                        civilization_display_name_for_language(civ_id, 0));
             continue;
@@ -451,7 +453,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
         if (!regions_claim_for_civ(targets[index].land_region_id, civ_id, -1, 1)) continue;
         if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = (unsigned char)((index + 1) % MARITIME_TARGET_KEEP);
         if (sea_stability > 0 && !civs[civ_id].deep_sea_route_unlocked_event_done) {
-            civs[civ_id].disorder = clamp(civs[civ_id].disorder - 25, 0, 100);
+            disorder_relieve(civ_id, 25);
             civs[civ_id].deep_sea_route_unlocked_event_done = 1;
         }
         append_log(log, log_size, "[Expansion] %s founded an overseas province. ",

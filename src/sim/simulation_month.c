@@ -34,6 +34,7 @@ enum {
 };
 
 #define RESOURCE_SCAN_ROWS_PER_STEP 24
+#define CIV_PRESSURES_PER_STEP 8
 #define EXPANSION_CIV_CHECKS_PER_STEP 1
 #define POPULATION_CITY_STEP 16
 #define PLAGUE_CITY_STEP 16
@@ -93,10 +94,6 @@ static void finish_owned_resource_scores(SimulationMonthState *state) {
     for (i = 0; i < civ_count; i++) {
         state->resource_scores[i] = state->resource_counts[i] > 0 ?
                                     state->resource_totals[i] / (state->resource_counts[i] * 2) : 0;
-        if (civs[i].alive) {
-            state->resource_scores[i] =
-                state->resource_scores[i] * disorder_productivity_percent(civs[i].disorder) / 100;
-        }
     }
 }
 
@@ -125,17 +122,22 @@ static int compute_dynamic_adaptation(int civ_id, int resource_score) {
     return clamp(score, 0, 10);
 }
 
-static void update_civilization_pressures(const int resource_scores[MAX_CIVS]) {
-    int i;
+static int step_civilization_pressures(SimulationMonthState *state) {
+    int processed = 0;
 
-    for (i = 0; i < civ_count; i++) {
-        Civilization *civ = &civs[i];
+    while (state->civ_pressure_cursor < civ_count && processed < CIV_PRESSURES_PER_STEP) {
+        int i = state->civ_pressure_cursor++;
+        Civilization *civ;
         int resources;
-        if (!civ->alive) continue;
-        resources = resource_scores[i];
+
+        processed++;
+        if (!civs[i].alive) continue;
+        civ = &civs[i];
+        resources = state->resource_scores[i];
         disorder_update_month(i, resources);
         civ->adaptation = compute_dynamic_adaptation(i, resources);
     }
+    return state->civ_pressure_cursor >= civ_count;
 }
 
 static void random_event(char *log, size_t log_size) {
@@ -148,31 +150,29 @@ static void random_event(char *log, size_t log_size) {
     for (i = 0; i < civ_count; i++) {
         if (civs[i].alive) alive_ids[alive_count++] = i;
     }
+    if (plague_try_monthly_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
     if (alive_count == 0 || rnd(100) > 18) return;
     id = alive_ids[rnd(alive_count)];
     civ = &civs[id];
-    switch (rnd(5)) {
+    switch (rnd(4)) {
         case 0: append_log(log, log_size, "Festival in %s. ",
-                           civilization_display_name_for_language(id, 0)); break;
-        case 1:
-            if (plague_seed_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
+                           civilization_display_name_for_language(id, 0));
+            disorder_relieve(id, 12);
             break;
-        case 2:
+        case 1:
             civ->defense = clamp(civ->defense + 1, 0, 10);
-            civ->disorder_stability = clamp(civ->disorder_stability + 6, 0, 100);
-            civ->disorder = clamp(civ->disorder - 5, 0, 100);
+            disorder_relieve(id, 5);
             append_log(log, log_size, "%s fortified borders. ",
                        civilization_display_name_for_language(id, 0));
             break;
-        case 3:
+        case 2:
             civ->aggression = clamp(civ->aggression + 1, 0, 10);
             append_log(log, log_size, "%s became ambitious. ",
                        civilization_display_name_for_language(id, 0));
             break;
         default:
             civ->expansion = clamp(civ->expansion + 1, 0, 10);
-            civ->disorder_migration = clamp(civ->disorder_migration + 8, 0, 100);
-            civ->disorder = clamp(civ->disorder + 6, 0, 100);
+            disorder_add_migration_pressure(id, 8);
             append_log(log, log_size, "%s started migrating. ",
                        civilization_display_name_for_language(id, 0));
             break;
@@ -228,7 +228,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
             }
             break;
         case SIM_MONTH_CIVS:
-            if (state->run_quarterly) update_civilization_pressures(state->resource_scores);
+            if (state->run_quarterly && !step_civilization_pressures(state)) break;
             {
                 ProfilerCallTrace trace = profiler_call_begin();
             technology_update_month();
@@ -338,7 +338,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 diplomacy_update_year();
                 vassal_update_year();
                 war_update_year();
-                if (year % 10 == 0) collapse_update_decade();
+                if (year % 25 == 0) collapse_update_decade();
             }
             collapse_update_immediate();
             if (state->log[0]) event_log_push(state->log);

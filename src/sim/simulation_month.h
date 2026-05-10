@@ -14,6 +14,7 @@ typedef struct {
     int territory_revision_before_expansion;
     int run_quarterly;
     int population_cursor;
+    int civ_pressure_cursor;
     int resource_scores[MAX_CIVS];
     int resource_totals[MAX_CIVS];
     int resource_counts[MAX_CIVS];

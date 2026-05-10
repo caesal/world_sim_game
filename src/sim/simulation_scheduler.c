@@ -4,12 +4,36 @@
 #include "core/profiler.h"
 #include "sim/simulation_month.h"
 
+#include <stdio.h>
+
 #define SIM_PENDING_MONTH_CAP 4
 
 static int pending_months = 0;
 static int completed_months = 0;
 static int last_step_ms = 0;
 static SimulationMonthState active_month;
+static DWORD last_budget_event_tick = 0;
+static int budget_event_repeat = 0;
+
+static void log_budget_yield(int step_ms, int budget_ms) {
+    DWORD now = GetTickCount();
+    char text[160];
+
+    budget_event_repeat++;
+    if (now - last_budget_event_tick < 2000) return;
+    if (budget_event_repeat > 1) {
+        snprintf(text, sizeof(text),
+                 "[Performance] Simulation yielded after an over-budget step: %d ms over %d ms budget x%d.",
+                 step_ms, budget_ms, budget_event_repeat);
+    } else {
+        snprintf(text, sizeof(text),
+                 "[Performance] Simulation yielded after an over-budget step: %d ms over %d ms budget.",
+                 step_ms, budget_ms);
+    }
+    event_log_push(text);
+    budget_event_repeat = 0;
+    last_budget_event_tick = now;
+}
 
 void sim_scheduler_reset(void) {
     pending_months = 0;
@@ -59,7 +83,7 @@ int sim_scheduler_run_for_ms(int budget_ms) {
         last_step_ms = (int)(GetTickCount() - step_start);
         profiler_record_scheduler_step(last_step_ms, last_step_ms > budget_ms);
         if (last_step_ms > budget_ms) {
-            event_log_push("[Performance] Simulation step exceeded frame budget.");
+            log_budget_yield(last_step_ms, budget_ms);
             break;
         }
     } while (sim_scheduler_has_pending_work() && (int)(GetTickCount() - start) < budget_ms);

@@ -62,6 +62,7 @@ void disorder_update_month(int civ_id, int resource_score) {
     int scarcity_disorder;
     int recovery;
     int delta;
+    int floor;
     int old_disorder;
 
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
@@ -78,7 +79,8 @@ void disorder_update_month(int civ_id, int resource_score) {
     delta = civ->disorder_resource / 18 + civ->disorder_plague / 24 +
             civ->disorder_migration / 26 + civ->disorder_stability / 28 - recovery;
     civ->disorder = clamp(civ->disorder + delta, 0, 100);
-    civ->disorder = max(civ->disorder, vassal_governance_disorder(civ_id));
+    floor = vassal_governance_disorder(civ_id);
+    civ->disorder = max(civ->disorder, floor);
     finish_disorder_change(civ_id, old_disorder, 1);
 }
 
@@ -90,20 +92,42 @@ void disorder_set(int civ_id, int value) {
     finish_disorder_change(civ_id, old_disorder, 0);
 }
 
-void disorder_add_war_deaths(int civ_id, int deaths) {
+void disorder_set_civil_unrest(int civ_id) {
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
+    civs[civ_id].disorder_stability = 100;
+    disorder_set(civ_id, 100);
+}
+
+void disorder_relieve(int civ_id, int amount) {
     int old_disorder;
-    if (civ_id < 0 || civ_id >= civ_count || deaths <= 0) return;
+    if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
     old_disorder = civs[civ_id].disorder;
-    civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability + deaths / 2000 + 1, 0, 100);
-    civs[civ_id].disorder = clamp(civs[civ_id].disorder + deaths / 3000 + 1, 0, 100);
-    finish_disorder_change(civ_id, old_disorder, 1);
+    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague - amount, 0, 100);
+    civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration - amount, 0, 100);
+    civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability - amount, 0, 100);
+    civs[civ_id].disorder = max(vassal_governance_disorder(civ_id), clamp(civs[civ_id].disorder - amount, 0, 100));
+    finish_disorder_change(civ_id, old_disorder, 0);
+}
+
+void disorder_add_war_pressure(int civ_id, int amount) {
+    if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
+    civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability + amount, 0, 100);
+}
+
+void disorder_add_plague_pressure(int civ_id, int amount) {
+    if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
+    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + amount, 0, 100);
+}
+
+void disorder_add_migration_pressure(int civ_id, int amount) {
+    if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
+    civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration + amount, 0, 100);
+}
+
+void disorder_add_war_deaths(int civ_id, int deaths) {
+    disorder_add_war_pressure(civ_id, deaths / 2000 + 1);
 }
 
 void disorder_add_plague_deaths(int civ_id, int deaths) {
-    int old_disorder;
-    if (civ_id < 0 || civ_id >= civ_count || deaths <= 0) return;
-    old_disorder = civs[civ_id].disorder;
-    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + deaths / 2500 + 1, 0, 100);
-    civs[civ_id].disorder = clamp(civs[civ_id].disorder + deaths / 4000 + 1, 0, 100);
-    finish_disorder_change(civ_id, old_disorder, 1);
+    disorder_add_plague_pressure(civ_id, deaths / 2500 + 1);
 }

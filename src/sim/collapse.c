@@ -5,6 +5,7 @@
 #include "sim/civ_colors.h"
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
+#include "sim/disorder.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/ports.h"
@@ -227,8 +228,8 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
         diplomacy_start_truce(civ_id, child, 45, 20);
         formed++;
     }
-    if (cause == COLLAPSE_CAUSE_PRESSURE) civs[civ_id].disorder = clamp(civs[civ_id].disorder - 25, 0, 100);
-    else civs[civ_id].disorder = 100;
+    if (cause == COLLAPSE_CAUSE_PRESSURE) disorder_relieve(civ_id, 25);
+    else disorder_set_civil_unrest(civ_id);
     if (formed > 0) {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse formed %d successor state%s.", formed, formed == 1 ? "" : "s");
@@ -318,7 +319,7 @@ void collapse_update_decade(void) {
         if (roll < chance) {
             char event_text[EVENT_LOG_LEN];
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
-                     "Decade check triggered: disorder %d, chance %d%%, rolled %d, needed below %d.",
+                     "25-year check triggered: disorder %d, chance %d%%, rolled %d, needed below %d.",
                      civs[i].disorder, chance, roll, chance);
             snprintf(event_text, sizeof(event_text), "[Collapse] %.64s %.80s",
                      civilization_display_name_for_language(i, 0), collapse_reasons[i]);
@@ -327,7 +328,7 @@ void collapse_update_decade(void) {
         } else {
             char event_text[EVENT_LOG_LEN];
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
-                     "Decade check failed: disorder %d, chance %d%%, rolled %d, needed below %d.",
+                     "25-year check failed: disorder %d, chance %d%%, rolled %d, needed below %d.",
                      civs[i].disorder, chance, roll, chance);
             snprintf(event_text, sizeof(event_text), "[Collapse] %.64s %.80s",
                      civilization_display_name_for_language(i, 0), collapse_reasons[i]);

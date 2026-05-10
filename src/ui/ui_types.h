@@ -86,6 +86,13 @@ typedef enum {
     COUNTRY_DETAIL_TAB_COUNT
 } CountryDetailTab;
 
+typedef enum {
+    DIPLOMACY_VIEW_PEACE_TENSE,
+    DIPLOMACY_VIEW_WAR_TRUCE,
+    DIPLOMACY_VIEW_TRIBUTE_VASSAL,
+    DIPLOMACY_VIEW_OTHER
+} DiplomacyView;
+
 typedef struct {
     int map_x;
     int map_y;

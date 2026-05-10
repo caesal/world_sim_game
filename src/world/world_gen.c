@@ -346,7 +346,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
     int wind_y;
     int elevation_seed;
     int moisture_seed;
-    int temperature_seed;
+    int temperature_seed, edge_bias_strength, edge_bias_mode, edge_dir_x, edge_dir_y;
 
     gen_config = config ? *config : DEFAULT_WORLD_GEN_CONFIG;
     if (gen_config.random_seed) gen_config.seed = world_random_seed();
@@ -354,21 +354,21 @@ void generate_world_with_config(const WorldGenConfig *config) {
     target_land_percent = 100 - gen_config.ocean * 72 / 100;
     target_land_tiles = MAP_W * MAP_H * target_land_percent / 100;
     threshold_index = clamp(MAP_W * MAP_H - target_land_tiles, 0, MAP_W * MAP_H - 1);
-
     climate_axis = rnd(4);
     wind_x = rnd(2) ? 1 : -1;
     wind_y = rnd(3) - 1;
-    elevation_seed = rnd(1000000);
-    moisture_seed = rnd(1000000);
-    temperature_seed = rnd(1000000);
+    elevation_seed = rnd(1000000); moisture_seed = rnd(1000000); temperature_seed = rnd(1000000);
+    edge_bias_strength = rnd(7); edge_bias_mode = rnd(4);
+    edge_dir_x = rnd(2) ? (rnd(2) ? 1 : -1) : 0;
+    edge_dir_y = edge_dir_x ? 0 : (rnd(2) ? 1 : -1);
     if (wind_y == 0 && rnd(2)) wind_y = rnd(2) ? 1 : -1;
 
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
-            int edge_x = x < MAP_W / 2 ? x : MAP_W - 1 - x;
-            int edge_y = y < MAP_H / 2 ? y : MAP_H - 1 - y;
-            int edge = edge_x < edge_y ? edge_x : edge_y;
-            int edge_falloff = clamp(edge * 3, 0, 42);
+            int edge_x = x < MAP_W / 2 ? x : MAP_W - 1 - x, edge_y = y < MAP_H / 2 ? y : MAP_H - 1 - y;
+            int edge = edge_x < edge_y ? edge_x : edge_y, max_edge = min(MAP_W, MAP_H) / 2;
+            int edge_factor = max_edge > 0 ? edge * 100 / max_edge : 50, dir_pos = edge_dir_x ? x * 100 / max(1, MAP_W - 1) : y * 100 / max(1, MAP_H - 1);
+            int edge_bias = edge_bias_mode == 1 ? (edge_factor - 50) * edge_bias_strength / 50 : edge_bias_mode == 2 ? (50 - edge_factor) * edge_bias_strength / 50 : edge_bias_mode == 3 ? (dir_pos - 50) * edge_bias_strength * (edge_dir_x + edge_dir_y) / 50 : 0;
             int dry_shift = gen_config.drought * 16 / 100 + gen_config.bias_desert / 6;
             int base_elevation = world_fractal_noise(x, y, elevation_seed);
             int broken_elevation = world_fractal_noise(x * 2 + elevation_seed % 97, y * 2 + elevation_seed % 53,
@@ -384,7 +384,7 @@ void generate_world_with_config(const WorldGenConfig *config) {
             world[y][x].region_id = -1;
             world[y][x].river = 0;
             elevation[y][x] = (base_elevation * (100 - fragment_weight) + broken_elevation * fragment_weight) / 100 +
-                              edge_falloff - 22 + (gen_config.relief - 50) / 5;
+                              clamp(edge_bias, -6, 6) + (gen_config.relief - 50) / 5;
             moisture[y][x] = clamp(world_fractal_noise(x, y, moisture_seed) + gen_config.moisture / 3 - dry_shift, 0, 100);
             temperature[y][x] = world_fractal_noise(x, y, temperature_seed);
         }
@@ -395,8 +395,8 @@ void generate_world_with_config(const WorldGenConfig *config) {
     smooth_field(temperature, 3);
 
     for (pass = 0; pass < 18 + gen_config.relief / 3 + gen_config.bias_mountain / 5; pass++) {
-        int cx = 24 + rnd(MAP_W - 48);
-        int cy = 18 + rnd(MAP_H - 36);
+        int cx = rnd(MAP_W);
+        int cy = rnd(MAP_H);
         int radius = 12 + rnd(28 + clamp(100 - gen_config.continent, 0, 100) / 2);
         int lift = 6 + gen_config.relief * 24 / 100 + gen_config.bias_mountain / 5 + rnd(18);
         int yy;
@@ -464,8 +464,8 @@ void generate_world_with_config(const WorldGenConfig *config) {
     for (pass = 0; pass < (gen_config.ocean < 15 ? 5 : 2); pass++) {
         static Tile next[MAX_MAP_H][MAX_MAP_W];
         COPY_ACTIVE_TILES(next, world);
-        for (y = 1; y < MAP_H - 1; y++) {
-            for (x = 1; x < MAP_W - 1; x++) {
+        for (y = 0; y < MAP_H; y++) {
+            for (x = 0; x < MAP_W; x++) {
                 int land = nearby_land_count(x, y);
                 if (is_land(world[y][x].geography) && land <= 2 &&
                     world[y][x].geography != GEO_ISLAND) {
