@@ -1,5 +1,6 @@
 #include "ui_forms.h"
 
+#include "data/country_names.h"
 #include "game/game.h"
 #include "sim/simulation.h"
 #include "ui/ui_worldgen_layout.h"
@@ -8,6 +9,25 @@
 #include <stdlib.h>
 
 static FormControls form;
+
+static void get_window_text_utf8(HWND hwnd, char *buffer, int buffer_size) {
+    WCHAR wide[128];
+    int written;
+
+    if (!buffer || buffer_size <= 0) return;
+    buffer[0] = '\0';
+    GetWindowTextW(hwnd, wide, (int)(sizeof(wide) / sizeof(wide[0])));
+    written = WideCharToMultiByte(CP_UTF8, 0, wide, -1, buffer, buffer_size, NULL, NULL);
+    if (written <= 0) buffer[0] = '\0';
+    buffer[buffer_size - 1] = '\0';
+}
+
+static void set_window_text_utf8(HWND hwnd, const char *text) {
+    WCHAR wide[128];
+
+    MultiByteToWideChar(CP_UTF8, 0, text ? text : "", -1, wide, (int)(sizeof(wide) / sizeof(wide[0])));
+    SetWindowTextW(hwnd, wide);
+}
 
 static int read_int_control_clamped(HWND hwnd, int fallback, int min_value, int max_value) {
     char buffer[32];
@@ -104,9 +124,9 @@ void ui_forms_write_civ(int civ_id) {
     char buffer[32];
 
     if (civ_id < 0 || civ_id >= civ_count) return;
-    SetWindowTextA(form.name_edit, civilization_display_name(civ_id));
+    set_window_text_utf8(form.name_edit, civilization_display_name(civ_id));
     snprintf(buffer, sizeof(buffer), "%c", civs[civ_id].symbol);
-    SetWindowTextA(form.symbol_edit, buffer);
+    set_window_text_utf8(form.symbol_edit, buffer);
     write_int_control(form.military_edit, civs[civ_id].military);
     write_int_control(form.logistics_edit, civs[civ_id].logistics);
     write_int_control(form.governance_edit, civs[civ_id].governance);
@@ -117,13 +137,23 @@ void ui_forms_write_civ(int civ_id) {
     sync_color_from_civ(civ_id);
 }
 
+void ui_forms_translate_name_input(void) {
+    char name[NAME_LEN];
+    int name_id;
+
+    if (!form.name_edit) return;
+    get_window_text_utf8(form.name_edit, name, sizeof(name));
+    name_id = country_name_find_by_text(name);
+    if (name_id >= 0) set_window_text_utf8(form.name_edit, country_name_localized(name_id, ui_language));
+}
+
 void ui_forms_add_civ(HWND hwnd) {
     char name[NAME_LEN];
     char symbol_text[8];
     char symbol;
     int civ_id;
 
-    GetWindowTextA(form.name_edit, name, sizeof(name));
+    get_window_text_utf8(form.name_edit, name, sizeof(name));
     GetWindowTextA(form.symbol_edit, symbol_text, sizeof(symbol_text));
     symbol = symbol_text[0] ? symbol_text[0] : (char)('A' + civ_count);
     civ_id = game_request_add_civilization_from_selection(
@@ -160,7 +190,7 @@ void ui_forms_apply_selected(HWND hwnd) {
     int fallback_commerce = civ_id >= 0 ? civs[civ_id].commerce : 5;
     int fallback_innovation = civ_id >= 0 ? civs[civ_id].innovation : 5;
 
-    GetWindowTextA(form.name_edit, name, sizeof(name));
+    get_window_text_utf8(form.name_edit, name, sizeof(name));
     GetWindowTextA(form.symbol_edit, symbol_text, sizeof(symbol_text));
     if (game_request_edit_selected_civilization(
             name, symbol_text[0],
@@ -215,9 +245,10 @@ static HWND create_edit(HWND parent, const char *text, int id, int number_only, 
     HWND edit;
 
     if (number_only) style |= ES_NUMBER;
-    edit = CreateWindowExA(WS_EX_CLIENTEDGE, "EDIT", text, style,
+    edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", style,
                            0, 0, 80, 24, parent, (HMENU)(INT_PTR)id, GetModuleHandle(NULL), NULL);
-    if (edit && max_chars > 0) SendMessageA(edit, EM_SETLIMITTEXT, (WPARAM)max_chars, 0);
+    if (edit && max_chars > 0) SendMessageW(edit, EM_SETLIMITTEXT, (WPARAM)max_chars, 0);
+    if (edit) set_window_text_utf8(edit, text);
     return edit;
 }
 

@@ -1,7 +1,14 @@
 #include "render/panel_country_detail.h"
 
+#include "render/panel_country_decision.h"
+#include "render/panel_country_diplomacy.h"
+#include "render/panel_country_population.h"
+#include "render/panel_country_resources.h"
+#include "render/panel_country_tech.h"
 #include "render_panel_internal.h"
 #include "sim/collapse.h"
+#include "sim/civilization_slots.h"
+#include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/expansion.h"
@@ -9,12 +16,52 @@
 #include "sim/population.h"
 #include "sim/regions.h"
 #include "sim/technology.h"
+#include "sim/vassal.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static RECT last_civil_unrest_button;
 static int last_civil_unrest_enabled;
+
+static const char *collapse_block_reason_ui(int civ_id) {
+    static char buffers[4][EVENT_LOG_LEN];
+    static int index;
+    char *buffer = buffers[index++ % 4];
+    CollapseBlockReason reason = collapse_block_reason(civ_id);
+
+    switch (reason) {
+        case COLLAPSE_BLOCK_NONE:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Ready.", "就绪。"));
+            break;
+        case COLLAPSE_BLOCK_NOT_ALIVE:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Country is invalid or has fallen.", "国家无效或已经灭亡。"));
+            break;
+        case COLLAPSE_BLOCK_MAX_CIVS:
+            snprintf(buffer, EVENT_LOG_LEN, "%s %d/%d, %s %d, %s %d.",
+                     tr("No reusable or free country slots. Used", "没有可复用或空闲国家槽。已用"),
+                     civ_count, MAX_CIVS, tr("alive", "存活"), civilization_alive_count(),
+                     tr("reusable", "可复用"), civilization_reusable_slot_count());
+            break;
+        case COLLAPSE_BLOCK_NO_CAPITAL_REGION:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("No valid capital region.", "没有有效首都区域。"));
+            break;
+        case COLLAPSE_BLOCK_NO_SPLITTABLE_REGION:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("No splittable non-capital region.", "没有可拆分的非首都区域。"));
+            break;
+        case COLLAPSE_BLOCK_ONLY_CORE_LEFT:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Only capital/core region remains.", "只剩首都/核心区域。"));
+            break;
+        case COLLAPSE_BLOCK_CITY_CAP:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("City limit reached.", "城市数量已达上限。"));
+            break;
+        default:
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Unknown collapse blocker.", "未知崩溃阻碍。"));
+            break;
+    }
+    return buffer;
+}
 
 static int province_count_for_civ(int civ_id) {
     int i;
@@ -26,17 +73,16 @@ static int province_count_for_civ(int civ_id) {
 }
 
 int country_detail_content_height(int civ_id) {
-    int owned_cities = 0;
-    int i;
-    int height = 49 + 3 * 36 + 31 + 10 * 21 + 78 + 21 + 31 + 3 * 36 + 21 +
-                 31 + 3 * 36 + 31 + 2 * 36 + 84 + 5 * 21;
-
-    for (i = 0; i < city_count; i++) {
-        if (cities[i].alive && cities[i].owner == civ_id) owned_cities++;
+    switch (clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)) {
+        case COUNTRY_DETAIL_TECHNOLOGY: return country_tech_tab_height(civ_id);
+        case COUNTRY_DETAIL_DECISION: return country_decision_tab_height(civ_id);
+        case COUNTRY_DETAIL_POPULATION: return country_population_tab_height(civ_id);
+        case COUNTRY_DETAIL_RESOURCES: return country_resources_tab_height(civ_id);
+        case COUNTRY_DETAIL_DIPLOMACY: return country_diplomacy_tab_height(civ_id);
+        case COUNTRY_DETAIL_DISORDER: return 310;
+        default:
+            return 460 + (plague_civ_active_count(civ_id) > 0 ? 67 : 0);
     }
-    if (plague_civ_active_count(civ_id) > 0) height += 31 + 36;
-    height += 31 + owned_cities * 22;
-    return height + 28;
 }
 
 void country_detail_reset_hit(void) {
@@ -83,20 +129,6 @@ static void format_disorder_percent(char *buffer, size_t buffer_size, int total)
     snprintf(buffer, buffer_size, "%d%% (%s %d%%)", total, tr("Disorder", "混乱"), total);
 }
 
-static void draw_country_header(HDC hdc, UiCursor *cursor, int civ_id,
-                                HFONT title_font, HFONT body_font) {
-    RECT swatch = {cursor->x, cursor->y + 4, cursor->x + 18, cursor->y + 22};
-    char text[128];
-
-    SelectObject(hdc, title_font);
-    fill_rect(hdc, swatch, civs[civ_id].color);
-    snprintf(text, sizeof(text), "%c  %.63s", civs[civ_id].symbol, civilization_display_name(civ_id));
-    draw_text_line(hdc, cursor->x + 28, cursor->y, text, ui_theme_color(UI_COLOR_TEXT));
-    cursor->y += 28;
-    SelectObject(hdc, body_font);
-    ui_row_text(hdc, cursor, tr("Capital", "首都"), capital_name_for_civ(civ_id));
-}
-
 static void draw_city_list(HDC hdc, UiCursor *cursor, int civ_id) {
     int i;
     char text[192];
@@ -115,63 +147,111 @@ static void draw_city_list(HDC hdc, UiCursor *cursor, int civ_id) {
     }
 }
 
-static void draw_ai_decisions(HDC hdc, UiCursor *cursor, int civ_id) {
-    int resource_score = expansion_resource_score_for_civ(civ_id);
-    ExpansionAIDiagnostics ai = expansion_ai_diagnostics(civ_id, resource_score);
-    char text[160];
+static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id);
 
-    ui_section(hdc, cursor, tr("AI Decisions", "AI 决策"));
-    snprintf(text, sizeof(text), "%s %d   %s %d   %s %d",
-             tr("Land Adj", "陆接"), ai.land_adjacent_unowned_regions,
-             tr("Land Reach", "陆达"), ai.land_nearby_unowned_regions,
-             tr("Shallow", "浅海"), ai.shallow_sea_reachable_regions);
-    ui_row_text(hdc, cursor, tr("Reachability", "可达性"), text);
-    snprintf(text, sizeof(text), "%s %d   %s %d   %s %d",
-             tr("Route", "航道"), ai.maritime_reachable_regions,
-             tr("Deep", "深海"), ai.deep_sea_reachable_regions,
-             tr("Port Cand", "潜在港口"), ai.port_candidate_regions);
-    ui_row_text(hdc, cursor, tr("Sea Targets", "海路目标"), text);
-    snprintf(text, sizeof(text), "%d   %d%%", ai.global_unowned_regions, ai.global_unowned_percent);
-    ui_row_text(hdc, cursor, tr("Global Open Land", "全图无主地"), text);
-    snprintf(text, sizeof(text), "%d / %d", ai.population_pressure, ai.resource_pressure);
-    ui_row_text(hdc, cursor, tr("Pop / Resource Pressure", "人口/资源压力"), text);
-    snprintf(text, sizeof(text), "%d / %d   x%d%%", ai.expansion_desire,
-             ai.expansion_threshold, ai.tech_expansion_percent);
-    ui_row_text(hdc, cursor, tr("Expansion Desire", "扩张意愿"), text);
-    snprintf(text, sizeof(text), "%d mo   %s %d", ai.claim_cooldown_months,
-             tr("Wait", "等待"), ai.months_until_next_claim);
-    ui_row_text(hdc, cursor, tr("Claim Cooldown", "占领冷却"), text);
-    snprintf(text, sizeof(text), "%d %s", ai.claim_budget, tr("region this window", "个区域"));
-    ui_row_text(hdc, cursor, tr("Claim Budget", "占领预算"), text);
-    snprintf(text, sizeof(text), "%d", diplomacy_last_war_desire(civ_id));
-    ui_row_text(hdc, cursor, tr("War Desire", "战争意愿"), text);
-    ui_row_text(hdc, cursor, tr("Expansion Reason", "扩张原因"), expansion_last_reason(civ_id));
-    ui_row_text(hdc, cursor, tr("War Reason", "战争原因"), diplomacy_last_war_reason(civ_id));
+static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
+    static char buffers[4][96];
+    static int index;
+    char *buffer = buffers[index++ % 4];
+    const char *reason = decision->expansion_reason && decision->expansion_reason[0] ?
+                         decision->expansion_reason : decision->main_intent;
+    if (!reason) return "";
+    if (ui_language != 1) return reason;
+    if (strstr(reason, "Claimed adjacent region")) return "已占领相邻区域，进入冷却";
+    if (strstr(reason, "Claimed shallow")) return "已占领浅海可达区域，进入冷却";
+    if (strstr(reason, "Claimed maritime") || strstr(reason, "Claimed overseas")) return "已通过航道占领新区域";
+    if (strstr(reason, "cooldown") || strstr(reason, "Cooldown")) {
+        if (decision->next_expansion_months > 0) {
+            snprintf(buffer, sizeof(buffers[0]), "扩张冷却 %d个月", decision->next_expansion_months);
+            return buffer;
+        }
+        return "扩张冷却中";
+    }
+    if (strstr(reason, "no target") || strstr(reason, "No target") ||
+        strstr(reason, "No reachable") || strstr(reason, "no reachable")) return "暂无可执行目标";
+    if (strstr(reason, "budget") || strstr(reason, "Budget")) return "等待扩张预算";
+    if (strstr(reason, "city cap") || strstr(reason, "City cap")) return "城市数量达到上限";
+    if (strstr(reason, "random") || strstr(reason, "chance") || strstr(reason, "Probability")) return "本次扩张机会未触发";
+    if (strcmp(reason, "Expansion") == 0) return "倾向扩张";
+    if (strcmp(reason, "War") == 0) return "战争倾向上升";
+    if (strcmp(reason, "Stability") == 0) return "优先维持稳定";
+    return reason;
 }
 
-static void draw_technology_block(HDC hdc, UiCursor *cursor, int civ_id) {
-    char text[96];
-    int stage = clamp(civs[civ_id].tech_stage, 0, 10);
+static const char *overview_dominant_intent(const DecisionSnapshot *decision) {
+    if (decision->expansion_weight >= decision->war_weight &&
+        decision->expansion_weight >= decision->stability_weight) return tr("Expansion", "扩张");
+    if (decision->war_weight >= decision->expansion_weight &&
+        decision->war_weight >= decision->stability_weight) return tr("War", "战争");
+    return tr("Stability", "稳定");
+}
 
-    ui_section(hdc, cursor, tr("Technology", "科技阶段"));
-    ui_row_text(hdc, cursor, tr("Stage", "阶段"), technology_stage_name(stage, ui_language));
-    draw_ai_decisions(hdc, cursor, civ_id);
-    snprintf(text, sizeof(text), "%d/10   %s %d", stage,
-             tr("Years to next", "距下阶段年数"), technology_years_to_next(civ_id));
+static void draw_decision_meter_row(HDC hdc, UiCursor *cursor, const char *label,
+                                    int value, COLORREF color) {
+    RECT row = ui_take_rect(cursor, 24);
+    RECT label_rect = {row.left, row.top, row.left + 54, row.bottom};
+    RECT value_rect = {row.left + 56, row.top, row.left + 94, row.bottom};
+    RECT bar_rect = {row.left + 102, row.top + 7, row.right, row.bottom - 7};
+    char text[24];
+
+    draw_text_rect(hdc, label_rect, label, ui_theme_color(UI_COLOR_TEXT),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    snprintf(text, sizeof(text), "%d", value);
+    draw_text_rect(hdc, value_rect, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_END_ELLIPSIS);
+    ui_progress_bar(hdc, bar_rect, value, 100, color);
+}
+
+static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
+    DecisionSnapshot decision;
+    int progress = technology_stage_progress_percent(civ_id);
+    int months_next = technology_months_to_next(civ_id);
+    int i;
+    char text[192];
+
+    decision_snapshot_for_civ(civ_id, &decision);
+    ui_section(hdc, cursor, tr("Technology Snapshot", "科技摘要"));
+    snprintf(text, sizeof(text), "%s %d: %s", tr("Stage", "阶段"),
+             clamp(civs[civ_id].tech_stage, 0, 10),
+             technology_stage_name(clamp(civs[civ_id].tech_stage, 0, 10), ui_language));
+    ui_row_text(hdc, cursor, tr("Current", "当前"), text);
+    ui_progress_bar(hdc, ui_take_rect(cursor, 12), progress, 100, RGB(104, 158, 186));
+    snprintf(text, sizeof(text), "%d%%   %s %d %s", progress, tr("Next in", "距下阶段"),
+             months_next >= 0 ? months_next : 0, tr("months", "月"));
     ui_row_text(hdc, cursor, tr("Progress", "进度"), text);
-    ui_row_text(hdc, cursor, tr("Effect", "效果"), technology_stage_effect(stage, ui_language));
-    ui_row_text(hdc, cursor, tr("Pressure", "压力"),
-                tr("Population and resource saturation; high values affect disorder and expansion.",
-                   "人口与资源饱和压力；高压力会影响混乱和扩张。"));
+    ui_section(hdc, cursor, tr("Decision Tendency", "决策倾向"));
+    draw_decision_meter_row(hdc, cursor, tr("Expansion", "扩张"), decision.expansion_weight, RGB(82, 156, 112));
+    draw_decision_meter_row(hdc, cursor, tr("War", "战争"), decision.war_weight, RGB(180, 84, 74));
+    draw_decision_meter_row(hdc, cursor, tr("Stability", "稳定"), decision.stability_weight, RGB(92, 130, 162));
+    ui_row_text(hdc, cursor, tr("Dominant Intent", "主导方向"), overview_dominant_intent(&decision));
+    ui_row_text(hdc, cursor, tr("Next Action", "下一步"), overview_next_action_ui(&decision));
+    ui_section(hdc, cursor, tr("Actions", "操作"));
+    draw_civil_unrest_action(hdc, cursor, civ_id);
+    ui_section(hdc, cursor, tr("Recent Events", "近期事件"));
+    if (event_log_count <= 0) ui_row_text(hdc, cursor, "", tr("No recent events.", "暂无近期事件。"));
+    for (i = 0; i < event_log_count && i < 3; i++) ui_row_text(hdc, cursor, "", event_log_get(i));
+}
+
+static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
+    int can_trigger = collapse_can_trigger(civ_id);
+    const char *reason = collapse_block_reason_ui(civ_id);
+    RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 34};
+
+    last_civil_unrest_button = button;
+    last_civil_unrest_enabled = can_trigger;
+    fill_rect(hdc, button, can_trigger ? RGB(112, 45, 45) : RGB(65, 55, 55));
+    draw_center_text(hdc, button, tr("Civil Unrest", "内乱"),
+                     can_trigger ? RGB(255, 236, 226) : ui_theme_color(UI_COLOR_TEXT_DIM));
+    cursor->y += 40;
+    if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"), reason);
 }
 
 static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
     char risk[80];
     char text[96];
     int can_trigger = collapse_can_trigger(civ_id);
-    const char *reason = collapse_trigger_block_reason(civ_id);
+    const char *reason = collapse_block_reason_ui(civ_id);
     int chance = collapse_decade_chance_for_disorder(civs[civ_id].disorder);
-    RECT button;
     int tech_resource = technology_resource_percent(civ_id);
     int disorder_resource = disorder_productivity_percent(civs[civ_id].disorder);
     int tech_progress = technology_progress_percent(civ_id);
@@ -185,6 +265,8 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
     draw_metric_pair(hdc, cursor, civs[civ_id].disorder_stability, civs[civ_id].disorder,
                      ICON_COUNTRY_DEFENSE, ICON_DISORDER, metric_label("Stability", "稳定"),
                      metric_label("Total", "总计"));
+    snprintf(text, sizeof(text), "%d", vassal_governance_disorder(civ_id));
+    ui_row_text(hdc, cursor, tr("Vassal governance burden", "附庸治理负担"), text);
     format_percent_components(text, sizeof(text), tech_resource * disorder_resource / 100,
                               tech_resource, disorder_resource);
     ui_row_text(hdc, cursor, tr("Resource Output", "资源产出"), text);
@@ -216,57 +298,66 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
         snprintf(text, sizeof(text), "%s", tr("No scheduled roll", "无定期判定"));
     }
     ui_row_text(hdc, cursor, tr("Next Check", "下次判定"), text);
-    button = (RECT){cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 34};
-        last_civil_unrest_button = button;
-        last_civil_unrest_enabled = can_trigger;
-        fill_rect(hdc, button, can_trigger ? RGB(112, 45, 45) : RGB(65, 55, 55));
-        draw_center_text(hdc, button, tr("Civil Unrest", "内乱"),
-                         can_trigger ? RGB(255, 236, 226) : ui_theme_color(UI_COLOR_TEXT_DIM));
-        cursor->y += 42;
 }
 
 void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
                                  HFONT title_font, HFONT body_font) {
     CountrySummary country = summarize_country(civ_id);
+    char army_text[160];
+    char army_total[32];
+    char army_deployed[32];
+    char army_reserve[32];
 
-    draw_country_header(hdc, cursor, civ_id, title_font, body_font);
-    draw_metric_row(hdc, cursor, country.population, province_count_for_civ(civ_id), country.cities,
-                    ICON_POPULATION, ICON_TERRITORY, ICON_CITY_VILLAGE,
-                    metric_label("Pop", "人口"), metric_label("Provinces", "省份"), metric_label("Cities", "城市"));
-    draw_metric_row(hdc, cursor, war_estimated_soldiers(civ_id), country.money, civs[civ_id].disorder,
-                    ICON_MILITARY, ICON_MONEY, ICON_DISORDER,
-                    metric_label("Army", "军队"), metric_label("Money", "金钱"), metric_label("Disorder", "混乱"));
-    draw_metric_row(hdc, cursor, country.ports, country.territory, population_pressure_for_civ(civ_id),
-                    ICON_HARBOR, ICON_TERRITORY, ICON_POPULATION,
-                    metric_label("Ports", "港口"), metric_label("Land", "土地"), metric_label("Pressure", "压力"));
-    draw_disorder_block(hdc, cursor, civ_id);
-    draw_technology_block(hdc, cursor, civ_id);
-    ui_section(hdc, cursor, tr("Civilization Metrics", "文明指标"));
-    draw_metric_row(hdc, cursor, civs[civ_id].governance, civs[civ_id].cohesion, civs[civ_id].production,
-                    ICON_GOVERNANCE, ICON_COHESION, ICON_PRODUCTION,
-                    metric_label("Gov", "治理"), metric_label("Coh", "凝聚"), metric_label("Prod", "生产"));
-    draw_metric_row(hdc, cursor, civs[civ_id].military, civs[civ_id].commerce, civs[civ_id].logistics,
-                    ICON_MILITARY, ICON_COMMERCE, ICON_LOGISTICS,
-                    metric_label("Mil", "军备"), metric_label("Trade", "贸易"), metric_label("Log", "后勤"));
-    draw_metric_pair(hdc, cursor, civs[civ_id].innovation, civs[civ_id].adaptation,
-                     ICON_INNOVATION, ICON_ADAPTATION, metric_label("Tech", "技术"), metric_label("Adapt", "适应"));
-    ui_row_text(hdc, cursor, tr("Adaptation", "适应力"),
-                tr("Dynamic state from environment and pressure.", "由环境与压力派生的动态状态。"));
-    ui_section(hdc, cursor, tr("Resources", "资源"));
-    draw_metric_row(hdc, cursor, country.food, country.water, country.pop_capacity,
-                    ICON_FOOD, ICON_WATER, ICON_POPULATION,
-                    metric_label("Food", "粮食"), metric_label("Water", "水源"), metric_label("Cap", "承载"));
-    draw_metric_row(hdc, cursor, country.livestock, country.wood, country.stone,
-                    ICON_LIVESTOCK, ICON_WOOD, ICON_STONE,
-                    metric_label("Herd", "畜牧"), metric_label("Wood", "木材"), metric_label("Stone", "石料"));
-    draw_metric_row(hdc, cursor, country.minerals, country.money, country.habitability,
-                    ICON_ORE, ICON_MONEY, ICON_HABITABILITY,
-                    metric_label("Ore", "矿石"), metric_label("Money", "金钱"), metric_label("Live", "宜居"));
-    if (plague_civ_active_count(civ_id) > 0) {
-        ui_section(hdc, cursor, tr("Plague", "瘟疫"));
-        draw_metric_row(hdc, cursor, plague_civ_active_count(civ_id), plague_civ_peak_severity(civ_id),
-                        plague_civ_deaths_total(civ_id), ICON_CITY_VILLAGE, ICON_DISORDER, ICON_POPULATION,
-                        metric_label("Cities", "城市"), metric_label("Severity", "烈度"), metric_label("Deaths", "死亡"));
+    format_metric_value(war_current_soldiers_for_civ(civ_id), army_total, sizeof(army_total));
+    format_metric_value(war_deployed_soldiers_for_civ(civ_id), army_deployed, sizeof(army_deployed));
+    format_metric_value(war_available_reserve_for_civ(civ_id), army_reserve, sizeof(army_reserve));
+    snprintf(army_text, sizeof(army_text), "%s %s   %s %s   %s %s   %s %d",
+             tr("Total", "总量"), army_total, tr("Deployed", "已部署"), army_deployed,
+             tr("Reserve", "预备队"), army_reserve, tr("Fronts", "战线"), war_front_count_for_civ(civ_id));
+
+    switch (clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)) {
+        case COUNTRY_DETAIL_TECHNOLOGY:
+            draw_country_tech_tab(hdc, cursor, civ_id);
+            break;
+        case COUNTRY_DETAIL_DECISION:
+            draw_country_decision_tab(hdc, cursor, civ_id);
+            break;
+        case COUNTRY_DETAIL_POPULATION:
+            draw_country_population_tab(hdc, (RECT){0, 0, 0, 0}, cursor, civ_id, body_font);
+            break;
+            ui_section(hdc, cursor, tr("Population", "人口"));
+            draw_metric_row(hdc, cursor, country.population, population_pressure_for_civ(civ_id), country.pop_capacity,
+                            ICON_POPULATION, ICON_DISORDER, ICON_POPULATION,
+                            metric_label("Pop", "人口"), metric_label("Pressure", "压力"), metric_label("Cap", "承载"));
+            draw_city_list(hdc, cursor, civ_id);
+            break;
+        case COUNTRY_DETAIL_RESOURCES:
+            draw_country_resources_tab(hdc, cursor, civ_id);
+            break;
+        case COUNTRY_DETAIL_DIPLOMACY:
+            draw_country_diplomacy_tab(hdc, cursor, civ_id);
+            break;
+        case COUNTRY_DETAIL_DISORDER:
+            draw_disorder_block(hdc, cursor, civ_id);
+            break;
+        default:
+            ui_section(hdc, cursor, tr("Overview", "总览"));
+            draw_metric_row(hdc, cursor, country.population, province_count_for_civ(civ_id), country.cities,
+                            ICON_POPULATION, ICON_TERRITORY, ICON_CITY_VILLAGE,
+                            metric_label("Pop", "人口"), metric_label("Provinces", "省份"), metric_label("Cities", "城市"));
+            draw_metric_row(hdc, cursor, war_current_soldiers_for_civ(civ_id), country.ports, civs[civ_id].disorder,
+                            ICON_MILITARY, ICON_HARBOR, ICON_DISORDER,
+                            metric_label("Army", "军队"), metric_label("Ports", "港口"), metric_label("Disorder", "混乱"));
+            ui_row_text(hdc, cursor, tr("Army Pool", "军队池"), army_text);
+            draw_overview_mini_blocks(hdc, cursor, civ_id);
+            if (plague_civ_active_count(civ_id) > 0) {
+                ui_section(hdc, cursor, tr("Plague", "瘟疫"));
+                draw_metric_row(hdc, cursor, plague_civ_active_count(civ_id), plague_civ_peak_severity(civ_id),
+                                plague_civ_deaths_total(civ_id), ICON_CITY_VILLAGE, ICON_DISORDER, ICON_POPULATION,
+                                metric_label("Cities", "城市"), metric_label("Severity", "烈度"), metric_label("Deaths", "死亡"));
+            }
+            break;
     }
-    draw_city_list(hdc, cursor, civ_id);
+    (void)title_font;
+    (void)body_font;
 }

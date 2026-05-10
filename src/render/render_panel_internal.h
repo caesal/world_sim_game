@@ -17,14 +17,14 @@ void draw_mode_buttons(HDC hdc, RECT client);
 void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int value);
 void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT body_font);
 void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
-void draw_diplomacy_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
-void draw_selection_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int civ_id, HFONT body_font);
+int draw_population_pyramid_summary(HDC hdc, RECT client, int x, int y, int width,
+                                    PopulationSummary summary, HFONT body_font);
 void draw_side_panel(HDC hdc, RECT client);
 void draw_bottom_bar(HDC hdc, RECT client);
 void draw_map_legend(HDC hdc, RECT client);

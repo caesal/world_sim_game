@@ -26,16 +26,14 @@ typedef enum {
 } DisplayMode;
 
 typedef enum {
-    PANEL_SELECTION,
     PANEL_COUNTRY,
-    PANEL_DIPLOMACY,
     PANEL_POPULATION,
     PANEL_PLAGUE,
     PANEL_WORLD,
     PANEL_DEBUG
 } PanelTab;
 
-#define PANEL_TAB_COUNT 7
+#define PANEL_TAB_COUNT 5
 
 typedef enum {
     WORLD_SLIDER_OCEAN,
@@ -76,6 +74,17 @@ typedef enum {
     COUNTRY_SORT_DISORDER,
     COUNTRY_SORT_COUNT
 } CountrySortColumn;
+
+typedef enum {
+    COUNTRY_DETAIL_OVERVIEW,
+    COUNTRY_DETAIL_TECHNOLOGY,
+    COUNTRY_DETAIL_DECISION,
+    COUNTRY_DETAIL_POPULATION,
+    COUNTRY_DETAIL_RESOURCES,
+    COUNTRY_DETAIL_DIPLOMACY,
+    COUNTRY_DETAIL_DISORDER,
+    COUNTRY_DETAIL_TAB_COUNT
+} CountryDetailTab;
 
 typedef struct {
     int map_x;

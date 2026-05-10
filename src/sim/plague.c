@@ -4,6 +4,7 @@
 #include "sim/disorder.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
+#include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "world/terrain_query.h"
 
@@ -144,23 +145,24 @@ static void spread_locally_from_city(int source_city) {
 }
 
 static void spread_by_maritime_from_city(int source_city) {
+    SeaLanePlagueContact contacts[32];
+    int contact_count;
     int i;
     int severity = city_plagues[source_city].severity;
 
-    for (i = 0; i < maritime_route_count; i++) {
-        MaritimeRoute *route = &maritime_routes[i];
-        int target = -1;
+    contact_count = sea_lanes_plague_contacts_from_city(source_city, contacts,
+                                                        (int)(sizeof(contacts) / sizeof(contacts[0])));
+    for (i = 0; i < contact_count; i++) {
+        SeaLanePlagueContact *contact = &contacts[i];
         int chance;
-
-        if (!route->active) continue;
-        if (route->from_city == source_city) target = route->to_city;
-        else if (route->to_city == source_city) target = route->from_city;
-        if (!valid_city(target)) continue;
-        route_exposure[i] = clamp(route_exposure[i] + severity / 2, 0, 10);
+        int exposure_percent = contact->type == SEA_LANE_DEEP ? contact->deep_plague_percent : 100;
+        if (!valid_city(contact->target_city) || exposure_percent <= 0) continue;
+        sea_lanes_add_exposure(contact->lane_id, max(1, severity * exposure_percent / 100));
         dirty_mark_plague();
-        chance = severity * 3 + clamp(42 - route->distance / 10, 0, 34);
-        if (cities[target].owner == cities[source_city].owner) chance += 4;
-        try_infect_city(source_city, target, chance, i);
+        chance = severity * 3 + clamp(42 - contact->distance / 10, 0, 34);
+        if (contact->type == SEA_LANE_DEEP) chance = chance * exposure_percent / 100;
+        if (cities[contact->target_city].owner == cities[source_city].owner) chance += 4;
+        try_infect_city(source_city, contact->target_city, chance, -1);
     }
 }
 
@@ -174,6 +176,7 @@ static int decay_route_exposure(void) {
             changed = 1;
         }
     }
+    if (sea_lanes_decay_exposure()) changed = 1;
     return changed;
 }
 

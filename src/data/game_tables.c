@@ -43,11 +43,11 @@ const TechnologyStageRule TECHNOLOGY_STAGE_RULES[10] = {
     {{"Craft Age", "工艺时代"}, {"Resource output x1.05.", "资源倍率 x1.05。"}},
     {{"Market Age", "市场时代"}, {"Resource output x1.10.", "资源倍率 x1.10。"}},
     {{"Administrative Age", "行政时代"}, {"Resource output up to x1.20.", "资源倍率最高 x1.20。"}},
-    {{"Ocean Age", "远洋时代"}, {"Deep sea routes unlock at 50% stability.", "解锁深海航线，稳定性 50%。"}},
-    {{"Navigation Age", "航海时代"}, {"Deep sea route stability rises to 80%.", "深海航线稳定性提升到 80%。"}},
-    {{"Engineering Age", "工程时代"}, {"Deep sea 90%, tech +10%, defense army x1.2.", "深海 90%，科技 +10%，防御军队 x1.2。"}},
-    {{"Strategic Age", "战略时代"}, {"Deep sea 99%, battle chance +15%.", "深海 99%，战斗胜率机会 +15%。"}},
-    {{"Imperial Age", "帝国时代"}, {"Long-held vassals can be annexed.", "长期附庸可被吞并。"}}
+    {{"Ocean Age", "远洋时代"}, {"Deep sea 50%; deep plague spread 50%.", "深海稳定性 50%；深海瘟疫传播 50%。"}},
+    {{"Navigation Age", "航海时代"}, {"Deep sea 80%; deep plague spread 35%.", "深海稳定性 80%；深海瘟疫传播 35%。"}},
+    {{"Engineering Age", "工程时代"}, {"Deep sea 90%; plague 15%; tech +10%; defense x1.2.", "深海 90%；瘟疫 15%；科技 +10%；防御 x1.2。"}},
+    {{"Strategic Age", "战略时代"}, {"Deep sea 99%; plague 5%; battle chance +15%.", "深海 99%；瘟疫 5%；战斗胜率机会 +15%。"}},
+    {{"Imperial Age", "帝国时代"}, {"Deep plague spread 0%; long-held vassals can be annexed.", "深海瘟疫传播 0%；长期附庸可被吞并。"}}
 };
 
 const char *localized_text(LocalizedText text, int language) {

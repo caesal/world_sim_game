@@ -2,8 +2,10 @@
 
 #include "core/game_types.h"
 #include "core/dirty_flags.h"
+#include "core/state_lock.h"
 #include "game/game_loop.h"
 #include "sim/collapse.h"
+#include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/expansion.h"
@@ -13,6 +15,7 @@
 #include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/simulation_month.h"
+#include "sim/simulation_worker.h"
 #include "sim/technology.h"
 #include "sim/war.h"
 #include "ui/ui.h"
@@ -81,12 +84,13 @@ static WorldGenConfig game_world_gen_config_from_globals(void) {
 void game_request_new_world(void) {
     WorldGenConfig config = game_world_gen_config_from_globals();
 
+    auto_run = 0;
+    game_loop_reset();
     set_active_map_size(pending_map_size);
     diplomacy_reset();
     war_reset();
     simulation_reset_state();
     clear_world_tiles();
-    game_loop_reset();
     dirty_mark_world();
     selected_x = -1;
     selected_y = -1;
@@ -101,6 +105,8 @@ void game_request_new_world(void) {
     ports_refresh_city_regions();
     maritime_rebuild_routes();
     diplomacy_update_contacts();
+    civilization_repair_alive_colors();
+    civilization_colors_debug_check();
     dirty_mark_world();
     auto_run = 0;
 }
@@ -123,6 +129,7 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
     int before_count = civ_count;
 
     if (!world_generated) return -1;
+    state_write_lock();
     if (selected_x >= 0 && selected_y >= 0 &&
         is_land(world[selected_y][selected_x].geography) &&
         world[selected_y][selected_x].owner == -1) {
@@ -130,8 +137,12 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
         y = selected_y;
     }
     if (!add_civilization_at(name, symbol, military, logistics, governance, cohesion,
-                             production, commerce, innovation, x, y)) return -1;
+                             production, commerce, innovation, x, y)) {
+        state_write_unlock();
+        return -1;
+    }
     selected_civ = before_count;
+    state_write_unlock();
     return selected_civ;
 }
 
@@ -146,18 +157,27 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
         if (selected_x >= 0 && selected_y >= 0) civ_id = world[selected_y][selected_x].owner;
     }
     if (civ_id < 0 || civ_id >= civ_count) return 0;
+    state_write_lock();
     simulation_apply_civilization_edit(civ_id, name, symbol, military, logistics, governance,
                                        cohesion, production, commerce, innovation);
     selected_civ = civ_id;
+    state_write_unlock();
     return 1;
 }
 
 void game_request_set_civilization_color(int civ_id, Color32 color) {
+    int seed_region = -1;
+
     if (civ_id < 0 || civ_id >= civ_count) return;
-    civs[civ_id].color = color;
+    state_write_lock();
+    if (civs[civ_id].capital_city >= 0 && civs[civ_id].capital_city < city_count) {
+        seed_region = regions_region_for_city(civs[civ_id].capital_city);
+    }
+    civs[civ_id].color = civilization_pick_distinct_color(civ_id, color, -1, seed_region);
     dirty_mark_territory();
     dirty_mark_labels();
     world_visual_revision++;
+    state_write_unlock();
 }
 
 void game_request_after_load_map(void) {
@@ -173,6 +193,7 @@ void game_request_after_load_map(void) {
     world_invalidate_region_cache();
     ports_refresh_city_regions();
     diplomacy_update_contacts();
+    civilization_colors_debug_check();
     dirty_mark_world();
     world_visual_revision++;
 }
@@ -187,6 +208,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
         event_log_push(event_text);
         return 0;
     }
+    state_write_lock();
     disorder_set(civ_id, 100);
     collapsed = collapse_check_immediate(civ_id, COLLAPSE_CAUSE_CIVIL_UNREST);
     if (collapsed) {
@@ -205,6 +227,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
     dirty_mark_territory();
     dirty_mark_labels();
     world_visual_revision++;
+    state_write_unlock();
     return collapsed;
 }
 
@@ -362,5 +385,6 @@ int run_game(void) {
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
+    simulation_worker_shutdown();
     return 0;
 }

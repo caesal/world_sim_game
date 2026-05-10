@@ -20,9 +20,7 @@ void draw_side_panel(HDC hdc, RECT client) {
     draw_panel_tabs(hdc, client);
 
     old_font = SelectObject(hdc, title_font);
-    if (panel_tab == PANEL_SELECTION) draw_selection_panel(hdc, client, x, title_font, body_font);
-    else if (panel_tab == PANEL_COUNTRY) draw_country_panel(hdc, client, x, title_font, body_font);
-    else if (panel_tab == PANEL_DIPLOMACY) draw_diplomacy_tab(hdc, client, x, title_font, body_font);
+    if (panel_tab == PANEL_COUNTRY) draw_country_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_POPULATION) draw_population_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_PLAGUE) draw_plague_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_WORLD) draw_worldgen_panel(hdc, client, x, title_font, body_font);
@@ -37,7 +35,7 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     RECT bar = {0, client.bottom - BOTTOM_BAR_H, client.right - side_panel_w, client.bottom};
     RECT play = get_play_button_rect(client);
     char text[256];
-    const char *speed_name_zh[3] = {"慢速", "中速", "快速"};
+    const char *speed_name_zh[SPEED_COUNT] = {"1.00秒", "0.25秒", "0.10秒", "0.05秒", "0.01秒"};
     const char *speed_name = ui_language == UI_LANG_ZH ? speed_name_zh[speed_index] : SPEED_NAMES[speed_index];
     int actual_ms = game_loop_actual_ms_per_month();
     int pending = game_loop_pending_months();
@@ -48,10 +46,10 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     fill_rect(hdc, play, auto_run ? RGB(87, 93, 78) : RGB(48, 56, 58));
     draw_center_text(hdc, play, auto_run ? "||" : ">", RGB(245, 248, 250));
 
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < SPEED_COUNT; i++) {
         RECT button = get_speed_button_rect(client, i);
         fill_rect(hdc, button, i == speed_index ? RGB(87, 93, 78) : RGB(48, 56, 58));
-        draw_center_text(hdc, button, i == 0 ? ">" : (i == 1 ? ">>" : ">>>"), RGB(235, 240, 244));
+        draw_center_text(hdc, button, speed_seconds_text(i), RGB(235, 240, 244));
     }
 
     if (auto_run && actual_ms > 0) {
@@ -67,7 +65,7 @@ void draw_bottom_bar(HDC hdc, RECT client) {
               tr("Speed", "速度"), speed_name, speed_detail,
               tr("Space play/pause", "空格播放/暂停"),
               tr("World", "世界"), tr("Country commands", "国家命令"));
-    draw_text_line(hdc, 216, client.bottom - 29, text, RGB(225, 230, 235));
+    draw_text_line(hdc, 336, client.bottom - 29, text, RGB(225, 230, 235));
 }
 
 static void draw_legend_item(HDC hdc, int x, int y, COLORREF color, const char *name) {

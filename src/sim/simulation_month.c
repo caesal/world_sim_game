@@ -12,8 +12,10 @@
 #include "sim/province.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
+#include "sim/vassal.h"
 #include "sim/war.h"
 #include "world/terrain_query.h"
+#include "core/dirty_flags.h"
 #include "core/profiler.h"
 
 #include <string.h>
@@ -32,7 +34,7 @@ enum {
 };
 
 #define RESOURCE_SCAN_ROWS_PER_STEP 24
-#define EXPANSION_CIV_CHECKS_PER_STEP 4
+#define EXPANSION_CIV_CHECKS_PER_STEP 1
 #define POPULATION_CITY_STEP 16
 #define PLAGUE_CITY_STEP 16
 
@@ -187,6 +189,8 @@ static int living_civilizations(void) {
 }
 
 int simulation_month_begin(SimulationMonthState *state) {
+    ProfilerCallTrace trace;
+
     if (!world_generated || !state) return 0;
     memset(state, 0, sizeof(*state));
     profiler_begin_month();
@@ -196,17 +200,21 @@ int simulation_month_begin(SimulationMonthState *state) {
     if (!state->run_quarterly) {
         memcpy(state->resource_scores, cached_resource_scores, sizeof(state->resource_scores));
     }
+    trace = profiler_call_begin();
     population_sync_all();
+    profiler_call_end("population_sync_all", -1, -1, trace);
     return 1;
 }
 
 int simulation_month_run_next(SimulationMonthState *state) {
     DWORD phase_start;
     int phase_before;
+    ProfilerCallTrace phase_trace;
 
     if (!state || !state->active) return 0;
     phase_before = state->phase;
     phase_start = GetTickCount();
+    phase_trace = profiler_call_begin();
     profiler_set_current_job(simulation_phase_name(phase_before));
     switch (state->phase) {
         case SIM_MONTH_RESOURCES:
@@ -221,16 +229,29 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
         case SIM_MONTH_CIVS:
             if (state->run_quarterly) update_civilization_pressures(state->resource_scores);
+            {
+                ProfilerCallTrace trace = profiler_call_begin();
             technology_update_month();
+                profiler_call_end("technology_update_month", -1, -1, trace);
+            }
             state->phase = SIM_MONTH_GROWTH_PORTS;
             break;
         case SIM_MONTH_GROWTH_PORTS:
-            if (!population_update_month_step(&state->population_cursor, POPULATION_CITY_STEP)) break;
+            {
+                ProfilerCallTrace trace = profiler_call_begin();
+                int done = population_update_month_step(&state->population_cursor, POPULATION_CITY_STEP);
+                profiler_call_end("population_update_month_step", -1, -1, trace);
+                if (!done) break;
+            }
             province_invalidate_region_cache();
+            {
+                ProfilerCallTrace trace = profiler_call_begin();
             ports_update_migration();
+                profiler_call_end("ports_update_migration", -1, -1, trace);
+            }
             world_invalidate_population_cache();
             state->city_count_before_expansion = city_count;
-            state->territory_revision_before_expansion = world_visual_revision;
+            state->territory_revision_before_expansion = dirty_revision_ownership();
             state->expansion_civ = 0;
             state->phase = SIM_MONTH_EXPANSION;
             break;
@@ -247,34 +268,47 @@ int simulation_month_run_next(SimulationMonthState *state) {
                     continue;
                 }
                 if (expansion_work_done(&state->expansion_work)) {
+                    ProfilerCallTrace trace = profiler_call_begin();
                     expansion_work_begin(&state->expansion_work, civ_id, state->resource_scores[civ_id]);
+                    profiler_call_end("expansion_work_begin", civ_id, -1, trace);
                 }
+                {
+                    ProfilerCallTrace trace = profiler_call_begin();
                 expansion_work_step(&state->expansion_work, state->log, sizeof(state->log));
+                    profiler_call_end("expansion_work_step", civ_id, -1, trace);
+                }
                 if (!expansion_work_done(&state->expansion_work)) {
                     profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
+                    profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
                     return 1;
                 }
                 state->expansion_civ++;
                 profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
+                profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
                 return 1;
             }
             if (state->expansion_civ < civ_count) {
                 profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
+                profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
                 return 1;
             }
-            if (world_visual_revision != state->territory_revision_before_expansion ||
+            if (dirty_revision_ownership() != state->territory_revision_before_expansion ||
                 city_count != state->city_count_before_expansion) {
                 ports_refresh_city_regions();
                 maritime_mark_routes_dirty();
-                maritime_ensure_routes();
                 diplomacy_mark_contacts_dirty();
             }
             state->phase = SIM_MONTH_PLAGUE;
             }
             break;
         case SIM_MONTH_PLAGUE:
-            if (plague_update_month_step(&state->plague_work, PLAGUE_CITY_STEP)) {
+            {
+                ProfilerCallTrace trace = profiler_call_begin();
+                int done = plague_update_month_step(&state->plague_work, PLAGUE_CITY_STEP);
+                profiler_call_end("plague_update_month_step", -1, -1, trace);
+                if (done) {
                 state->phase = SIM_MONTH_RANDOM_EVENT;
+                }
             }
             break;
         case SIM_MONTH_RANDOM_EVENT:
@@ -282,14 +316,18 @@ int simulation_month_run_next(SimulationMonthState *state) {
             state->phase = SIM_MONTH_TERRITORY;
             break;
         case SIM_MONTH_TERRITORY:
-            if (world_visual_revision != state->territory_revision_before_expansion ||
+            if (dirty_revision_ownership() != state->territory_revision_before_expansion ||
                 city_count != state->city_count_before_expansion) {
                 world_invalidate_population_cache();
             }
             state->phase = SIM_MONTH_DIPLOMACY;
             break;
         case SIM_MONTH_DIPLOMACY:
+            {
+                ProfilerCallTrace trace = profiler_call_begin();
             diplomacy_update_contacts();
+                profiler_call_end("diplomacy_update_contacts", -1, -1, trace);
+            }
             state->phase = SIM_MONTH_CALENDAR;
             break;
         case SIM_MONTH_CALENDAR:
@@ -298,6 +336,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 month = 1;
                 year = clamp(year + 1, 0, 99999);
                 diplomacy_update_year();
+                vassal_update_year();
                 war_update_year();
                 if (year % 10 == 0) collapse_update_decade();
             }
@@ -312,6 +351,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
     }
     profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
+    profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
     return 1;
 }
 

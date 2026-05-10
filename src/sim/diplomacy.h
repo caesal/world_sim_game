@@ -35,6 +35,7 @@ typedef struct {
 } BorderContactCache;
 
 void diplomacy_reset(void);
+void diplomacy_clear_civ(int civ_id);
 void diplomacy_mark_contacts_dirty(void);
 void diplomacy_update_contacts(void);
 void diplomacy_update_year(void);

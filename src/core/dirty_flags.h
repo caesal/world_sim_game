@@ -20,6 +20,15 @@ int dirty_render_plague(void);
 int dirty_render_maritime(void);
 int dirty_any_render(void);
 
+int dirty_revision_terrain(void);
+int dirty_revision_coast(void);
+int dirty_revision_ownership(void);
+int dirty_revision_province(void);
+int dirty_revision_route(void);
+int dirty_revision_label(void);
+int dirty_revision_plague(void);
+int dirty_revision_ui(void);
+
 void dirty_clear_render_terrain(void);
 void dirty_clear_render_political(void);
 void dirty_clear_render_borders(void);

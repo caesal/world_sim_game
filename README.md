@@ -7,18 +7,18 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.1 is a Windows graphical sandbox prototype written in C.
+Ver0.2.2 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.1 focuses on visual and feedback reliability: smoother maritime route rendering, immediate
-political fill refresh after region claims, clearer combined technology/disorder modifier display,
-and continued performance/debug visibility over the simulation scheduler.
+Ver0.2.2 focuses on subordinate-state consistency: vassals now behave as direct subjects of an
+overlord, wars route through the overlord, vassal troops and resource tribute use explicit ledgers,
+and collapse/cession/UI feedback now respect vassal independence rules.
 
 You can:
 
 1. Generate a random 1920x1080 visual world map from continuous elevation, moisture, and temperature fields
 2. Watch civilizations expand as colored territory on a higher-detail visual map
 3. See country borders, coast outlines, cities, and year/month progress
-4. Simulate month by month with three auto-run speeds
+4. Simulate month by month with five auto-run speed targets
 5. Click map tiles to inspect terrain, ownership, resources, local modifiers, and administrative region totals
 6. Add or edit civilizations from the right-side form while the simulation is running
 7. Let cities create fixed province shapes that stay stable after they are established
@@ -109,6 +109,12 @@ You can:
 92. Refresh political fills, country borders, province borders, and labels immediately after a natural region is claimed
 93. Show resource, population, and technology modifiers as final effective percentages with their technology/disorder components visible
 94. Keep the performance/debug panel available to verify scheduler backlog, slow phases, route diagnostics, and render cache rebuilds
+95. Treat vassals as direct subordinate countries instead of independent diplomatic actors
+96. Route declarations against vassals to their overlord and prevent vassals from starting ordinary wars
+97. Let overlords call up to 70% of each direct vassal army while tracking vassal casualties in the unified army ledger
+98. Transfer 40% of vassal non-money resource output to the overlord by deducting it from the vassal summary
+99. Add vassal governance burden to disorder as `min(100, 8n + 3n*n)` for direct vassal count
+100. Release vassals on overlord collapse and keep successor states independent after a vassal collapse
 
 ## Controls
 
@@ -116,20 +122,22 @@ You can:
 2. The bottom play button also starts or pauses auto-run
 3. The first speed button sets slow speed, 1 second per month
 4. The second speed button sets normal speed, 0.25 seconds per month
-5. The third speed button sets fast speed, 0.05 seconds per month
-6. `F1` adds a civilization from the right-side form
-7. `F2` applies the form to the selected civilization
-8. `F5` generates a new random world using the right-side world setup
-9. `R` also generates a new random world when the map has keyboard focus
-10. `Esc` opens the pause menu with Version Log, Save Map, Load Map, and Exit Game
-11. Left mouse click selects a tile or civilization
-12. Use the right-side tabs to switch between info, civilization controls, diplomacy, and map generation
-13. Drag the panel divider to resize the side controls
-14. Mouse wheel zooms the map around the cursor
-15. In the Map tab, click mode buttons to switch map layers
-16. In the Map tab, drag generation sliders to adjust the next generated world
-17. Hold right mouse button and drag the map to pan
-18. Hover over compact stat blocks in the right panel to see their meaning
+5. The third speed button sets brisk speed, 0.10 seconds per month
+6. The fourth speed button sets fast speed, 0.05 seconds per month
+7. The fifth speed button sets maximum target speed, 0.01 seconds per month
+8. `F1` adds a civilization from the right-side form
+9. `F2` applies the form to the selected civilization
+10. `F5` generates a new random world using the right-side world setup
+11. `R` also generates a new random world when the map has keyboard focus
+12. `Esc` opens the pause menu with Version Log, Save Map, Load Map, and Exit Game
+13. Left mouse click selects a tile or civilization
+14. Use the right-side tabs to switch between info, civilization controls, diplomacy, and map generation
+15. Drag the panel divider to resize the side controls
+16. Mouse wheel zooms the map around the cursor
+17. In the Map tab, click mode buttons to switch map layers
+18. In the Map tab, drag generation sliders to adjust the next generated world
+19. Hold right mouse button and drag the map to pan
+20. Hover over compact stat blocks in the right panel to see their meaning
 
 ## Build
 

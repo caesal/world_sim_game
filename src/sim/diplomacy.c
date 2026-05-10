@@ -28,16 +28,10 @@ static void set_relation_pair(int civ_a, int civ_b, DiplomacyRelation relation) 
 
 static DiplomacyRelation default_relation(DiplomacyStatus state, int score) {
     DiplomacyRelation relation;
+    memset(&relation, 0, sizeof(relation));
     relation.state = state;
     relation.relation_score = score;
-    relation.border_tension = 0;
-    relation.trade_fit = 0;
-    relation.resource_conflict = 0;
-    relation.truce_years_left = 0;
-    relation.border_length = 0;
-    relation.natural_barrier = 0;
     relation.years_known = state == DIPLOMACY_NONE ? 0 : 1;
-    relation.vassal_years = 0;
     relation.overlord = -1;
     relation.vassal = -1;
     return relation;
@@ -334,7 +328,6 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         relation.border_tension = clamp(relation.border_tension - 4, 0, 100);
         relation.relation_score = clamp(relation.relation_score + relation.trade_fit / 25 -
                                         relation.resource_conflict / 30, 0, 100);
-        if (relation.relation_score < 25 && relation.border_tension > 70) relation.state = DIPLOMACY_TENSE;
     } else if (relation.state == DIPLOMACY_ALLIANCE) {
         relation.relation_score = clamp(relation.relation_score + relation.trade_fit / 25 -
                                         relation.border_tension / 18, 0, 100);
@@ -435,6 +428,22 @@ const char *diplomacy_last_war_reason(int civ_id) {
     return last_war_reasons[civ_id];
 }
 
+void diplomacy_clear_civ(int civ_id) {
+    int i;
+    if (civ_id < 0 || civ_id >= MAX_CIVS) return;
+    for (i = 0; i < MAX_CIVS; i++) {
+        DiplomacyRelation relation =
+            default_relation(civ_id == i ? DIPLOMACY_PEACE : DIPLOMACY_NONE, civ_id == i ? 100 : 50);
+        diplomacy_matrix[civ_id][i] = relation;
+        diplomacy_matrix[i][civ_id] = relation;
+        border_contact_cache.border_length[civ_id][i] = border_contact_cache.border_length[i][civ_id] = 0;
+        border_contact_cache.natural_barrier[civ_id][i] = border_contact_cache.natural_barrier[i][civ_id] = 0;
+    }
+    last_war_desires[civ_id] = 0;
+    last_war_reasons[civ_id][0] = '\0';
+    diplomacy_mark_contacts_dirty();
+}
+
 void diplomacy_force_war(int civ_a, int civ_b) {
     DiplomacyRelation relation;
 
@@ -484,17 +493,4 @@ void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
 #else
     diplomacy_start_truce(overlord, vassal, 10, relation_score);
 #endif
-}
-
-const char *diplomacy_status_name(DiplomacyStatus status) {
-    switch (status) {
-        case DIPLOMACY_NONE: return "None";
-        case DIPLOMACY_PEACE: return "Peace";
-        case DIPLOMACY_ALLIANCE: return "Alliance";
-        case DIPLOMACY_TENSE: return "Tense";
-        case DIPLOMACY_TRUCE: return "Truce";
-        case DIPLOMACY_WAR: return "War";
-        case DIPLOMACY_VASSAL: return "Vassal";
-        default: return "Unknown";
-    }
 }

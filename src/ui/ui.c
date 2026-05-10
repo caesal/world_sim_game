@@ -57,11 +57,13 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
         selected_civ = owner;
         country_detail_scroll_offset = 0;
         ui_forms_write_civ(owner);
+    } else if (panel_tab == PANEL_COUNTRY && selected_civ >= 0 && selected_civ < civ_count) {
+        country_detail_subtab = COUNTRY_DETAIL_RESOURCES;
     }
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
-static void set_speed(int index) { speed_index = clamp(index, 0, 2); }
+static void set_speed(int index) { speed_index = clamp(index, 0, SPEED_COUNT - 1); }
 
 static void handle_pause_menu_action(HWND hwnd, int hit) {
     if (hit == PAUSE_MENU_VERSION_LOG) {
@@ -99,6 +101,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     if (point_in_rect(get_language_button_rect(client), mouse_x, mouse_y)) {
         ui_language = ui_language == UI_LANG_EN ? UI_LANG_ZH : UI_LANG_EN;
+        ui_forms_translate_name_input();
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -107,7 +110,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
-    for (i = 0; i < 3; i++) {
+    for (i = 0; i < SPEED_COUNT; i++) {
         if (point_in_rect(get_speed_button_rect(client, i), mouse_x, mouse_y)) {
             set_speed(i);
             InvalidateRect(hwnd, NULL, FALSE);
@@ -157,7 +160,14 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
         if (hit == COUNTRY_PANEL_HIT_CIVIL_UNREST) {
             if (selected_civ >= 0 && !game_request_trigger_civil_unrest(selected_civ)) MessageBeep(MB_ICONWARNING);
-            country_detail_scroll_offset = 0;
+            country_detail_scroll_offsets[clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)] = 0;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit <= COUNTRY_PANEL_HIT_SUBTAB_BASE &&
+            hit > COUNTRY_PANEL_HIT_SUBTAB_BASE - COUNTRY_DETAIL_TAB_COUNT) {
+            country_detail_subtab = COUNTRY_PANEL_HIT_SUBTAB_BASE - hit;
+            country_detail_subtab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -174,7 +184,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
         if (hit >= 0 && hit < civ_count) {
             selected_civ = hit;
-            country_detail_scroll_offset = 0;
+            country_detail_scroll_offsets[clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)] = 0;
             ui_forms_write_civ(hit);
             InvalidateRect(hwnd, NULL, FALSE);
             return;
@@ -235,8 +245,8 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     hover_y = mouse_y;
     was_panel = old_hover_x >= client.right - side_panel_w && old_hover_y >= TOP_BAR_H && old_hover_y <= client.bottom;
     is_panel = mouse_x >= client.right - side_panel_w && mouse_y >= TOP_BAR_H && mouse_y <= client.bottom;
-    if ((panel_tab == PANEL_SELECTION || panel_tab == PANEL_COUNTRY || panel_tab == PANEL_DIPLOMACY ||
-         panel_tab == PANEL_POPULATION || panel_tab == PANEL_PLAGUE || panel_tab == PANEL_DEBUG) &&
+    if ((panel_tab == PANEL_COUNTRY || panel_tab == PANEL_POPULATION ||
+         panel_tab == PANEL_PLAGUE || panel_tab == PANEL_DEBUG) &&
         (was_panel || is_panel) && (old_hover_x != hover_x || old_hover_y != hover_y)) {
         invalidate_side_panel(hwnd);
     }

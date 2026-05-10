@@ -5,6 +5,7 @@
 #include "sim/plague.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
 #include "world/ports.h"
@@ -15,6 +16,7 @@
 #define MARITIME_MAX_ROUTE_DISTANCE 700
 #define MARITIME_MAX_SEARCH_NODES 52000
 #define MARITIME_TARGET_KEEP 8
+#define MARITIME_PATH_CHECKS_PER_CALL 2
 static MapPoint sea_queue[MAX_MAP_W * MAX_MAP_H];
 static MapPoint raw_path[MARITIME_MAX_ROUTE_DISTANCE + 2];
 static unsigned short sea_dist[MAX_MAP_H][MAX_MAP_W];
@@ -23,6 +25,8 @@ static signed char sea_prev_dir[MAX_MAP_H][MAX_MAP_W];
 static int sea_mark_id = 1;
 static int maritime_routes_dirty = 1;
 static int route_revision = 1;
+static int ownership_revision = 1;
+static unsigned char overseas_target_cursor[MAX_CIVS];
 typedef struct {
     int x;
     int y;
@@ -35,21 +39,17 @@ typedef struct {
 } MaritimeTarget;
 void maritime_reset(void) {
     memset(maritime_routes, 0, sizeof(maritime_routes));
+    memset(overseas_target_cursor, 0, sizeof(overseas_target_cursor));
     maritime_route_count = 0;
     maritime_routes_dirty = 1;
     route_revision++;
     dirty_mark_maritime();
 }
-void maritime_mark_routes_dirty(void) {
-    maritime_routes_dirty = 1;
-    route_revision++;
-}
-int maritime_route_revision(void) {
-    return route_revision;
-}
-void maritime_ensure_routes(void) {
-    if (maritime_routes_dirty) maritime_rebuild_routes();
-}
+void maritime_mark_routes_dirty(void) { maritime_routes_dirty = 1; route_revision++; }
+void maritime_mark_ownership_dirty(void) { ownership_revision++; }
+int maritime_route_revision(void) { return route_revision; }
+int maritime_ownership_revision(void) { return ownership_revision; }
+void maritime_ensure_routes(void) { if (maritime_routes_dirty) maritime_rebuild_routes(); }
 static int city_sea_entry(int city_id, int *sea_x, int *sea_y, int *region) {
     City *city;
     if (!ports_city_is_valid_port(city_id)) return 0;
@@ -233,40 +233,31 @@ void maritime_rebuild_routes(void) {
     dirty_mark_maritime();
 }
 int maritime_route_between_cities(int city_a, int city_b, int *distance) {
-    int i;
-    maritime_ensure_routes();
-    for (i = 0; i < maritime_route_count; i++) {
-        MaritimeRoute *route = &maritime_routes[i];
-        if (!route->active) continue;
-        if ((route->from_city == city_a && route->to_city == city_b) ||
-            (route->from_city == city_b && route->to_city == city_a)) {
-            if (distance) *distance = route->distance;
-            return 1;
-        }
-    }
-    return 0;
+    return sea_lanes_connected(city_a, city_b, distance);
 }
 void maritime_update_migration(void) {
+    const SeaLane *lanes;
+    int lane_count;
     int i;
     int changed = 0;
-    maritime_ensure_routes();
-    for (i = 0; i < maritime_route_count; i++) {
-        MaritimeRoute *route = &maritime_routes[i];
+    lanes = sea_lanes_get(&lane_count);
+    for (i = 0; i < lane_count; i++) {
+        const SeaLane *lane = &lanes[i];
         City *a;
         City *b;
         City *donor;
         City *receiver;
         int diff;
         int migrants;
-        if (!route->active) continue;
-        a = &cities[route->from_city];
-        b = &cities[route->to_city];
+        if (!lane->active) continue;
+        a = &cities[lane->from_city];
+        b = &cities[lane->to_city];
         if (!a->alive || !b->alive || a->owner < 0 || a->owner != b->owner) continue;
         donor = a->population >= b->population ? a : b;
         receiver = donor == a ? b : a;
         diff = donor->population - receiver->population;
         if (diff < 40) continue;
-        migrants = clamp(diff / (130 + route->distance * 2), 1, 5);
+        migrants = clamp(diff / (130 + lane->point_count * 2), 1, 5);
         {
             int from_city = (int)(donor - cities);
             int to_city = (int)(receiver - cities);
@@ -280,37 +271,10 @@ void maritime_update_migration(void) {
     if (changed) world_invalidate_population_cache();
 }
 int maritime_has_contact(int civ_a, int civ_b) {
-    int i;
-    maritime_ensure_routes();
-    for (i = 0; i < maritime_route_count; i++) {
-        City *a;
-        City *b;
-        if (!maritime_routes[i].active) continue;
-        a = &cities[maritime_routes[i].from_city];
-        b = &cities[maritime_routes[i].to_city];
-        if (!a->alive || !b->alive) continue;
-        if ((a->owner == civ_a && b->owner == civ_b) || (a->owner == civ_b && b->owner == civ_a)) return 1;
-    }
-    return 0;
+    return sea_lanes_has_contact(civ_a, civ_b);
 }
 int maritime_trade_bonus(int civ_a, int civ_b) {
-    int i;
-    int best = 0;
-    maritime_ensure_routes();
-    for (i = 0; i < maritime_route_count; i++) {
-        MaritimeRoute *route = &maritime_routes[i];
-        City *a;
-        City *b;
-        int bonus;
-        if (!route->active) continue;
-        a = &cities[route->from_city];
-        b = &cities[route->to_city];
-        if (!a->alive || !b->alive) continue;
-        if (!((a->owner == civ_a && b->owner == civ_b) || (a->owner == civ_b && b->owner == civ_a))) continue;
-        bonus = clamp(18 - route->distance / 24, 3, 18);
-        if (bonus > best) best = bonus;
-    }
-    return best;
+    return sea_lanes_trade_bonus(civ_a, civ_b);
 }
 static int civ_port_in_region(int civ_id, int region, int target_x, int target_y,
                               int *port_city, int *distance) {
@@ -409,7 +373,7 @@ static int collect_overseas_targets(int civ_id, int pressure, int allow_deep,
     }
     return found;
 }
-static int path_distance_to_target(int civ_id, MaritimeTarget target, int *distance) {
+static int path_distance_to_target(int civ_id, MaritimeTarget target, int *distance, int *checks_left) {
     MapPoint points[MAX_MARITIME_ROUTE_POINTS];
     int point_count;
     int i;
@@ -420,9 +384,11 @@ static int path_distance_to_target(int civ_id, MaritimeTarget target, int *dista
         int sy;
         int region;
         int dist;
+        if (checks_left && *checks_left <= 0) return 0;
         if (!ports_city_is_valid_port(i) || cities[i].owner != civ_id) continue;
         if (!city_sea_entry(i, &sx, &sy, &region)) continue;
         if (!allow_deep && region != target.region) continue;
+        if (checks_left) (*checks_left)--;
         if (!find_sea_path(sx, sy, target.sea_x, target.sea_y,
                            allow_deep ? -1 : region, points, &point_count, &dist)) continue;
         if (dist < best) best = dist;
@@ -432,28 +398,49 @@ static int path_distance_to_target(int civ_id, MaritimeTarget target, int *dista
     return 1;
 }
 void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, size_t log_size) {
+    ProfilerCallTrace trace = profiler_call_begin();
     MaritimeTarget targets[MARITIME_TARGET_KEEP];
     int pressure = max(population_pressure_for_civ(civ_id) / 8, clamp(18 - resource_score, 0, 14));
     int sea_stability = technology_deep_sea_stability(civ_id);
     int i;
     int chance;
-    if (!civs[civ_id].alive || city_count >= MAX_CITIES) return;
+    int checks_left = MARITIME_PATH_CHECKS_PER_CALL;
+    int start = civ_id >= 0 && civ_id < MAX_CIVS ? overseas_target_cursor[civ_id] % MARITIME_TARGET_KEEP : 0;
+#define RETURN_OVERSEAS() do { profiler_call_end("maritime_try_overseas_expansion", civ_id, -1, trace); return; } while (0)
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive || city_count >= MAX_CITIES) RETURN_OVERSEAS();
     maritime_ensure_routes();
     chance = clamp(12 + pressure * 4 + civs[civ_id].logistics * 3 +
                    civs[civ_id].commerce * 2 + civs[civ_id].expansion * 3, 8, 82);
     if (sea_stability <= 0) chance = chance * 3 / 4;
     else chance += sea_stability / 10;
-    if (rnd(100) >= chance) return;
-    if (!collect_overseas_targets(civ_id, pressure, sea_stability > 0, targets)) return;
-    for (i = 0; i < MARITIME_TARGET_KEEP && targets[i].score > -1000000; i++) {
+    if (rnd(100) >= chance) RETURN_OVERSEAS();
+    if (!collect_overseas_targets(civ_id, pressure, sea_stability > 0, targets)) {
+        if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = 0;
+        RETURN_OVERSEAS();
+    }
+    for (i = 0; i < MARITIME_TARGET_KEEP; i++) {
+        int index = (start + i) % MARITIME_TARGET_KEEP;
         int distance;
         int threshold;
-        if (!path_distance_to_target(civ_id, targets[i], &distance)) continue;
-        targets[i].score -= distance / 2;
+        if (targets[index].score <= -1000000) continue;
+        if (checks_left <= 0) {
+            if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = (unsigned char)index;
+            append_log(log, log_size, "[Expansion] Maritime expansion yielded after path budget. ");
+            RETURN_OVERSEAS();
+        }
+        if (!path_distance_to_target(civ_id, targets[index], &distance, &checks_left)) {
+            if (checks_left <= 0 && civ_id >= 0 && civ_id < MAX_CIVS) {
+                overseas_target_cursor[civ_id] = (unsigned char)index;
+                append_log(log, log_size, "[Expansion] Maritime expansion yielded after path budget. ");
+                RETURN_OVERSEAS();
+            }
+            continue;
+        }
+        targets[index].score -= distance / 2;
         threshold = 116 - pressure * 5 - civs[civ_id].logistics * 4 -
                     civs[civ_id].commerce * 3 - civs[civ_id].expansion * 3;
         if (sea_stability <= 0) threshold += 10;
-        if (targets[i].score < threshold) continue;
+        if (targets[index].score < threshold) continue;
         if (sea_stability > 0 && rnd(100) >= sea_stability) {
             int payload = clamp(max(600, civs[civ_id].population / 70), 600, 35000);
             population_apply_casualties(civ_id, payload);
@@ -461,13 +448,16 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
                        civilization_display_name_for_language(civ_id, 0));
             continue;
         }
-        if (!regions_claim_for_civ(targets[i].land_region_id, civ_id, -1, 1)) continue;
+        if (!regions_claim_for_civ(targets[index].land_region_id, civ_id, -1, 1)) continue;
+        if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = (unsigned char)((index + 1) % MARITIME_TARGET_KEEP);
         if (sea_stability > 0 && !civs[civ_id].deep_sea_route_unlocked_event_done) {
             civs[civ_id].disorder = clamp(civs[civ_id].disorder - 25, 0, 100);
             civs[civ_id].deep_sea_route_unlocked_event_done = 1;
         }
         append_log(log, log_size, "[Expansion] %s founded an overseas province. ",
                    civilization_display_name_for_language(civ_id, 0));
-        return;
+        RETURN_OVERSEAS();
     }
+    RETURN_OVERSEAS();
+#undef RETURN_OVERSEAS
 }

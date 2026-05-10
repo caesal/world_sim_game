@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "sim/diplomacy.h"
+#include "sim/civilization_slots.h"
 #include "sim/civilization_metrics.h"
 #include "sim/civ_colors.h"
 #include "sim/disorder.h"
@@ -15,8 +16,10 @@
 #include "sim/province_partition.h"
 #include "sim/spawn.h"
 #include "sim/technology.h"
+#include "sim/vassal.h"
 #include "sim/war.h"
 #include "data/country_names.h"
+#include "core/profiler.h"
 #include "world/terrain_query.h"
 
 #include <stdio.h>
@@ -67,6 +70,18 @@ void civilization_set_custom_name(Civilization *civ, const char *name) {
     civ->custom_name = 1;
     civ->name_id = -1;
     snprintf(civ->name, NAME_LEN, "%s", name && name[0] ? name : "Custom Country");
+}
+
+static void civilization_apply_input_name(Civilization *civ, const char *name, int pick_default) {
+    int name_id;
+
+    if (pick_default && is_default_manual_name(name)) {
+        civilization_assign_generated_name(civ, civilization_pick_unused_name_id());
+        return;
+    }
+    name_id = country_name_find_by_text(name);
+    if (name_id >= 0) civilization_assign_generated_name(civ, name_id);
+    else civilization_set_custom_name(civ, name);
 }
 
 const char *civilization_display_name_for_language(int civ_id, int language) {
@@ -258,7 +273,9 @@ void world_mark_province_partition_dirty(int owner) {
 }
 
 void world_recalculate_territory(void) {
+    ProfilerCallTrace trace = profiler_call_begin();
     recalculate_territory();
+    profiler_call_end("world_recalculate_territory", -1, -1, trace);
 }
 
 void world_invalidate_region_cache(void) {
@@ -347,6 +364,27 @@ static void rebuild_country_summary_cache(void) {
         summary->resource_score = summary->food + summary->livestock + summary->water +
                                   summary->pop_capacity + summary->money + summary->habitability;
     }
+    for (i = 0; i < civ_count; i++) {
+        int over = vassal_overlord(i);
+        CountrySummary *from;
+        CountrySummary *to;
+        if (over < 0 || over >= civ_count) continue;
+        from = &country_summary_cache[i];
+        to = &country_summary_cache[over];
+#define MOVE_TRIBUTE(field) do { int t = from->field * 40 / 100; from->field -= t; to->field += t; } while (0)
+        MOVE_TRIBUTE(food);
+        MOVE_TRIBUTE(livestock);
+        MOVE_TRIBUTE(wood);
+        MOVE_TRIBUTE(stone);
+        MOVE_TRIBUTE(minerals);
+        MOVE_TRIBUTE(water);
+#undef MOVE_TRIBUTE
+    }
+    for (i = 0; i < civ_count; i++) {
+        CountrySummary *summary = &country_summary_cache[i];
+        summary->resource_score = summary->food + summary->livestock + summary->water +
+                                  summary->pop_capacity + summary->money + summary->habitability;
+    }
     country_summary_dirty = 0;
 }
 
@@ -366,19 +404,19 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
     int y = preferred_y;
     int city_id;
     int region_id;
+    int civ_id;
     Civilization *civ;
 
     if (!world_generated) return 0;
-    if (civ_count >= MAX_CIVS) return 0;
     if (!spawn_select_civilization_cradle(x, y, &x, &y)) return 0;
     region_id = x >= 0 && x < MAP_W && y >= 0 && y < MAP_H ? world[y][x].region_id : -1;
 
-    civ = &civs[civ_count];
-    memset(civ, 0, sizeof(*civ));
-    if (is_default_manual_name(name)) civilization_assign_generated_name(civ, civilization_pick_unused_name_id());
-    else civilization_set_custom_name(civ, name);
+    civ_id = civilization_allocate_slot(1);
+    if (civ_id < 0) return 0;
+    civ = &civs[civ_id];
+    civilization_apply_input_name(civ, name, 1);
     civ->symbol = symbol;
-    civ->color = civilization_pick_auto_color(civ_count, region_id);
+    civ->color = civilization_pick_auto_color(civ_id, region_id);
     civ->alive = 1;
     civ->population = starting_population_for_region(x, y, region_id);
     {
@@ -387,59 +425,24 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
                                         commerce, logistics, innovation, birth, 1);
     }
     civ->capital_city = -1;
-    technology_initialize_civ(civ_count);
+    technology_initialize_civ(civ_id);
 
-    city_id = create_city(civ_count, x, y, civ->population, 1);
+    city_id = create_city(civ_id, x, y, civ->population, 1);
     if (city_id < 0) {
-        memset(civ, 0, sizeof(*civ));
+        civilization_reset_slot_state(civ_id);
         return 0;
     }
     civ->capital_city = city_id;
-    if (!regions_claim_as_province(region_id, civ_count, city_id)) {
+    if (!regions_claim_as_province(region_id, civ_id, city_id)) {
         if (city_id == city_count - 1) city_count--;
         else cities[city_id].alive = 0;
-        memset(civ, 0, sizeof(*civ));
+        civilization_reset_slot_state(civ_id);
         return 0;
     }
 
-    civ_count++;
     recalculate_territory();
     population_sync_all();
     return 1;
-}
-
-void simulation_seed_default_civilizations(void) {
-    const char symbols[MAX_CIVS] = {
-        'R', 'B', 'G', 'Y', 'V', 'O', 'T', 'M',
-        'I', 'K', 'A', 'Z', 'C', 'S', 'J', 'P',
-        'Q', 'L', 'D', 'U', 'H', 'N', 'W', 'E',
-        'F', 'X', 'Q', 'V', 'L', 'O', 'M', 'R'
-    };
-    const int traits[MAX_CIVS][7] = {
-        {8, 7, 4, 3, 6, 5, 4}, {3, 4, 8, 6, 5, 5, 6},
-        {5, 6, 5, 7, 6, 6, 7}, {4, 6, 5, 8, 6, 8, 7},
-        {6, 5, 6, 6, 6, 6, 6}, {7, 5, 5, 4, 6, 5, 4},
-        {4, 7, 4, 7, 5, 7, 6}, {5, 5, 7, 5, 6, 5, 6},
-        {2, 6, 8, 8, 6, 7, 8}, {9, 5, 5, 3, 6, 4, 4},
-        {5, 8, 4, 6, 7, 7, 5}, {3, 7, 6, 7, 6, 7, 7},
-        {8, 6, 4, 5, 6, 5, 5}, {4, 4, 9, 8, 6, 6, 8},
-        {3, 6, 5, 9, 5, 7, 8}, {6, 7, 6, 4, 7, 6, 5},
-        {4, 7, 6, 6, 7, 7, 6}, {6, 6, 5, 5, 7, 6, 5},
-        {5, 7, 7, 6, 6, 6, 7}, {7, 5, 5, 6, 6, 6, 5},
-        {4, 6, 8, 7, 5, 6, 6}, {5, 8, 5, 6, 7, 8, 7},
-        {6, 6, 5, 5, 8, 7, 6}, {4, 7, 6, 8, 5, 7, 7},
-        {7, 6, 4, 5, 7, 6, 5}, {3, 7, 7, 7, 6, 8, 6},
-        {8, 5, 5, 4, 7, 5, 5}, {5, 8, 6, 7, 6, 8, 7},
-        {4, 6, 8, 8, 5, 6, 8}, {6, 7, 5, 5, 8, 7, 6},
-        {3, 8, 7, 7, 6, 8, 7}, {7, 5, 6, 5, 7, 6, 6}
-    };
-    int i;
-    int count = clamp(initial_civ_count, 0, MAX_CIVS);
-
-    for (i = 0; i < count; i++) {
-        add_civilization_at("", symbols[i], traits[i][0], traits[i][1], traits[i][2],
-                            traits[i][3], traits[i][4], traits[i][5], traits[i][6], -1, -1);
-    }
 }
 
 void simulation_reset_state(void) {
@@ -465,13 +468,7 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
 
     if (civ_id < 0 || civ_id >= civ_count) return;
     civ = &civs[civ_id];
-    if (name && name[0] != '\0') {
-        const char *current_en = civilization_display_name_for_language(civ_id, 0);
-        const char *current_zh = civilization_display_name_for_language(civ_id, 1);
-        if (strcmp(name, current_en) != 0 && strcmp(name, current_zh) != 0) {
-            civilization_set_custom_name(civ, name);
-        }
-    }
+    if (name && name[0] != '\0') civilization_apply_input_name(civ, name, 0);
     if (symbol != '\0') civ->symbol = symbol;
     memset(&birth, 0, sizeof(birth));
     if (civ->capital_city >= 0 && civ->capital_city < city_count) {

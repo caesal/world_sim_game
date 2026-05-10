@@ -11,6 +11,7 @@ SOURCES := \
 	src/core/game_state.c \
 	src/core/dirty_flags.c \
 	src/core/profiler.c \
+	src/core/state_lock.c \
 	src/data/country_names.c \
 	src/data/game_tables.c \
 	src/world/world_gen.c \
@@ -20,19 +21,26 @@ SOURCES := \
 	src/world/world_smoothing.c \
 	src/world/rivers.c \
 	src/sim/simulation.c \
+	src/sim/simulation_seed.c \
 	src/sim/simulation_month.c \
 	src/sim/simulation_scheduler.c \
+	src/sim/simulation_worker.c \
 	src/world/noise.c \
 	src/world/ports.c \
 	src/sim/ports.c \
 	src/sim/maritime.c \
 	src/sim/maritime_diag.c \
+	src/sim/sea_nav.c \
+	src/sim/sea_lanes.c \
+	src/sim/vassal.c \
+	src/sim/civilization_slots.c \
 	src/sim/civ_colors.c \
 	src/sim/disorder.c \
 	src/sim/collapse.c \
 	src/sim/population.c \
 	src/sim/plague.c \
 	src/sim/civilization_metrics.c \
+	src/sim/decision_snapshot.c \
 	src/sim/technology.c \
 	src/sim/province.c \
 	src/sim/province_partition.c \
@@ -43,28 +51,36 @@ SOURCES := \
 	src/sim/spawn.c \
 	src/sim/expansion.c \
 	src/sim/diplomacy.c \
+	src/sim/diplomacy_names.c \
 	src/sim/war.c \
+	src/sim/war_resolution.c \
 	src/render/render.c \
 	src/render/render_common.c \
 	src/render/cartography_layers.c \
-	src/render/border_paths.c \
+	src/render/contour_paths.c \
+	src/render/vector_paths.c \
 	src/render/map_render.c \
+	src/render/terrain_present.c \
 	src/render/region_render.c \
 	src/render/map_labels.c \
-	src/render/maritime_render.c \
+	src/render/route_render.c \
+	src/render/sea_lane_render.c \
 	src/render/plague_render.c \
 	src/render/plague_visual.c \
 	src/render/pause_menu_render.c \
-	src/render/panel_selection.c \
 	src/render/panel_country.c \
 	src/render/panel_country_detail.c \
+	src/render/panel_country_tech.c \
+	src/render/panel_country_decision.c \
+	src/render/panel_country_population.c \
+	src/render/panel_country_resources.c \
+	src/render/panel_country_diplomacy.c \
 	src/render/panel_population_page.c \
 	src/render/panel_plague_page.c \
 	src/render/panel_worldgen.c \
 	src/render/panel_debug.c \
 	src/render/panel_population.c \
 	src/render/panel_info.c \
-	src/render/panel_diplomacy.c \
 	src/render/panel_map.c \
 	src/render/icons.c \
 	src/ui/ui_theme.c \

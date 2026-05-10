@@ -31,8 +31,8 @@ static void draw_population_bar(HDC hdc, RECT rect, int value, int max_value, in
     fill_rect(hdc, bar, color);
 }
 
-int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int civ_id, HFONT body_font) {
-    PopulationSummary summary = population_country_summary(civ_id);
+int draw_population_pyramid_summary(HDC hdc, RECT client, int x, int y, int width,
+                                    PopulationSummary summary, HFONT body_font) {
     int center = x + width / 2;
     int bar_w = (width - 116) / 2;
     int row_h = 15;
@@ -71,4 +71,9 @@ int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int c
              tr("Pressure", "\u538B\u529B"), summary.pressure);
     draw_text_line(hdc, x, y, text, RGB(178, 190, 202));
     return y + 24;
+}
+
+int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int civ_id, HFONT body_font) {
+    return draw_population_pyramid_summary(hdc, client, x, y, width,
+                                           population_country_summary(civ_id), body_font);
 }

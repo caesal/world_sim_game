@@ -6,5 +6,7 @@ int game_loop_tick_frame(void);
 int game_loop_actual_ms_per_month(void);
 int game_loop_pending_months(void);
 int game_loop_simulation_overloaded(void);
+int game_loop_snapshot_age_ms(void);
+const char *game_loop_worker_status(void);
 
 #endif

@@ -15,8 +15,21 @@ static unsigned int render_dirty_flags =
     DIRTY_RENDER_COAST | DIRTY_RENDER_LABELS | DIRTY_RENDER_PLAGUE |
     DIRTY_RENDER_MARITIME;
 
+static int terrain_revision = 1;
+static int coast_revision = 1;
+static int ownership_revision = 1;
+static int province_revision = 1;
+static int route_revision = 1;
+static int label_revision = 1;
+static int plague_revision = 1;
+static int ui_revision = 1;
+
 static void mark(unsigned int flags) {
     render_dirty_flags |= flags;
+}
+
+static void bump(int *revision) {
+    if (++(*revision) <= 0) *revision = 1;
 }
 
 static int has(unsigned int flags) {
@@ -35,30 +48,48 @@ void dirty_mark_world(void) {
     mark(DIRTY_RENDER_TERRAIN | DIRTY_RENDER_COAST | DIRTY_RENDER_POLITICAL |
          DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS | DIRTY_RENDER_PLAGUE |
          DIRTY_RENDER_MARITIME);
+    bump(&terrain_revision);
+    bump(&coast_revision);
+    bump(&ownership_revision);
+    bump(&province_revision);
+    bump(&route_revision);
+    bump(&label_revision);
+    bump(&plague_revision);
+    bump(&ui_revision);
 }
 
 void dirty_mark_territory(void) {
     mark(DIRTY_RENDER_POLITICAL | DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
+    bump(&ownership_revision);
+    bump(&province_revision);
+    bump(&label_revision);
 }
 
 void dirty_mark_province(void) {
     mark(DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
+    bump(&province_revision);
+    bump(&label_revision);
 }
 
 void dirty_mark_population(void) {
     mark(DIRTY_RENDER_LABELS);
+    bump(&label_revision);
 }
 
 void dirty_mark_plague(void) {
     mark(DIRTY_RENDER_PLAGUE);
+    bump(&plague_revision);
 }
 
 void dirty_mark_maritime(void) {
     mark(DIRTY_RENDER_MARITIME | DIRTY_RENDER_LABELS);
+    bump(&route_revision);
+    bump(&label_revision);
 }
 
 void dirty_mark_labels(void) {
     mark(DIRTY_RENDER_LABELS);
+    bump(&label_revision);
 }
 
 void dirty_mark_all_render(void) {
@@ -73,6 +104,15 @@ int dirty_render_labels(void) { return has(DIRTY_RENDER_LABELS); }
 int dirty_render_plague(void) { return has(DIRTY_RENDER_PLAGUE); }
 int dirty_render_maritime(void) { return has(DIRTY_RENDER_MARITIME); }
 int dirty_any_render(void) { return render_dirty_flags != 0; }
+
+int dirty_revision_terrain(void) { return terrain_revision; }
+int dirty_revision_coast(void) { return coast_revision; }
+int dirty_revision_ownership(void) { return ownership_revision; }
+int dirty_revision_province(void) { return province_revision; }
+int dirty_revision_route(void) { return route_revision; }
+int dirty_revision_label(void) { return label_revision; }
+int dirty_revision_plague(void) { return plague_revision; }
+int dirty_revision_ui(void) { return ui_revision; }
 
 void dirty_clear_render_terrain(void) { clear(DIRTY_RENDER_TERRAIN); }
 void dirty_clear_render_political(void) { clear(DIRTY_RENDER_POLITICAL); }

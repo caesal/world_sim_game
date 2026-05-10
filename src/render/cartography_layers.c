@@ -1,10 +1,10 @@
 #include "cartography_layers.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "render/contour_paths.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
-
-#define CARTO_CACHE_SCALE 3
 
 typedef struct {
     HDC dc;
@@ -21,10 +21,6 @@ typedef struct {
 
 static CartoCache political_cache;
 static CartoCache coast_halo_cache;
-static CartoCache region_cache;
-static CartoCache province_cache;
-static CartoCache country_cache;
-static CartoCache coastline_cache;
 static unsigned char mask_a[MAX_MAP_W * MAX_MAP_H];
 static unsigned char mask_b[MAX_MAP_W * MAX_MAP_H];
 
@@ -65,14 +61,14 @@ static int ensure_cache(HDC hdc, CartoCache *cache, int scale) {
     return 1;
 }
 
-static int cache_current(const CartoCache *cache, int display_sensitive) {
-    return cache->valid && cache->revision == world_visual_revision &&
+static int cache_current(const CartoCache *cache, int display_sensitive, int revision) {
+    return cache->valid && cache->revision == revision &&
            (!display_sensitive || cache->display == display_mode);
 }
 
-static void clear_cache(CartoCache *cache) {
+static void clear_cache(CartoCache *cache, int revision) {
     memset(cache->pixels, 0, (size_t)cache->width * cache->height * sizeof(unsigned int));
-    cache->revision = world_visual_revision;
+    cache->revision = revision;
     cache->display = display_mode;
     cache->valid = 1;
 }
@@ -80,7 +76,7 @@ static void clear_cache(CartoCache *cache) {
 static void present_cache(HDC hdc, CartoCache *cache, MapLayout layout) {
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
 
-    SetStretchBltMode(hdc, HALFTONE);
+    SetStretchBltMode(hdc, layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);
     SetBrushOrgEx(hdc, 0, 0, NULL);
     AlphaBlend(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
                cache->dc, 0, 0, cache->width, cache->height, blend);
@@ -103,40 +99,24 @@ static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     *dst = (unsigned int)b | ((unsigned int)g << 8) | ((unsigned int)r << 16) | ((unsigned int)a << 24);
 }
 
-static void build_owner_mask(int owner) {
-    int x, y;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int active = owner >= 0 && owner < civ_count && civs[owner].alive && world[y][x].owner == owner;
-            mask_a[y * MAP_W + x] = active ? 255 : 0;
-        }
-    }
-}
-
-static void build_province_mask(int province_id) {
-    int x, y;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int active = province_id >= 0 && province_id < city_count && cities[province_id].alive &&
-                         world[y][x].province_id == province_id;
-            mask_a[y * MAP_W + x] = active ? 255 : 0;
-        }
-    }
-}
-
-static void build_region_mask(int region_id) {
-    int x, y;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            mask_a[y * MAP_W + x] = world[y][x].region_id == region_id ? 255 : 0;
-        }
-    }
+static int alive_owner(int owner) {
+    return owner >= 0 && owner < civ_count && civs[owner].alive;
 }
 
 static void build_land_mask(void) {
     int x, y;
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) mask_a[y * MAP_W + x] = is_land(world[y][x].geography) ? 255 : 0;
+    }
+}
+
+static void build_owner_mask(int owner) {
+    int x, y;
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int active = alive_owner(owner) && world[y][x].owner == owner;
+            mask_a[y * MAP_W + x] = active ? 255 : 0;
+        }
     }
 }
 
@@ -190,67 +170,6 @@ static void filter_mask(int passes, int fill_threshold, int keep_threshold) {
     }
 }
 
-static float iso_t(int a, int b) {
-    if (a == b) return 0.5f;
-    return (float)clamp((128 - a) * 1000 / (b - a), 0, 1000) / 1000.0f;
-}
-
-static POINT edge_point(int x, int y, int edge, int v[4], int scale) {
-    POINT p = {x * scale, y * scale};
-    if (edge == 0) p.x += (int)(iso_t(v[0], v[1]) * scale);
-    else if (edge == 1) { p.x += scale; p.y += (int)(iso_t(v[1], v[2]) * scale); }
-    else if (edge == 2) { p.x += (int)(iso_t(v[3], v[2]) * scale); p.y += scale; }
-    else p.y += (int)(iso_t(v[0], v[3]) * scale);
-    return p;
-}
-
-static void draw_iso_mask(HDC hdc, int scale, COLORREF color, int width) {
-    HPEN pen = CreatePen(PS_SOLID, max(1, width), color);
-    HPEN old_pen = SelectObject(hdc, pen);
-    int x, y;
-    for (y = 0; y < MAP_H - 1; y++) {
-        for (x = 0; x < MAP_W - 1; x++) {
-            int v[4], edges[4], count = 0, e;
-            v[0] = mask_a[y * MAP_W + x];
-            v[1] = mask_a[y * MAP_W + x + 1];
-            v[2] = mask_a[(y + 1) * MAP_W + x + 1];
-            v[3] = mask_a[(y + 1) * MAP_W + x];
-            for (e = 0; e < 4; e++) {
-                int a = v[e], b = v[(e + 1) % 4];
-                if ((a < 128 && b >= 128) || (a >= 128 && b < 128)) edges[count++] = e;
-            }
-            if (count >= 2) {
-                POINT a = edge_point(x, y, edges[0], v, scale);
-                POINT b = edge_point(x, y, edges[1], v, scale);
-                MoveToEx(hdc, a.x, a.y, NULL);
-                LineTo(hdc, b.x, b.y);
-            }
-            if (count == 4) {
-                POINT a = edge_point(x, y, edges[2], v, scale);
-                POINT b = edge_point(x, y, edges[3], v, scale);
-                MoveToEx(hdc, a.x, a.y, NULL);
-                LineTo(hdc, b.x, b.y);
-            }
-        }
-    }
-    SelectObject(hdc, old_pen);
-    DeleteObject(pen);
-}
-
-static void apply_alpha(CartoCache *cache, int alpha) {
-    int total = cache->width * cache->height;
-    int i;
-    for (i = 0; i < total; i++) {
-        unsigned int rgb = cache->pixels[i] & 0x00ffffff;
-        if (rgb) {
-            unsigned int b = (rgb & 255) * (unsigned int)alpha / 255;
-            unsigned int g = ((rgb >> 8) & 255) * (unsigned int)alpha / 255;
-            unsigned int r = ((rgb >> 16) & 255) * (unsigned int)alpha / 255;
-            cache->pixels[i] = b | (g << 8) | (r << 16) | ((unsigned int)alpha << 24);
-        }
-    }
-}
-
 static void apply_mask_overlay(CartoCache *cache, COLORREF color, int max_alpha) {
     int i;
     for (i = 0; i < MAP_W * MAP_H; i++) {
@@ -261,20 +180,21 @@ static void apply_mask_overlay(CartoCache *cache, COLORREF color, int max_alpha)
 
 static void rebuild_political(HDC hdc) {
     int i;
+    int alpha = display_mode == DISPLAY_POLITICAL ? 144 : 88;
     if (!ensure_cache(hdc, &political_cache, 1)) return;
-    clear_cache(&political_cache);
+    clear_cache(&political_cache, dirty_revision_ownership());
     for (i = 0; i < civ_count; i++) {
         if (!civs[i].alive) continue;
         build_owner_mask(i);
         blur_mask(1);
-        apply_mask_overlay(&political_cache, civs[i].color, 56);
+        apply_mask_overlay(&political_cache, civs[i].color, alpha);
     }
 }
 
 static void rebuild_coast_halo(HDC hdc) {
     int x, y;
     if (!ensure_cache(hdc, &coast_halo_cache, 1)) return;
-    clear_cache(&coast_halo_cache);
+    clear_cache(&coast_halo_cache, dirty_revision_coast());
     build_land_mask();
     filter_mask(1, 6, 3);
     blur_mask(2);
@@ -289,100 +209,51 @@ static void rebuild_coast_halo(HDC hdc) {
     }
 }
 
-static void rebuild_region_borders(HDC hdc) {
-    int i;
-    COLORREF color = display_mode == DISPLAY_REGIONS ? RGB(42, 49, 42) : RGB(72, 82, 72);
-    if (!ensure_cache(hdc, &region_cache, CARTO_CACHE_SCALE)) return;
-    clear_cache(&region_cache);
-    SetBkMode(region_cache.dc, TRANSPARENT);
-    for (i = 0; i < region_count; i++) {
-        if (natural_regions[i].tile_count <= 0) continue;
-        build_region_mask(i);
-        filter_mask(1, 6, 3);
-        blur_mask(1);
-        draw_iso_mask(region_cache.dc, CARTO_CACHE_SCALE, color, 1);
-    }
-    apply_alpha(&region_cache, display_mode == DISPLAY_REGIONS ? 84 : 46);
-}
-
-static void rebuild_provinces(HDC hdc) {
-    int i;
-    if (!ensure_cache(hdc, &province_cache, CARTO_CACHE_SCALE)) return;
-    clear_cache(&province_cache);
-    SetBkMode(province_cache.dc, TRANSPARENT);
-    for (i = 0; i < city_count; i++) {
-        if (!cities[i].alive || cities[i].owner < 0) continue;
-        build_province_mask(i);
-        blur_mask(1);
-        draw_iso_mask(province_cache.dc, CARTO_CACHE_SCALE, RGB(72, 69, 52), 1);
-    }
-    apply_alpha(&province_cache, 42);
-}
-
-static void rebuild_countries(HDC hdc) {
-    int i;
-    if (!ensure_cache(hdc, &country_cache, CARTO_CACHE_SCALE)) return;
-    clear_cache(&country_cache);
-    SetBkMode(country_cache.dc, TRANSPARENT);
-    for (i = 0; i < civ_count; i++) {
-        if (!civs[i].alive) continue;
-        build_owner_mask(i);
-        filter_mask(1, 6, 3);
-        blur_mask(2);
-        draw_iso_mask(country_cache.dc, CARTO_CACHE_SCALE, RGB(42, 38, 31), 2);
-        draw_iso_mask(country_cache.dc, CARTO_CACHE_SCALE,
-                      blend_color(civs[i].color, RGB(50, 40, 32), 22), 1);
-    }
-    apply_alpha(&country_cache, 108);
-}
-
-static void rebuild_coastline(HDC hdc) {
-    if (!ensure_cache(hdc, &coastline_cache, CARTO_CACHE_SCALE)) return;
-    clear_cache(&coastline_cache);
-    SetBkMode(coastline_cache.dc, TRANSPARENT);
-    build_land_mask();
-    filter_mask(1, 6, 3);
-    blur_mask(2);
-    draw_iso_mask(coastline_cache.dc, CARTO_CACHE_SCALE, RGB(24, 45, 39), 2);
-    draw_iso_mask(coastline_cache.dc, CARTO_CACHE_SCALE, RGB(67, 113, 96), 1);
-    apply_alpha(&coastline_cache, 96);
-}
-
 void draw_cartography_political_fills(HDC hdc, RECT client, MapLayout layout) {
     (void)client;
-    if (display_mode != DISPLAY_POLITICAL) return;
-    if (!cache_current(&political_cache, 1)) rebuild_political(hdc);
+    if (display_mode != DISPLAY_ALL && display_mode != DISPLAY_POLITICAL) return;
+    if (dirty_render_political() ||
+        !cache_current(&political_cache, 1, dirty_revision_ownership())) rebuild_political(hdc);
     if (political_cache.valid) present_cache(hdc, &political_cache, layout);
 }
 
 void draw_cartography_coast_halo(HDC hdc, RECT client, MapLayout layout) {
     (void)client;
-    if (!cache_current(&coast_halo_cache, 0)) rebuild_coast_halo(hdc);
+    if (!cache_current(&coast_halo_cache, 0, dirty_revision_coast())) rebuild_coast_halo(hdc);
     if (coast_halo_cache.valid) present_cache(hdc, &coast_halo_cache, layout);
 }
 
 void draw_cartography_region_borders(HDC hdc, RECT client, MapLayout layout) {
-    (void)client;
     if (display_mode != DISPLAY_REGIONS && !(display_mode == DISPLAY_ALL && civ_count == 0)) return;
-    if (!cache_current(&region_cache, 1)) rebuild_region_borders(hdc);
-    if (region_cache.valid) present_cache(hdc, &region_cache, layout);
+    contour_paths_draw_region_borders(hdc, client, layout);
 }
 
 void draw_cartography_province_borders(HDC hdc, RECT client, MapLayout layout) {
-    (void)client;
     if (layout.tile_size < 7) return;
-    if (!cache_current(&province_cache, 0)) rebuild_provinces(hdc);
-    if (province_cache.valid) present_cache(hdc, &province_cache, layout);
+    contour_paths_draw_province_borders(hdc, client, layout);
 }
 
 void draw_cartography_country_borders(HDC hdc, RECT client, MapLayout layout) {
-    (void)client;
-    if (!cache_current(&country_cache, 0)) rebuild_countries(hdc);
-    if (country_cache.valid) present_cache(hdc, &country_cache, layout);
+    contour_paths_draw_country_borders(hdc, client, layout);
 }
 
 void draw_cartography_coastline(HDC hdc, RECT client, MapLayout layout) {
+    contour_paths_draw_coastline(hdc, client, layout);
+}
+
+void draw_map_grid_overlay(HDC hdc, RECT client, MapLayout layout) {
+    int step = 100;
+    int i;
+
     (void)client;
-    if (!cache_current(&coastline_cache, 0)) rebuild_coastline(hdc);
-    if (coastline_cache.valid) present_cache(hdc, &coastline_cache, layout);
+    for (i = 0; i <= MAP_W; i += step) {
+        int sx = layout.map_x + i * layout.draw_w / MAP_W;
+        RECT line = {sx, layout.map_y, sx + 1, layout.map_y + layout.draw_h};
+        fill_rect_alpha(hdc, line, RGB(222, 211, 150), 42);
+    }
+    for (i = 0; i <= MAP_H; i += step) {
+        int sy = layout.map_y + i * layout.draw_h / MAP_H;
+        RECT line = {layout.map_x, sy, layout.map_x + layout.draw_w, sy + 1};
+        fill_rect_alpha(hdc, line, RGB(222, 211, 150), 38);
+    }
 }

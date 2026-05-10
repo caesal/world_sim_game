@@ -13,17 +13,12 @@
 #include <string.h>
 
 #define DIAG_MAX_ROUTE_DISTANCE 700
-#define DIAG_MAX_SEARCH_NODES 52000
-
-static MapPoint diag_queue[MAX_MAP_W * MAX_MAP_H];
-static unsigned short diag_dist[MAX_MAP_H][MAX_MAP_W];
-static int diag_mark[MAX_MAP_H][MAX_MAP_W];
-static int diag_mark_id = 1;
 
 typedef struct {
     int valid;
     int resource_score;
     int world_revision;
+    int ownership_revision;
     int city_total;
     int region_total;
     int tech_stage;
@@ -39,6 +34,7 @@ static int diag_cache_hit(int civ_id, int resource_score, MaritimeExpansionDiagn
     cache = &diag_cache[civ_id];
     if (!cache->valid || cache->resource_score != resource_score ||
         cache->world_revision != maritime_route_revision() ||
+        cache->ownership_revision != maritime_ownership_revision() ||
         cache->city_total != city_count || cache->region_total != region_count ||
         cache->tech_stage != civs[civ_id].tech_stage) return 0;
     *out = cache->data;
@@ -53,65 +49,11 @@ static void diag_cache_store(int civ_id, int resource_score, const MaritimeExpan
     cache->valid = 1;
     cache->resource_score = resource_score;
     cache->world_revision = maritime_route_revision();
+    cache->ownership_revision = maritime_ownership_revision();
     cache->city_total = city_count;
     cache->region_total = region_count;
     cache->tech_stage = civs[civ_id].tech_stage;
     cache->data = *data;
-}
-
-static int diag_route_tile_ok(int x, int y, int region) {
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    if (region < 0) return world[y][x].geography == GEO_OCEAN || world[y][x].geography == GEO_BAY;
-    return ports_tile_shallow_region_near_land(x, y) == region;
-}
-
-static int diag_find_sea_path(int sx, int sy, int ex, int ey, int region, int *distance) {
-    static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    int head = 0;
-    int tail = 0;
-
-    if (!diag_route_tile_ok(sx, sy, region) || !diag_route_tile_ok(ex, ey, region)) return 0;
-    if (++diag_mark_id == 0) {
-        memset(diag_mark, 0, sizeof(diag_mark));
-        diag_mark_id = 1;
-    }
-    diag_queue[tail].x = sx;
-    diag_queue[tail].y = sy;
-    diag_mark[sy][sx] = diag_mark_id;
-    diag_dist[sy][sx] = 0;
-    tail++;
-    while (head < tail && tail < DIAG_MAX_SEARCH_NODES) {
-        MapPoint node = diag_queue[head++];
-        int i;
-        if (node.x == ex && node.y == ey) {
-            if (distance) *distance = diag_dist[ey][ex];
-            profiler_add_maritime_path_search(head);
-            return 1;
-        }
-        if (diag_dist[node.y][node.x] >= DIAG_MAX_ROUTE_DISTANCE) continue;
-        for (i = 0; i < 4; i++) {
-            int nx = node.x + dirs[i][0];
-            int ny = node.y + dirs[i][1];
-            if (!diag_route_tile_ok(nx, ny, region) || diag_mark[ny][nx] == diag_mark_id) continue;
-            diag_mark[ny][nx] = diag_mark_id;
-            diag_dist[ny][nx] = diag_dist[node.y][node.x] + 1;
-            diag_queue[tail].x = nx;
-            diag_queue[tail].y = ny;
-            tail++;
-        }
-    }
-    profiler_add_maritime_path_search(head);
-    return 0;
-}
-
-static int diag_city_sea_entry(int city_id, int *sea_x, int *sea_y, int *region) {
-    City *city;
-
-    if (!ports_city_is_valid_port(city_id)) return 0;
-    city = &cities[city_id];
-    if (!ports_find_nearby_sea_entry(city->port_x, city->port_y, sea_x, sea_y)) return 0;
-    if (region) *region = ports_tile_shallow_region_near_land(*sea_x, *sea_y);
-    return region == NULL || *region >= 0;
 }
 
 static int diag_civ_has_port(int civ_id) {
@@ -152,28 +94,6 @@ static int diag_nearest_port_distance(int civ_id, int target_x, int target_y, in
     return 1;
 }
 
-static int diag_path_distance(int civ_id, int target_x, int target_y, int target_region,
-                              int allow_deep, int *distance) {
-    int i;
-    int best = 1000000;
-
-    for (i = 0; i < city_count; i++) {
-        int sx;
-        int sy;
-        int region;
-        int dist;
-        if (!ports_city_is_valid_port(i) || cities[i].owner != civ_id) continue;
-        if (!diag_city_sea_entry(i, &sx, &sy, &region)) continue;
-        if (!allow_deep && region != target_region) continue;
-        if (!diag_find_sea_path(sx, sy, target_x, target_y,
-                                allow_deep ? -1 : region, &dist)) continue;
-        if (dist < best) best = dist;
-    }
-    if (best == 1000000) return 0;
-    if (distance) *distance = best;
-    return 1;
-}
-
 static int diag_target_score(int civ_id, const NaturalRegion *region, int pressure) {
     int score = region->development_score + region->cradle_score / 2;
 
@@ -196,6 +116,7 @@ static int diag_region_claimable(const NaturalRegion *region) {
 }
 
 void maritime_expansion_diagnostics(int civ_id, int resource_score, MaritimeExpansionDiagnostics *out) {
+    ProfilerCallTrace trace = profiler_call_begin();
     int has_port;
     int sea_stability;
     int pressure;
@@ -203,8 +124,14 @@ void maritime_expansion_diagnostics(int civ_id, int resource_score, MaritimeExpa
 
     if (!out) return;
     memset(out, 0, sizeof(*out));
-    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
-    if (diag_cache_hit(civ_id, resource_score, out)) return;
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
+        profiler_call_end("maritime_expansion_diagnostics", civ_id, -1, trace);
+        return;
+    }
+    if (diag_cache_hit(civ_id, resource_score, out)) {
+        profiler_call_end("maritime_expansion_diagnostics", civ_id, -1, trace);
+        return;
+    }
     has_port = diag_civ_has_port(civ_id);
     sea_stability = technology_deep_sea_stability(civ_id);
     pressure = max(population_pressure_for_civ(civ_id) / 8, clamp(18 - resource_score, 0, 14));
@@ -215,7 +142,6 @@ void maritime_expansion_diagnostics(int civ_id, int resource_score, MaritimeExpa
         int sea_y;
         int sea_region;
         int direct = 0;
-        int distance = 0;
         int score;
         int threshold;
 
@@ -234,24 +160,23 @@ void maritime_expansion_diagnostics(int civ_id, int resource_score, MaritimeExpa
         if (!has_port) continue;
         if (diag_civ_port_in_region(civ_id, sea_region, sea_x, sea_y, &direct)) {
             out->shallow_reachable_regions++;
-            if (diag_path_distance(civ_id, sea_x, sea_y, sea_region, 0, &distance)) {
+            score = diag_target_score(civ_id, region, pressure) - direct / 3;
+            threshold = 116 - pressure * 5 - civs[civ_id].logistics * 4 -
+                        civs[civ_id].commerce * 3 - civs[civ_id].expansion * 3;
+            if (sea_stability <= 0) threshold += 10;
+            if (city_count >= MAX_CITIES) out->blocked_city_cap++;
+            else if (score < threshold) out->blocked_low_score++;
+            else {
                 out->maritime_reachable_regions++;
-                score = diag_target_score(civ_id, region, pressure) - direct / 3 - distance / 2;
-                threshold = 116 - pressure * 5 - civs[civ_id].logistics * 4 -
-                            civs[civ_id].commerce * 3 - civs[civ_id].expansion * 3;
-                if (sea_stability <= 0) threshold += 10;
-                if (city_count >= MAX_CITIES) out->blocked_city_cap++;
-                else if (score < threshold) out->blocked_low_score++;
-            } else {
-                out->blocked_no_path++;
             }
         } else {
             out->blocked_same_shallow_region++;
         }
         if (sea_stability > 0 && diag_nearest_port_distance(civ_id, sea_x, sea_y, &direct) &&
-            diag_path_distance(civ_id, sea_x, sea_y, sea_region, 1, &distance)) {
+            direct <= DIAG_MAX_ROUTE_DISTANCE) {
             out->deep_reachable_regions++;
         }
     }
     diag_cache_store(civ_id, resource_score, out);
+    profiler_call_end("maritime_expansion_diagnostics", civ_id, -1, trace);
 }

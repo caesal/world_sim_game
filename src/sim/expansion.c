@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define EXPANSION_REGION_SCAN_PER_STEP 24
+#define EXPANSION_REGION_SCAN_PER_STEP 8
 
 enum {
     EXPANSION_WORK_TARGET,
@@ -162,16 +162,21 @@ static ExpansionAIDiagnostics expansion_land_diagnostics(int civ_id, int resourc
 }
 
 ExpansionAIDiagnostics expansion_ai_diagnostics(int civ_id, int resource_score) {
+    ProfilerCallTrace trace = profiler_call_begin();
     ExpansionAIDiagnostics ai = expansion_land_diagnostics(civ_id, resource_score);
     MaritimeExpansionDiagnostics sea;
 
-    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return ai;
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
+        profiler_call_end("expansion_ai_diagnostics", civ_id, -1, trace);
+        return ai;
+    }
     maritime_expansion_diagnostics(civ_id, resource_score, &sea);
     ai.port_candidate_regions = sea.port_candidate_regions;
     ai.shallow_sea_reachable_regions = sea.shallow_reachable_regions;
     ai.maritime_reachable_regions = sea.maritime_reachable_regions;
     ai.deep_sea_reachable_regions = sea.deep_reachable_regions;
     finalize_expansion_ai(civ_id, &ai);
+    profiler_call_end("expansion_ai_diagnostics", civ_id, -1, trace);
     return ai;
 }
 

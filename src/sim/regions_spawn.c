@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "core/profiler.h"
 #include "sim/diplomacy.h"
+#include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/simulation.h"
@@ -278,12 +279,14 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     int start;
     int count;
     int i;
+    ProfilerCallTrace trace;
 
     if (region_id < 0 || region_id >= region_count || owner < 0 || owner >= MAX_CIVS) return 0;
     region = &natural_regions[region_id];
     if (!region->alive) return 0;
     if (!region_claim_tiles(region_id, &start, &count)) return 0;
     claim_start = GetTickCount();
+    trace = profiler_call_begin();
     admin_city = city_is_in_region(preferred_city_id, region_id) ? preferred_city_id : -1;
     if (admin_city < 0) admin_city = find_region_city(region_id, owner);
     if (admin_city < 0 && region->owner_civ == owner && city_can_admin_region(region->city_id, owner, region_id)) {
@@ -295,6 +298,7 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     if (admin_city < 0) admin_city = find_nearest_owner_city(region, owner);
     if (admin_city < 0) {
         profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));
+        profiler_call_end("regions_claim_for_civ", owner, region_id, trace);
         return 0;
     }
 
@@ -327,7 +331,9 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     dirty_mark_territory();
     dirty_mark_labels();
     diplomacy_mark_contacts_dirty();
+    maritime_mark_ownership_dirty();
     profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));
+    profiler_call_end("regions_claim_for_civ", owner, region_id, trace);
     return 1;
 }
 

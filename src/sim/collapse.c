@@ -3,17 +3,20 @@
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "sim/civ_colors.h"
+#include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/vassal.h"
 
 #include <stdio.h>
 #include <string.h>
 
-static char collapse_reasons[MAX_CIVS][128];
+static char collapse_reasons[MAX_CIVS][EVENT_LOG_LEN];
+static char collapse_block_details[MAX_CIVS][EVENT_LOG_LEN];
 static int immediate_attempt_month[MAX_CIVS];
 
 static int collapse_month_index(void) {
@@ -55,7 +58,7 @@ CollapseBlockReason collapse_block_reason(int civ_id) {
     if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
         return COLLAPSE_BLOCK_NOT_ALIVE;
     }
-    if (civ_count >= MAX_CIVS) return COLLAPSE_BLOCK_MAX_CIVS;
+    if (civilization_slot_capacity_left() <= 0) return COLLAPSE_BLOCK_MAX_CIVS;
     cap_region = capital_region_for_civ(civ_id);
     if (cap_region < 0) return COLLAPSE_BLOCK_NO_CAPITAL_REGION;
     for (i = 0; i < region_count; i++) {
@@ -80,24 +83,50 @@ const char *collapse_block_reason_text(CollapseBlockReason reason) {
     }
 }
 
+static const char *collapse_format_block_reason(int civ_id, CollapseBlockReason reason) {
+    if (civ_id < 0 || civ_id >= MAX_CIVS) return collapse_block_reason_text(reason);
+    if (reason == COLLAPSE_BLOCK_MAX_CIVS) {
+        snprintf(collapse_block_details[civ_id], sizeof(collapse_block_details[civ_id]),
+                 "Cannot collapse: no reusable or free country slots. Slots used %d/%d, alive %d, fallen reusable %d.",
+                 civ_count, MAX_CIVS, civilization_alive_count(), civilization_reusable_slot_count());
+        return collapse_block_details[civ_id];
+    }
+    snprintf(collapse_block_details[civ_id], sizeof(collapse_block_details[civ_id]),
+             "%s", collapse_block_reason_text(reason));
+    return collapse_block_details[civ_id];
+}
+
 static int create_successor_civ(int parent, int index, int seed_region) {
+    Civilization parent_state = civs[parent];
     Civilization *child;
     int child_id;
 
     (void)index;
-    if (civ_count >= MAX_CIVS) return -1;
-    child_id = civ_count++;
+    child_id = civilization_allocate_slot(1);
+    if (child_id < 0) return -1;
     child = &civs[child_id];
-    *child = civs[parent];
     civilization_assign_generated_name(child, civilization_pick_unused_name_id());
     child->symbol = (char)('a' + (child_id % 26));
-    child->color = civilization_pick_auto_color(child_id, seed_region);
+    child->color = civilization_pick_distinct_color(child_id, 0, parent, seed_region);
     child->alive = 1;
     child->population = 0;
     child->territory = 0;
-    child->tech_stage = clamp(civs[parent].tech_stage, 0, 10);
-    child->tech_progress = civs[parent].tech_progress;
-    child->disorder = clamp(civs[parent].disorder / 2, 20, 70);
+    child->aggression = parent_state.aggression;
+    child->expansion = parent_state.expansion;
+    child->defense = parent_state.defense;
+    child->culture = parent_state.culture;
+    child->governance = parent_state.governance;
+    child->cohesion = parent_state.cohesion;
+    child->production = parent_state.production;
+    child->military = parent_state.military;
+    child->commerce = parent_state.commerce;
+    child->logistics = parent_state.logistics;
+    child->innovation = parent_state.innovation;
+    child->adaptation = parent_state.adaptation;
+    child->tech_stage = clamp(parent_state.tech_stage, 0, 10);
+    child->tech_progress = parent_state.tech_progress;
+    child->deep_sea_route_unlocked_event_done = parent_state.deep_sea_route_unlocked_event_done;
+    child->disorder = clamp(parent_state.disorder / 2, 20, 70);
     child->disorder_stability = 25;
     child->capital_city = -1;
     if (seed_region >= 0 && seed_region < region_count) {
@@ -177,12 +206,14 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     if (block != COLLAPSE_BLOCK_NONE) {
         char event_text[EVENT_LOG_LEN];
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
-                 "Collapse blocked: %s", collapse_block_reason_text(block));
+                 "Collapse blocked: %s", collapse_format_block_reason(civ_id, block));
         snprintf(event_text, sizeof(event_text), "[Collapse] %s", collapse_reasons[civ_id]);
         event_log_push(event_text);
         return 0;
     }
-    for (i = 0; i < region_count && formed < 4 && civ_count < MAX_CIVS; i++) {
+    vassal_release(civ_id);
+    vassal_release_all(civ_id);
+    for (i = 0; i < region_count && formed < 4 && civilization_slot_capacity_left() > 0; i++) {
         int child;
         if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id || i == cap_region) continue;
         if (cause == COLLAPSE_CAUSE_PRESSURE &&
@@ -190,7 +221,7 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
         child = create_successor_civ(civ_id, formed, i);
         if (child < 0) break;
         if (add_neighbor_regions(civ_id, child, i, cap_region) <= 0) {
-            civs[child].alive = 0;
+            civilization_reset_slot_state(child);
             continue;
         }
         diplomacy_start_truce(civ_id, child, 45, 20);
@@ -201,6 +232,7 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     if (formed > 0) {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse formed %d successor state%s.", formed, formed == 1 ? "" : "s");
+        civilization_colors_debug_check();
         collapse_refresh_world();
     } else {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
@@ -223,7 +255,8 @@ int collapse_can_trigger(int civ_id) {
 }
 
 const char *collapse_trigger_block_reason(int civ_id) {
-    return collapse_block_reason_text(collapse_block_reason(civ_id));
+    CollapseBlockReason reason = collapse_block_reason(civ_id);
+    return collapse_format_block_reason(civ_id, reason);
 }
 
 const char *collapse_last_reason(int civ_id) {

@@ -82,8 +82,8 @@ GameState g_game = {
     &selected_civ_color
 };
 
-const int SPEED_MS[3] = {1000, 250, 50};
-const char *SPEED_NAMES[3] = {"Slow", "Normal", "Fast"};
+const int SPEED_MS[SPEED_COUNT] = {1000, 250, 100, 50, 10};
+const char *SPEED_NAMES[SPEED_COUNT] = {"1.00s", "0.25s", "0.10s", "0.05s", "0.01s"};
 const Color32 CIV_COLORS[MAX_CIVS] = {
     COLOR32_RGB(232, 31, 39),
     COLOR32_RGB(34, 88, 230),

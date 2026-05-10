@@ -91,7 +91,8 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
     snprintf(text, sizeof(text), "%d / %d ms", perf.frame_avg_ms, perf.frame_peak_ms);
     debug_row(hdc, cursor, tr("Frame avg / peak", "帧均值 / 峰值"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%d ms/month", perf.actual_ms_per_month);
+    snprintf(text, sizeof(text), "%d ms/month, %.1f months/sec", perf.actual_ms_per_month,
+             perf.actual_ms_per_month > 0 ? 1000.0 / perf.actual_ms_per_month : 0.0);
     debug_row(hdc, cursor, tr("Actual month time", "实际每月耗时"), text,
               perf.overloaded ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
 
@@ -104,6 +105,14 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
               perf.scheduler_step_over_budget ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
     debug_row(hdc, cursor, tr("Current Job", "当前任务"),
               perf.current_job[0] ? perf.current_job : "Idle", ui_theme_color(UI_COLOR_TEXT_MUTED));
+    debug_row(hdc, cursor, tr("Worker", "模拟线程"), game_loop_worker_status(),
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%d ms", game_loop_snapshot_age_ms());
+    debug_row(hdc, cursor, tr("Snapshot age", "快照延迟"), text,
+              game_loop_snapshot_age_ms() > 500 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    debug_row(hdc, cursor, tr("Slow Call", "慢调用"),
+              perf.last_slow_call[0] ? perf.last_slow_call : tr("None over 50 ms", "无超过 50ms"),
+              perf.last_slow_call_ms > perf.sim_budget_ms ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
     debug_row(hdc, cursor, tr("Status", "状态"),
               perf.overloaded ? tr("Simulation overloaded", "模拟过载") : tr("Responsive", "响应正常"),
               perf.overloaded ? RGB(218, 92, 78) : RGB(132, 188, 111));
@@ -121,6 +130,12 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "paths %d / nodes %d",
              perf.maritime_path_searches, perf.maritime_bfs_nodes);
     debug_row(hdc, cursor, tr("Maritime BFS", "海路搜索"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "lanes %d / merged %d / skipped %d / reject %d / %d ms",
+             perf.sea_lane_count, perf.sea_lane_merged_routes,
+             perf.sea_lane_skipped_routes, perf.route_land_reject_count,
+             perf.sea_lane_rebuild_ms);
+    debug_row(hdc, cursor, tr("Sea lanes", "视觉航道"), text,
+              perf.sea_lane_rebuild_ms > 30 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
 
     ui_section(hdc, cursor, tr("Render Cache", "渲染缓存"));
     snprintf(text, sizeof(text), "%d / %d ms", perf.render_avg_ms, perf.render_peak_ms);
@@ -130,6 +145,14 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
              perf.border_rebuild_count, perf.label_rebuild_count,
              perf.gdi_bitmap_recreate_count);
     debug_row(hdc, cursor, tr("Layer rebuilds", "图层重建"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s %dx%d stretch %d",
+             perf.terrain_render_mode[0] ? perf.terrain_render_mode : "unknown",
+             perf.terrain_cache_width, perf.terrain_cache_height, perf.terrain_stretch_mode);
+    debug_row(hdc, cursor, tr("Terrain mode", "地形模式"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "contours %d paths / %d ms",
+             perf.contour_path_count, perf.contour_rebuild_ms);
+    debug_row(hdc, cursor, tr("Contours", "轮廓线"), text,
+              perf.contour_rebuild_ms > 50 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "regions %d / tiles %d / claimed %d",
              perf.scanned_regions_this_month, perf.scanned_tiles_this_month,
              perf.claimed_regions_this_month);
@@ -176,7 +199,9 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
     }
     cursor.y = TOP_BAR_H + 154;
     ui_section(hdc, &cursor, tr("Target Speed", "目标速度"));
-    ui_row_text(hdc, &cursor, tr("Selected", "当前"), speed_seconds_text(speed_index));
+    snprintf(text, sizeof(text), "%s/month, %.1f months/sec",
+             speed_seconds_text(speed_index), 1000.0 / SPEED_MS[clamp(speed_index, 0, SPEED_COUNT - 1)]);
+    ui_row_text(hdc, &cursor, tr("Selected", "当前"), text);
     snprintf(text, sizeof(text), "%d ms/month, queue %d",
              game_loop_actual_ms_per_month(), game_loop_pending_months());
     ui_row_text(hdc, &cursor, tr("Measured", "实测"),

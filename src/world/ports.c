@@ -15,7 +15,7 @@ static int shallow_sea_dirty = 1;
 static SeaFrontierNode sea_frontier[MAX_MAP_W * MAX_MAP_H];
 
 static int is_sea_water(Geography geography) {
-    return geography == GEO_OCEAN || geography == GEO_BAY;
+    return geography == GEO_OCEAN || geography == GEO_BAY || geography == GEO_LAKE;
 }
 
 static int is_shallow_sea_tile(int x, int y) {

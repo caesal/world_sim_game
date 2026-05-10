@@ -4,6 +4,7 @@
 #include "sim/collapse.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
+#include "sim/vassal.h"
 
 #include <stdio.h>
 
@@ -77,6 +78,7 @@ void disorder_update_month(int civ_id, int resource_score) {
     delta = civ->disorder_resource / 18 + civ->disorder_plague / 24 +
             civ->disorder_migration / 26 + civ->disorder_stability / 28 - recovery;
     civ->disorder = clamp(civ->disorder + delta, 0, 100);
+    civ->disorder = max(civ->disorder, vassal_governance_disorder(civ_id));
     finish_disorder_change(civ_id, old_disorder, 1);
 }
 

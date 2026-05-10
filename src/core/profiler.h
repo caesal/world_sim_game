@@ -11,6 +11,15 @@ typedef enum {
 } ProfilerRenderLayer;
 
 typedef struct {
+    long long start_us;
+    int regions_scanned;
+    int tiles_scanned;
+    int claim_tiles_touched;
+    int maritime_path_searches;
+    int maritime_bfs_nodes;
+} ProfilerCallTrace;
+
+typedef struct {
     int frame_avg_ms;
     int frame_peak_ms;
     int sim_avg_ms;
@@ -47,8 +56,21 @@ typedef struct {
     int claim_tiles_touched;
     int maritime_path_searches;
     int maritime_bfs_nodes;
+    int sea_lane_rebuild_ms;
+    int sea_lane_count;
+    int sea_lane_merged_routes;
+    int sea_lane_skipped_routes;
+    int route_land_reject_count;
+    int contour_rebuild_ms;
+    int contour_path_count;
+    int terrain_cache_width;
+    int terrain_cache_height;
+    int terrain_stretch_mode;
+    char terrain_render_mode[24];
     int scheduler_step_ms;
     int scheduler_step_over_budget;
+    int last_slow_call_ms;
+    char last_slow_call[192];
 } RuntimeProfilerSnapshot;
 
 void profiler_reset(void);
@@ -69,7 +91,15 @@ void profiler_add_expansion_claim_success(int count);
 void profiler_add_expansion_target_search_ms(int ms);
 void profiler_add_claim_tiles_touched(int count);
 void profiler_add_maritime_path_search(int nodes);
+void profiler_record_sea_lanes(int rebuild_ms, int lanes, int merged, int skipped, int rejected);
+void profiler_record_contours(int rebuild_ms, int paths);
+void profiler_record_terrain_present(const char *mode, int width, int height, int stretch_mode);
 void profiler_record_scheduler_step(int step_ms, int over_budget);
+ProfilerCallTrace profiler_call_begin(void);
+int profiler_call_end(const char *function_name, int civ_id, int region_id,
+                      ProfilerCallTrace trace);
+int profiler_call_end_quiet(const char *function_name, int civ_id, int region_id,
+                            ProfilerCallTrace trace);
 void profiler_snapshot(RuntimeProfilerSnapshot *out);
 
 #endif

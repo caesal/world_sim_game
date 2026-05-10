@@ -26,7 +26,7 @@ static int find_land_seed(int *out_x, int *out_y) {
 }
 
 static void apply_mountain_point(int cx, int cy, int strength) {
-    int radius = clamp(strength / 18, 2, 5);
+    int radius = clamp(strength / 16, 2, 6);
     int y;
     int x;
 
@@ -40,40 +40,69 @@ static void apply_mountain_point(int cx, int cy, int strength) {
             if (!is_land(world[y][x].geography)) continue;
             lift = strength * (radius + 1 - dist) / (radius + 1);
             world[y][x].elevation = clamp(world[y][x].elevation + lift, 0, 100);
-            if (dist <= 1 && world[y][x].elevation >= 80) {
+            if (dist <= 1 && world[y][x].elevation >= 78) {
                 world[y][x].geography = GEO_MOUNTAIN;
                 if (world[y][x].resource == RESOURCE_FEATURE_NONE) world[y][x].resource = RESOURCE_FEATURE_MINE;
-            } else if (dist <= 2 && world[y][x].geography != GEO_MOUNTAIN) {
+            } else if (dist <= radius - 1 && world[y][x].geography != GEO_MOUNTAIN) {
                 world[y][x].geography = GEO_HILL;
             }
         }
     }
 }
 
-static int trace_chain(int x, int y, int length, int dir_x, int dir_y, int strength) {
+static int trace_spur(int x, int y, int length, int dir_x, int dir_y, int strength) {
     int step;
     int carved = 0;
-    int drift = rnd(3) - 1;
 
     for (step = 0; step < length; step++) {
         if (x < 2 || x >= MAP_W - 2 || y < 2 || y >= MAP_H - 2) break;
         if (is_land(world[y][x].geography)) {
             apply_mountain_point(x, y, strength);
             carved++;
-            if (step % 9 == 0 && rnd(100) < 34) {
-                int branch_x = dir_y + (rnd(3) - 1);
-                int branch_y = -dir_x + (rnd(3) - 1);
-                int branch_len = clamp(length / 4 + rnd(max(4, length / 5)), 8, 55);
-                trace_chain(x, y, branch_len, branch_x, branch_y, strength * 2 / 3);
+        }
+        x += dir_x;
+        y += dir_y;
+        if (step % 11 == 0 && rnd(100) < 24) {
+            x += rnd(3) - 1;
+            y += rnd(3) - 1;
+        }
+    }
+    return carved;
+}
+
+static int trace_chain(int x, int y, int length, int dir_x, int dir_y, int strength) {
+    int side_x = -dir_y;
+    int side_y = dir_x;
+    int step;
+    int carved = 0;
+    int lateral = 0;
+
+    if (side_x == 0 && side_y == 0) side_y = 1;
+    for (step = 0; step < length; step++) {
+        if (x < 2 || x >= MAP_W - 2 || y < 2 || y >= MAP_H - 2) break;
+        if (is_land(world[y][x].geography)) {
+            int local_strength = strength + (rnd(9) - 4);
+            apply_mountain_point(x, y, local_strength);
+            if (step % 3 == 0) {
+                apply_mountain_point(x + side_x, y + side_y, local_strength / 2);
+                apply_mountain_point(x - side_x, y - side_y, local_strength / 2);
+            }
+            carved++;
+            if (step > 12 && step % 28 == 0 && rnd(100) < 38) {
+                int branch_sign = rnd(2) ? 1 : -1;
+                int branch_x = dir_x + side_x * branch_sign;
+                int branch_y = dir_y + side_y * branch_sign;
+                int branch_len = clamp(length / 6 + rnd(max(6, length / 8)), 10, 38);
+                trace_spur(x, y, branch_len, clamp(branch_x, -1, 1),
+                           clamp(branch_y, -1, 1), strength * 3 / 5);
             }
         }
-        if (step % 7 == 0) drift = rnd(3) - 1;
-        x += dir_x + (dir_y == 0 ? 0 : drift);
-        y += dir_y + (dir_x == 0 ? 0 : drift);
-        if (rnd(100) < 18) {
-            if (abs(dir_x) > abs(dir_y)) dir_y = clamp(dir_y + rnd(3) - 1, -1, 1);
-            else dir_x = clamp(dir_x + rnd(3) - 1, -1, 1);
-            if (dir_x == 0 && dir_y == 0) dir_x = rnd(2) ? 1 : -1;
+        if (step % 9 == 0) lateral = clamp(lateral + rnd(3) - 1, -2, 2);
+        x += dir_x;
+        y += dir_y;
+        if (step % 4 == 0 && lateral != 0) {
+            x += side_x * (lateral > 0 ? 1 : -1);
+            y += side_y * (lateral > 0 ? 1 : -1);
         }
     }
     return carved;

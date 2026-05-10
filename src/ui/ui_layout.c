@@ -26,9 +26,9 @@ RECT get_play_button_rect(RECT client) {
 
 RECT get_speed_button_rect(RECT client, int index) {
     RECT rect;
-    rect.left = 68 + index * 46;
+    rect.left = 68 + index * 50;
     rect.top = client.bottom - 38;
-    rect.right = rect.left + 40;
+    rect.right = rect.left + 46;
     rect.bottom = client.bottom - 8;
     return rect;
 }
@@ -118,6 +118,8 @@ const char *speed_seconds_text(int index) {
     switch (index) {
         case 0: return "1s";
         case 1: return "0.25s";
-        default: return "0.05s";
+        case 2: return "0.10s";
+        case 3: return "0.05s";
+        default: return "0.01s";
     }
 }

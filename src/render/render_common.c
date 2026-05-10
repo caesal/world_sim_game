@@ -277,7 +277,6 @@ int visible_tile_bounds(RECT client, MapLayout layout, int *min_x, int *max_x, i
 }
 
 COLORREF tile_display_color(int x, int y) {
-    int owner = world[y][x].owner;
     COLORREF base;
 
     switch (display_mode) {
@@ -297,15 +296,9 @@ COLORREF tile_display_color(int x, int y) {
             break;
         case DISPLAY_POLITICAL:
             base = overview_color(x, y);
-            if (owner >= 0 && owner < civ_count && civs[owner].alive) {
-                base = blend_color(base, civs[owner].color, 74);
-            }
             break;
         case DISPLAY_ALL:
             base = overview_color(x, y);
-            if (owner >= 0 && owner < civ_count && civs[owner].alive) {
-                base = blend_color(base, civs[owner].color, 38);
-            }
             break;
         case DISPLAY_OVERVIEW:
         default:

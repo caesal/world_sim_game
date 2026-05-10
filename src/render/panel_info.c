@@ -54,8 +54,8 @@ const char *capital_name_for_civ(int civ_id) {
 }
 
 void draw_panel_tabs(HDC hdc, RECT client) {
-    const char *names_en[PANEL_TAB_COUNT] = {"Select", "Country", "Diplomacy", "Pop", "Plague", "World", "Debug"};
-    const char *names_zh[PANEL_TAB_COUNT] = {"选择", "国家", "外交", "人口", "瘟疫", "世界", "调试"};
+    const char *names_en[PANEL_TAB_COUNT] = {"Country", "Population", "Plague", "World", "Debug"};
+    const char *names_zh[PANEL_TAB_COUNT] = {"国家", "人口", "瘟疫", "世界", "调试"};
     int i;
 
     for (i = 0; i < PANEL_TAB_COUNT; i++) {

@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
+#include "core/state_lock.h"
 #include "render/cartography_layers.h"
 #include "render/pause_menu_render.h"
 
@@ -27,6 +28,10 @@ static LayerCache coast_cache;
 static LayerCache border_cache;
 static LayerCache window_backbuffer;
 
+static int combined_revision(int a, int b) {
+    return (a * 1000003) ^ b;
+}
+
 static void release_layer_cache(LayerCache *cache) {
     if (cache->dc && cache->old_bitmap) SelectObject(cache->dc, cache->old_bitmap);
     if (cache->bitmap) DeleteObject(cache->bitmap);
@@ -46,9 +51,10 @@ static int layer_cache_matches(const LayerCache *cache, RECT client, MapLayout l
            cache->display == display_mode;
 }
 
-static int layer_cache_revision_matches(const LayerCache *cache, RECT client, MapLayout layout) {
+static int layer_cache_revision_matches(const LayerCache *cache, RECT client,
+                                        MapLayout layout, int revision) {
     return layer_cache_matches(cache, client, layout) &&
-           cache->revision == world_visual_revision;
+           cache->revision == revision;
 }
 
 static int ensure_layer_cache(HDC hdc, LayerCache *cache, RECT client, MapLayout layout) {
@@ -75,7 +81,6 @@ static int ensure_layer_cache(HDC hdc, LayerCache *cache, RECT client, MapLayout
     cache->draw_h = layout.draw_h;
     cache->side_w = side_panel_w;
     cache->display = display_mode;
-    cache->revision = world_visual_revision;
     cache->valid = 1;
     return 1;
 }
@@ -101,7 +106,7 @@ static void draw_terrain_layer(HDC hdc, RECT client, MapLayout layout) {
         draw_blank_map(hdc, client, layout);
         return;
     }
-    draw_crisp_map_surface(hdc, layout);
+    draw_zoom_aware_map_surface(hdc, client, layout);
     if (layout.tile_size >= 12 && visible_tile_bounds(client, layout, &min_x, &max_x, &min_y, &max_y)) {
         for (y = min_y; y <= max_y; y++) {
             for (x = min_x; x <= max_x; x++) draw_land_texture(hdc, layout, x, y);
@@ -149,7 +154,7 @@ static int can_preview_map_cache(RECT client) {
 
 static void draw_map_cache_preview(HDC hdc, RECT client, MapLayout layout) {
     fill_rect(hdc, client, RGB(79, 160, 215));
-    SetStretchBltMode(hdc, HALFTONE);
+    SetStretchBltMode(hdc, layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);
     SetBrushOrgEx(hdc, 0, 0, NULL);
     StretchBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
                border_cache.dc, border_cache.map_x, border_cache.map_y,
@@ -161,6 +166,7 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
     int political_dirty;
     int coast_dirty;
     int border_dirty;
+    int border_revision;
 
     if (can_preview_map_cache(client)) {
         draw_map_cache_preview(hdc, client, layout);
@@ -168,32 +174,46 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
     }
     terrain_dirty = dirty_render_terrain() || !layer_cache_matches(&terrain_cache, client, layout);
     if (terrain_dirty) {
+        ProfilerCallTrace trace = profiler_call_begin();
         if (rebuild_cached_layer(hdc, &terrain_cache, client, layout, NULL, draw_terrain_layer)) {
+            terrain_cache.revision = dirty_revision_terrain();
             profiler_add_render_rebuild(PROFILER_RENDER_TERRAIN);
         }
+        profiler_call_end_quiet("render_rebuild_terrain", -1, -1, trace);
         dirty_clear_render_terrain();
     }
-    political_dirty = terrain_dirty || dirty_render_political() ||
-                      !layer_cache_revision_matches(&political_cache, client, layout);
-    if (political_dirty) {
-        if (rebuild_cached_layer(hdc, &political_cache, client, layout, terrain_cache.dc, draw_political_extra)) {
-            profiler_add_render_rebuild(PROFILER_RENDER_POLITICAL);
-        }
-        dirty_clear_render_political();
-    }
-    coast_dirty = political_dirty || dirty_render_coast() || !layer_cache_matches(&coast_cache, client, layout);
+    coast_dirty = terrain_dirty || dirty_render_coast() || !layer_cache_matches(&coast_cache, client, layout);
     if (coast_dirty) {
-        if (rebuild_cached_layer(hdc, &coast_cache, client, layout, political_cache.dc, draw_coast_extra)) {
+        ProfilerCallTrace trace = profiler_call_begin();
+        if (rebuild_cached_layer(hdc, &coast_cache, client, layout, terrain_cache.dc, draw_coast_extra)) {
+            coast_cache.revision = dirty_revision_coast();
             profiler_add_render_rebuild(PROFILER_RENDER_COAST);
         }
+        profiler_call_end_quiet("render_rebuild_coast", -1, -1, trace);
         dirty_clear_render_coast();
     }
-    border_dirty = coast_dirty || dirty_render_borders() ||
-                   !layer_cache_revision_matches(&border_cache, client, layout);
+    political_dirty = coast_dirty || dirty_render_political() ||
+                      !layer_cache_revision_matches(&political_cache, client, layout,
+                                                    dirty_revision_ownership());
+    if (political_dirty) {
+        ProfilerCallTrace trace = profiler_call_begin();
+        if (rebuild_cached_layer(hdc, &political_cache, client, layout, coast_cache.dc, draw_political_extra)) {
+            political_cache.revision = dirty_revision_ownership();
+            profiler_add_render_rebuild(PROFILER_RENDER_POLITICAL);
+        }
+        profiler_call_end_quiet("render_rebuild_political", -1, -1, trace);
+        dirty_clear_render_political();
+    }
+    border_revision = combined_revision(dirty_revision_ownership(), dirty_revision_province());
+    border_dirty = political_dirty || dirty_render_borders() ||
+                   !layer_cache_revision_matches(&border_cache, client, layout, border_revision);
     if (border_dirty) {
-        if (rebuild_cached_layer(hdc, &border_cache, client, layout, coast_cache.dc, draw_border_extra)) {
+        ProfilerCallTrace trace = profiler_call_begin();
+        if (rebuild_cached_layer(hdc, &border_cache, client, layout, political_cache.dc, draw_border_extra)) {
+            border_cache.revision = border_revision;
             profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
         }
+        profiler_call_end_quiet("render_rebuild_border", -1, -1, trace);
         dirty_clear_render_borders();
     }
     if (border_cache.valid) BitBlt(hdc, 0, 0, border_cache.width, border_cache.height, border_cache.dc, 0, 0, SRCCOPY);
@@ -237,12 +257,14 @@ void paint_window(HWND hwnd) {
     GetClientRect(hwnd, &client);
     width = client.right - client.left;
     height = client.bottom - client.top;
+    state_read_lock();
     if (ensure_layer_cache(hdc, &window_backbuffer, client, get_map_layout(client))) {
         render_world(window_backbuffer.dc, client);
         BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
     } else {
         render_world(hdc, client);
     }
+    state_read_unlock();
     profiler_record_render_ms((int)(GetTickCount() - render_start));
     EndPaint(hwnd, &ps);
 }

@@ -1,5 +1,23 @@
 # Version Log
 
+## Ver0.2.2
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.2
+2. Centralized vassal relationship handling in a dedicated simulation helper module
+3. Prevented vassals from acting as independent diplomatic war actors and routed attacks on vassals to their overlord
+4. Transferred nested vassals to the new overlord when a country becomes a vassal
+5. Released all direct vassals when an overlord collapses and made vassal collapse successors independent
+6. Added direct-vassal governance burden to disorder using `min(100, 8n + 3n*n)`
+7. Applied 40% non-money resource tribute by deducting it from vassal resource output and adding it to the overlord
+8. Added vassal support troops to wars with unified casualty tracking and per-front display of support losses
+9. Included direct vassal provinces in war cession pools while preserving at least one province for each vassal
+10. Updated Country and Diplomacy UI labels for vassal, tribute, no-autonomy, callable army, tribute, and governance burden states
+11. Verified the project builds with `build.bat`
+12. Verified no `.c` or `.h` file exceeds the 500-line rule
+13. Verified no `.c` file includes another `.c` file
+
 ## Ver0.2.1
 
 Implemented fixes:

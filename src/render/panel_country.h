@@ -12,6 +12,7 @@
 #define COUNTRY_PANEL_HIT_SORT_ARMY -12
 #define COUNTRY_PANEL_HIT_SORT_TECH -13
 #define COUNTRY_PANEL_HIT_SORT_DISORDER -14
+#define COUNTRY_PANEL_HIT_SUBTAB_BASE -30
 
 int country_panel_hit_test(RECT client, int mouse_x, int mouse_y);
 int country_panel_scroll(RECT client, int delta);
