@@ -145,9 +145,16 @@ void maritime_expansion_diagnostics(int civ_id, int resource_score, MaritimeExpa
         int score;
         int threshold;
 
-        if (!diag_region_claimable(region) || !region->has_port_site) continue;
+        if (!diag_region_claimable(region)) continue;
+        if (!region->has_port_site) {
+            out->blocked_no_port_site++;
+            continue;
+        }
         out->port_candidate_regions++;
-        if (region->capital_x < 0 || region->port_x < 0 || region->port_y < 0) continue;
+        if (region->capital_x < 0 || region->port_x < 0 || region->port_y < 0) {
+            out->blocked_no_capital_or_port_site++;
+            continue;
+        }
         if (city_at(region->capital_x, region->capital_y) >= 0) {
             out->blocked_city_at_capital++;
             continue;
@@ -165,12 +172,14 @@ void maritime_expansion_diagnostics(int civ_id, int resource_score, MaritimeExpa
                         civs[civ_id].commerce * 3 - civs[civ_id].expansion * 3;
             if (sea_stability <= 0) threshold += 10;
             if (city_count >= MAX_CITIES) out->blocked_city_cap++;
-            else if (score < threshold) out->blocked_low_score++;
+            if (score < threshold) out->blocked_low_score++;
             else {
                 out->maritime_reachable_regions++;
             }
         } else {
             out->blocked_same_shallow_region++;
+            out->blocked_different_shallow_region++;
+            if (sea_stability <= 0) out->blocked_deep_locked++;
         }
         if (sea_stability > 0 && diag_nearest_port_distance(civ_id, sea_x, sea_y, &direct) &&
             direct <= DIAG_MAX_ROUTE_DISTANCE) {

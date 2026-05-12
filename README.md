@@ -7,11 +7,11 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.3 is a Windows graphical sandbox prototype written in C.
+Ver0.2.4 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.3 focuses on ESC menu usability and save control: the pause menu has a direct
-Resume Game button, and Save Map now opens a Save As dialog so players can choose
-the folder and rename `.wsgmap` files.
+Ver0.2.4 focuses on diplomacy clarity, structured bilingual event logs, safer
+event-log country highlighting, and validation through a deterministic technology
+stage 10 probe.
 
 You can:
 

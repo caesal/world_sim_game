@@ -2,13 +2,15 @@
 
 #include "game/game.h"
 #include "core/game_types.h"
-#include "io/map_save.h"
 #include "render/panel_country.h"
 #include "render/panel_debug.h"
+#include "render/panel_country_diplomacy_hits.h"
 #include "render/render.h"
 #include "ui/pause_menu.h"
+#include "ui/ui_actions.h"
 #include "ui/ui_forms.h"
 #include "ui/ui_layout.h"
+#include "ui/ui_selection.h"
 #include "ui/ui_sliders.h"
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_layout.h"
@@ -53,33 +55,9 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     selected_x = x;
     selected_y = y;
     owner = selected_tile_owner();
-    if (owner >= 0 && owner < civ_count) {
-        selected_civ = owner;
-        country_detail_scroll_offset = 0;
-        ui_forms_write_civ(owner);
-    } else if (panel_tab == PANEL_COUNTRY && selected_civ >= 0 && selected_civ < civ_count) {
-        country_detail_subtab = COUNTRY_DETAIL_RESOURCES;
-    }
+    if (owner >= 0 && owner < civ_count && civs[owner].alive) ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
+    else ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
     InvalidateRect(hwnd, NULL, FALSE);
-}
-
-static void set_speed(int index) { speed_index = clamp(index, 0, SPEED_COUNT - 1); }
-
-static void handle_pause_menu_action(HWND hwnd, int hit) {
-    if (hit == PAUSE_MENU_RESUME_GAME) {
-        pause_menu_open = 0;
-    } else if (hit == PAUSE_MENU_VERSION_LOG) {
-        pause_menu_show_version_log(hwnd);
-    } else if (hit == PAUSE_MENU_SAVE_MAP) {
-        save_current_map(hwnd);
-    } else if (hit == PAUSE_MENU_LOAD_MAP) {
-        if (load_map_from_file(hwnd)) {
-            ui_forms_write_world_setup_controls();
-            ui_forms_layout(hwnd);
-        }
-    } else if (hit == PAUSE_MENU_EXIT_GAME) {
-        DestroyWindow(hwnd);
-    }
 }
 
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
@@ -91,7 +69,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     GetClientRect(hwnd, &client);
     if (pause_menu_open) {
         int hit = pause_menu_hit_test(client, mouse_x, mouse_y);
-        if (hit != PAUSE_MENU_HIT_NONE) handle_pause_menu_action(hwnd, hit);
+        if (hit != PAUSE_MENU_HIT_NONE) ui_handle_pause_menu_action(hwnd, hit);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -114,7 +92,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     for (i = 0; i < SPEED_COUNT; i++) {
         if (point_in_rect(get_speed_button_rect(client, i), mouse_x, mouse_y)) {
-            set_speed(i);
+            ui_set_speed(i);
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -128,9 +106,27 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
     }
     if (panel_tab == PANEL_DEBUG) {
+        int event_civ = debug_panel_event_country_hit_test(client, mouse_x, mouse_y);
         int filter = debug_panel_event_filter_hit_test(client, mouse_x, mouse_y);
+        if (event_civ >= 0) {
+            ui_highlight_civ(event_civ, UI_HIGHLIGHT_SOURCE_EVENT_LOG);
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (debug_panel_event_clear_highlight_hit_test(client, mouse_x, mouse_y)) {
+            ui_clear_map_highlight();
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (debug_panel_event_top_hit_test(client, mouse_x, mouse_y)) {
+            debug_panel_event_log_top();
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (debug_panel_event_scrollbar_hit_test(client, mouse_x, mouse_y)) { debug_panel_event_scrollbar_begin_drag(mouse_y); SetCapture(hwnd); InvalidateRect(hwnd, NULL, FALSE); return; }
         if (filter >= 0) {
             debug_event_filter = filter;
+            debug_panel_event_log_top();
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -144,17 +140,25 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     if (panel_tab == PANEL_COUNTRY && mouse_x >= client.right - side_panel_w) {
         int hit = country_panel_hit_test(client, mouse_x, mouse_y);
+        if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
+            int relation_civ = country_diplomacy_civ_hit_test(mouse_x, mouse_y);
+            if (relation_civ >= 0 && relation_civ < civ_count && relation_civ != selected_civ) {
+                ui_select_civ_preserve_view(relation_civ, UI_SELECT_SOURCE_DIPLOMACY_CARD);
+                InvalidateRect(hwnd, NULL, FALSE);
+                return;
+            }
+        }
         if (hit == COUNTRY_PANEL_HIT_TOGGLE_FALLEN) {
             country_show_fallen = !country_show_fallen;
             country_list_scroll_offset = 0;
             if (!country_show_fallen && selected_civ >= 0 && selected_civ < civ_count && !civs[selected_civ].alive) {
-                selected_civ = -1;
+                ui_clear_selected_civ(UI_SELECT_SOURCE_COUNTRY_LIST);
             }
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
         if (hit == COUNTRY_PANEL_HIT_BACK_TO_LIST) {
-            selected_civ = -1;
+            ui_clear_selected_civ(UI_SELECT_SOURCE_COUNTRY_LIST);
             country_list_scroll_offset = 0;
             country_detail_scroll_offset = 0;
             InvalidateRect(hwnd, NULL, FALSE);
@@ -163,6 +167,11 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         if (hit == COUNTRY_PANEL_HIT_CIVIL_UNREST) {
             if (selected_civ >= 0 && !game_request_trigger_civil_unrest(selected_civ)) MessageBeep(MB_ICONWARNING);
             country_detail_scroll_offsets[clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)] = 0;
+            InvalidateRect(hwnd, NULL, FALSE);
+            return;
+        }
+        if (hit == COUNTRY_PANEL_HIT_LOCATE) {
+            if (selected_civ >= 0) ui_locate_civ(hwnd, selected_civ);
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -192,9 +201,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
         if (hit >= 0 && hit < civ_count) {
-            selected_civ = hit;
-            country_detail_scroll_offsets[clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)] = 0;
-            ui_forms_write_civ(hit);
+            ui_select_civ(hit, UI_SELECT_SOURCE_COUNTRY_LIST);
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -259,6 +266,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
         (was_panel || is_panel) && (old_hover_x != hover_x || old_hover_y != hover_y)) {
         invalidate_side_panel(hwnd);
     }
+    if (debug_panel_event_scrollbar_drag(mouse_y)) { InvalidateRect(hwnd, NULL, FALSE); return; }
     if (dragging_map) {
         map_interaction_preview = 1;
         map_offset_x += mouse_x - last_mouse_x;
@@ -294,6 +302,7 @@ static void handle_mouse_leave(HWND hwnd) {
 
 static void handle_mouse_up(HWND hwnd) {
     int was_dragging_map = dragging_map;
+    if (debug_panel_event_scrollbar_is_dragging()) { debug_panel_event_scrollbar_end_drag(); ReleaseCapture(); InvalidateRect(hwnd, NULL, FALSE); return; }
     if (dragging_panel || dragging_slider >= 0 || dragging_map) {
         dragging_panel = 0;
         dragging_slider = -1;
@@ -345,6 +354,14 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
                 ui_forms_layout(hwnd);
                 InvalidateRect(hwnd, NULL, FALSE);
             }
+            return;
+        }
+        if (panel_tab == PANEL_DEBUG && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+            if (debug_panel_event_log_hit_test(client, point.x, point.y)) {
+                debug_panel_event_log_scroll(-steps * 3);
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+            return;
         }
         return;
     }
@@ -435,7 +452,8 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
                 InvalidateRect(hwnd, NULL, FALSE);
                 return 0;
             }
-            if (wparam == TIMER_ID && !pause_menu_open && game_tick_auto_run()) {
+            if (wparam == TIMER_ID && !pause_menu_open &&
+                (game_tick_auto_run() || ui_highlight_pulse_active())) {
                 InvalidateRect(hwnd, NULL, FALSE);
             }
             return 0;

@@ -59,6 +59,7 @@ void sea_lanes_last_stats(SeaLaneStats *out);
 int sea_lanes_city_status(int city_id);
 int sea_lanes_city_network(int city_id);
 int sea_lanes_connected(int city_a, int city_b, int *out_distance);
+int sea_lanes_network_connected(int city_a, int city_b);
 int sea_lanes_has_contact(int civ_a, int civ_b);
 int sea_lanes_trade_bonus(int civ_a, int civ_b);
 int sea_lanes_plague_contacts_from_city(int source_city, SeaLanePlagueContact *out, int max_contacts);

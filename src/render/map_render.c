@@ -1,5 +1,7 @@
 ﻿#include "render_map_internal.h"
 
+#include "render/render_context.h"
+
 static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int y);
 
 void draw_land_texture(HDC hdc, MapLayout layout, int x, int y) {
@@ -146,7 +148,31 @@ void draw_rivers(HDC hdc, RECT client, MapLayout layout) {
     RestoreDC(hdc, saved_dc);
 }
 
-static IconId city_stage_icon(const City *city) {
+static IconId city_stage_icon(int capital, int population) {
+    if (capital) return ICON_CITY_CAPITAL;
+    if (population >= 520) return ICON_CITY_STAGE;
+    if (population >= 240) return ICON_CITY_TOWN;
+    if (population >= 100) return ICON_CITY_VILLAGE;
+    return ICON_CITY_OUTPOST;
+}
+
+static int snap_tile_left(MapLayout layout, const RenderSnapshot *snapshot, int x) {
+    return layout.map_x + x * layout.draw_w / max(1, snapshot->map_w);
+}
+
+static int snap_tile_right(MapLayout layout, const RenderSnapshot *snapshot, int x) {
+    return layout.map_x + (x + 1) * layout.draw_w / max(1, snapshot->map_w);
+}
+
+static int snap_tile_top(MapLayout layout, const RenderSnapshot *snapshot, int y) {
+    return layout.map_y + y * layout.draw_h / max(1, snapshot->map_h);
+}
+
+static int snap_tile_bottom(MapLayout layout, const RenderSnapshot *snapshot, int y) {
+    return layout.map_y + (y + 1) * layout.draw_h / max(1, snapshot->map_h);
+}
+
+static IconId legacy_city_stage_icon(const City *city) {
     if (city->capital) return ICON_CITY_CAPITAL;
     if (city->population >= 520) return ICON_CITY_STAGE;
     if (city->population >= 240) return ICON_CITY_TOWN;
@@ -213,9 +239,32 @@ static void separate_harbor_from_city(int *px, int *py, int cx, int cy, int size
 }
 
 void draw_cities(HDC hdc, MapLayout layout) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     int i;
     int s = layout.tile_size;
 
+    if (snapshot && snapshot->world_generated) {
+        for (i = 0; i < snapshot->city_count; i++) {
+            const SnapshotCity *city = &snapshot->cities[i];
+            int cx;
+            int cy;
+            if (!city->alive || city->owner < 0 || city->owner >= snapshot->civ_count ||
+                !snapshot->civs[city->owner].alive) continue;
+            cx = (snap_tile_left(layout, snapshot, city->x) + snap_tile_right(layout, snapshot, city->x)) / 2;
+            cy = (snap_tile_top(layout, snapshot, city->y) + snap_tile_bottom(layout, snapshot, city->y)) / 2;
+            draw_city_icon(hdc, cx, cy, clamp(s + (city->capital ? 8 : 4), 12, 26),
+                           city_stage_icon(city->capital, city->population), city->capital);
+            if (city->port && city->port_x >= 0 && city->port_y >= 0) {
+                int px = (snap_tile_left(layout, snapshot, city->port_x) +
+                          snap_tile_right(layout, snapshot, city->port_x)) / 2;
+                int py = (snap_tile_top(layout, snapshot, city->port_y) +
+                          snap_tile_bottom(layout, snapshot, city->port_y)) / 2;
+                separate_harbor_from_city(&px, &py, cx, cy, clamp(s + 8, 16, 26));
+                draw_harbor_marker(hdc, px, py, clamp(s + 8, 16, 26));
+            }
+        }
+        return;
+    }
     for (i = 0; i < city_count; i++) {
         City *city = &cities[i];
         int cx;
@@ -224,7 +273,7 @@ void draw_cities(HDC hdc, MapLayout layout) {
         cx = (tile_left(layout, city->x) + tile_right(layout, city->x)) / 2;
         cy = (tile_top(layout, city->y) + tile_bottom(layout, city->y)) / 2;
         draw_city_icon(hdc, cx, cy, clamp(s + (city->capital ? 8 : 4), 12, 26),
-                       city_stage_icon(city), city->capital);
+                       legacy_city_stage_icon(city), city->capital);
         if (city->port && city->port_x >= 0 && city->port_y >= 0) {
             int px = (tile_left(layout, city->port_x) + tile_right(layout, city->port_x)) / 2;
             int py = (tile_top(layout, city->port_y) + tile_bottom(layout, city->port_y)) / 2;

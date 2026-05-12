@@ -76,6 +76,10 @@ extern int month;
 extern int selected_x;
 extern int selected_y;
 extern int selected_civ;
+extern int previous_selected_civ;
+extern int map_highlight_civ;
+extern int selected_civ_pulse_start_ms;
+extern int map_highlight_pulse_start_ms;
 extern int auto_run;
 extern int speed_index;
 extern int display_mode;
@@ -116,6 +120,9 @@ extern int country_detail_subtab;
 extern int country_detail_scroll_offsets[8];
 extern int country_diplomacy_view;
 extern int debug_event_filter;
+extern int debug_event_log_scroll_offset;
+extern int debug_event_log_frozen;
+extern int debug_event_log_seen_total;
 extern int pause_menu_open;
 extern int selected_civ_color_index;
 extern Color32 selected_civ_color;
@@ -129,11 +136,13 @@ extern int world_generated;
 extern char event_log[EVENT_LOG_COUNT][EVENT_LOG_LEN];
 extern int event_log_count;
 extern int event_log_next;
+extern int event_log_total_entries;
 
 typedef enum {
     EVENT_TYPE_GENERIC,
     EVENT_TYPE_EXPANSION_CLAIMED,
     EVENT_TYPE_WAR_STARTED,
+    EVENT_TYPE_WAR_FRONT_SEVERED,
     EVENT_TYPE_BATTLE_RESOLVED,
     EVENT_TYPE_TRUCE_SIGNED,
     EVENT_TYPE_COLLAPSE_SUCCEEDED,
@@ -144,10 +153,24 @@ typedef enum {
     EVENT_TYPE_VASSAL_CREATED,
     EVENT_TYPE_VASSAL_RELEASED,
     EVENT_TYPE_VASSAL_TRANSFERRED,
+    EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE,
+    EVENT_TYPE_VASSAL_INDEPENDENCE_WAR,
+    EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE,
+    EVENT_TYPE_VASSAL_SELF_COLLAPSE_RELEASED,
+    EVENT_TYPE_VASSAL_ANNEXED,
     EVENT_TYPE_PERFORMANCE_THROTTLED,
+    EVENT_TYPE_PERFORMANCE_SLOW_CALL,
+    EVENT_TYPE_SCHEDULER_YIELD,
+    EVENT_TYPE_WORLD_GENERATION_NOTICE,
+    EVENT_TYPE_DISORDER_CHANGED,
+    EVENT_TYPE_DEBUG_NOTICE,
     EVENT_TYPE_DEEP_SEA_ROUTE_CREATED,
     EVENT_TYPE_DEEP_SEA_ROUTE_FAILED,
-    EVENT_TYPE_CIVIL_UNREST_TRIGGERED
+    EVENT_TYPE_CIVIL_UNREST_TRIGGERED,
+    EVENT_TYPE_ENCLAVE_JOINED,
+    EVENT_TYPE_ENCLAVE_INDEPENDENT,
+    EVENT_TYPE_ENCLAVE_FAILED,
+    EVENT_TYPE_CIV_CREATED
 } EventLogType;
 
 typedef enum {
@@ -155,6 +178,14 @@ typedef enum {
     EVENT_SEVERITY_WARNING,
     EVENT_SEVERITY_DANGER
 } EventLogSeverity;
+
+typedef struct {
+    int uid;
+    char name_en[NAME_LEN];
+    char name_zh[NAME_LEN];
+    char symbol;
+    Color32 color;
+} EventCivSnapshot;
 
 typedef struct {
     int year;
@@ -168,6 +199,12 @@ typedef struct {
     int param_a;
     int param_b;
     int repeat_count;
+    int civ_uid;
+    int target_uid;
+    int param_a_uid;
+    EventCivSnapshot civ_snapshot;
+    EventCivSnapshot target_snapshot;
+    EventCivSnapshot param_a_snapshot;
     char raw_message[EVENT_LOG_LEN];
 } EventLogEntry;
 
@@ -187,7 +224,10 @@ void event_log_push_structured(EventLogType type, EventLogSeverity severity, int
                                int param_a, int param_b, const char *raw_message);
 void event_log_clear(void);
 const char *event_log_get(int index);
+void event_log_format_entry(int index, int language, char *out, size_t out_size);
+void event_log_format_entry_data(const EventLogEntry *entry, int language, char *out, size_t out_size);
 EventLogType event_log_get_type(int index);
+int event_log_get_entry(int index, EventLogEntry *out);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
 int point_in_rect(RECT rect, int x, int y);
 void map_size_dimensions(int size, int *out_w, int *out_h);

@@ -58,16 +58,16 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "ESC 菜单新增返回游戏按钮。\n"
-                 "保存地图现在会打开保存对话框，可选择目录并重命名。\n"
-                 "保留外交二级页、随机陆海边缘、混乱来源桶与调试工具。\n",
+                 "外交卡片按和平、战争、附庸关系显示不同重点。\n"
+                 "事件日志改为结构化中英显示，点击历史国家不会错选新国家。\n"
+                 "新增科技 10 验证 probe，并保留 UI 快照降卡顿路径。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "The ESC menu now has a direct Resume Game button.\n"
-                 "Save Map opens a Save As dialog so you can choose the folder and rename the save.\n"
-                 "Diplomacy subviews, randomized land edges, disorder buckets, and debug tools remain available.",
+                 "Diplomacy cards now emphasize peace, war, and vassal data differently.\n"
+                 "Event logs use structured bilingual text and avoid highlighting reused country slots.\n"
+                 "A technology stage 10 validation probe was added, with UI snapshot lag mitigations kept active.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

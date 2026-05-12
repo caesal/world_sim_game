@@ -60,6 +60,7 @@ typedef struct {
     char name[NAME_LEN];
     int name_id;
     int custom_name;
+    int uid;
     char symbol;
     Color32 color;
     int alive;
@@ -86,6 +87,26 @@ typedef struct {
     int disorder_plague;
     int disorder_migration;
     int disorder_stability;
+    int plague_recovery_months;
+    int war_recovery_months;
+    int collapse_grace_months;
+    int plague_random_immunity_months;
+    int plague_was_active_last_month;
+    int disorder_carry_x10;
+    int disorder_last_pressure;
+    int disorder_last_recovery;
+    int disorder_last_net;
+    int disorder_last_pressure_x10;
+    int disorder_last_recovery_x10;
+    int disorder_last_net_x10;
+    int disorder_last_base_recovery_x10;
+    int disorder_last_governance_recovery_x10;
+    int disorder_last_cohesion_recovery_x10;
+    int disorder_last_peace_recovery_x10;
+    int disorder_last_condition_recovery_x10;
+    int disorder_last_plague_decay;
+    int disorder_last_war_decay;
+    int disorder_last_migration_decay;
 } Civilization;
 
 typedef struct {

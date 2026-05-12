@@ -2,9 +2,12 @@
 
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
+#include "core/render_snapshot.h"
 #include "core/state_lock.h"
 #include "render/cartography_layers.h"
+#include "render/map_highlight.h"
 #include "render/pause_menu_render.h"
+#include "render/render_context.h"
 
 typedef struct {
     HDC dc;
@@ -26,6 +29,7 @@ static LayerCache terrain_cache;
 static LayerCache political_cache;
 static LayerCache coast_cache;
 static LayerCache border_cache;
+static LayerCache ui_cache;
 static LayerCache window_backbuffer;
 
 static int combined_revision(int a, int b) {
@@ -204,7 +208,9 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
         profiler_call_end_quiet("render_rebuild_political", -1, -1, trace);
         dirty_clear_render_political();
     }
-    border_revision = combined_revision(dirty_revision_ownership(), dirty_revision_province());
+    border_revision = combined_revision(combined_revision(dirty_revision_ownership(),
+                                                          dirty_revision_province()),
+                                        dirty_revision_coast());
     border_dirty = political_dirty || dirty_render_borders() ||
                    !layer_cache_revision_matches(&border_cache, client, layout, border_revision);
     if (border_dirty) {
@@ -219,37 +225,119 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
     if (border_cache.valid) BitBlt(hdc, 0, 0, border_cache.width, border_cache.height, border_cache.dc, 0, 0, SRCCOPY);
 }
 
+static void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) {
+    if (state_try_read_lock()) {
+        draw_cached_static_map(hdc, client, layout);
+        state_read_unlock();
+    } else if (border_cache.valid) {
+        BitBlt(hdc, 0, 0, border_cache.width, border_cache.height, border_cache.dc, 0, 0, SRCCOPY);
+    } else {
+        draw_blank_map(hdc, client, layout);
+    }
+}
+
+static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layout) {
+    if (!state_try_read_lock()) return;
+    draw_country_highlight(hdc, client, layout);
+    state_read_unlock();
+}
+
+static void blit_cache_rect(HDC hdc, const LayerCache *cache, RECT rect) {
+    int w = rect.right - rect.left;
+    int h = rect.bottom - rect.top;
+    if (!cache->valid || w <= 0 || h <= 0) return;
+    BitBlt(hdc, rect.left, rect.top, w, h, cache->dc, rect.left, rect.top, SRCCOPY);
+}
+
+static void blit_cached_ui_regions(HDC hdc, RECT client) {
+    RECT top = {client.left, client.top, client.right, TOP_BAR_H};
+    RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
+    RECT panel = {client.right - side_panel_w, TOP_BAR_H, client.right, client.bottom};
+    RECT legend = get_map_legend_box_rect(client);
+    blit_cache_rect(hdc, &ui_cache, top);
+    blit_cache_rect(hdc, &ui_cache, bottom);
+    blit_cache_rect(hdc, &ui_cache, panel);
+    if (!IsRectEmpty(&legend)) blit_cache_rect(hdc, &ui_cache, legend);
+}
+
+static void draw_stale_ui_indicator(HDC hdc, RECT client) {
+    RECT panel = {client.right - side_panel_w + 10, TOP_BAR_H + 8,
+                  client.right - 10, TOP_BAR_H + 30};
+    RECT badge = {panel.right - 118, panel.top, panel.right, panel.bottom};
+    if (badge.left < panel.left) badge.left = panel.left;
+    fill_rect_alpha(hdc, badge, RGB(42, 48, 54), 210);
+    draw_center_text(hdc, badge, tr("Updating data", "数据更新中"), RGB(218, 226, 232));
+}
+
+static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
+    MapLayout layout = get_map_layout(client);
+    if (state_try_read_lock()) {
+        if (ensure_layer_cache(hdc, &ui_cache, client, layout)) {
+            BitBlt(ui_cache.dc, 0, 0, ui_cache.width, ui_cache.height, hdc, 0, 0, SRCCOPY);
+            draw_top_bar(ui_cache.dc, client);
+            draw_bottom_bar(ui_cache.dc, client);
+            draw_map_legend(ui_cache.dc, client);
+            draw_side_panel(ui_cache.dc, client);
+            if (pause_menu_open) draw_pause_menu_overlay(ui_cache.dc, client);
+            BitBlt(hdc, 0, 0, ui_cache.width, ui_cache.height, ui_cache.dc, 0, 0, SRCCOPY);
+        } else {
+            draw_top_bar(hdc, client);
+            draw_bottom_bar(hdc, client);
+            draw_map_legend(hdc, client);
+            draw_side_panel(hdc, client);
+            if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
+        }
+        state_read_unlock();
+    } else if (layer_cache_matches(&ui_cache, client, layout)) {
+        blit_cached_ui_regions(hdc, client);
+        draw_stale_ui_indicator(hdc, client);
+    } else {
+        RECT top = {client.left, client.top, client.right, TOP_BAR_H};
+        RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
+        RECT panel = {client.right - side_panel_w, TOP_BAR_H, client.right, client.bottom};
+        fill_rect(hdc, top, RGB(28, 34, 42));
+        fill_rect(hdc, bottom, RGB(28, 34, 42));
+        fill_rect(hdc, panel, RGB(34, 42, 50));
+        draw_text_line(hdc, panel.left + 18, panel.top + 24, tr("Preparing UI cache...", "正在准备界面缓存..."),
+                       RGB(218, 226, 232));
+    }
+}
+
 static void render_world(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    int snapshot_world_ready = snapshot && snapshot->world_generated;
     int labels_dirty = dirty_render_labels();
 
-    draw_cached_static_map(hdc, client, layout);
-    if (world_generated) {
-        draw_maritime_routes(hdc, client, layout);
-        dirty_clear_render_maritime();
-        draw_plague_region_overlay(hdc, client, layout);
-        dirty_clear_render_plague();
-        draw_cities(hdc, layout);
-        draw_map_labels(hdc, client, layout);
-        if (labels_dirty) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
-        dirty_clear_render_labels();
+    draw_cached_static_map_nonblocking(hdc, client, layout);
+    if (snapshot_world_ready) {
+        if (!map_interaction_preview) {
+            draw_maritime_routes(hdc, client, layout);
+            dirty_clear_render_maritime();
+            draw_plague_region_overlay(hdc, client, layout);
+            dirty_clear_render_plague();
+        }
+        draw_legacy_overlay_nonblocking(hdc, client, layout);
+        if (!map_interaction_preview) {
+            draw_cities(hdc, layout);
+            draw_map_labels(hdc, client, layout);
+            if (labels_dirty) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
+            dirty_clear_render_labels();
+        }
         draw_selected_tile(hdc, layout);
     } else {
         dirty_clear_render_maritime();
         dirty_clear_render_plague();
         dirty_clear_render_labels();
     }
-    draw_top_bar(hdc, client);
-    draw_bottom_bar(hdc, client);
-    draw_map_legend(hdc, client);
-    draw_side_panel(hdc, client);
-    if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
+    draw_legacy_ui_nonblocking(hdc, client);
 }
 
 void paint_window(HWND hwnd) {
     PAINTSTRUCT ps;
     HDC hdc = BeginPaint(hwnd, &ps);
     RECT client;
+    const RenderSnapshot *snapshot;
     DWORD render_start = GetTickCount();
     int width;
     int height;
@@ -257,14 +345,16 @@ void paint_window(HWND hwnd) {
     GetClientRect(hwnd, &client);
     width = client.right - client.left;
     height = client.bottom - client.top;
-    state_read_lock();
+    snapshot = render_snapshot_acquire();
+    render_context_begin(snapshot);
     if (ensure_layer_cache(hdc, &window_backbuffer, client, get_map_layout(client))) {
         render_world(window_backbuffer.dc, client);
         BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
     } else {
         render_world(hdc, client);
     }
-    state_read_unlock();
+    render_context_end();
+    render_snapshot_release(snapshot);
     profiler_record_render_ms((int)(GetTickCount() - render_start));
     EndPaint(hwnd, &ps);
 }

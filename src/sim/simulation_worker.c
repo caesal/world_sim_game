@@ -2,6 +2,7 @@
 
 #include "core/game_types.h"
 #include "core/profiler.h"
+#include "core/render_snapshot.h"
 #include "core/state_lock.h"
 #include "sim/simulation_scheduler.h"
 
@@ -109,6 +110,7 @@ static DWORD WINAPI worker_main(void *unused) {
                 completed = sim_scheduler_take_completed_months();
                 pending_months_snapshot = sim_scheduler_pending_months();
                 state_write_unlock();
+                if (completed > 0) render_snapshot_publish_from_live_state_throttled(0);
                 record_completed_months(completed, &last_month_tick);
                 used_ms = (int)(GetTickCount() - start);
                 if (used_ms >= budget_ms || completed == 0) break;

@@ -162,6 +162,6 @@ static void draw_screen_space_surface(HDC hdc, RECT client, MapLayout layout) {
 }
 
 void draw_zoom_aware_map_surface(HDC hdc, RECT client, MapLayout layout) {
-    if (layout.tile_size <= 2) draw_crisp_map_surface(hdc, layout);
+    if (layout.tile_size <= 2 || map_interaction_preview) draw_crisp_map_surface(hdc, layout);
     else draw_screen_space_surface(hdc, client, layout);
 }

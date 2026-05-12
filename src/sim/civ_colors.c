@@ -259,9 +259,13 @@ Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
         }
     }
     if (has_preferred && best != preferred_color) {
-        event_log_push("[Debug] Adjusted requested country color to avoid a duplicate or low-contrast neighbor.");
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
+                                  civ_id, -1, -1, -1, 0, 0,
+                                  "[Debug] Adjusted requested country color to avoid a duplicate or low-contrast neighbor.");
     } else if (best_score < 0) {
-        event_log_push("[Debug] Country color picker used a low-confidence fallback color.");
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
+                                  civ_id, -1, -1, -1, 0, 0,
+                                  "[Debug] Country color picker used a low-confidence fallback color.");
     }
     return best;
 }
@@ -301,7 +305,8 @@ int civilization_colors_debug_check(void) {
         char text[EVENT_LOG_LEN];
         snprintf(text, sizeof(text), "[Debug] Country color check found %d duplicate/near-duplicate issue%s.",
                  issues, issues == 1 ? "" : "s");
-        event_log_push(text);
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
+                                  -1, -1, -1, -1, issues, 0, text);
     }
     return issues;
 }
@@ -326,7 +331,8 @@ int civilization_repair_alive_colors(void) {
         char text[EVENT_LOG_LEN];
         snprintf(text, sizeof(text), "[Debug] Repaired %d country color%s for readability.",
                  changed, changed == 1 ? "" : "s");
-        event_log_push(text);
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
+                                  -1, -1, -1, -1, changed, 0, text);
     }
     return changed;
 }

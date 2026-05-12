@@ -31,6 +31,8 @@ typedef struct {
     int resource_diversity;
     int viable_direction_count;
     int direction_score[REGION_DIR_COUNT];
+    int disconnected_months;
+    int disconnected_component_id;
 } NaturalRegion;
 
 extern NaturalRegion natural_regions[MAX_NATURAL_REGIONS];

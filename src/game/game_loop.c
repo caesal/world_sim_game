@@ -3,7 +3,7 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "core/profiler.h"
-#include "core/state_lock.h"
+#include "core/render_snapshot.h"
 #include "render/plague_visual.h"
 #include "sim/simulation_scheduler.h"
 #include "sim/simulation_worker.h"
@@ -29,9 +29,7 @@ int game_loop_tick_frame(void) {
     last_frame_tick = now;
     elapsed = clamp(elapsed, 0, 250);
 
-    state_read_lock();
     did_visual = plague_visual_tick(elapsed);
-    state_read_unlock();
     profiler_record_frame(elapsed, simulation_worker_last_budget_ms(),
                           simulation_worker_last_used_ms(),
                           simulation_worker_actual_ms_per_month(),
@@ -53,7 +51,7 @@ int game_loop_simulation_overloaded(void) {
 }
 
 int game_loop_snapshot_age_ms(void) {
-    return simulation_worker_snapshot_age_ms();
+    return render_snapshot_age_ms();
 }
 
 const char *game_loop_worker_status(void) {

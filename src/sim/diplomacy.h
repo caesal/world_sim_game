@@ -24,6 +24,7 @@ typedef struct {
     int natural_barrier;
     int years_known;
     int vassal_years;
+    int easing_years;
     int overlord;
     int vassal;
 } DiplomacyRelation;

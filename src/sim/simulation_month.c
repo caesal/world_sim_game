@@ -12,6 +12,7 @@
 #include "sim/province.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
+#include "sim/territory_integrity.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
 #include "world/terrain_query.h"
@@ -319,6 +320,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
             if (dirty_revision_ownership() != state->territory_revision_before_expansion ||
                 city_count != state->city_count_before_expansion) {
                 world_invalidate_population_cache();
+                territory_integrity_repair_capitals();
             }
             state->phase = SIM_MONTH_DIPLOMACY;
             break;
@@ -338,10 +340,14 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 diplomacy_update_year();
                 vassal_update_year();
                 war_update_year();
+                territory_integrity_update_year();
                 if (year % 25 == 0) collapse_update_decade();
             }
             collapse_update_immediate();
-            if (state->log[0]) event_log_push(state->log);
+            if (state->log[0]) {
+                event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
+                                          -1, -1, -1, -1, 0, 0, state->log);
+            }
             if (living_civilizations() <= 1) auto_run = 0;
             state->phase = SIM_MONTH_DONE;
             state->active = 0;

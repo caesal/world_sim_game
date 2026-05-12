@@ -11,6 +11,7 @@
 #include "sim/ports.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/territory_integrity.h"
 #include "sim/vassal.h"
 
 #include <stdio.h>
@@ -19,6 +20,9 @@
 static char collapse_reasons[MAX_CIVS][EVENT_LOG_LEN];
 static char collapse_block_details[MAX_CIVS][EVENT_LOG_LEN];
 static int immediate_attempt_month[MAX_CIVS];
+
+#define COLLAPSE_GRACE_YEARS 35
+#define COLLAPSE_GRACE_MONTHS (COLLAPSE_GRACE_YEARS * 12)
 
 static int collapse_month_index(void) {
     return year * 12 + month;
@@ -35,6 +39,7 @@ int collapse_decade_chance_for_disorder(int disorder) {
 }
 
 static void collapse_refresh_world(void) {
+    territory_integrity_repair_capitals();
     world_recalculate_territory();
     population_sync_all();
     ports_refresh_city_regions();
@@ -127,8 +132,14 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     child->tech_stage = clamp(parent_state.tech_stage, 0, 10);
     child->tech_progress = parent_state.tech_progress;
     child->deep_sea_route_unlocked_event_done = parent_state.deep_sea_route_unlocked_event_done;
-    child->disorder = clamp(parent_state.disorder / 2, 20, 70);
-    child->disorder_stability = 25;
+    child->disorder = clamp(parent_state.disorder / 2, 20, 40);
+    child->disorder_resource = 0;
+    child->disorder_plague = clamp(parent_state.disorder_plague / 2, 0, 30);
+    child->disorder_migration = clamp(parent_state.disorder_migration / 2, 0, 30);
+    child->disorder_stability = clamp(max(25, parent_state.disorder_stability / 2), 0, 30);
+    child->plague_recovery_months = parent_state.plague_recovery_months;
+    child->war_recovery_months = parent_state.war_recovery_months;
+    child->collapse_grace_months = COLLAPSE_GRACE_MONTHS;
     child->capital_city = -1;
     if (seed_region >= 0 && seed_region < region_count) {
         NaturalRegion *region = &natural_regions[seed_region];
@@ -144,6 +155,17 @@ static int create_successor_civ(int parent, int index, int seed_region) {
         }
     }
     return child_id;
+}
+
+static void apply_post_collapse_grace(int civ_id) {
+    int floor;
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
+    floor = vassal_governance_disorder(civ_id);
+    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague, 0, 30);
+    civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration, 0, 30);
+    civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability, 0, 30);
+    civs[civ_id].disorder = max(floor, clamp(civs[civ_id].disorder, 0, 40));
+    civs[civ_id].collapse_grace_months = COLLAPSE_GRACE_MONTHS;
 }
 
 static void claim_region_direct(int region_id, int owner) {
@@ -196,24 +218,33 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     int cap_region;
     int formed = 0;
     int i;
+    int released_vassals[MAX_CIVS];
+    int released_count = 0;
+    int former_overlord = -1;
     CollapseBlockReason block;
 
     if (civ_id < 0 || civ_id >= MAX_CIVS) {
-        event_log_push("[Collapse] Collapse blocked: invalid country.");
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
+                                  -1, -1, -1, -1, 0, 0, "Collapse blocked: invalid country.");
         return 0;
     }
     cap_region = capital_region_for_civ(civ_id);
     block = collapse_block_reason(civ_id);
     if (block != COLLAPSE_BLOCK_NONE) {
-        char event_text[EVENT_LOG_LEN];
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse blocked: %s", collapse_format_block_reason(civ_id, block));
-        snprintf(event_text, sizeof(event_text), "[Collapse] %s", collapse_reasons[civ_id]);
-        event_log_push(event_text);
+        event_log_push_structured(EVENT_TYPE_COLLAPSE_FAILED, EVENT_SEVERITY_WARNING,
+                                  civ_id, -1, -1, -1, 0, 0, collapse_reasons[civ_id]);
         return 0;
     }
+    former_overlord = vassal_overlord(civ_id);
+    released_count = vassal_collect_direct(civ_id, released_vassals, MAX_CIVS);
     vassal_release(civ_id);
     vassal_release_all(civ_id);
+    for (i = 0; i < released_count; i++) {
+        event_log_push_structured(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE, EVENT_SEVERITY_INFO,
+                                  released_vassals[i], civ_id, -1, -1, 0, 0, "");
+    }
     for (i = 0; i < region_count && formed < 4 && civilization_slot_capacity_left() > 0; i++) {
         int child;
         if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id || i == cap_region) continue;
@@ -231,18 +262,22 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     if (cause == COLLAPSE_CAUSE_PRESSURE) disorder_relieve(civ_id, 25);
     else disorder_set_civil_unrest(civ_id);
     if (formed > 0) {
+        apply_post_collapse_grace(civ_id);
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse formed %d successor state%s.", formed, formed == 1 ? "" : "s");
+        event_log_push_structured(EVENT_TYPE_COLLAPSE_SUCCEEDED, EVENT_SEVERITY_DANGER,
+                                  civ_id, -1, -1, -1, formed, 0, "");
+        if (former_overlord >= 0) {
+            event_log_push_structured(EVENT_TYPE_VASSAL_SELF_COLLAPSE_RELEASED, EVENT_SEVERITY_INFO,
+                                      civ_id, former_overlord, -1, -1, formed, 0, "");
+        }
         civilization_colors_debug_check();
         collapse_refresh_world();
     } else {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse failed: no splittable non-capital region.");
-    }
-    {
-        char event_text[EVENT_LOG_LEN];
-        snprintf(event_text, sizeof(event_text), "[Collapse] %s", collapse_reasons[civ_id]);
-        event_log_push(event_text);
+        event_log_push_structured(EVENT_TYPE_COLLAPSE_FAILED, EVENT_SEVERITY_WARNING,
+                                  civ_id, -1, -1, -1, 0, 0, collapse_reasons[civ_id]);
     }
     return formed > 0;
 }
@@ -272,7 +307,6 @@ int collapse_trigger(int civ_id, CollapseCause cause) {
 }
 
 int collapse_check_immediate(int civ_id, CollapseCause cause) {
-    char event_text[EVENT_LOG_LEN];
     int collapsed;
     int now = collapse_month_index();
 
@@ -280,11 +314,12 @@ int collapse_check_immediate(int civ_id, CollapseCause cause) {
     if (immediate_attempt_month[civ_id] == now + 1 && cause != COLLAPSE_CAUSE_CIVIL_UNREST) return 0;
     immediate_attempt_month[civ_id] = now + 1;
     collapsed = collapse_civ(civ_id, cause);
-    snprintf(event_text, sizeof(event_text), "[Collapse] Immediate collapse %s for %.64s: %s",
-             collapsed ? "succeeded" : "failed",
-             civilization_display_name_for_language(civ_id, 0), collapse_last_reason(civ_id));
-    event_log_push(event_text);
     return collapsed;
+}
+
+int collapse_grace_months_left(int civ_id) {
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return 0;
+    return max(0, civs[civ_id].collapse_grace_months);
 }
 
 void collapse_update_immediate(void) {
@@ -309,6 +344,12 @@ void collapse_update_decade(void) {
                      "Immediate collapse path owns disorder 100 checks.");
             continue;
         }
+        if (civs[i].collapse_grace_months > 0) {
+            snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
+                     "Collapse grace: %d years %d months left; ordinary 25-year roll skipped.",
+                     civs[i].collapse_grace_months / 12, civs[i].collapse_grace_months % 12);
+            continue;
+        }
         chance = collapse_decade_chance_for_disorder(civs[i].disorder);
         if (chance <= 0) {
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
@@ -317,22 +358,16 @@ void collapse_update_decade(void) {
         }
         roll = rnd(100);
         if (roll < chance) {
-            char event_text[EVENT_LOG_LEN];
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
                      "25-year check triggered: disorder %d, chance %d%%, rolled %d, needed below %d.",
                      civs[i].disorder, chance, roll, chance);
-            snprintf(event_text, sizeof(event_text), "[Collapse] %.64s %.80s",
-                     civilization_display_name_for_language(i, 0), collapse_reasons[i]);
-            event_log_push(event_text);
             collapse_civ(i, COLLAPSE_CAUSE_PRESSURE);
         } else {
-            char event_text[EVENT_LOG_LEN];
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
                      "25-year check failed: disorder %d, chance %d%%, rolled %d, needed below %d.",
                      civs[i].disorder, chance, roll, chance);
-            snprintf(event_text, sizeof(event_text), "[Collapse] %.64s %.80s",
-                     civilization_display_name_for_language(i, 0), collapse_reasons[i]);
-            event_log_push(event_text);
+            event_log_push_structured(EVENT_TYPE_COLLAPSE_FAILED, EVENT_SEVERITY_WARNING,
+                                      i, -1, -1, -1, chance, roll, collapse_reasons[i]);
         }
     }
 }

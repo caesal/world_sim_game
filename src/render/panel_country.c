@@ -261,7 +261,8 @@ static void draw_country_card(HDC hdc, RECT rect, int civ_id) {
 
 static void draw_country_selector(HDC hdc, RECT rect, int civ_id) {
     RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
-    RECT name_rect = {rect.left + 32, rect.top + 5, rect.right - 8, rect.top + 26};
+    RECT locate_rect = {rect.right - 64, rect.top + 6, rect.right - 8, rect.top + 26};
+    RECT name_rect = {rect.left + 32, rect.top + 5, locate_rect.left - 6, rect.top + 26};
     RECT summary_rect = {rect.left + 32, rect.top + 27, rect.right - 8, rect.bottom - 4};
     CountrySummary country = summarize_country(civ_id);
     DecisionSnapshot decision;
@@ -280,6 +281,8 @@ static void draw_country_selector(HDC hdc, RECT rect, int civ_id) {
              tr("Disorder", "混乱"), civs[civ_id].disorder, tr("Intent", "意图"),
              country_intent_label(decision.main_intent));
     draw_text_rect(hdc, name_rect, title, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    fill_rect(hdc, locate_rect, RGB(87, 93, 78));
+    draw_center_text(hdc, locate_rect, tr("Locate", "定位"), RGB(255, 238, 190));
     draw_text_rect(hdc, summary_rect, summary, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
@@ -434,6 +437,11 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
     }
     if (country_detail_civil_unrest_hit(layout.detail_viewport, mouse_x, mouse_y)) {
         return COUNTRY_PANEL_HIT_CIVIL_UNREST;
+    }
+    if (layout.selected_detail) {
+        RECT locate = {layout.selected_summary.right - 64, layout.selected_summary.top + 6,
+                       layout.selected_summary.right - 8, layout.selected_summary.top + 26};
+        if (point_in_rect_local(locate, mouse_x, mouse_y)) return COUNTRY_PANEL_HIT_LOCATE;
     }
     if (layout.selected_detail && point_in_rect_local(layout.selected_summary, mouse_x, mouse_y)) return displayed_country();
     for (i = 0; i < layout.card_count; i++) {

@@ -39,10 +39,13 @@ int plague_city_deaths_total(int city_id);
 int plague_city_months_left(int city_id);
 int plague_tile_severity(int x, int y);
 int plague_civ_active_count(int civ_id);
+int plague_active_for_civ(int civ_id);
 int plague_civ_pressure(int civ_id);
 int plague_civ_deaths_total(int civ_id);
 int plague_civ_peak_severity(int civ_id);
 int plague_civ_months_left(int civ_id);
+int plague_random_immunity_months(int civ_id);
+int plague_random_immunity_civ_count(void);
 int plague_route_exposure(int route_id);
 
 #endif

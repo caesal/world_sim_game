@@ -15,6 +15,8 @@
 #include "sim/province.h"
 #include "sim/province_partition.h"
 #include "sim/spawn.h"
+#include "sim/territory_integrity.h"
+#include "sim/civilization_uid.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
@@ -29,6 +31,7 @@
 static CountrySummary country_summary_cache[MAX_CIVS];
 static int country_summary_dirty = 1;
 static unsigned int territory_contact_hash = 0;
+static int last_created_civ_id = -1;
 
 static int is_default_manual_name(const char *name) {
     return !name || !name[0] || strcmp(name, "New Realm") == 0;
@@ -408,6 +411,7 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
     Civilization *civ;
 
     if (!world_generated) return 0;
+    last_created_civ_id = -1;
     if (!spawn_select_civilization_cradle(x, y, &x, &y)) return 0;
     region_id = x >= 0 && x < MAP_W && y >= 0 && y < MAP_H ? world[y][x].region_id : -1;
 
@@ -442,18 +446,28 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
 
     recalculate_territory();
     population_sync_all();
+    ports_refresh_city_regions();
+    maritime_mark_ownership_dirty();
+    maritime_mark_routes_dirty();
+    diplomacy_mark_contacts_dirty();
+    territory_integrity_repair_capitals();
+    last_created_civ_id = civ_id;
     return 1;
 }
+
+int simulation_last_created_civ_id(void) { return last_created_civ_id; }
 
 void simulation_reset_state(void) {
     year = 0;
     month = 1;
     civ_count = 0;
     city_count = 0;
+    civilization_uid_reset();
     event_log_clear();
     expansion_reset();
     maritime_reset();
     plague_reset();
+    territory_integrity_reset();
     territory_contact_hash = 0;
     world_invalidate_region_cache();
 }

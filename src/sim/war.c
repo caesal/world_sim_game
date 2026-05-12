@@ -7,6 +7,7 @@
 #include "sim/simulation.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
+#include "sim/war_front.h"
 #include "sim/war_resolution.h"
 
 #include <stdlib.h>
@@ -22,6 +23,7 @@ static int support_casualties[MAX_CIVS];
 static int total_started_wars = 0;
 
 static int total_active_war_casualties(int civ_id);
+static int support_share_for_front(int overlord, int vassal);
 
 static int is_valid_civ(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
@@ -36,30 +38,6 @@ static int mobilized_soldiers(int civ_id, int extreme) {
 
 static int current_national_soldiers(int civ_id) {
     return max(0, mobilized_soldiers(civ_id, 0) - total_active_war_casualties(civ_id));
-}
-
-static int has_border_province_contact(int civ_a, int civ_b) {
-    static const int dirs[4][2] = {
-        {1, 0}, {-1, 0}, {0, 1}, {0, -1}
-    };
-    int x;
-    int y;
-
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int d;
-
-            if (world[y][x].owner != civ_a || world[y][x].province_id < 0) continue;
-            for (d = 0; d < 4; d++) {
-                int nx = x + dirs[d][0];
-                int ny = y + dirs[d][1];
-
-                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                if (world[ny][nx].owner == civ_b && world[ny][nx].province_id >= 0) return 1;
-            }
-        }
-    }
-    return 0;
 }
 
 static int active_war_index(int civ_a, int civ_b) {
@@ -179,8 +157,8 @@ static int war_start_internal(int attacker, int defender, int allow_no_border) {
     if (vassal_overlord(attacker) >= 0) return 0;
     if (vassal_overlord(defender) >= 0) defender = vassal_overlord(defender);
     if (!is_valid_civ(defender) || attacker == defender) return 0;
-    if (!allow_no_border && !has_border_province_contact(attacker, defender) &&
-        !has_border_province_contact(attacker, direct_target)) return 0;
+    (void)allow_no_border;
+    if (!war_has_active_front(attacker, defender) && !war_has_active_front(attacker, direct_target)) return 0;
     if (active_war_index(attacker, defender) >= 0) return 0;
 
     slot = empty_war_slot();
@@ -196,13 +174,8 @@ static int war_start_internal(int attacker, int defender, int allow_no_border) {
     war->initial_soldiers_a = allocate_front_share(war, attacker);
     war->initial_soldiers_b = allocate_front_share(war, defender);
     total_started_wars++;
-    {
-        char text[EVENT_LOG_LEN];
-        snprintf(text, sizeof(text), "[War] War started: %s vs %s.",
-                 civilization_display_name_for_language(attacker, 0),
-                 civilization_display_name_for_language(defender, 0));
-        event_log_push(text);
-    }
+    event_log_push_structured(EVENT_TYPE_WAR_STARTED, EVENT_SEVERITY_WARNING,
+                              attacker, defender, -1, -1, 0, 0, "");
     diplomacy_force_war(attacker, defender);
     return 1;
 }
@@ -240,6 +213,15 @@ int war_available_reserve_for_civ(int civ_id) {
                                       war_deployed_soldiers_for_civ(civ_id)) : 0;
 }
 int war_front_count_for_civ(int civ_id) { return is_valid_civ(civ_id) ? front_count_for_civ(civ_id) : 0; }
+int war_active_for_civ(int civ_id) { return war_front_count_for_civ(civ_id) > 0; }
+int war_vassal_support_used_for_overlord(int overlord, int vassal) {
+    if (!is_valid_civ(overlord) || !is_valid_civ(vassal)) return 0;
+    if (!vassal_is_direct(overlord, vassal)) return 0;
+    return support_share_for_front(overlord, vassal);
+}
+int war_vassal_support_casualties(int vassal) {
+    return is_valid_civ(vassal) ? support_casualties[vassal] : 0;
+}
 int war_total_started_count(void) { return total_started_wars; }
 
 void war_end_direct_for_civ(int civ_id) {
@@ -275,6 +257,15 @@ static void update_supply_state(ActiveWar *war) {
 
 static void finish_war(ActiveWar *war, WarOutcome outcome, int margin) {
     war_apply_outcome(war->attacker, war->defender, outcome, margin);
+    memset(war, 0, sizeof(*war));
+}
+
+static void end_war_severed_front(ActiveWar *war) {
+    int attacker = war->attacker;
+    int defender = war->defender;
+    event_log_push_structured(EVENT_TYPE_WAR_FRONT_SEVERED, EVENT_SEVERITY_INFO,
+                              attacker, defender, -1, -1, 0, 0, "");
+    diplomacy_start_truce(attacker, defender, 5, 45);
     memset(war, 0, sizeof(*war));
 }
 
@@ -381,6 +372,10 @@ static void run_war_year(ActiveWar *war) {
 
     if (!is_valid_civ(war->attacker) || !is_valid_civ(war->defender)) {
         memset(war, 0, sizeof(*war));
+        return;
+    }
+    if (!war_has_active_front(war->attacker, war->defender)) {
+        end_war_severed_front(war);
         return;
     }
 

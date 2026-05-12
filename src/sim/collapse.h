@@ -28,5 +28,6 @@ int collapse_trigger(int civ_id, CollapseCause cause);
 int collapse_check_immediate(int civ_id, CollapseCause cause);
 void collapse_update_immediate(void);
 void collapse_update_decade(void);
+int collapse_grace_months_left(int civ_id);
 
 #endif

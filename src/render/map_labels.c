@@ -1,7 +1,7 @@
 #include "map_labels.h"
 
+#include "render/render_context.h"
 #include "render_map_internal.h"
-#include "sim/simulation.h"
 
 #define MAX_RENDER_LABELS 72
 
@@ -66,7 +66,24 @@ static RECT label_rect_for_centered_text(HDC hdc, int cx, int y, const char *tex
     return label_rect_for_text(hdc, cx - size.cx / 2, y, text, pad);
 }
 
+static int snap_tile_left(MapLayout layout, const RenderSnapshot *snapshot, int x) {
+    return layout.map_x + x * layout.draw_w / max(1, snapshot->map_w);
+}
+
+static int snap_tile_right(MapLayout layout, const RenderSnapshot *snapshot, int x) {
+    return layout.map_x + (x + 1) * layout.draw_w / max(1, snapshot->map_w);
+}
+
+static int snap_tile_top(MapLayout layout, const RenderSnapshot *snapshot, int y) {
+    return layout.map_y + y * layout.draw_h / max(1, snapshot->map_h);
+}
+
+static int snap_tile_bottom(MapLayout layout, const RenderSnapshot *snapshot, int y) {
+    return layout.map_y + (y + 1) * layout.draw_h / max(1, snapshot->map_h);
+}
+
 static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *used, int *used_count) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     int font_height = layout.tile_size >= 5 ? 28 : 21;
     HFONT font = CreateFontW(font_height, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
@@ -74,19 +91,25 @@ static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *us
     HFONT old_font = SelectObject(hdc, font);
     int civ_id;
 
-    for (civ_id = 0; civ_id < civ_count; civ_id++) {
+    if (!snapshot || !snapshot->world_generated) {
+        SelectObject(hdc, old_font);
+        DeleteObject(font);
+        return;
+    }
+    for (civ_id = 0; civ_id < snapshot->civ_count; civ_id++) {
         long sx = 0;
         long sy = 0;
         int samples = 0;
         int x;
         int y;
 
-        if (!civs[civ_id].alive) continue;
-        for (y = 2; y < MAP_H; y += 6) {
-            for (x = 2; x < MAP_W; x += 6) {
-                if (world[y][x].owner != civ_id) continue;
-                sx += layout.map_x + x * layout.draw_w / MAP_W;
-                sy += layout.map_y + y * layout.draw_h / MAP_H;
+        if (!snapshot->civs[civ_id].alive) continue;
+        for (y = 2; y < snapshot->map_h; y += 6) {
+            for (x = 2; x < snapshot->map_w; x += 6) {
+                const SnapshotTile *tile = render_snapshot_tile_at(snapshot, x, y);
+                if (!tile || tile->owner != civ_id) continue;
+                sx += layout.map_x + x * layout.draw_w / max(1, snapshot->map_w);
+                sy += layout.map_y + y * layout.draw_h / max(1, snapshot->map_h);
                 samples++;
             }
         }
@@ -94,12 +117,13 @@ static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *us
         {
             int px = (int)(sx / samples);
             int py = (int)(sy / samples);
-            const char *name = civilization_display_name(civ_id);
+            const char *name = ui_language == UI_LANG_ZH ? snapshot->civs[civ_id].name_zh :
+                                                           snapshot->civs[civ_id].name_en;
             RECT rect = label_rect_for_centered_text(hdc, px, py - font_height / 2, name, 7);
             if (rect.right < client.left || rect.left > client.right - side_panel_w) continue;
             if (!label_is_open(used, *used_count, rect)) continue;
             draw_label_text(hdc, rect.left + 7, rect.top + 3, name,
-                            readable_label_color(civs[civ_id].color));
+                            readable_label_color(snapshot->civs[civ_id].color));
             remember_label(used, used_count, rect);
         }
     }
@@ -108,6 +132,7 @@ static void draw_country_labels(HDC hdc, RECT client, MapLayout layout, RECT *us
 }
 
 static void draw_city_labels(HDC hdc, RECT client, MapLayout layout, RECT *used, int *used_count) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     HFONT font = CreateFontW(15, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                              OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
                              DEFAULT_PITCH, L"Microsoft YaHei UI");
@@ -119,23 +144,29 @@ static void draw_city_labels(HDC hdc, RECT client, MapLayout layout, RECT *used,
         DeleteObject(font);
         return;
     }
-    for (i = 0; i < city_count; i++) {
-        City *city = &cities[i];
+    if (!snapshot || !snapshot->world_generated) {
+        SelectObject(hdc, old_font);
+        DeleteObject(font);
+        return;
+    }
+    for (i = 0; i < snapshot->city_count; i++) {
+        const SnapshotCity *city = &snapshot->cities[i];
         int cx;
         int cy;
         RECT rect;
 
-        if (!city->alive || city->owner < 0 || city->owner >= civ_count || !civs[city->owner].alive) continue;
+        if (!city->alive || city->owner < 0 || city->owner >= snapshot->civ_count ||
+            !snapshot->civs[city->owner].alive) continue;
         if (layout.tile_size < 8 && !city->capital && !city->port && city->population < 420) continue;
         if (layout.tile_size < 10 && !city->capital && !city->port && city->population < 720) continue;
-        cx = (tile_left(layout, city->x) + tile_right(layout, city->x)) / 2 + 10;
-        cy = (tile_top(layout, city->y) + tile_bottom(layout, city->y)) / 2 - 18;
+        cx = (snap_tile_left(layout, snapshot, city->x) + snap_tile_right(layout, snapshot, city->x)) / 2 + 10;
+        cy = (snap_tile_top(layout, snapshot, city->y) + snap_tile_bottom(layout, snapshot, city->y)) / 2 - 18;
         if (cx < client.left || cx > client.right - side_panel_w || cy < TOP_BAR_H || cy > client.bottom - BOTTOM_BAR_H) {
             continue;
         }
         rect = label_rect_for_text(hdc, cx, cy, city->name, 5);
         if (!label_is_open(used, *used_count, rect)) continue;
-        draw_label_text(hdc, cx, cy, city->name, readable_label_color(civs[city->owner].color));
+        draw_label_text(hdc, cx, cy, city->name, readable_label_color(snapshot->civs[city->owner].color));
         remember_label(used, used_count, rect);
     }
     SelectObject(hdc, old_font);

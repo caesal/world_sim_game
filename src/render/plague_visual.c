@@ -1,14 +1,15 @@
 #include "plague_visual.h"
 
 #include "core/dirty_flags.h"
+#include "core/render_snapshot.h"
 #include "render_map_internal.h"
-#include "sim/plague.h"
+#include "render/render_context.h"
 
 #include <stdlib.h>
 #include <string.h>
 
 static int city_visual[MAX_CITIES];
-static int route_visual[MAX_MARITIME_ROUTES];
+static int route_visual[MAX_SEA_LANES];
 static int visual_active;
 static int fog_cache_dirty = 1;
 static int fog_cache_w;
@@ -18,6 +19,7 @@ static HDC fog_cache_dc;
 static HBITMAP fog_cache_bitmap;
 static HBITMAP fog_cache_old_bitmap;
 static unsigned int *fog_cache_pixels;
+static int visual_tick_accum_ms;
 
 static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     unsigned int old = *dst;
@@ -42,24 +44,32 @@ static int approach(int current, int target, int elapsed_ms) {
 }
 
 int plague_visual_tick(int elapsed_ms) {
+    const RenderSnapshot *snapshot;
     int i;
     int changed = 0;
     int any = 0;
 
+    visual_tick_accum_ms += clamp(elapsed_ms, 0, 250);
+    if (visual_tick_accum_ms < 100) return 0;
+    elapsed_ms = min(visual_tick_accum_ms, 250);
+    visual_tick_accum_ms = 0;
+    snapshot = render_snapshot_acquire();
+
     for (i = 0; i < MAX_CITIES; i++) {
-        int target = i < city_count ? plague_city_severity(i) * 100 : 0;
+        int target = snapshot && i < snapshot->city_count ? snapshot->plague_city_severity[i] * 100 : 0;
         int next = approach(city_visual[i], target, elapsed_ms);
         if (next != city_visual[i]) changed = 1;
         city_visual[i] = next;
         if (next > 4) any = 1;
     }
-    for (i = 0; i < MAX_MARITIME_ROUTES; i++) {
-        int target = i < maritime_route_count ? plague_route_exposure(i) * 100 : 0;
+    for (i = 0; i < MAX_SEA_LANES; i++) {
+        int target = snapshot && i < snapshot->lane_count ? snapshot->plague_lane_exposure[i] * 100 : 0;
         int next = approach(route_visual[i], target, elapsed_ms);
         if (next != route_visual[i]) changed = 1;
         route_visual[i] = next;
         if (next > 4) any = 1;
     }
+    render_snapshot_release(snapshot);
     visual_active = any;
     if (changed) fog_cache_dirty = 1;
     return changed;
@@ -70,7 +80,7 @@ int plague_visual_active(void) {
 }
 
 int plague_visual_route_intensity(int route_id) {
-    if (route_id < 0 || route_id >= MAX_MARITIME_ROUTES) return 0;
+    if (route_id < 0 || route_id >= MAX_SEA_LANES) return 0;
     return route_visual[route_id];
 }
 
@@ -88,33 +98,34 @@ static void draw_blob(unsigned int *pixels, int cx, int cy, int radius, int inte
     int y;
 
     if (max_alpha <= 0) return;
-    for (y = max(cy - r, 0); y <= min(cy + r, MAP_H - 1); y++) {
-        for (x = max(cx - r, 0); x <= min(cx + r, MAP_W - 1); x++) {
+    for (y = max(cy - r, 0); y <= min(cy + r, fog_cache_h - 1); y++) {
+        for (x = max(cx - r, 0); x <= min(cx + r, fog_cache_w - 1); x++) {
             int dx = x - cx;
             int dy = y - cy;
             int dist2 = dx * dx + dy * dy;
             int r2 = r * r;
             int alpha;
-            if (dist2 > r2) continue;
+            if (x >= fog_cache_w || y >= fog_cache_h || dist2 > r2) continue;
             alpha = max_alpha * (r2 - dist2) / r2;
-            if (alpha > 0) blend_pixel(&pixels[y * MAP_W + x], color, alpha);
+            if (alpha > 0) blend_pixel(&pixels[y * fog_cache_w + x], color, alpha);
         }
     }
 }
 
-static void add_city_cloud(unsigned int *pixels, int city_id) {
+static void add_city_cloud(unsigned int *pixels, const RenderSnapshot *snapshot, int city_id) {
     int intensity = city_visual[city_id];
-    int radius = clamp(9 + intensity / 28 + cities[city_id].radius, 8, 58);
+    const SnapshotCity *city = &snapshot->cities[city_id];
+    int radius = clamp(9 + intensity / 28 + city->radius, 8, 58);
     int blobs = clamp(4 + intensity / 180, 4, 10);
     int i;
 
-    if (intensity <= 4 || !cities[city_id].alive) return;
+    if (intensity <= 4 || !city->alive) return;
     for (i = 0; i < blobs; i++) {
         int seed = city_id * 97 + i * 37;
-        int bx = cities[city_id].x + blob_offset(seed, radius / 2);
-        int by = cities[city_id].y + blob_offset(seed + 19, radius / 2);
+        int bx = city->x + blob_offset(seed, radius / 2);
+        int by = city->y + blob_offset(seed + 19, radius / 2);
         int br = clamp(radius / 2 + abs(blob_offset(seed + 41, radius / 2)), 5, radius);
-        draw_blob(pixels, clamp(bx, 0, MAP_W - 1), clamp(by, 0, MAP_H - 1), br, intensity);
+        draw_blob(pixels, clamp(bx, 0, fog_cache_w - 1), clamp(by, 0, fog_cache_h - 1), br, intensity);
     }
 }
 
@@ -132,15 +143,16 @@ static void release_fog_cache(void) {
     fog_cache_dirty = 1;
 }
 
-static int ensure_fog_cache(HDC hdc) {
+static int ensure_fog_cache(HDC hdc, const RenderSnapshot *snapshot) {
     BITMAPINFO info;
 
-    if (fog_cache_dc && fog_cache_bitmap && fog_cache_w == MAP_W && fog_cache_h == MAP_H) return 1;
+    if (fog_cache_dc && fog_cache_bitmap &&
+        fog_cache_w == snapshot->map_w && fog_cache_h == snapshot->map_h) return 1;
     release_fog_cache();
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
-    info.bmiHeader.biWidth = MAP_W;
-    info.bmiHeader.biHeight = -MAP_H;
+    info.bmiHeader.biWidth = snapshot->map_w;
+    info.bmiHeader.biHeight = -snapshot->map_h;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
@@ -151,32 +163,34 @@ static int ensure_fog_cache(HDC hdc) {
         return 0;
     }
     fog_cache_old_bitmap = SelectObject(fog_cache_dc, fog_cache_bitmap);
-    fog_cache_w = MAP_W;
-    fog_cache_h = MAP_H;
+    fog_cache_w = snapshot->map_w;
+    fog_cache_h = snapshot->map_h;
     return 1;
 }
 
-static void rebuild_fog_cache(void) {
+static void rebuild_fog_cache(const RenderSnapshot *snapshot) {
     int i;
 
     if (!fog_cache_pixels) return;
-    memset(fog_cache_pixels, 0, (size_t)MAP_W * MAP_H * sizeof(*fog_cache_pixels));
-    for (i = 0; i < city_count; i++) add_city_cloud(fog_cache_pixels, i);
+    memset(fog_cache_pixels, 0, (size_t)fog_cache_w * fog_cache_h * sizeof(*fog_cache_pixels));
+    for (i = 0; i < snapshot->city_count; i++) add_city_cloud(fog_cache_pixels, snapshot, i);
     fog_cache_alpha = plague_fog_alpha;
     fog_cache_dirty = 0;
 }
 
 void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     int saved_dc;
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
 
+    if (!snapshot || !snapshot->world_generated) return;
     if (!visual_active || plague_fog_alpha <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
-    if (!ensure_fog_cache(hdc)) return;
-    if (fog_cache_dirty || fog_cache_alpha != plague_fog_alpha || dirty_render_plague()) rebuild_fog_cache();
+    if (!ensure_fog_cache(hdc, snapshot)) return;
+    if (fog_cache_dirty || fog_cache_alpha != plague_fog_alpha || dirty_render_plague()) rebuild_fog_cache(snapshot);
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, client.left, TOP_BAR_H, client.right - side_panel_w, client.bottom - BOTTOM_BAR_H);
     SetStretchBltMode(hdc, HALFTONE);
     AlphaBlend(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
-               fog_cache_dc, 0, 0, MAP_W, MAP_H, blend);
+               fog_cache_dc, 0, 0, fog_cache_w, fog_cache_h, blend);
     RestoreDC(hdc, saved_dc);
 }

@@ -318,6 +318,38 @@ int sea_lanes_connected(int city_a, int city_b, int *out_distance) {
     return 0;
 }
 
+int sea_lanes_network_connected(int city_a, int city_b) {
+    int idx_a, idx_b, net_a, net_b;
+    unsigned char seen[MAX_CITIES];
+    int queue[MAX_CITIES], head = 0, tail = 0;
+    sea_lanes_get(NULL);
+    if (city_a < 0 || city_a >= MAX_CITIES || city_b < 0 || city_b >= MAX_CITIES) return 0;
+    idx_a = port_index_by_city[city_a];
+    idx_b = port_index_by_city[city_b];
+    if (idx_a < 0 || idx_b < 0) return 0;
+    net_a = ports[idx_a].network;
+    net_b = ports[idx_b].network;
+    if (net_a == net_b) return 1;
+    memset(seen, 0, sizeof(seen));
+    seen[net_a] = 1;
+    queue[tail++] = net_a;
+    while (head < tail) {
+        int net = queue[head++];
+        int i;
+        for (i = 0; i < lane_count; i++) {
+            int next = -1;
+            if (lanes[i].type != SEA_LANE_DEEP) continue;
+            if (lanes[i].network_a == net) next = lanes[i].network_b;
+            else if (lanes[i].network_b == net) next = lanes[i].network_a;
+            if (next < 0 || next >= MAX_CITIES || seen[next]) continue;
+            if (next == net_b) return 1;
+            seen[next] = 1;
+            queue[tail++] = next;
+        }
+    }
+    return 0;
+}
+
 int sea_lanes_has_contact(int civ_a, int civ_b) {
     int i;
     sea_lanes_get(NULL);

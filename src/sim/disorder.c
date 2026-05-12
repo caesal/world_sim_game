@@ -2,9 +2,11 @@
 
 #include "core/game_state.h"
 #include "sim/collapse.h"
+#include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
+#include "sim/war.h"
 
 #include <stdio.h>
 
@@ -34,12 +36,10 @@ static void record_debuff_change(int civ_id, int old_disorder, int new_disorder)
     int new_percent = disorder_soft_effect_percent(new_disorder);
     int previous = last_debuff_percent[civ_id] ? last_debuff_percent[civ_id] : old_percent;
     int diff = previous > new_percent ? previous - new_percent : new_percent - previous;
-    char text[EVENT_LOG_LEN];
 
     if (diff >= 5) {
-        snprintf(text, sizeof(text), "[Disorder] %.64s soft penalties now %d%% at disorder %d.",
-                 civilization_display_name_for_language(civ_id, 0), new_percent, new_disorder);
-        event_log_push(text);
+        event_log_push_structured(EVENT_TYPE_DISORDER_CHANGED, EVENT_SEVERITY_INFO,
+                                  civ_id, -1, -1, -1, new_percent, new_disorder, "");
     }
     last_debuff_percent[civ_id] = new_percent;
 }
@@ -55,15 +55,59 @@ static void finish_disorder_change(int civ_id, int old_disorder, int allow_immed
     }
 }
 
+static int plague_decay_for_civ(Civilization *civ, int civ_id) {
+    if (civ->disorder_plague <= 0) return 0;
+    if (plague_active_for_civ(civ_id)) {
+        civ->plague_recovery_months = 0;
+        return 1;
+    }
+    if (civ->plague_recovery_months < 0) civ->plague_recovery_months = 0;
+    civ->plague_recovery_months++;
+    if (civ->plague_recovery_months <= 12) return 4;
+    if (civ->plague_recovery_months <= 24) return 3;
+    return 2;
+}
+
+static int war_decay_for_civ(Civilization *civ, int civ_id) {
+    if (civ->disorder_stability <= 0) return 0;
+    if (war_active_for_civ(civ_id)) {
+        civ->war_recovery_months = 0;
+        return 1;
+    }
+    if (civ->war_recovery_months < 0) civ->war_recovery_months = 0;
+    civ->war_recovery_months++;
+    return civ->war_recovery_months <= 24 ? 3 : 2;
+}
+
+static int pressure_contribution_x10(Civilization *civ) {
+    return civ->disorder_resource * 10 / 18 + civ->disorder_plague * 10 / 24 +
+           civ->disorder_migration * 10 / 26 + civ->disorder_stability * 10 / 28;
+}
+
+static void record_recovery_components(Civilization *civ, int civ_id, int pressure, int resource_score, int has_war) {
+    civ->disorder_last_base_recovery_x10 = 10;
+    civ->disorder_last_governance_recovery_x10 = civ->governance * 5;
+    civ->disorder_last_peace_recovery_x10 = has_war ? 0 : 10;
+    civ->disorder_last_cohesion_recovery_x10 = has_war ? civ->cohesion : 0;
+    civ->disorder_last_condition_recovery_x10 = (!has_war && pressure < 65 && resource_score > 30) ? 10 : 0;
+    (void)civ_id;
+}
+
 void disorder_update_month(int civ_id, int resource_score) {
     Civilization *civ;
     int pressure;
     int pressure_disorder;
     int scarcity_disorder;
-    int recovery;
-    int delta;
+    int recovery_x10;
+    int delta_x10;
+    int total_x10;
+    int next_disorder;
     int floor;
     int old_disorder;
+    int plague_decay;
+    int war_decay;
+    int migration_decay;
+    int has_war;
 
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
     civ = &civs[civ_id];
@@ -72,15 +116,38 @@ void disorder_update_month(int civ_id, int resource_score) {
     pressure_disorder = clamp((pressure - 85) / 3, 0, 45);
     scarcity_disorder = clamp(34 - resource_score, 0, 34);
     civ->disorder_resource = clamp(pressure_disorder + scarcity_disorder, 0, 100);
-    civ->disorder_plague = clamp(civ->disorder_plague - 1, 0, 100);
-    civ->disorder_migration = clamp(civ->disorder_migration - 1, 0, 100);
-    civ->disorder_stability = clamp(civ->disorder_stability - 1, 0, 100);
-    recovery = civ->governance / 2 + civ->cohesion / 2 + (pressure < 65 && resource_score > 30 ? 2 : 0);
-    delta = civ->disorder_resource / 18 + civ->disorder_plague / 24 +
-            civ->disorder_migration / 26 + civ->disorder_stability / 28 - recovery;
-    civ->disorder = clamp(civ->disorder + delta, 0, 100);
+    plague_decay = plague_decay_for_civ(civ, civ_id);
+    war_decay = war_decay_for_civ(civ, civ_id);
+    migration_decay = civ->disorder_migration > 0 ? 4 : 0;
+    civ->disorder_plague = clamp(civ->disorder_plague - plague_decay, 0, 100);
+    civ->disorder_migration = clamp(civ->disorder_migration - migration_decay, 0, 100);
+    civ->disorder_stability = clamp(civ->disorder_stability - war_decay, 0, 100);
+    has_war = war_active_for_civ(civ_id);
+    record_recovery_components(civ, civ_id, pressure, resource_score, has_war);
+    recovery_x10 = civ->disorder_last_base_recovery_x10 + civ->disorder_last_governance_recovery_x10 +
+                   civ->disorder_last_peace_recovery_x10 + civ->disorder_last_cohesion_recovery_x10 +
+                   civ->disorder_last_condition_recovery_x10;
+    delta_x10 = pressure_contribution_x10(civ) - recovery_x10;
+    civ->disorder_last_pressure_x10 = pressure_contribution_x10(civ);
+    civ->disorder_last_recovery_x10 = recovery_x10;
+    civ->disorder_last_net_x10 = delta_x10;
+    civ->disorder_last_pressure = civ->disorder_last_pressure_x10 / 10;
+    civ->disorder_last_recovery = civ->disorder_last_recovery_x10 / 10;
+    civ->disorder_last_net = civ->disorder_last_net_x10 / 10;
+    civ->disorder_last_plague_decay = plague_decay;
+    civ->disorder_last_war_decay = war_decay;
+    civ->disorder_last_migration_decay = migration_decay;
+    if (civ->collapse_grace_months > 0) civ->collapse_grace_months--;
+    total_x10 = civ->disorder * 10 + civ->disorder_carry_x10 + delta_x10;
+    next_disorder = clamp(total_x10 / 10, 0, 100);
+    civ->disorder_carry_x10 = total_x10 - next_disorder * 10;
+    if (next_disorder == 0 || next_disorder == 100) civ->disorder_carry_x10 = 0;
+    civ->disorder = next_disorder;
     floor = vassal_governance_disorder(civ_id);
-    civ->disorder = max(civ->disorder, floor);
+    if (civ->disorder < floor) {
+        civ->disorder = floor;
+        civ->disorder_carry_x10 = 0;
+    }
     finish_disorder_change(civ_id, old_disorder, 1);
 }
 
@@ -130,4 +197,66 @@ void disorder_add_war_deaths(int civ_id, int deaths) {
 
 void disorder_add_plague_deaths(int civ_id, int deaths) {
     disorder_add_plague_pressure(civ_id, deaths / 2500 + 1);
+}
+
+int disorder_last_pressure(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_pressure : 0;
+}
+
+int disorder_last_recovery(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_recovery : 0;
+}
+
+int disorder_last_net(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_net : 0;
+}
+
+int disorder_last_pressure_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_pressure_x10 : 0;
+}
+
+int disorder_last_recovery_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_recovery_x10 : 0;
+}
+
+int disorder_last_net_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_net_x10 : 0;
+}
+
+int disorder_last_base_recovery_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_base_recovery_x10 : 0;
+}
+
+int disorder_last_governance_recovery_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_governance_recovery_x10 : 0;
+}
+
+int disorder_last_cohesion_recovery_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_cohesion_recovery_x10 : 0;
+}
+
+int disorder_last_peace_recovery_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_peace_recovery_x10 : 0;
+}
+
+int disorder_last_condition_recovery_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_condition_recovery_x10 : 0;
+}
+
+int disorder_last_plague_decay(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_plague_decay : 0;
+}
+
+int disorder_last_war_decay(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_war_decay : 0;
+}
+
+int disorder_last_migration_decay(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_migration_decay : 0;
+}
+
+int disorder_pressure_eta_months(int value, int monthly_decay) {
+    if (value <= 0) return 0;
+    if (monthly_decay <= 0) return -1;
+    return (value + monthly_decay - 1) / monthly_decay;
 }

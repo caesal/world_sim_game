@@ -8,6 +8,7 @@
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/simulation.h"
+#include "sim/territory_integrity.h"
 #include "world/terrain_query.h"
 
 #define REGION_SPAWN_HARD_DISTANCE 30
@@ -327,6 +328,7 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     }
     profiler_add_claim_tiles_touched(touched);
     ports_maybe_make_city_port(admin_city);
+    territory_integrity_repair_capitals();
     world_invalidate_region_cache();
     dirty_mark_territory();
     dirty_mark_labels();

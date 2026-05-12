@@ -1,6 +1,7 @@
 #include "panel_country_tech.h"
 
 #include "render/render_common.h"
+#include "render/ui_format.h"
 #include "sim/disorder.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
@@ -188,8 +189,7 @@ static void draw_expected_advance(HDC hdc, UiCursor *cursor, int stage, int mont
         ui_row_text(hdc, cursor, tr("Expected Advance", "预计进阶"), tr("Maximum stage reached", "已达到最高阶段"));
         return;
     }
-    if (months < 12) snprintf(text, sizeof(text), "%d%s", max(0, months), tr("mo", "个月"));
-    else snprintf(text, sizeof(text), "%d%s%d%s", months / 12, tr("yr", "年"), months % 12, tr("mo", "个月"));
+    ui_format_months(text, sizeof(text), max(0, months), UI_MONTH_ZERO_NOW);
     ui_row_text(hdc, cursor, tr("Expected Advance", "预计进阶"), text);
 }
 
@@ -208,7 +208,7 @@ static void draw_stage_detail(HDC hdc, UiCursor *cursor, int civ_id, int inspect
         ui_row_text(hdc, cursor, tr("Progress", "进度"), text);
     } else if (inspect_stage > current) {
         int months = technology_months_to_next(civ_id) + (inspect_stage - current - 1) * 120 * 12;
-        snprintf(text, sizeof(text), "~%d %s", (months + 11) / 12, tr("years", "年"));
+        ui_format_months(text, sizeof(text), months, UI_MONTH_ZERO_NOW);
         ui_row_text(hdc, cursor, tr("Estimated arrival", "预计到达"), text);
     }
 }
@@ -226,6 +226,7 @@ void draw_country_tech_tab(HDC hdc, UiCursor *cursor, int civ_id) {
     int months = technology_months_to_next(civ_id);
     RECT track = {cursor->x + 12, cursor->y + 26, cursor->x + cursor->width - 12, cursor->y + 26};
     char text[160];
+    char span[80];
 
     technology_current_bonus_summary(civ_id, &current);
     technology_next_bonus_summary(civ_id, &next);
@@ -240,8 +241,8 @@ void draw_country_tech_tab(HDC hdc, UiCursor *cursor, int civ_id) {
                     tr("No technology bonus yet.", "暂无科技加成。"));
     }
     ui_progress_bar(hdc, ui_take_rect(cursor, 12), progress, 100, RGB(104, 158, 186));
-    snprintf(text, sizeof(text), "%d%%   %d %s %d %s", progress, months / 12, tr("yr", "年"),
-             months % 12, tr("mo", "月"));
+    ui_format_months(span, sizeof(span), months, UI_MONTH_ZERO_DONE);
+    snprintf(text, sizeof(text), "%d%%   %s", progress, span);
     ui_row_text(hdc, cursor, tr("To Next", "距下阶段"), stage >= 10 ? tr("Complete", "完成") : text);
 
     ui_section(hdc, cursor, tr("Bonus Grid", "加成网格"));

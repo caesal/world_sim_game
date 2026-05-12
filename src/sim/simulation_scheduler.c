@@ -22,15 +22,12 @@ static void log_budget_yield(int step_ms, int budget_ms) {
     budget_event_repeat++;
     if (now - last_budget_event_tick < 2000) return;
     if (budget_event_repeat > 1) {
-        snprintf(text, sizeof(text),
-                 "[Performance] Simulation yielded after an over-budget step: %d ms over %d ms budget x%d.",
-                 step_ms, budget_ms, budget_event_repeat);
+        snprintf(text, sizeof(text), "scheduler over-budget yield");
     } else {
-        snprintf(text, sizeof(text),
-                 "[Performance] Simulation yielded after an over-budget step: %d ms over %d ms budget.",
-                 step_ms, budget_ms);
+        snprintf(text, sizeof(text), "scheduler over-budget yield");
     }
-    event_log_push(text);
+    event_log_push_structured(EVENT_TYPE_SCHEDULER_YIELD, EVENT_SEVERITY_WARNING,
+                              -1, -1, budget_event_repeat, -1, step_ms, budget_ms, text);
     budget_event_repeat = 0;
     last_budget_event_tick = now;
 }

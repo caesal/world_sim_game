@@ -2,45 +2,19 @@
 
 #include "core/game_types.h"
 #include "game/game.h"
+#include "io/map_save_legacy.h"
+#include "io/map_save_regions.h"
+#include "sim/civilization_uid.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
 
 #include <commdlg.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
-#define MAP_SAVE_VERSION 2
+#define MAP_SAVE_VERSION 6
 #define MAP_SAVE_PATH_MAX 1024
-
-typedef struct {
-    char name[NAME_LEN];
-    char symbol;
-    Color32 color;
-    int alive;
-    int population;
-    int territory;
-    int aggression;
-    int expansion;
-    int defense;
-    int culture;
-    int governance;
-    int cohesion;
-    int production;
-    int military;
-    int commerce;
-    int logistics;
-    int innovation;
-    int adaptation;
-    int tech_stage;
-    int tech_progress;
-    int deep_sea_route_unlocked_event_done;
-    int capital_city;
-    int disorder;
-    int disorder_resource;
-    int disorder_plague;
-    int disorder_migration;
-    int disorder_stability;
-} LegacyCivilizationV1;
 
 typedef struct {
     char magic[8];
@@ -199,7 +173,7 @@ static void fill_header(MapSaveHeader *header) {
 
 static int validate_header(const MapSaveHeader *header) {
     return memcmp(header->magic, MAP_SAVE_MAGIC, sizeof(header->magic)) == 0 &&
-           (header->version == 1 || header->version == MAP_SAVE_VERSION) &&
+           (header->version >= 1 && header->version <= MAP_SAVE_VERSION) &&
            header->map_w > 0 && header->map_w <= MAX_MAP_W &&
            header->map_h > 0 && header->map_h <= MAX_MAP_H &&
            header->civ_count >= 0 && header->civ_count <= MAX_CIVS &&
@@ -277,8 +251,48 @@ static int read_world_rows(FILE *file) {
 }
 
 static int read_civilizations(FILE *file, int save_version) {
-    if (save_version >= 2) {
+    if (save_version >= 6) {
         return read_block(file, civs, sizeof(Civilization), (size_t)civ_count);
+    }
+    if (save_version >= 4) {
+        LegacyCivilizationV5 legacy[MAX_CIVS];
+        int i;
+
+        if (!read_block(file, legacy, sizeof(LegacyCivilizationV5), (size_t)civ_count)) return 0;
+        for (i = 0; i < civ_count; i++) {
+            memset(&civs[i], 0, sizeof(civs[i]));
+            memcpy(civs[i].name, legacy[i].name, NAME_LEN);
+            civs[i].name_id = legacy[i].name_id;
+            civs[i].custom_name = legacy[i].custom_name;
+            memcpy(((char *)&civs[i]) + offsetof(Civilization, symbol),
+                   ((char *)&legacy[i]) + offsetof(LegacyCivilizationV5, symbol),
+                   sizeof(LegacyCivilizationV5) - offsetof(LegacyCivilizationV5, symbol));
+        }
+        return 1;
+    }
+    if (save_version == 3) {
+        LegacyCivilizationV3 legacy[MAX_CIVS];
+        int i;
+
+        if (!read_block(file, legacy, sizeof(LegacyCivilizationV3), (size_t)civ_count)) return 0;
+        for (i = 0; i < civ_count; i++) {
+            memset(&civs[i], 0, sizeof(civs[i]));
+            memcpy(&civs[i], &legacy[i], sizeof(legacy[i]));
+        }
+        return 1;
+    }
+    if (save_version == 2) {
+        LegacyCivilizationV2 legacy[MAX_CIVS];
+        int i;
+
+        if (!read_block(file, legacy, sizeof(LegacyCivilizationV2), (size_t)civ_count)) return 0;
+        for (i = 0; i < civ_count; i++) {
+            memset(&civs[i], 0, sizeof(civs[i]));
+            memcpy(&civs[i], &legacy[i], sizeof(legacy[i]));
+            civs[i].plague_recovery_months = 36;
+            civs[i].war_recovery_months = 36;
+        }
+        return 1;
     }
     {
         LegacyCivilizationV1 legacy[MAX_CIVS];
@@ -317,6 +331,8 @@ static int read_civilizations(FILE *file, int save_version) {
             civs[i].disorder_plague = legacy[i].disorder_plague;
             civs[i].disorder_migration = legacy[i].disorder_migration;
             civs[i].disorder_stability = legacy[i].disorder_stability;
+            civs[i].plague_recovery_months = 36;
+            civs[i].war_recovery_months = 36;
         }
         return 1;
     }
@@ -361,7 +377,7 @@ int save_current_map(HWND hwnd) {
         !write_world_rows(file) ||
         !write_block(file, river_paths, sizeof(RiverPath), (size_t)river_path_count) ||
         !write_block(file, maritime_routes, sizeof(MaritimeRoute), (size_t)maritime_route_count) ||
-        !write_block(file, natural_regions, sizeof(NaturalRegion), (size_t)region_count) ||
+        !map_save_write_natural_regions(file) ||
         !write_block(file, civs, sizeof(Civilization), (size_t)civ_count) ||
         !write_block(file, cities, sizeof(City), (size_t)city_count)) {
         fclose(file);
@@ -451,7 +467,7 @@ int load_map_from_file(HWND hwnd) {
     if (!read_world_rows(file) ||
         !read_block(file, river_paths, sizeof(RiverPath), (size_t)river_path_count) ||
         !read_block(file, maritime_routes, sizeof(MaritimeRoute), (size_t)maritime_route_count) ||
-        !read_block(file, natural_regions, sizeof(NaturalRegion), (size_t)region_count) ||
+        !map_save_read_natural_regions(file, header.version) ||
         !read_civilizations(file, header.version) ||
         !read_block(file, cities, sizeof(City), (size_t)city_count)) {
         fclose(file);
@@ -461,6 +477,7 @@ int load_map_from_file(HWND hwnd) {
     fclose(file);
     normalize_loaded_technology();
     civilization_migrate_loaded_names();
+    civilization_repair_loaded_uids();
     game_request_after_load_map();
     show_utf8_message(hwnd, "Loaded map save successfully.", "Load Map", MB_OK | MB_ICONINFORMATION);
     return 1;

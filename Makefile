@@ -8,9 +8,13 @@ SOURCES := \
 	src/game/game.c \
 	src/game/game_loop.c \
 	src/io/map_save.c \
+	src/io/map_save_regions.c \
+	src/core/event_log.c \
 	src/core/game_state.c \
+	src/core/country_focus.c \
 	src/core/dirty_flags.c \
 	src/core/profiler.c \
+	src/core/render_snapshot.c \
 	src/core/state_lock.c \
 	src/data/country_names.c \
 	src/data/game_tables.c \
@@ -32,8 +36,10 @@ SOURCES := \
 	src/sim/maritime_diag.c \
 	src/sim/sea_nav.c \
 	src/sim/sea_lanes.c \
+	src/sim/territory_integrity.c \
 	src/sim/vassal.c \
 	src/sim/civilization_slots.c \
+	src/sim/civilization_uid.c \
 	src/sim/civ_colors.c \
 	src/sim/disorder.c \
 	src/sim/collapse.c \
@@ -53,13 +59,17 @@ SOURCES := \
 	src/sim/diplomacy.c \
 	src/sim/diplomacy_names.c \
 	src/sim/war.c \
+	src/sim/war_front.c \
 	src/sim/war_resolution.c \
 	src/render/render.c \
+	src/render/render_context.c \
 	src/render/render_common.c \
+	src/render/ui_format.c \
 	src/render/cartography_layers.c \
 	src/render/contour_paths.c \
 	src/render/vector_paths.c \
 	src/render/map_render.c \
+	src/render/map_highlight.c \
 	src/render/terrain_present.c \
 	src/render/region_render.c \
 	src/render/map_labels.c \
@@ -75,6 +85,9 @@ SOURCES := \
 	src/render/panel_country_population.c \
 	src/render/panel_country_resources.c \
 	src/render/panel_country_diplomacy.c \
+	src/render/panel_country_diplomacy_cards.c \
+	src/render/panel_country_disorder.c \
+	src/render/panel_country_diplomacy_hits.c \
 	src/render/panel_population_page.c \
 	src/render/panel_plague_page.c \
 	src/render/panel_worldgen.c \
@@ -86,11 +99,13 @@ SOURCES := \
 	src/ui/ui_theme.c \
 	src/ui/ui_widgets.c \
 	src/ui/pause_menu.c \
+	src/ui/ui_actions.c \
 	src/ui/ui_worldgen_layout.c \
 	src/ui/ui_state.c \
 	src/ui/ui_layout.c \
 	src/ui/ui_sliders.c \
 	src/ui/ui_forms.c \
+	src/ui/ui_selection.c \
 	src/ui/ui.c
 
 .PHONY: all clean

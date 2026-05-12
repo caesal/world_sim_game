@@ -9,12 +9,19 @@ typedef struct {
     int maritime_reachable_regions;
     int deep_reachable_regions;
     int blocked_no_port;
+    int blocked_no_port_site;
+    int blocked_no_capital_or_port_site;
     int blocked_no_sea_entry;
     int blocked_same_shallow_region;
+    int blocked_different_shallow_region;
+    int blocked_deep_locked;
     int blocked_city_at_capital;
     int blocked_no_path;
     int blocked_low_score;
     int blocked_city_cap;
+    int blocked_path_budget;
+    int blocked_random_chance;
+    int suppressed_by_land_targets;
 } MaritimeExpansionDiagnostics;
 
 void maritime_reset(void);

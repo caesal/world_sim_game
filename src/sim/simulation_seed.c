@@ -36,10 +36,8 @@ void simulation_seed_default_civilizations(void) {
     int i;
 
     if (requested > MAX_CIVS) {
-        char message[EVENT_LOG_LEN];
-        snprintf(message, sizeof(message),
-                 "[World] Initial civilizations capped at %d by country capacity.", MAX_CIVS);
-        event_log_push(message);
+        event_log_push_structured(EVENT_TYPE_WORLD_GENERATION_NOTICE, EVENT_SEVERITY_WARNING,
+                                  -1, -1, 1, -1, requested, MAX_CIVS, "");
     }
     for (i = 0; i < count; i++) {
         int ok = add_civilization_at("", default_symbol_for_index(i),
@@ -50,10 +48,7 @@ void simulation_seed_default_civilizations(void) {
         if (ok) placed++;
     }
     if (placed < count) {
-        char message[EVENT_LOG_LEN];
-        snprintf(message, sizeof(message),
-                 "[World] Placed %d/%d requested civilizations; remaining sites were not viable.",
-                 placed, count);
-        event_log_push(message);
+        event_log_push_structured(EVENT_TYPE_WORLD_GENERATION_NOTICE, EVENT_SEVERITY_WARNING,
+                                  -1, -1, 2, -1, placed, count, "");
     }
 }

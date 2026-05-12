@@ -408,7 +408,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
     int checks_left = MARITIME_PATH_CHECKS_PER_CALL;
     int start = civ_id >= 0 && civ_id < MAX_CIVS ? overseas_target_cursor[civ_id] % MARITIME_TARGET_KEEP : 0;
 #define RETURN_OVERSEAS() do { profiler_call_end("maritime_try_overseas_expansion", civ_id, -1, trace); return; } while (0)
-    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive || city_count >= MAX_CITIES) RETURN_OVERSEAS();
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) RETURN_OVERSEAS();
     maritime_ensure_routes();
     chance = clamp(12 + pressure * 4 + civs[civ_id].logistics * 3 +
                    civs[civ_id].commerce * 2 + civs[civ_id].expansion * 3, 8, 82);
@@ -423,6 +423,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
         int index = (start + i) % MARITIME_TARGET_KEEP;
         int distance;
         int threshold;
+        int city_cap_fallback;
         if (targets[index].score <= -1000000) continue;
         if (checks_left <= 0) {
             if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = (unsigned char)index;
@@ -446,18 +447,23 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
             int payload = clamp(max(600, civs[civ_id].population / 70), 600, 35000);
             population_apply_casualties(civ_id, payload);
             disorder_add_migration_pressure(civ_id, payload / 2500 + 1);
-            append_log(log, log_size, "[Expansion] %s lost an entire deep-sea voyage. ",
-                       civilization_display_name_for_language(civ_id, 0));
+            event_log_push_structured(EVENT_TYPE_DEEP_SEA_ROUTE_FAILED, EVENT_SEVERITY_WARNING,
+                                      civ_id, -1, targets[index].land_region_id, -1, payload, 0, NULL);
             continue;
         }
-        if (!regions_claim_for_civ(targets[index].land_region_id, civ_id, -1, 1)) continue;
+        city_cap_fallback = city_count >= MAX_CITIES;
+        if (!regions_claim_for_civ(targets[index].land_region_id, civ_id, -1, 1)) {
+            if (city_cap_fallback) append_log(log, log_size, "[Expansion] Island claim failed: city cap and no owner admin city. ");
+            continue;
+        }
+        if (city_cap_fallback) append_log(log, log_size, "[Expansion] Claimed island as dependency of nearest owned city. ");
         if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = (unsigned char)((index + 1) % MARITIME_TARGET_KEEP);
         if (sea_stability > 0 && !civs[civ_id].deep_sea_route_unlocked_event_done) {
             disorder_relieve(civ_id, 25);
             civs[civ_id].deep_sea_route_unlocked_event_done = 1;
         }
-        append_log(log, log_size, "[Expansion] %s founded an overseas province. ",
-                   civilization_display_name_for_language(civ_id, 0));
+        event_log_push_structured(EVENT_TYPE_EXPANSION_CLAIMED, EVENT_SEVERITY_INFO,
+                                  civ_id, -1, targets[index].land_region_id, -1, 0, 1, NULL);
         RETURN_OVERSEAS();
     }
     RETURN_OVERSEAS();

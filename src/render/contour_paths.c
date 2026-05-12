@@ -27,6 +27,12 @@ typedef struct {
     int valid;
     int rev_a;
     int rev_b;
+    int map_w;
+    int map_h;
+    int land_water_edges;
+    int closed_loop_count;
+    int degenerate_loop_count;
+    int preserved_tiny_loop_count;
     int path_count;
     int point_count;
     int path_cap;
@@ -46,6 +52,21 @@ static int hg_id(int x, int y) { return y * hg_w() + x; }
 static int alive_owner(int owner) { return owner >= 0 && owner < civ_count && civs[owner].alive; }
 static int valid_cell(int x, int y) { return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H; }
 static int land_at(int x, int y) { return valid_cell(x, y) && is_land(world[y][x].geography); }
+
+static int count_land_water_edges(void) {
+    int x;
+    int y;
+    int edges = 0;
+
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int land = land_at(x, y);
+            if (x + 1 < MAP_W && land != land_at(x + 1, y)) edges++;
+            if (y + 1 < MAP_H && land != land_at(x, y + 1)) edges++;
+        }
+    }
+    return edges;
+}
 
 static int screen_x(MapLayout layout, int fx) {
     return layout.map_x + fx * layout.draw_w / (MAP_W * 16);
@@ -305,10 +326,29 @@ static void flush_segments_to_cache(ContourKind kind, ContourCache *cache) {
     int i, count;
     for (i = 0; i < segment_count; i++) {
         int j, raw_count, simple_count, smooth_count;
+        int closed_loop;
         if (segments[i].used) continue;
         raw_count = collect_polyline(i, raw_hg);
-        if (raw_count < 3) continue;
+        if (raw_count < (kind == CONTOUR_COAST ? 2 : 3)) continue;
+        closed_loop = raw_hg[0].x == raw_hg[raw_count - 1].x && raw_hg[0].y == raw_hg[raw_count - 1].y;
         for (j = 0; j < raw_count; j++) raw[j] = (ContourPoint){(short)(raw_hg[j].x * FIX_PER_HALF), (short)(raw_hg[j].y * FIX_PER_HALF)};
+        if (kind == CONTOUR_COAST && closed_loop) {
+            cache->closed_loop_count++;
+            if (raw_count < 5) { cache->degenerate_loop_count++; continue; }
+            simple_count = simplify_rdp(raw, raw_count - 1, simple, 6);
+            if (simple_count < 4 || simple_count >= MAX_RAW_POINTS - 1) {
+                cache->preserved_tiny_loop_count++;
+                memcpy(simple, raw, (size_t)raw_count * sizeof(ContourPoint));
+                simple_count = raw_count;
+            } else {
+                simple[simple_count++] = simple[0];
+            }
+            if (path_len_fixed(simple, simple_count) <= 0) { cache->degenerate_loop_count++; continue; }
+            smooth_count = smooth_chaikin(simple, simple_count, smooth);
+            count = smooth_count >= 5 ? smooth_count : simple_count;
+            cache_add_path(cache, smooth_count >= 5 ? smooth : simple, count);
+            continue;
+        }
         if (kind != CONTOUR_COAST &&
             path_len_fixed(raw, raw_count) < (kind == CONTOUR_PROVINCE ? 72 : 36)) {
             continue;
@@ -324,20 +364,32 @@ static void rebuild_cache(ContourKind kind, ContourCache *cache, int rev_a, int 
     ContourTarget targets[MAX_TARGETS];
     ProfilerCallTrace trace = profiler_call_begin();
     int target_count, i;
+    int coast_edges = kind == CONTOUR_COAST ? count_land_water_edges() : 0;
     cache->path_count = cache->point_count = 0;
+    cache->land_water_edges = coast_edges;
+    cache->closed_loop_count = cache->degenerate_loop_count = cache->preserved_tiny_loop_count = 0;
     target_count = collect_targets(kind, targets);
     for (i = 0; i < target_count; i++) {
         reset_segments();
         build_target_segments(kind, targets[i]);
         flush_segments_to_cache(kind, cache);
     }
-    cache->rev_a = rev_a; cache->rev_b = rev_b; cache->valid = 1;
+    cache->rev_a = rev_a; cache->rev_b = rev_b;
+    cache->map_w = MAP_W; cache->map_h = MAP_H; cache->valid = 1;
     profiler_record_contours(profiler_call_end_quiet("contour_rebuild", -1, -1, trace), cache->path_count);
+    if (kind == CONTOUR_COAST && coast_edges > 0 && cache->path_count == 0) {
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
+                                  -1, -1, -1, -1, coast_edges, 0,
+                                  "[Render] Coast contour rebuild found land-water edges but produced no paths.");
+    }
 }
 
 static void ensure_contour_cache(ContourKind kind, int rev_a, int rev_b) {
     ContourCache *cache = &caches[kind];
-    if (!cache->valid || cache->rev_a != rev_a || cache->rev_b != rev_b) rebuild_cache(kind, cache, rev_a, rev_b);
+    if (!cache->valid || cache->rev_a != rev_a || cache->rev_b != rev_b ||
+        cache->map_w != MAP_W || cache->map_h != MAP_H) {
+        rebuild_cache(kind, cache, rev_a, rev_b);
+    }
 }
 
 static void draw_cached_paths(HDC hdc, RECT client, MapLayout layout, ContourCache *cache,
@@ -390,4 +442,16 @@ void contour_paths_draw_province_borders(HDC hdc, RECT client, MapLayout layout)
 void contour_paths_draw_region_borders(HDC hdc, RECT client, MapLayout layout) {
     ensure_contour_cache(CONTOUR_REGION, dirty_revision_province(), dirty_revision_ownership());
     draw_layer(hdc, client, layout, CONTOUR_REGION, RGB(70, 82, 72), 1, RGB(108, 122, 100), 1, 20);
+}
+
+void contour_paths_coast_stats(int *land_water_edges, int *paths, int *points,
+                               int *closed_loops, int *degenerate_loops,
+                               int *preserved_tiny_loops) {
+    ContourCache *cache = &caches[CONTOUR_COAST];
+    if (land_water_edges) *land_water_edges = cache->valid ? cache->land_water_edges : 0;
+    if (paths) *paths = cache->valid ? cache->path_count : 0;
+    if (points) *points = cache->valid ? cache->point_count : 0;
+    if (closed_loops) *closed_loops = cache->valid ? cache->closed_loop_count : 0;
+    if (degenerate_loops) *degenerate_loops = cache->valid ? cache->degenerate_loop_count : 0;
+    if (preserved_tiny_loops) *preserved_tiny_loops = cache->valid ? cache->preserved_tiny_loop_count : 0;
 }

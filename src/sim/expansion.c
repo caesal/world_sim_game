@@ -5,6 +5,7 @@
 #include "sim/population.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/territory_integrity.h"
 #include "sim/technology.h"
 
 #include <stdio.h>
@@ -175,6 +176,9 @@ ExpansionAIDiagnostics expansion_ai_diagnostics(int civ_id, int resource_score) 
     ai.shallow_sea_reachable_regions = sea.shallow_reachable_regions;
     ai.maritime_reachable_regions = sea.maritime_reachable_regions;
     ai.deep_sea_reachable_regions = sea.deep_reachable_regions;
+    sea.suppressed_by_land_targets = sea.shallow_reachable_regions > 0 &&
+        ai.land_adjacent_unowned_regions > 2 && ai.expansion_need < ai.expansion_threshold + 8;
+    ai.maritime = sea;
     finalize_expansion_ai(civ_id, &ai);
     profiler_call_end("expansion_ai_diagnostics", civ_id, -1, trace);
     return ai;
@@ -234,6 +238,39 @@ static int region_growth_pressure(const NaturalRegion *region, CountrySummary co
     return score;
 }
 
+static int region_shape_score(int civ_id, int region_id) {
+    const NaturalRegion *region = regions_get(region_id);
+    int own_neighbors = 0;
+    int connected_neighbors = 0;
+    int disconnected_neighbors = 0;
+    int exposed_neighbors = 0;
+    int i;
+    int score;
+
+    if (!region) return 0;
+    for (i = 0; i < region->neighbor_count; i++) {
+        int n = region->neighbors[i];
+        const NaturalRegion *neighbor = regions_get(n);
+        if (!neighbor) continue;
+        if (neighbor->owner_civ == civ_id) {
+            own_neighbors++;
+            if (territory_integrity_region_is_capital_connected(civ_id, n)) connected_neighbors++;
+            else disconnected_neighbors++;
+        } else {
+            exposed_neighbors++;
+        }
+    }
+    score = own_neighbors * 18;
+    if (own_neighbors >= 2) score += 20 + own_neighbors * 8;
+    if (own_neighbors >= 3) score += 35;
+    if (connected_neighbors > 0 && disconnected_neighbors > 0) score += 80;
+    score -= max(0, exposed_neighbors - own_neighbors) * 8;
+    if (own_neighbors <= 1 && exposed_neighbors >= 3) score -= 20;
+    if (connected_neighbors == 0 && disconnected_neighbors > 0) score -= 30;
+    if (connected_neighbors == 0 && own_neighbors == 0) score -= 45;
+    return clamp(score, -90, 150);
+}
+
 static int region_expansion_score(int civ_id, int region_id, int resource_pressure) {
     const NaturalRegion *region = regions_get(region_id);
     CountrySummary country = summarize_country(civ_id);
@@ -248,6 +285,8 @@ static int region_expansion_score(int civ_id, int region_id, int resource_pressu
     score += region->habitability * 9 + region->viable_direction_count * 12;
     score += region->tile_count / 3 + (region->has_port_site ? 20 : 0);
     score += civs[civ_id].logistics * 5 + civs[civ_id].governance * 3 + civs[civ_id].expansion * 4;
+    score += territory_integrity_region_score(civ_id, region_id);
+    score += region_shape_score(civ_id, region_id);
     score -= region->movement_difficulty * 8;
     score -= region->natural_defense * 2;
     if (world_nearby_enemy_border(civ_id, region->center_x, region->center_y, 3)) score -= 80;
@@ -317,8 +356,10 @@ static int resolve_region_expansion(ExpansionWorkState *work, char *log, size_t 
     snprintf(expansion_reasons[work->civ_id], sizeof(expansion_reasons[work->civ_id]),
              "Claimed adjacent region %d; cooldown %d months; tech expansion x%d%%.",
              work->best_x, max(0, next_expansion_month[work->civ_id] - simulation_month_index()), tech);
-    append_log(log, log_size, "[Expansion] %s claimed a neighboring region. ",
-               civilization_display_name_for_language(work->civ_id, 0));
+    (void)log;
+    (void)log_size;
+    event_log_push_structured(EVENT_TYPE_EXPANSION_CLAIMED, EVENT_SEVERITY_INFO,
+                              work->civ_id, -1, work->best_x, -1, 0, 0, NULL);
     return 1;
 }
 
@@ -374,14 +415,15 @@ int expansion_work_step(ExpansionWorkState *work, char *log, size_t log_size) {
         return 1;
     }
     if (work->stage == EXPANSION_WORK_OVERSEAS) {
-        ExpansionAIDiagnostics ai = expansion_land_diagnostics(work->civ_id, work->resource_score);
-        int reachable_sea = 0;
-        if (ai.land_adjacent_unowned_regions <= 0 ||
-            ai.expansion_need >= ai.expansion_threshold + 22) {
-            int before = owned_region_count_for_civ(work->civ_id);
-            ai = expansion_ai_diagnostics(work->civ_id, work->resource_score);
-            reachable_sea = ai.shallow_sea_reachable_regions + ai.maritime_reachable_regions +
+        ExpansionAIDiagnostics ai = expansion_ai_diagnostics(work->civ_id, work->resource_score);
+        int reachable_sea = ai.shallow_sea_reachable_regions + ai.maritime_reachable_regions +
                             ai.deep_sea_reachable_regions;
+        int nearshore_window = ai.shallow_sea_reachable_regions > 0 &&
+            (ai.land_adjacent_unowned_regions <= 2 ||
+             ai.expansion_need >= ai.expansion_threshold + 8 || rnd(100) < 12);
+        if (ai.land_adjacent_unowned_regions <= 0 ||
+            ai.expansion_need >= ai.expansion_threshold + 22 || nearshore_window) {
+            int before = owned_region_count_for_civ(work->civ_id);
             profiler_add_expansion_claim_attempt(1);
             maritime_try_overseas_expansion(work->civ_id, work->resource_score, log, log_size);
             if (owned_region_count_for_civ(work->civ_id) > before) {
@@ -404,10 +446,9 @@ int expansion_work_step(ExpansionWorkState *work, char *log, size_t log_size) {
                          "Land: no adjacent target. Shallow sea: 0 reachable. Maritime: 0 reachable. Port candidates: %d.",
                          ai.port_candidate_regions);
             }
-        } else if (work->attempts_remaining <= 0 &&
-                   strncmp(expansion_reasons[work->civ_id], "Desire", 6) == 0) {
+        } else if (reachable_sea > 0) {
             snprintf(expansion_reasons[work->civ_id], sizeof(expansion_reasons[work->civ_id]),
-                     "Nearby land remains; overseas expansion suppressed.");
+                     "Nearby land remains; shallow islands are visible but homeland expansion is preferred.");
         }
         work->stage = EXPANSION_WORK_DONE;
         work->active = 0;

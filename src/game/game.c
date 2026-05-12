@@ -2,6 +2,7 @@
 
 #include "core/game_types.h"
 #include "core/dirty_flags.h"
+#include "core/render_snapshot.h"
 #include "core/state_lock.h"
 #include "game/game_loop.h"
 #include "sim/collapse.h"
@@ -14,6 +15,7 @@
 #include "sim/ports.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/territory_integrity.h"
 #include "sim/simulation_month.h"
 #include "sim/simulation_worker.h"
 #include "sim/technology.h"
@@ -55,6 +57,7 @@ static void game_start_blank_world(void) {
     auto_run = 0;
     world_generated = 0;
     dirty_mark_world();
+    render_snapshot_publish_from_live_state();
 }
 
 void game_toggle_auto_run(void) {
@@ -109,6 +112,7 @@ void game_request_new_world(void) {
     civilization_colors_debug_check();
     dirty_mark_world();
     auto_run = 0;
+    render_snapshot_publish_from_live_state();
 }
 
 void game_request_regenerate_regions(void) {
@@ -117,6 +121,7 @@ void game_request_regenerate_regions(void) {
     selected_x = -1;
     selected_y = -1;
     selected_civ = -1;
+    render_snapshot_publish_from_live_state();
 }
 
 int game_request_add_civilization_from_selection(const char *name, char symbol,
@@ -141,8 +146,12 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
         state_write_unlock();
         return -1;
     }
-    selected_civ = before_count;
+    selected_civ = simulation_last_created_civ_id();
+    if (selected_civ < 0) selected_civ = before_count;
+    event_log_push_structured(EVENT_TYPE_CIV_CREATED, EVENT_SEVERITY_INFO,
+                              selected_civ, -1, -1, civs[selected_civ].capital_city, 0, 0, NULL);
     state_write_unlock();
+    render_snapshot_publish_from_live_state();
     return selected_civ;
 }
 
@@ -162,6 +171,7 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
                                        cohesion, production, commerce, innovation);
     selected_civ = civ_id;
     state_write_unlock();
+    render_snapshot_publish_from_live_state();
     return 1;
 }
 
@@ -178,6 +188,7 @@ void game_request_set_civilization_color(int civ_id, Color32 color) {
     dirty_mark_labels();
     world_visual_revision++;
     state_write_unlock();
+    render_snapshot_publish_from_live_state();
 }
 
 void game_request_after_load_map(void) {
@@ -192,33 +203,28 @@ void game_request_after_load_map(void) {
     regions_claim_cache_reset();
     world_invalidate_region_cache();
     ports_refresh_city_regions();
+    territory_integrity_repair_capitals();
     diplomacy_update_contacts();
     civilization_colors_debug_check();
     dirty_mark_world();
     world_visual_revision++;
+    render_snapshot_publish_from_live_state();
 }
 
 int game_request_trigger_civil_unrest(int civ_id) {
     int collapsed;
-    char event_text[EVENT_LOG_LEN];
 
     if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
-        snprintf(event_text, sizeof(event_text), "[Collapse] Civil unrest failed: %s",
-                 collapse_trigger_block_reason(civ_id));
-        event_log_push(event_text);
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
+                                  -1, -1, -1, -1, 0, 0, "Civil unrest failed: invalid country.");
         return 0;
     }
     state_write_lock();
     disorder_set_civil_unrest(civ_id);
+    event_log_push_structured(EVENT_TYPE_CIVIL_UNREST_TRIGGERED, EVENT_SEVERITY_DANGER,
+                              civ_id, -1, -1, -1, 100, 0, "");
     collapsed = collapse_check_immediate(civ_id, COLLAPSE_CAUSE_CIVIL_UNREST);
-    if (collapsed) {
-        snprintf(event_text, sizeof(event_text), "[Collapse] Civil unrest triggered in %.64s: %s",
-                 civilization_display_name_for_language(civ_id, 0), collapse_last_reason(civ_id));
-    } else {
-        snprintf(event_text, sizeof(event_text), "[Collapse] Civil unrest failed in %.64s: %s",
-                 civilization_display_name_for_language(civ_id, 0), collapse_last_reason(civ_id));
-    }
-    event_log_push(event_text);
+    (void)collapsed;
     world_invalidate_region_cache();
     ports_refresh_city_regions();
     maritime_mark_routes_dirty();
@@ -228,6 +234,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
     dirty_mark_labels();
     world_visual_revision++;
     state_write_unlock();
+    render_snapshot_publish_from_live_state();
     return collapsed;
 }
 
@@ -340,6 +347,73 @@ int run_expansion_probe(void) {
     return 0;
 }
 
+int run_tech10_probe(void) {
+    WorldGenConfig config = DEFAULT_WORLD_GEN_CONFIG;
+    FILE *file;
+    DWORD start_ms;
+    int month_index;
+    int max_stage = 0;
+    int max_civ = -1;
+    int reached_month = -1;
+
+    CreateDirectoryA("logs", NULL);
+    file = fopen("logs/tech10_probe.txt", "w");
+    if (!file) return 1;
+    game_start_blank_world();
+    pending_map_size = MAP_SIZE_SMALL;
+    initial_civ_count = 8;
+    set_active_map_size(pending_map_size);
+    diplomacy_reset();
+    war_reset();
+    simulation_reset_state();
+    clear_world_tiles();
+    config.seed = 987654u;
+    config.random_seed = 0;
+    generate_world_with_config(&config);
+    world_generated = 1;
+    ports_reset_regions();
+    regions_generate(region_size_slider);
+    world_invalidate_region_cache();
+    simulation_seed_default_civilizations();
+    world_recalculate_territory();
+    ports_refresh_city_regions();
+    maritime_rebuild_routes();
+    diplomacy_update_contacts();
+    start_ms = GetTickCount();
+    for (month_index = 0; month_index < 1600 * 12; month_index++) {
+        int i;
+        simulation_month_run_blocking();
+        for (i = 0; i < civ_count; i++) {
+            if (!civs[i].alive) continue;
+            if (civs[i].tech_stage > max_stage) {
+                max_stage = civs[i].tech_stage;
+                max_civ = i;
+                fprintf(file, "tech_stage=%d year=%d month=%d civ=%d name=%s\n",
+                        max_stage, year, month, i, civilization_display_name_for_language(i, 0));
+            }
+            if (civs[i].tech_stage >= 10 && reached_month < 0) {
+                reached_month = month_index + 1;
+                max_civ = i;
+            }
+        }
+        if (reached_month >= 0) break;
+    }
+    fprintf(file, "result reached_stage10=%s elapsed_months=%d elapsed_years=%d max_stage=%d civ=%d sim_ms=%lu avg_ms_per_month=%.3f\n",
+            reached_month >= 0 ? "yes" : "no", reached_month >= 0 ? reached_month : month_index,
+            (reached_month >= 0 ? reached_month : month_index) / 12,
+            max_stage, max_civ, (unsigned long)(GetTickCount() - start_ms),
+            month_index > 0 ? (double)(GetTickCount() - start_ms) / (double)month_index : 0.0);
+    if (max_civ >= 0) {
+        fprintf(file, "stage10_bonus expansion=%d resource=%d tech=%d deep_stability=%d deep_plague=%d defense=%d battle=%d annex=%d\n",
+                technology_expansion_percent(max_civ), technology_resource_percent(max_civ),
+                technology_progress_percent(max_civ), technology_deep_sea_stability(max_civ),
+                technology_deep_sea_plague_percent(max_civ), technology_defense_army_percent(max_civ),
+                technology_battle_chance_bonus(max_civ), civs[max_civ].tech_stage >= 10);
+    }
+    fclose(file);
+    return reached_month >= 0 ? 0 : 2;
+}
+
 int run_game(void) {
     HINSTANCE instance = GetModuleHandle(NULL);
     const char *class_name = "WorldSimGameWindow";
@@ -347,6 +421,7 @@ int run_game(void) {
     HWND hwnd;
     MSG msg;
 
+    render_snapshot_init();
     game_start_blank_world();
     memset(&wc, 0, sizeof(wc));
     wc.lpfnWndProc = window_proc;
@@ -386,5 +461,6 @@ int run_game(void) {
         DispatchMessage(&msg);
     }
     simulation_worker_shutdown();
+    render_snapshot_shutdown();
     return 0;
 }

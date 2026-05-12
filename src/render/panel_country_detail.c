@@ -2,9 +2,11 @@
 
 #include "render/panel_country_decision.h"
 #include "render/panel_country_diplomacy.h"
+#include "render/panel_country_disorder.h"
 #include "render/panel_country_population.h"
 #include "render/panel_country_resources.h"
 #include "render/panel_country_tech.h"
+#include "render/ui_format.h"
 #include "render_panel_internal.h"
 #include "sim/collapse.h"
 #include "sim/civilization_slots.h"
@@ -17,6 +19,7 @@
 #include "sim/regions.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
+#include "sim/war.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
@@ -79,7 +82,7 @@ int country_detail_content_height(int civ_id) {
         case COUNTRY_DETAIL_POPULATION: return country_population_tab_height(civ_id);
         case COUNTRY_DETAIL_RESOURCES: return country_resources_tab_height(civ_id);
         case COUNTRY_DETAIL_DIPLOMACY: return country_diplomacy_tab_height(civ_id);
-        case COUNTRY_DETAIL_DISORDER: return 310;
+        case COUNTRY_DETAIL_DISORDER: return country_disorder_tab_height(civ_id);
         default:
             return 460 + (plague_civ_active_count(civ_id) > 0 ? 67 : 0);
     }
@@ -119,6 +122,7 @@ static void draw_metric_pair(HDC hdc, UiCursor *cursor, int a, int b,
     cursor->y += 36;
 }
 
+#if 0
 static void format_percent_components(char *buffer, size_t buffer_size,
                                       int total, int tech, int disorder) {
     snprintf(buffer, buffer_size, "%d%% (%s %d%%, %s %d%%)", total,
@@ -127,6 +131,38 @@ static void format_percent_components(char *buffer, size_t buffer_size,
 
 static void format_disorder_percent(char *buffer, size_t buffer_size, int total) {
     snprintf(buffer, buffer_size, "%d%% (%s %d%%)", total, tr("Disorder", "混乱"), total);
+}
+
+#endif
+
+static void format_percent_components_clean(char *buffer, size_t buffer_size,
+                                            int total, int tech, int disorder) {
+    snprintf(buffer, buffer_size, "%d%% (%s %d%%, %s %d%%)", total,
+             tr("Tech", "科技"), tech, tr("Disorder", "混乱"), disorder);
+}
+
+static void format_disorder_percent_clean(char *buffer, size_t buffer_size, int total) {
+    snprintf(buffer, buffer_size, "%d%% (%s %d%%)", total, tr("Disorder", "混乱"), total);
+}
+
+static void format_month_span(char *buffer, size_t buffer_size, int months) {
+    if (months < 0) snprintf(buffer, buffer_size, "%s", tr("condition based", "条件决定"));
+    else ui_format_months(buffer, buffer_size, months, UI_MONTH_ZERO_NOW);
+}
+
+static void draw_pressure_source(HDC hdc, UiCursor *cursor, const char *label,
+                                 int value, int contribution, int decay,
+                                 int eta_months, const char *status) {
+    char text[192];
+    char eta[48];
+
+    snprintf(text, sizeof(text), "%d / 100", value);
+    ui_row_text(hdc, cursor, label, text);
+    format_month_span(eta, sizeof(eta), eta_months);
+    snprintf(text, sizeof(text), "%s +%d/mo   %s -%d/mo   %s %s   %s",
+             tr("Contrib", "贡献"), contribution, tr("Decay", "衰退"), decay,
+             tr("Clear", "清零"), eta, status);
+    ui_row_text(hdc, cursor, "", text);
 }
 
 static void draw_city_list(HDC hdc, UiCursor *cursor, int civ_id) {
@@ -162,7 +198,11 @@ static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
     if (strstr(reason, "Claimed maritime") || strstr(reason, "Claimed overseas")) return "已通过航道占领新区域";
     if (strstr(reason, "cooldown") || strstr(reason, "Cooldown")) {
         if (decision->next_expansion_months > 0) {
-            snprintf(buffer, sizeof(buffers[0]), "扩张冷却 %d个月", decision->next_expansion_months);
+            {
+                char span[48];
+                ui_format_months(span, sizeof(span), decision->next_expansion_months, UI_MONTH_ZERO_NOW);
+                snprintf(buffer, sizeof(buffers[0]), "%s %s", tr("Expansion cooldown", "扩张冷却"), span);
+            }
             return buffer;
         }
         return "扩张冷却中";
@@ -208,6 +248,7 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     int months_next = technology_months_to_next(civ_id);
     int i;
     char text[192];
+    char span[48];
 
     decision_snapshot_for_civ(civ_id, &decision);
     ui_section(hdc, cursor, tr("Technology Snapshot", "科技摘要"));
@@ -216,8 +257,8 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
              technology_stage_name(clamp(civs[civ_id].tech_stage, 0, 10), ui_language));
     ui_row_text(hdc, cursor, tr("Current", "当前"), text);
     ui_progress_bar(hdc, ui_take_rect(cursor, 12), progress, 100, RGB(104, 158, 186));
-    snprintf(text, sizeof(text), "%d%%   %s %d %s", progress, tr("Next in", "距下阶段"),
-             months_next >= 0 ? months_next : 0, tr("months", "月"));
+    ui_format_months(span, sizeof(span), months_next >= 0 ? months_next : 0, UI_MONTH_ZERO_DONE);
+    snprintf(text, sizeof(text), "%d%%   %s %s", progress, tr("Next in", "距下阶段"), span);
     ui_row_text(hdc, cursor, tr("Progress", "进度"), text);
     ui_section(hdc, cursor, tr("Decision Tendency", "决策倾向"));
     draw_decision_meter_row(hdc, cursor, tr("Expansion", "扩张"), decision.expansion_weight, RGB(82, 156, 112));
@@ -246,6 +287,7 @@ static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
     if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"), reason);
 }
 
+#if 0
 static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
     char risk[80];
     char text[96];
@@ -269,13 +311,13 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
     ui_row_text(hdc, cursor, tr("Vassal governance burden", "附庸治理负担"), text);
     snprintf(text, sizeof(text), "-%d / month", civs[civ_id].governance / 2 + civs[civ_id].cohesion / 2);
     ui_row_text(hdc, cursor, tr("Monthly recovery", "本月恢复"), text);
-    format_percent_components(text, sizeof(text), tech_resource * disorder_resource / 100,
-                              tech_resource, disorder_resource);
+    format_percent_components_clean(text, sizeof(text), tech_resource * disorder_resource / 100,
+                                    tech_resource, disorder_resource);
     ui_row_text(hdc, cursor, tr("Resource Output", "资源产出"), text);
-    format_disorder_percent(text, sizeof(text), disorder_population_growth_percent(civs[civ_id].disorder));
+    format_disorder_percent_clean(text, sizeof(text), disorder_population_growth_percent(civs[civ_id].disorder));
     ui_row_text(hdc, cursor, tr("Population Growth", "人口增长"), text);
-    format_percent_components(text, sizeof(text), tech_progress * disorder_progress / 100,
-                              tech_progress, disorder_progress);
+    format_percent_components_clean(text, sizeof(text), tech_progress * disorder_progress / 100,
+                                    tech_progress, disorder_progress);
     ui_row_text(hdc, cursor, tr("Tech Progress", "科技进度"), text);
     ui_row_text(hdc, cursor, tr("Modifier Basis", "加成说明"),
                 tr("Total = tech x disorder.", "总值=科技×混乱。"));
@@ -295,7 +337,90 @@ static void draw_disorder_block(HDC hdc, UiCursor *cursor, int civ_id) {
     } else if (chance > 0) {
         int years_left = 25 - (year % 25);
         if (years_left <= 0) years_left = 25;
-        snprintf(text, sizeof(text), "%d %s", years_left, tr("years", "年"));
+        ui_format_months(text, sizeof(text), years_left * 12, UI_MONTH_ZERO_NOW);
+    } else {
+        snprintf(text, sizeof(text), "%s", tr("No scheduled roll", "无定期判定"));
+    }
+    ui_row_text(hdc, cursor, tr("Next Check", "下次判定"), text);
+}
+
+#endif
+
+static void __attribute__((unused)) draw_disorder_block_v2(HDC hdc, UiCursor *cursor, int civ_id) {
+    char risk[96];
+    char text[128];
+    int can_trigger = collapse_can_trigger(civ_id);
+    const char *reason = collapse_block_reason_ui(civ_id);
+    int chance = collapse_decade_chance_for_disorder(civs[civ_id].disorder);
+    int tech_resource = technology_resource_percent(civ_id);
+    int disorder_resource = disorder_productivity_percent(civs[civ_id].disorder);
+    int tech_progress = technology_progress_percent(civ_id);
+    int disorder_progress = disorder_technology_percent(civs[civ_id].disorder);
+    int grace = collapse_grace_months_left(civ_id);
+    int plague_decay = disorder_last_plague_decay(civ_id);
+    int war_decay = disorder_last_war_decay(civ_id);
+    int migration_decay = disorder_last_migration_decay(civ_id);
+
+    ui_section(hdc, cursor, tr("Disorder", "混乱"));
+    draw_metric_pair(hdc, cursor, civs[civ_id].disorder, disorder_last_net(civ_id),
+                     ICON_DISORDER, ICON_DISORDER, metric_label("Total", "总计"),
+                     metric_label("Net", "净变化"));
+    snprintf(text, sizeof(text), "+%d / -%d / %+d",
+             disorder_last_pressure(civ_id), disorder_last_recovery(civ_id), disorder_last_net(civ_id));
+    ui_row_text(hdc, cursor, tr("This month", "本月变化"), text);
+    draw_pressure_source(hdc, cursor, tr("Resource pressure", "资源压力"),
+                         civs[civ_id].disorder_resource, civs[civ_id].disorder_resource / 18,
+                         0, -1, tr("current conditions", "当前条件决定"));
+    draw_pressure_source(hdc, cursor, tr("Plague pressure", "瘟疫压力"),
+                         civs[civ_id].disorder_plague, civs[civ_id].disorder_plague / 24,
+                         plague_decay,
+                         disorder_pressure_eta_months(civs[civ_id].disorder_plague, plague_decay),
+                         plague_active_for_civ(civ_id) ? tr("plague active", "瘟疫活跃") :
+                         tr("post-plague recovery", "瘟疫后恢复"));
+    draw_pressure_source(hdc, cursor, tr("War / unrest pressure", "战争/内乱压力"),
+                         civs[civ_id].disorder_stability, civs[civ_id].disorder_stability / 28,
+                         war_decay,
+                         disorder_pressure_eta_months(civs[civ_id].disorder_stability, war_decay),
+                         war_active_for_civ(civ_id) ? tr("at war", "战争中") :
+                         tr("post-war recovery", "战后恢复"));
+    draw_pressure_source(hdc, cursor, tr("Migration pressure", "迁徙/扩张压力"),
+                         civs[civ_id].disorder_migration, civs[civ_id].disorder_migration / 26,
+                         migration_decay,
+                         disorder_pressure_eta_months(civs[civ_id].disorder_migration, migration_decay),
+                         tr("temporary friction", "临时摩擦"));
+    draw_pressure_source(hdc, cursor, tr("Vassal governance burden", "附庸治理负担"),
+                         vassal_governance_disorder(civ_id), 0, 0, -1,
+                         tr("hard floor", "硬下限"));
+    format_percent_components_clean(text, sizeof(text), tech_resource * disorder_resource / 100,
+                              tech_resource, disorder_resource);
+    ui_row_text(hdc, cursor, tr("Resource Output", "资源产出"), text);
+    format_disorder_percent_clean(text, sizeof(text), disorder_population_growth_percent(civs[civ_id].disorder));
+    ui_row_text(hdc, cursor, tr("Population Growth", "人口增长"), text);
+    format_percent_components_clean(text, sizeof(text), tech_progress * disorder_progress / 100,
+                              tech_progress, disorder_progress);
+    ui_row_text(hdc, cursor, tr("Tech Progress", "科技进度"), text);
+    if (civs[civ_id].disorder >= 100) {
+        snprintf(risk, sizeof(risk), "%s", tr("Immediate collapse attempt", "立即尝试崩溃"));
+    } else if (grace > 0) {
+        char span[48];
+        format_month_span(span, sizeof(span), grace);
+        snprintf(risk, sizeof(risk), "%s %s", tr("Collapse grace:", "崩溃保护："), span);
+    } else if (chance <= 0) {
+        snprintf(risk, sizeof(risk), "%s", tr("No collapse risk", "无崩溃风险"));
+    } else {
+        snprintf(risk, sizeof(risk), "%d%%  %s", chance, tr("per 25 years", "每 25 年"));
+    }
+    ui_row_text(hdc, cursor, tr("Collapse Risk", "崩溃风险"), risk);
+    ui_row_text(hdc, cursor, tr("Collapse Check", "崩溃判定"), collapse_last_reason(civ_id));
+    if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"), reason);
+    if (civs[civ_id].disorder >= 100) {
+        snprintf(text, sizeof(text), "%s", tr("Immediate path", "立即路径"));
+    } else if (grace > 0) {
+        snprintf(text, sizeof(text), "%s", tr("ordinary roll skipped", "跳过普通判定"));
+    } else if (chance > 0) {
+        int years_left = 25 - (year % 25);
+        if (years_left <= 0) years_left = 25;
+        ui_format_months(text, sizeof(text), years_left * 12, UI_MONTH_ZERO_NOW);
     } else {
         snprintf(text, sizeof(text), "%s", tr("No scheduled roll", "无定期判定"));
     }
@@ -340,7 +465,7 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
             draw_country_diplomacy_tab(hdc, cursor, civ_id);
             break;
         case COUNTRY_DETAIL_DISORDER:
-            draw_disorder_block(hdc, cursor, civ_id);
+            draw_country_disorder_tab(hdc, cursor, civ_id);
             break;
         default:
             ui_section(hdc, cursor, tr("Overview", "总览"));

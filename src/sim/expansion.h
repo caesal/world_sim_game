@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#include "sim/maritime.h"
+
 typedef struct {
     int active;
     int civ_id;
@@ -39,6 +41,7 @@ typedef struct {
     int claim_cooldown_months;
     int months_until_next_claim;
     int claim_budget;
+    MaritimeExpansionDiagnostics maritime;
 } ExpansionAIDiagnostics;
 
 void expansion_update_civilization(int civ_id, int resource_score, char *log, size_t log_size);

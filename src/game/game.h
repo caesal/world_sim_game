@@ -22,5 +22,6 @@ void game_request_after_load_map(void);
 int game_request_trigger_civil_unrest(int civ_id);
 int game_tick_auto_run(void);
 int run_expansion_probe(void);
+int run_tech10_probe(void);
 
 #endif

@@ -1,5 +1,20 @@
 # Version Log
 
+## Ver0.2.4
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.4
+2. Reworked diplomacy relation cards so peace/tension, war/truce, and tribute/vassal states use clearer visual templates
+3. Displayed real vassal resource tribute from the six actually transferred resource fields at 40%
+4. Displayed vassal total soldiers, callable 70%, home guard, current support use, and support casualties
+5. Added a small diplomatic easing path and visible peace-return thresholds for tense relations
+6. Moved event log storage/formatting into a structured bilingual event module
+7. Fixed snapshot event copying so event text and clickable country payload come from the same event entry
+8. Prevented historical event chips from highlighting a newly reused country slot by checking civilization uid
+9. Added `world_sim.exe --probe-tech10` for deterministic technology stage 10 validation
+10. Verified `make`, no `.c/.h` file over 500 lines, expansion probe, tech10 probe, and executable smoke launch
+
 ## Ver0.2.3
 
 Implemented fixes:

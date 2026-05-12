@@ -288,6 +288,8 @@ static void rebuild_region_metadata(void) {
         natural_regions[i].port_y = -1;
         natural_regions[i].capital_x = -1;
         natural_regions[i].capital_y = -1;
+        natural_regions[i].disconnected_months = 0;
+        natural_regions[i].disconnected_component_id = -1;
     }
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {

@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "sim/diplomacy.h"
 #include "sim/technology.h"
+#include "sim/civilization_uid.h"
 
 #include <string.h>
 
@@ -31,6 +32,7 @@ int civilization_slot_capacity_left(void) {
 void civilization_reset_slot_state(int civ_id) {
     if (civ_id < 0 || civ_id >= MAX_CIVS) return;
     memset(&civs[civ_id], 0, sizeof(civs[civ_id]));
+    civilization_assign_new_uid(civ_id);
     civs[civ_id].name_id = -1;
     civs[civ_id].custom_name = 1;
     civs[civ_id].capital_city = -1;

@@ -1,5 +1,6 @@
 #include "render_panel_internal.h"
 
+#include "render/ui_format.h"
 #include "sim/plague.h"
 #include "ui/ui_widgets.h"
 
@@ -24,11 +25,15 @@ void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body
     for (i = 0; i < city_count; i++) {
         if (!cities[i].alive || !plague_city_active(i)) continue;
         if (cursor.y > cursor.bottom - 30) break;
-        snprintf(text, sizeof(text), "%s  %s %d  %s %d  %s %d",
+        {
+            char span[48];
+            ui_format_months(span, sizeof(span), plague_city_months_left(i), UI_MONTH_ZERO_DONE);
+            snprintf(text, sizeof(text), "%s  %s %d  %s %s  %s %d",
                  cities[i].name,
                  tr("Severity", "烈度"), plague_city_severity(i),
-                 tr("Months", "剩余"), plague_city_months_left(i),
+                 tr("Months", "剩余"), span,
                  tr("Deaths", "死亡"), plague_city_deaths_total(i));
+        }
         draw_icon_text_line(hdc, cursor.x, cursor.y, ICON_DISORDER, text, RGB(190, 220, 196));
         cursor.y += 23;
         active_cities++;

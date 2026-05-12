@@ -1,4 +1,5 @@
 #include "core/profiler.h"
+#include "core/game_state.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -21,10 +22,6 @@ static RuntimeProfilerSnapshot snapshot_state;
 
 extern Civilization civs[MAX_CIVS];
 extern int civ_count;
-extern int city_count;
-extern int region_count;
-void event_log_push(const char *text);
-
 static long long profiler_now_us(void) {
     static LARGE_INTEGER frequency;
     LARGE_INTEGER now;
@@ -32,16 +29,6 @@ static long long profiler_now_us(void) {
     if (frequency.QuadPart == 0) QueryPerformanceFrequency(&frequency);
     QueryPerformanceCounter(&now);
     return now.QuadPart * 1000000LL / frequency.QuadPart;
-}
-
-static int active_civ_count(void) {
-    int i;
-    int count = 0;
-
-    for (i = 0; i < civ_count; i++) {
-        if (civs[i].alive) count++;
-    }
-    return count;
 }
 
 static int history_average(const int *values) {
@@ -175,11 +162,9 @@ static int profiler_call_finish(const char *function_name, int civ_id, int regio
         snapshot_state.last_slow_call_ms = elapsed_ms;
     }
     if (log_event) {
-        snprintf(text, sizeof(text),
-                 "[Performance] Slow %s: %d ms civ=%d region=%d regions=%d tiles=%d touched=%d paths=%d nodes=%d active=%d cities=%d region_count=%d",
-                 function_name ? function_name : "unknown", elapsed_ms, civ_id, region_id,
-                 regions, tiles, touched, paths, nodes, active_civ_count(), city_count, region_count);
-        event_log_push(text);
+        snprintf(text, sizeof(text), "%s", function_name ? function_name : "unknown");
+        event_log_push_structured(EVENT_TYPE_PERFORMANCE_SLOW_CALL, EVENT_SEVERITY_WARNING,
+                                  civ_id, -1, region_id, -1, elapsed_ms, tiles, text);
     }
     return elapsed_ms;
 }
