@@ -17,8 +17,16 @@ Future coding agents working in this repository must follow these rules:
 13. Prefer small refactor steps over one large rewrite.
 14. Update the build command or Makefile when adding source files.
 15. Keep every `.c` and `.h` file at 500 lines or less. If a file grows past that, split it by responsibility before adding more work.
-16. Before editing, produce a function-to-module plan. Then implement that exact plan.
+16. Before editing, produce a function-to-module plan. If code discovery invalidates the plan, stop and revise the plan before continuing.
 17. New files should not include `core/game_types.h` unless they truly need legacy global state. Prefer narrower headers such as `core/constants.h`, `core/world_types.h`, `core/sim_types.h`, or module-specific headers.
+18. If the user asks for discussion, analysis, a prompt, or explicitly says not to edit code, do not modify files or run builds. Inspect code only when needed, then produce findings, a plan, or an executable prompt.
+19. Before code search, build, test, Python scripts, `make`, or `build.bat` on Windows, prepend `C:\msys64\ucrt64\bin;C:\Users\c4esa\AppData\Local\Programs\Python\Python313` to `PATH`, then verify `gcc` and `python` resolve to the expected local tools.
+20. Player-visible logs must use structured event log entries with localization and stable civilization identity snapshots. Do not add new raw English `event_log_push` messages for gameplay, performance, diplomacy, expansion, collapse, plague, or debug events.
+21. UI and rendering paths should prefer `RenderSnapshot` or cached read models over live simulation globals. Do not hold simulation/state locks during expensive rendering, text layout, event formatting, map cache rebuilds, or other UI-only work.
+22. Any change adding per-frame, per-month, per-civilization, or per-pair work must identify whether it scans tiles, regions, cities, routes, or all civilization pairs. Hot-path full-map scans require dirty flags, caching, batching, or scheduler budgeting.
+23. New UI text must use the existing localization helpers and UTF-8-safe rendering path. Do not paste mojibake strings. Verify Chinese labels render correctly when the UI language is Chinese.
+24. If build output such as `world_sim.exe` is locked, do not kill processes, delete files, or force-unlock handles unless explicitly approved. Report the lock and use the approved build workflow.
+25. Keep gameplay constants, balance values, and feature rules in design or documentation files unless the user explicitly asks to encode them in repository instructions.
 
 ## Code Review Rules
 

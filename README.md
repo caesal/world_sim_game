@@ -7,11 +7,11 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.4 is a Windows graphical sandbox prototype written in C.
+Ver0.2.4.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.4 focuses on diplomacy clarity, structured bilingual event logs, safer
+Ver0.2.4.a keeps the Ver0.2.4 diplomacy clarity, structured bilingual event logs, safer
 event-log country highlighting, and validation through a deterministic technology
-stage 10 probe.
+stage 10 probe, with repository agent rules tightened for follow-up work.
 
 You can:
 

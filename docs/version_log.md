@@ -1,5 +1,14 @@
 # Version Log
 
+## Ver0.2.4.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.4.a
+2. Preserved the Ver0.2.4 diplomacy, event log, vassal display, and validation changes
+3. Tightened repository agent rules for future work around planning, PATH setup, structured logs, snapshots, hot paths, localization, locked build outputs, and gameplay constants
+4. Verified `make` and the 500-line `.c/.h` rule
+
 ## Ver0.2.4
 
 Implemented fixes:
