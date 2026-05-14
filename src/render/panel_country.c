@@ -438,6 +438,9 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
     if (country_detail_civil_unrest_hit(layout.detail_viewport, mouse_x, mouse_y)) {
         return COUNTRY_PANEL_HIT_CIVIL_UNREST;
     }
+    if (country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y) >= 0) {
+        return COUNTRY_PANEL_HIT_VASSAL_ACTION;
+    }
     if (layout.selected_detail) {
         RECT locate = {layout.selected_summary.right - 64, layout.selected_summary.top + 6,
                        layout.selected_summary.right - 8, layout.selected_summary.top + 26};
@@ -448,6 +451,13 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
         if (point_in_rect_local(layout.cards[i], mouse_x, mouse_y)) return layout.card_civ_ids[i];
     }
     return COUNTRY_PANEL_HIT_NONE;
+}
+
+int country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y) {
+    CountryPanelLayout layout;
+    country_panel_layout_build(client, &layout);
+    if (!layout.selected_detail) return -1;
+    return country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y);
 }
 
 int country_panel_scroll(RECT client, int delta) {

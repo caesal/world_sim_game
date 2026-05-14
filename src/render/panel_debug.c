@@ -1,10 +1,12 @@
 #include "render/panel_debug.h"
 #include "render/contour_paths.h"
+#include "render/plague_visual.h"
 #include "render/render_context.h"
 #include "render_panel_internal.h"
 #include "core/profiler.h"
 #include "game/game_loop.h"
 #include "sim/expansion.h"
+#include "sim/sea_lanes.h"
 #include "ui/ui_widgets.h"
 #include <stdio.h>
 #include <string.h>
@@ -164,7 +166,9 @@ static int event_matches_filter(int index) {
                    type == EVENT_TYPE_VASSAL_INDEPENDENCE_WAR ||
                    type == EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE ||
                    type == EVENT_TYPE_VASSAL_SELF_COLLAPSE_RELEASED ||
-                   type == EVENT_TYPE_VASSAL_ANNEXED;
+                   type == EVENT_TYPE_VASSAL_ANNEXED ||
+                   type == EVENT_TYPE_DIPLOMACY_PEACE ||
+                   type == EVENT_TYPE_DIPLOMACY_TENSE;
         case DEBUG_EVENT_FILTER_COLLAPSE_PLAGUE:
             return type == EVENT_TYPE_COLLAPSE_SUCCEEDED ||
                    type == EVENT_TYPE_COLLAPSE_FAILED ||
@@ -244,7 +248,7 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
     debug_row(hdc, cursor, tr("Publish", "发布"), text,
               render_snapshot_skipped_publish_count() > 0 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
-    snprintf(text, sizeof(text), "%d / %d ms", perf.frame_avg_ms, perf.frame_peak_ms);
+    snprintf(text, sizeof(text), "target 16 ms / avg %d / peak %d", perf.frame_avg_ms, perf.frame_peak_ms);
     debug_row(hdc, cursor, tr("Frame avg / peak", "帧均值 / 峰值"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "%d ms/month, %.1f months/sec", perf.actual_ms_per_month,
              perf.actual_ms_per_month > 0 ? 1000.0 / perf.actual_ms_per_month : 0.0);
@@ -260,13 +264,6 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
     debug_row(hdc, cursor, tr("Current Job", "当前任务"),
               perf.current_job[0] ? perf.current_job : "Idle", ui_theme_color(UI_COLOR_TEXT_MUTED));
     debug_row(hdc, cursor, tr("Worker", "模拟线程"), game_loop_worker_status(),
-              ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%d ms", render_snapshot_age_ms());
-    debug_row(hdc, cursor, tr("Snapshot age", "快照延迟"), text,
-              render_snapshot_age_ms() > 500 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "#%u / publish %d ms",
-             render_snapshot_revision(), render_snapshot_last_publish_ms());
-    debug_row(hdc, cursor, tr("Snapshot revision", "快照版本"), text,
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Performance", "性能"));
     debug_row(hdc, cursor, tr("Slow Call", "慢调用"),
@@ -285,10 +282,17 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
              perf.border_rebuild_count, perf.label_rebuild_count,
              perf.gdi_bitmap_recreate_count);
     debug_row(hdc, cursor, tr("Layer rebuilds", "图层重建"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "fog %d builds / last %d ms / gate %d ms",
+             plague_visual_fog_rebuild_count(), plague_visual_last_fog_rebuild_ms(),
+             plague_visual_fog_rebuild_interval_ms());
+    debug_row(hdc, cursor, tr("Plague fog", "瘟疫雾"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "contours %d paths / %d ms",
              perf.contour_path_count, perf.contour_rebuild_ms);
     debug_row(hdc, cursor, tr("Contours", "轮廓线"), text,
               perf.contour_rebuild_ms > 50 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    { SeaLaneStats sea; sea_lanes_last_stats(&sea);
+      snprintf(text, sizeof(text), "lanes %d / ports %d / shallow %d-%d / deep %d / no-admin %d / cap %d", sea.visual_lanes, sea.active_port_nodes, sea.shallow_accepted_edges, sea.shallow_candidate_edges, sea.deep_links, sea.missing_admin_city, sea.max_lane_skips);
+      debug_row(hdc, cursor, tr("Sea lanes", "航道网络"), text, ui_theme_color(UI_COLOR_TEXT_MUTED)); }
     {
         int coast_edges;
         int coast_paths;
@@ -467,8 +471,8 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
     SelectObject(hdc, body_font);
     ui_section(hdc, &cursor, tr("Map Layers", "地图图层"));
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
-        const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political"};
-        const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治"};
+        const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political", "Routes"};
+        const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治", "航道潜力网"};
         RECT button = get_mode_button_rect(client, i);
         fill_rect(hdc, button, MAP_DISPLAY_MODES[i] == display_mode ? RGB(87, 93, 78) : ui_theme_color(UI_COLOR_PANEL_SOFT));
         draw_text_rect(hdc, button, tr(names_en[i], names_zh[i]), ui_theme_color(UI_COLOR_TEXT),

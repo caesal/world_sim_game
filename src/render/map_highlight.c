@@ -3,6 +3,7 @@
 #include "core/country_focus.h"
 #include "core/game_state.h"
 #include "render/render_map_internal.h"
+#include "sim/vassal.h"
 
 static int highlight_civ(void) {
     if (map_highlight_civ >= 0 && map_highlight_civ < civ_count) return map_highlight_civ;
@@ -164,6 +165,62 @@ static void dim_other_countries(HDC hdc, RECT client, MapLayout layout, int prim
     }
 }
 
+static POINT focus_screen_point(MapLayout layout, int civ_id, int *ok) {
+    int x;
+    int y;
+    POINT p = {0, 0};
+    *ok = country_focus_point(civ_id, &x, &y);
+    if (!*ok) return p;
+    p.x = layout.map_x + (x * 2 + 1) * layout.draw_w / (MAP_W * 2);
+    p.y = layout.map_y + (y * 2 + 1) * layout.draw_h / (MAP_H * 2);
+    return p;
+}
+
+static void draw_relation_line(HDC hdc, MapLayout layout, int from_civ, int to_civ, COLORREF color, int strong) {
+    int ok_a;
+    int ok_b;
+    POINT a = focus_screen_point(layout, from_civ, &ok_a);
+    POINT b = focus_screen_point(layout, to_civ, &ok_b);
+    HPEN pen;
+    HGDIOBJ old_pen;
+    int mx;
+    int my;
+    if (!ok_a || !ok_b) return;
+    pen = CreatePen(strong ? PS_SOLID : PS_DOT, strong ? 3 : 2, color);
+    old_pen = SelectObject(hdc, pen);
+    MoveToEx(hdc, a.x, a.y, NULL);
+    LineTo(hdc, b.x, b.y);
+    mx = (a.x + b.x) / 2;
+    my = (a.y + b.y) / 2;
+    Ellipse(hdc, mx - 4, my - 4, mx + 4, my + 4);
+    SelectObject(hdc, old_pen);
+    DeleteObject(pen);
+}
+
+static void draw_vassal_relation_highlights(HDC hdc, RECT client, MapLayout layout) {
+    int ids[MAX_CIVS];
+    int count;
+    int i;
+    int overlord;
+    COLORREF tribute = RGB(226, 196, 104);
+    if (selected_civ < 0 || selected_civ >= civ_count) return;
+    overlord = vassal_overlord(selected_civ);
+    if (overlord >= 0) {
+        count = vassal_collect_direct(overlord, ids, MAX_CIVS);
+        draw_country_highlight_one(hdc, client, layout, overlord, 0, selected_civ_pulse_start_ms);
+        for (i = 0; i < count; i++) {
+            if (ids[i] != selected_civ) draw_country_highlight_one(hdc, client, layout, ids[i], 0, 0);
+        }
+        draw_relation_line(hdc, layout, selected_civ, overlord, tribute, 1);
+        return;
+    }
+    count = vassal_collect_direct(selected_civ, ids, MAX_CIVS);
+    for (i = 0; i < count; i++) {
+        draw_country_highlight_one(hdc, client, layout, ids[i], 0, 0);
+        draw_relation_line(hdc, layout, ids[i], selected_civ, tribute, 0);
+    }
+}
+
 void draw_country_highlight(HDC hdc, RECT client, MapLayout layout) {
     int primary = highlight_civ();
     int secondary = (map_highlight_civ >= 0 && selected_civ >= 0 &&
@@ -173,6 +230,7 @@ void draw_country_highlight(HDC hdc, RECT client, MapLayout layout) {
     if (secondary >= 0) {
         draw_country_highlight_one(hdc, client, layout, secondary, 0, selected_civ_pulse_start_ms);
     }
+    draw_vassal_relation_highlights(hdc, client, layout);
     draw_country_highlight_one(hdc, client, layout, primary,
                                primary == map_highlight_civ || map_highlight_civ < 0,
                                primary == map_highlight_civ ? map_highlight_pulse_start_ms : selected_civ_pulse_start_ms);

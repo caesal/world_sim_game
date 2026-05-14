@@ -5,6 +5,7 @@
 #include "core/render_snapshot.h"
 #include "core/state_lock.h"
 #include "render/cartography_layers.h"
+#include "render/diplomacy_map_anim.h"
 #include "render/map_highlight.h"
 #include "render/pause_menu_render.h"
 #include "render/render_context.h"
@@ -318,6 +319,8 @@ static void render_world(HDC hdc, RECT client) {
             dirty_clear_render_plague();
         }
         draw_legacy_overlay_nonblocking(hdc, client, layout);
+        diplomacy_map_anim_consume_events();
+        draw_diplomacy_map_animations(hdc, client, layout);
         if (!map_interaction_preview) {
             draw_cities(hdc, layout);
             draw_map_labels(hdc, client, layout);

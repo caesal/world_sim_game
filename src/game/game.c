@@ -1,5 +1,4 @@
 ﻿#include "game.h"
-
 #include "core/game_types.h"
 #include "core/dirty_flags.h"
 #include "core/render_snapshot.h"
@@ -14,24 +13,23 @@
 #include "sim/plague.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/route_potential.h"
 #include "sim/simulation.h"
 #include "sim/territory_integrity.h"
 #include "sim/simulation_month.h"
 #include "sim/simulation_worker.h"
 #include "sim/technology.h"
+#include "sim/vassal.h"
 #include "sim/war.h"
 #include "ui/ui.h"
 #include "world/ports.h"
 #include "world/terrain_query.h"
 #include "world/world_gen.h"
-
 #include <stdio.h>
 #include <string.h>
-
 static void clear_world_tiles(void) {
     int x;
     int y;
-
     for (y = 0; y < MAX_MAP_H; y++) {
         for (x = 0; x < MAX_MAP_W; x++) {
             memset(&world[y][x], 0, sizeof(world[y][x]));
@@ -45,8 +43,8 @@ static void clear_world_tiles(void) {
     river_path_count = 0;
     maritime_route_count = 0;
     regions_reset();
+    route_potential_reset();
 }
-
 static void game_start_blank_world(void) {
     set_active_map_size(MAP_SIZE_MEDIUM);
     simulation_reset_state();
@@ -59,16 +57,13 @@ static void game_start_blank_world(void) {
     dirty_mark_world();
     render_snapshot_publish_from_live_state();
 }
-
 void game_toggle_auto_run(void) {
     if (!world_generated) return;
     auto_run = !auto_run;
     game_loop_reset();
 }
-
 static WorldGenConfig game_world_gen_config_from_globals(void) {
     WorldGenConfig config;
-
     config.ocean = ocean_slider;
     config.continent = continent_slider;
     config.relief = relief_slider;
@@ -83,10 +78,8 @@ static WorldGenConfig game_world_gen_config_from_globals(void) {
     config.random_seed = 1;
     return config;
 }
-
 void game_request_new_world(void) {
     WorldGenConfig config = game_world_gen_config_from_globals();
-
     auto_run = 0;
     game_loop_reset();
     set_active_map_size(pending_map_size);
@@ -98,14 +91,21 @@ void game_request_new_world(void) {
     selected_x = -1;
     selected_y = -1;
     selected_civ = -1;
+    map_zoom_percent = 100;
+    map_offset_x = 0;
+    map_offset_y = 0;
+    map_view_auto_centered = 1;
     generate_world_with_config(&config);
     world_generated = 1;
     ports_reset_regions();
     regions_generate(region_size_slider);
+    ports_ensure_island_ports();
     world_invalidate_region_cache();
     simulation_seed_default_civilizations();
     world_recalculate_territory();
+    ports_ensure_island_ports();
     ports_refresh_city_regions();
+    route_potential_rebuild();
     maritime_rebuild_routes();
     diplomacy_update_contacts();
     civilization_repair_alive_colors();
@@ -114,16 +114,16 @@ void game_request_new_world(void) {
     auto_run = 0;
     render_snapshot_publish_from_live_state();
 }
-
 void game_request_regenerate_regions(void) {
     if (!world_generated || civ_count > 0) return;
     regions_generate(region_size_slider);
+    ports_ensure_island_ports();
+    route_potential_rebuild();
     selected_x = -1;
     selected_y = -1;
     selected_civ = -1;
     render_snapshot_publish_from_live_state();
 }
-
 int game_request_add_civilization_from_selection(const char *name, char symbol,
                                                 int military, int logistics,
                                                 int governance, int cohesion,
@@ -132,7 +132,6 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
     int x = -1;
     int y = -1;
     int before_count = civ_count;
-
     if (!world_generated) return -1;
     state_write_lock();
     if (selected_x >= 0 && selected_y >= 0 &&
@@ -154,14 +153,12 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
     render_snapshot_publish_from_live_state();
     return selected_civ;
 }
-
 int game_request_edit_selected_civilization(const char *name, char symbol,
                                             int military, int logistics,
                                             int governance, int cohesion,
                                             int production, int commerce,
                                             int innovation) {
     int civ_id = selected_civ;
-
     if (civ_id < 0 || civ_id >= civ_count) {
         if (selected_x >= 0 && selected_y >= 0) civ_id = world[selected_y][selected_x].owner;
     }
@@ -174,10 +171,8 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
     render_snapshot_publish_from_live_state();
     return 1;
 }
-
 void game_request_set_civilization_color(int civ_id, Color32 color) {
     int seed_region = -1;
-
     if (civ_id < 0 || civ_id >= civ_count) return;
     state_write_lock();
     if (civs[civ_id].capital_city >= 0 && civs[civ_id].capital_city < city_count) {
@@ -190,7 +185,6 @@ void game_request_set_civilization_color(int civ_id, Color32 color) {
     state_write_unlock();
     render_snapshot_publish_from_live_state();
 }
-
 void game_request_after_load_map(void) {
     selected_x = -1;
     selected_y = -1;
@@ -203,6 +197,7 @@ void game_request_after_load_map(void) {
     regions_claim_cache_reset();
     world_invalidate_region_cache();
     ports_refresh_city_regions();
+    route_potential_rebuild();
     territory_integrity_repair_capitals();
     diplomacy_update_contacts();
     civilization_colors_debug_check();
@@ -210,10 +205,8 @@ void game_request_after_load_map(void) {
     world_visual_revision++;
     render_snapshot_publish_from_live_state();
 }
-
 int game_request_trigger_civil_unrest(int civ_id) {
     int collapsed;
-
     if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
         event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, -1, -1, 0, 0, "Civil unrest failed: invalid country.");
@@ -237,19 +230,41 @@ int game_request_trigger_civil_unrest(int civ_id) {
     render_snapshot_publish_from_live_state();
     return collapsed;
 }
-
+int game_request_release_vassal(int vassal_id) {
+    int overlord;
+    if (!world_generated || vassal_id < 0 || vassal_id >= civ_count || !civs[vassal_id].alive) return 0;
+    state_write_lock();
+    overlord = vassal_overlord(vassal_id);
+    if (overlord < 0 || overlord >= civ_count || !civs[overlord].alive) {
+        state_write_unlock();
+        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
+                                  vassal_id, -1, -1, -1, 0, 0, "VASSAL_RELEASE_FAILED_NO_OVERLORD");
+        return 0;
+    }
+    vassal_release(vassal_id);
+    event_log_push_structured(EVENT_TYPE_VASSAL_RELEASED, EVENT_SEVERITY_INFO,
+                              vassal_id, overlord, -1, -1, 0, 0, "");
+    world_invalidate_country_summary_cache();
+    diplomacy_mark_contacts_dirty();
+    diplomacy_update_contacts();
+    maritime_mark_routes_dirty();
+    dirty_mark_territory();
+    dirty_mark_labels();
+    world_visual_revision++;
+    state_write_unlock();
+    render_snapshot_publish_from_live_state();
+    return 1;
+}
 int game_tick_auto_run(void) {
     if (!world_generated) return 0;
     return game_loop_tick_frame();
 }
-
 static void probe_write_checkpoint(FILE *file, int checkpoint_year) {
     int owned_regions = 0;
     int active_owned_regions = 0;
     int land_regions = 0;
     int frontier = 0;
     int i;
-
     for (i = 0; i < region_count; i++) {
         if (!natural_regions[i].alive || natural_regions[i].tile_count <= 0) continue;
         land_regions++;
@@ -265,7 +280,6 @@ static void probe_write_checkpoint(FILE *file, int checkpoint_year) {
         ExpansionAIDiagnostics ai;
         int owned = 0;
         int r;
-
         if (!civs[i].alive) continue;
         ai = expansion_ai_diagnostics(i, expansion_resource_score_for_civ(i));
         frontier += ai.nearby_unowned_regions;
@@ -281,18 +295,15 @@ static void probe_write_checkpoint(FILE *file, int checkpoint_year) {
     }
     fprintf(file, "  total_reachable_unowned_sum=%d\n", frontier);
 }
-
 int run_expansion_probe(void) {
     static const int checkpoints[8] = {1, 10, 50, 100, 200, 300, 400, 500};
     WorldGenConfig config = DEFAULT_WORLD_GEN_CONFIG;
     FILE *file;
     int month_index;
     int next_checkpoint = 0;
-
     CreateDirectoryA("logs", NULL);
     file = fopen("logs/expansion_probe.txt", "w");
     if (!file) return 1;
-
     game_start_blank_world();
     pending_map_size = MAP_SIZE_MEDIUM;
     initial_civ_count = 20;
@@ -307,13 +318,15 @@ int run_expansion_probe(void) {
     world_generated = 1;
     ports_reset_regions();
     regions_generate(region_size_slider);
+    ports_ensure_island_ports();
     world_invalidate_region_cache();
     simulation_seed_default_civilizations();
     world_recalculate_territory();
+    ports_ensure_island_ports();
     ports_refresh_city_regions();
+    route_potential_rebuild();
     maritime_rebuild_routes();
     diplomacy_update_contacts();
-
     fprintf(file, "World Sim expansion probe seed=%u map=%dx%d initial_civs=%d\n",
             config.seed, MAP_W, MAP_H, initial_civ_count);
     {
@@ -346,7 +359,6 @@ int run_expansion_probe(void) {
     fclose(file);
     return 0;
 }
-
 int run_tech10_probe(void) {
     WorldGenConfig config = DEFAULT_WORLD_GEN_CONFIG;
     FILE *file;
@@ -355,7 +367,6 @@ int run_tech10_probe(void) {
     int max_stage = 0;
     int max_civ = -1;
     int reached_month = -1;
-
     CreateDirectoryA("logs", NULL);
     file = fopen("logs/tech10_probe.txt", "w");
     if (!file) return 1;
@@ -373,10 +384,13 @@ int run_tech10_probe(void) {
     world_generated = 1;
     ports_reset_regions();
     regions_generate(region_size_slider);
+    ports_ensure_island_ports();
     world_invalidate_region_cache();
     simulation_seed_default_civilizations();
     world_recalculate_territory();
+    ports_ensure_island_ports();
     ports_refresh_city_regions();
+    route_potential_rebuild();
     maritime_rebuild_routes();
     diplomacy_update_contacts();
     start_ms = GetTickCount();
@@ -413,14 +427,12 @@ int run_tech10_probe(void) {
     fclose(file);
     return reached_month >= 0 ? 0 : 2;
 }
-
 int run_game(void) {
     HINSTANCE instance = GetModuleHandle(NULL);
     const char *class_name = "WorldSimGameWindow";
     WNDCLASSA wc;
     HWND hwnd;
     MSG msg;
-
     render_snapshot_init();
     game_start_blank_world();
     memset(&wc, 0, sizeof(wc));
@@ -429,23 +441,19 @@ int run_game(void) {
     wc.lpszClassName = class_name;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
-
     if (!RegisterClassA(&wc)) {
         MessageBoxA(NULL, "Failed to register window class.", "World Sim Game", MB_ICONERROR);
         return 1;
     }
-
-    hwnd = CreateWindowExA(0, class_name, "World Sim Game", WS_OVERLAPPEDWINDOW,
+    hwnd = CreateWindowExA(0, class_name, "World Sim Game", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
                            CW_USEDEFAULT, CW_USEDEFAULT, WINDOW_W, WINDOW_H,
                            NULL, NULL, instance, NULL);
     if (!hwnd) {
         MessageBoxA(NULL, "Failed to create game window.", "World Sim Game", MB_ICONERROR);
         return 1;
     }
-
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
-
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
         if (msg.message == WM_KEYDOWN && (msg.hwnd == hwnd || IsChild(hwnd, msg.hwnd))) {
             if (is_game_shortcut(msg.wParam)) {

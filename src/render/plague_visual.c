@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define FOG_REBUILD_INTERVAL_MS 50
+
 static int city_visual[MAX_CITIES];
 static int route_visual[MAX_SEA_LANES];
 static int visual_active;
@@ -19,7 +21,9 @@ static HDC fog_cache_dc;
 static HBITMAP fog_cache_bitmap;
 static HBITMAP fog_cache_old_bitmap;
 static unsigned int *fog_cache_pixels;
-static int visual_tick_accum_ms;
+static int fog_rebuild_accum_ms;
+static int fog_rebuild_count;
+static int last_fog_rebuild_ms;
 
 static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     unsigned int old = *dst;
@@ -48,11 +52,10 @@ int plague_visual_tick(int elapsed_ms) {
     int i;
     int changed = 0;
     int any = 0;
+    int was_active = visual_active;
 
-    visual_tick_accum_ms += clamp(elapsed_ms, 0, 250);
-    if (visual_tick_accum_ms < 100) return 0;
-    elapsed_ms = min(visual_tick_accum_ms, 250);
-    visual_tick_accum_ms = 0;
+    elapsed_ms = clamp(elapsed_ms, 0, 250);
+    if (elapsed_ms <= 0) return 0;
     snapshot = render_snapshot_acquire();
 
     for (i = 0; i < MAX_CITIES; i++) {
@@ -71,7 +74,15 @@ int plague_visual_tick(int elapsed_ms) {
     }
     render_snapshot_release(snapshot);
     visual_active = any;
-    if (changed) fog_cache_dirty = 1;
+    if (changed) {
+        fog_rebuild_accum_ms += elapsed_ms;
+        if (!was_active || fog_rebuild_accum_ms >= FOG_REBUILD_INTERVAL_MS) {
+            fog_cache_dirty = 1;
+            fog_rebuild_accum_ms = 0;
+        }
+    } else if (!any) {
+        fog_rebuild_accum_ms = 0;
+    }
     return changed;
 }
 
@@ -82,6 +93,18 @@ int plague_visual_active(void) {
 int plague_visual_route_intensity(int route_id) {
     if (route_id < 0 || route_id >= MAX_SEA_LANES) return 0;
     return route_visual[route_id];
+}
+
+int plague_visual_fog_rebuild_interval_ms(void) {
+    return FOG_REBUILD_INTERVAL_MS;
+}
+
+int plague_visual_fog_rebuild_count(void) {
+    return fog_rebuild_count;
+}
+
+int plague_visual_last_fog_rebuild_ms(void) {
+    return last_fog_rebuild_ms;
 }
 
 static int blob_offset(int seed, int radius) {
@@ -169,6 +192,7 @@ static int ensure_fog_cache(HDC hdc, const RenderSnapshot *snapshot) {
 }
 
 static void rebuild_fog_cache(const RenderSnapshot *snapshot) {
+    DWORD start = GetTickCount();
     int i;
 
     if (!fog_cache_pixels) return;
@@ -176,6 +200,8 @@ static void rebuild_fog_cache(const RenderSnapshot *snapshot) {
     for (i = 0; i < snapshot->city_count; i++) add_city_cloud(fog_cache_pixels, snapshot, i);
     fog_cache_alpha = plague_fog_alpha;
     fog_cache_dirty = 0;
+    fog_rebuild_count++;
+    last_fog_rebuild_ms = (int)(GetTickCount() - start);
 }
 
 void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {

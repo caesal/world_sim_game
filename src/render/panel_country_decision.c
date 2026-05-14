@@ -60,9 +60,11 @@ static void format_maritime_blockers(const MaritimeExpansionDiagnostics *m, char
     if (!out || out_size == 0 || !m) return;
     if (m->blocked_no_port) snprintf(out, out_size, "%s", tr("No owned port", "没有本国港口"));
     else if (m->suppressed_by_land_targets) snprintf(out, out_size, "%s", tr("Homeland targets still preferred", "本土目标仍优先"));
-    else if (m->blocked_deep_locked > 0) snprintf(out, out_size, "%s", tr("Different shallow sea; deep sea locked", "不同浅海区，深海未解锁"));
+    else if (m->blocked_no_shallow_path > 0) snprintf(out, out_size, "%s", tr("Shallow path blocked by deep water", "浅海路径被深水切断"));
     else if (m->blocked_city_cap > 0) snprintf(out, out_size, "%s", tr("City cap reached; nearest-port admin fallback needed", "城市上限，需要最近港口管理"));
     else if (m->blocked_low_score > 0) snprintf(out, out_size, "%s", tr("Candidate score below threshold", "候选评分低于门槛"));
+    else if (m->blocked_path_budget > 0) snprintf(out, out_size, "%s", tr("Pathfinding budget exhausted", "寻路预算耗尽"));
+    else if (m->blocked_deep_locked > 0) snprintf(out, out_size, "%s", tr("Deep sea locked for distant targets", "远海目标需要深海科技"));
     else if (m->blocked_no_sea_entry > 0) snprintf(out, out_size, "%s", tr("No valid sea entry", "没有有效入海点"));
     else if (m->blocked_no_capital_or_port_site > 0) snprintf(out, out_size, "%s", tr("Missing capital or port site", "缺少首府或港口点"));
     else if (m->blocked_no_port_site > 0) snprintf(out, out_size, "%s", tr("No port-site island target", "没有港址岛屿目标"));
@@ -196,10 +198,10 @@ void draw_country_decision_tab(HDC hdc, UiCursor *cursor, int civ_id) {
 
     ui_section(hdc, cursor, tr("Reachability", "可达性"));
     draw_reachability_grid(hdc, cursor, &snap);
-    snprintf(text, sizeof(text), tr("shallow %d / route %d / deep %d / candidates %d",
-                                    "浅海 %d / 航道 %d / 深海 %d / 候选 %d"),
-             snap.expansion.shallow_sea_reachable_regions, snap.expansion.maritime_reachable_regions,
-             snap.expansion.deep_sea_reachable_regions, snap.expansion.port_candidate_regions);
+    snprintf(text, sizeof(text), tr("ports %d / candidates %d / shallow path %d / fail %d",
+                                    "港口 %d / 候选 %d / 浅海路径 %d / 失败 %d"),
+             snap.expansion.maritime.own_port_count, snap.expansion.port_candidate_regions,
+             snap.expansion.shallow_sea_reachable_regions, snap.expansion.maritime.blocked_no_shallow_path);
     ui_row_text(hdc, cursor, tr("Sea targets", "海路目标"), text);
     format_maritime_blockers(&snap.expansion.maritime, text, sizeof(text));
     ui_row_text(hdc, cursor, tr("Main sea blocker", "主要海路阻塞"), text);

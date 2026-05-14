@@ -3,12 +3,14 @@
 #include "data/country_names.h"
 #include "game/game.h"
 #include "sim/simulation.h"
+#include "ui/ui_layout.h"
 #include "ui/ui_worldgen_layout.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 
 static FormControls form;
+static int suppress_form_change = 0;
 
 static void get_window_text_utf8(HWND hwnd, char *buffer, int buffer_size) {
     WCHAR wide[128];
@@ -26,7 +28,9 @@ static void set_window_text_utf8(HWND hwnd, const char *text) {
     WCHAR wide[128];
 
     MultiByteToWideChar(CP_UTF8, 0, text ? text : "", -1, wide, (int)(sizeof(wide) / sizeof(wide[0])));
+    suppress_form_change++;
     SetWindowTextW(hwnd, wide);
+    suppress_form_change--;
 }
 
 static int read_int_control_clamped(HWND hwnd, int fallback, int min_value, int max_value) {
@@ -44,7 +48,9 @@ static void write_int_control(HWND hwnd, int value) {
     char buffer[32];
 
     snprintf(buffer, sizeof(buffer), "%d", value);
+    suppress_form_change++;
     SetWindowTextA(hwnd, buffer);
+    suppress_form_change--;
 }
 
 static HWND metric_edit_from_id(int control_id) {
@@ -76,15 +82,9 @@ static int read_metric_control(HWND edit, int fallback) {
 
 int ui_forms_handle_metric_change(int control_id) {
     HWND edit = metric_edit_from_id(control_id);
-    char buffer[32];
-    char *end;
-    long value;
 
+    if (suppress_form_change) return 1;
     if (!edit) return 0;
-    GetWindowTextA(edit, buffer, sizeof(buffer));
-    if (buffer[0] == '\0') return 1;
-    value = strtol(buffer, &end, 10);
-    if (end != buffer && value > 10) write_int_control(edit, 10);
     return 1;
 }
 
@@ -114,6 +114,35 @@ static int palette_index_for_color(Color32 color) {
     return -1;
 }
 
+static int alive_symbol_used(char symbol) {
+    int i;
+    for (i = 0; i < civ_count; i++) {
+        if (civs[i].alive && civs[i].symbol == symbol) return 1;
+    }
+    return 0;
+}
+
+static char random_unused_symbol(void) {
+    int start = rnd(26);
+    int i;
+    for (i = 0; i < 26; i++) {
+        char symbol = (char)('A' + (start + i) % 26);
+        if (!alive_symbol_used(symbol)) return symbol;
+    }
+    return (char)('A' + rnd(26));
+}
+
+static int random_metric_value(void) {
+    int roll = rnd(100);
+    if (roll < 75) return 3 + rnd(6);
+    if (roll < 88) return rnd(3);
+    return 9 + rnd(2);
+}
+
+static int random_range(int min_value, int max_value) {
+    return min_value + rnd(max_value - min_value + 1);
+}
+
 static void sync_color_from_civ(int civ_id) {
     if (civ_id < 0 || civ_id >= civ_count) return;
     selected_civ_color = civs[civ_id].color;
@@ -137,6 +166,63 @@ void ui_forms_write_civ(int civ_id) {
     sync_color_from_civ(civ_id);
 }
 
+static void ui_randomize_civilization_form(HWND hwnd) {
+    int name_id = civilization_pick_unused_name_id();
+    char symbol_text[2] = {random_unused_symbol(), '\0'};
+    set_window_text_utf8(form.name_edit, country_name_localized(name_id, ui_language));
+    set_window_text_utf8(form.symbol_edit, symbol_text);
+    write_int_control(form.military_edit, random_metric_value());
+    write_int_control(form.logistics_edit, random_metric_value());
+    write_int_control(form.governance_edit, random_metric_value());
+    write_int_control(form.cohesion_edit, random_metric_value());
+    write_int_control(form.production_edit, random_metric_value());
+    write_int_control(form.commerce_edit, random_metric_value());
+    write_int_control(form.innovation_edit, random_metric_value());
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static void ui_randomize_physical_world_sliders(HWND hwnd) {
+    ocean_slider = random_range(25, 75);
+    continent_slider = random_range(10, 85);
+    relief_slider = random_range(20, 85);
+    moisture_slider = random_range(15, 85);
+    drought_slider = random_range(15, 85);
+    vegetation_slider = random_range(15, 85);
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static void ui_randomize_advanced_world_sliders(HWND hwnd) {
+    bias_forest_slider = random_range(20, 80);
+    bias_desert_slider = random_range(20, 80);
+    bias_mountain_slider = random_range(20, 80);
+    bias_wetland_slider = random_range(20, 80);
+    region_size_slider = random_range(15, 90);
+    InvalidateRect(hwnd, NULL, FALSE);
+}
+
+static int worldgen_button_hit(RECT viewport, RECT rect, int mouse_x, int mouse_y) {
+    return worldgen_rect_visible(viewport, rect) && point_in_rect(rect, mouse_x, mouse_y);
+}
+
+int ui_forms_handle_worldgen_random_click(HWND hwnd, RECT client, int mouse_x, int mouse_y) {
+    WorldgenLayout layout;
+
+    worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
+    if (worldgen_button_hit(layout.viewport, layout.physical_random_button, mouse_x, mouse_y)) {
+        ui_randomize_physical_world_sliders(hwnd);
+        return 1;
+    }
+    if (worldgen_button_hit(layout.viewport, layout.terrain_random_button, mouse_x, mouse_y)) {
+        ui_randomize_advanced_world_sliders(hwnd);
+        return 1;
+    }
+    if (worldgen_button_hit(layout.viewport, layout.civ_random_button, mouse_x, mouse_y)) {
+        ui_randomize_civilization_form(hwnd);
+        return 1;
+    }
+    return 0;
+}
+
 void ui_forms_translate_name_input(void) {
     char name[NAME_LEN];
     int name_id;
@@ -145,6 +231,11 @@ void ui_forms_translate_name_input(void) {
     get_window_text_utf8(form.name_edit, name, sizeof(name));
     name_id = country_name_find_by_text(name);
     if (name_id >= 0) set_window_text_utf8(form.name_edit, country_name_localized(name_id, ui_language));
+}
+
+void ui_forms_refresh_language(HWND hwnd) {
+    ui_forms_translate_name_input();
+    (void)hwnd;
 }
 
 void ui_forms_add_civ(HWND hwnd) {
@@ -209,21 +300,89 @@ void ui_forms_apply_selected(HWND hwnd) {
     }
 }
 
-static void layout_control(HWND control, RECT viewport, RECT rect, int show_world) {
-    int fully_visible = rect.left >= viewport.left && rect.right <= viewport.right &&
-                        rect.top >= viewport.top && rect.bottom <= viewport.bottom;
+int ui_forms_handle_command(HWND hwnd, int control_id) {
+    if (control_id == ID_ADD_BUTTON) ui_forms_add_civ(hwnd);
+    else if (control_id == ID_APPLY_BUTTON) ui_forms_apply_selected(hwnd);
+    else return 0;
+    return 1;
+}
 
-    MoveWindow(control, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, TRUE);
-    ShowWindow(control, show_world && fully_visible ? SW_SHOW : SW_HIDE);
+static int form_edit_id(int id) {
+    return id == ID_NAME_EDIT || id == ID_SYMBOL_EDIT || id == ID_INITIAL_CIVS_EDIT ||
+           (id >= ID_MILITARY_EDIT && id <= ID_INNOVATION_EDIT);
+}
+
+HBRUSH ui_forms_control_color(WPARAM wparam, LPARAM lparam) {
+    static HBRUSH edit_brush = NULL;
+    int id = GetDlgCtrlID((HWND)lparam);
+    HDC hdc = (HDC)wparam;
+
+    if (!form_edit_id(id)) return NULL;
+    if (!edit_brush) edit_brush = CreateSolidBrush(RGB(32, 39, 43));
+    SetTextColor(hdc, RGB(235, 241, 244));
+    SetBkColor(hdc, RGB(32, 39, 43));
+    return edit_brush;
+}
+
+static void redraw_control(HWND control) {
+    if (!control || !IsWindowVisible(control)) return;
+    RedrawWindow(control, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
+}
+
+void ui_forms_redraw_visible_controls(void) {
+    redraw_control(form.initial_civs_edit);
+    redraw_control(form.name_edit);
+    redraw_control(form.symbol_edit);
+    redraw_control(form.military_edit);
+    redraw_control(form.logistics_edit);
+    redraw_control(form.governance_edit);
+    redraw_control(form.cohesion_edit);
+    redraw_control(form.production_edit);
+    redraw_control(form.commerce_edit);
+    redraw_control(form.innovation_edit);
+    redraw_control(form.add_button);
+    redraw_control(form.apply_button);
+}
+
+static void layout_control(HWND control, RECT viewport, RECT rect, int show_world) {
+    int intersects = rect.right > viewport.left && rect.left < viewport.right &&
+                     rect.bottom > viewport.top && rect.top < viewport.bottom;
+    int should_show = show_world && intersects;
+    RECT current;
+    POINT top_left;
+    int is_visible;
+    int changed = 0;
+
+    if (!control) return;
+    GetWindowRect(control, &current);
+    top_left.x = current.left;
+    top_left.y = current.top;
+    MapWindowPoints(NULL, GetParent(control), &top_left, 1);
+    current.right = top_left.x + (current.right - current.left);
+    current.bottom = top_left.y + (current.bottom - current.top);
+    current.left = top_left.x;
+    current.top = top_left.y;
+    if (current.left != rect.left || current.top != rect.top ||
+        current.right - current.left != rect.right - rect.left ||
+        current.bottom - current.top != rect.bottom - rect.top) {
+        MoveWindow(control, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, FALSE);
+        changed = 1;
+    }
+    is_visible = IsWindowVisible(control);
+    if (!!is_visible != !!should_show) {
+        ShowWindow(control, should_show ? SW_SHOWNA : SW_HIDE);
+        changed = 1;
+    }
+    if (changed && should_show) redraw_control(control);
 }
 
 void ui_forms_layout(HWND hwnd) {
     RECT client;
     WorldgenLayout layout;
-    int show_world = panel_tab == PANEL_WORLD && !pause_menu_open;
+    int show_world = panel_tab == PANEL_WORLD && !pause_menu_open && !side_panel_collapsed;
 
     GetClientRect(hwnd, &client);
-    side_panel_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
+    ui_side_panel_apply_state(client);
     worldgen_scroll_offset = worldgen_layout_clamp_scroll(client, side_panel_w, worldgen_scroll_offset);
     worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
     layout_control(form.initial_civs_edit, layout.viewport, layout.initial_input, show_world);
@@ -241,11 +400,11 @@ void ui_forms_layout(HWND hwnd) {
 }
 
 static HWND create_edit(HWND parent, const char *text, int id, int number_only, int max_chars) {
-    DWORD style = WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL;
+    DWORD style = WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | ES_AUTOHSCROLL;
     HWND edit;
 
     if (number_only) style |= ES_NUMBER;
-    edit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"", style,
+    edit = CreateWindowExW(0, L"EDIT", L"", style,
                            0, 0, 80, 24, parent, (HMENU)(INT_PTR)id, GetModuleHandle(NULL), NULL);
     if (edit && max_chars > 0) SendMessageW(edit, EM_SETLIMITTEXT, (WPARAM)max_chars, 0);
     if (edit) set_window_text_utf8(edit, text);
@@ -263,9 +422,9 @@ void ui_forms_create(HWND hwnd) {
     form.commerce_edit = create_edit(hwnd, "5", ID_COMMERCE_EDIT, 1, 2);
     form.innovation_edit = create_edit(hwnd, "5", ID_INNOVATION_EDIT, 1, 2);
     form.initial_civs_edit = create_edit(hwnd, "0", ID_INITIAL_CIVS_EDIT, 1, 2);
-    form.add_button = CreateWindowA("BUTTON", "Add Civilization", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+    form.add_button = CreateWindowA("BUTTON", "Add Civilization", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
                                     0, 0, 140, 30, hwnd, (HMENU)ID_ADD_BUTTON, GetModuleHandle(NULL), NULL);
-    form.apply_button = CreateWindowA("BUTTON", "Apply Selected", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+    form.apply_button = CreateWindowA("BUTTON", "Apply Selected", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
                                       0, 0, 150, 30, hwnd, (HMENU)ID_APPLY_BUTTON, GetModuleHandle(NULL), NULL);
     ui_forms_layout(hwnd);
 }

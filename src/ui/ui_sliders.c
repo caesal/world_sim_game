@@ -9,6 +9,7 @@ int divider_hit_test(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     int divider_x;
 
+    if (side_panel_collapsed) return 0;
     GetClientRect(hwnd, &client);
     divider_x = client.right - side_panel_w;
     return mouse_y >= TOP_BAR_H && mouse_x >= divider_x - 6 && mouse_x <= divider_x + 6;
@@ -45,6 +46,7 @@ RECT setup_slider_rect(HWND hwnd, int index) {
 int setup_slider_hit_test(HWND hwnd, int mouse_x, int mouse_y) {
     int i;
 
+    if (side_panel_collapsed) return -1;
     if (panel_tab != PANEL_WORLD && panel_tab != PANEL_PLAGUE) return -1;
     for (i = 0; i < UI_SLIDER_COUNT; i++) {
         if (panel_tab == PANEL_PLAGUE && i != UI_SLIDER_PLAGUE_FOG_ALPHA) continue;

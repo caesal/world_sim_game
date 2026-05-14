@@ -94,6 +94,8 @@ static const char *event_type_label(EventLogType type, int language) {
         case EVENT_TYPE_ENCLAVE_INDEPENDENT: return zh ? "飞地独立" : "Enclave independent";
         case EVENT_TYPE_ENCLAVE_FAILED: return zh ? "飞地处理失败" : "Enclave failed";
         case EVENT_TYPE_CIV_CREATED: return zh ? "国家建立" : "Country created";
+        case EVENT_TYPE_DIPLOMACY_PEACE: return zh ? "外交和平" : "Diplomatic peace";
+        case EVENT_TYPE_DIPLOMACY_TENSE: return zh ? "外交紧张" : "Diplomatic tension";
         default: return zh ? "事件" : "Event";
     }
 }
@@ -190,6 +192,11 @@ static void localized_raw_fallback(const EventLogEntry *entry, int language, cha
         snprintf(out, out_size, "%s", event_type_label(entry->type, language));
         return;
     }
+    if (strstr(raw, "VASSAL_RELEASE_FAILED_NO_OVERLORD")) {
+        snprintf(out, out_size, "%s", language ? "附庸操作失败：找不到有效宗主。" :
+                 "Vassal action failed: no valid overlord.");
+        return;
+    }
     if (!language) {
         snprintf(out, out_size, "%s", raw);
         return;
@@ -206,6 +213,8 @@ static void localized_raw_fallback(const EventLogEntry *entry, int language, cha
         snprintf(out, out_size, "调试提示：已修复%d个国家颜色的可读性。", entry->param_a);
     } else if (strstr(raw, "Collapse blocked: invalid country")) {
         snprintf(out, out_size, "崩溃被阻止：国家无效。");
+    } else if (strstr(raw, "VASSAL_RELEASE_FAILED_NO_OVERLORD")) {
+        snprintf(out, out_size, "附庸操作失败：找不到有效宗主。");
     } else {
         snprintf(out, out_size, "系统事件：%s", raw);
     }
@@ -330,6 +339,12 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
         case EVENT_TYPE_CIV_CREATED:
             if (entry->civ_uid <= 0) break;
             snprintf(out, out_size, zh ? "%s建立。" : "%s was founded.", civ);
+            return;
+        case EVENT_TYPE_DIPLOMACY_PEACE:
+            snprintf(out, out_size, zh ? "%s与%s进入和平外交。" : "%s and %s entered peaceful relations.", civ, target);
+            return;
+        case EVENT_TYPE_DIPLOMACY_TENSE:
+            snprintf(out, out_size, zh ? "%s与%s关系转为紧张。" : "%s and %s relations became tense.", civ, target);
             return;
         case EVENT_TYPE_DISORDER_CHANGED:
             snprintf(out, out_size, zh ? "%s混乱影响调整为%d%%，当前混乱%d。" :

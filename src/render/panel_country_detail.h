@@ -9,6 +9,7 @@
 int country_detail_content_height(int civ_id);
 void country_detail_reset_hit(void);
 int country_detail_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y);
+int country_detail_vassal_action_hit(RECT viewport, int mouse_x, int mouse_y);
 void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
                                  HFONT title_font, HFONT body_font);
 

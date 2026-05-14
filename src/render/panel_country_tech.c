@@ -207,7 +207,8 @@ static void draw_stage_detail(HDC hdc, UiCursor *cursor, int civ_id, int inspect
         snprintf(text, sizeof(text), "%d%%", technology_stage_progress_percent(civ_id));
         ui_row_text(hdc, cursor, tr("Progress", "进度"), text);
     } else if (inspect_stage > current) {
-        int months = technology_months_to_next(civ_id) + (inspect_stage - current - 1) * 120 * 12;
+        int months = technology_months_to_next(civ_id) +
+                     (inspect_stage - current - 1) * technology_required_months_for_civ(civ_id);
         ui_format_months(text, sizeof(text), months, UI_MONTH_ZERO_NOW);
         ui_row_text(hdc, cursor, tr("Estimated arrival", "预计到达"), text);
     }

@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/state_lock.h"
+#include "sim/maritime.h"
 #include "sim/plague.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
@@ -29,7 +30,7 @@ enum {
     SNAPSHOT_SKIP_NO_BACK_BUFFER = 2
 };
 
-#define SNAPSHOT_MIN_INTERVAL_MS 125
+#define SNAPSHOT_MIN_INTERVAL_MS 50
 
 static int choose_back_buffer(void) {
     int front = (int)front_index;
@@ -116,8 +117,14 @@ static void copy_lanes(RenderSnapshot *snapshot) {
         const SeaLane *src = &lanes[i];
         dst->active = src->active;
         dst->type = src->type;
+        dst->from_node = src->from_node;
+        dst->to_node = src->to_node;
+        dst->from_region = src->from_region;
+        dst->to_region = src->to_region;
         dst->from_city = src->from_city;
         dst->to_city = src->to_city;
+        dst->from_port = src->from_port;
+        dst->to_port = src->to_port;
         dst->from_sea_entry = src->from_sea_entry;
         dst->to_sea_entry = src->to_sea_entry;
         dst->point_count = clamp(src->point_count, 0, MAX_SEA_LANE_POINTS);
@@ -169,6 +176,8 @@ static int lanes_revision_key(void) {
     int key = combined_key(dirty_revision_route(), dirty_revision_ownership());
     int i;
     key = combined_key(key, dirty_revision_coast());
+    key = combined_key(key, maritime_route_revision());
+    key = combined_key(key, maritime_ownership_revision());
     key = combined_key(key, city_count * 7 + civ_count);
     for (i = 0; i < civ_count; i++) {
         key = key * 33 + (civs[i].alive ? 1 : 0) + clamp(civs[i].tech_stage, 0, 10) * 3;

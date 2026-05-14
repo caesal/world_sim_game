@@ -1,9 +1,27 @@
-﻿#include "ui_layout.h"
+#include "ui_layout.h"
+
+static int panel_effective_width(void) {
+    return side_panel_collapsed ? SIDE_PANEL_COLLAPSED_W : side_panel_w;
+}
+
+RECT get_map_viewport_rect(RECT client) {
+    RECT viewport;
+    int panel_w = panel_effective_width();
+
+    viewport.left = client.left;
+    viewport.top = TOP_BAR_H;
+    viewport.right = client.right - panel_w;
+    viewport.bottom = client.bottom - BOTTOM_BAR_H;
+    if (viewport.right < viewport.left + 80) viewport.right = viewport.left + 80;
+    if (viewport.bottom < viewport.top + 80) viewport.bottom = viewport.top + 80;
+    return viewport;
+}
 
 MapLayout get_map_layout(RECT client) {
     MapLayout layout;
-    int available_w = (client.right - client.left) - side_panel_w - 36;
-    int available_h = (client.bottom - client.top) - TOP_BAR_H - BOTTOM_BAR_H - 24;
+    RECT viewport = get_map_viewport_rect(client);
+    int available_w = viewport.right - viewport.left;
+    int available_h = viewport.bottom - viewport.top;
     int fit_w = available_w;
     int fit_h = fit_w * MAP_H / MAP_W;
 
@@ -14,9 +32,93 @@ MapLayout get_map_layout(RECT client) {
     layout.draw_w = clamp(fit_w * map_zoom_percent / 100, MAP_W / 2, MAP_W * 10);
     layout.draw_h = clamp(fit_h * map_zoom_percent / 100, MAP_H / 2, MAP_H * 10);
     layout.tile_size = clamp(layout.draw_w / MAP_W, 1, 42);
-    layout.map_x = 18 + map_offset_x;
-    layout.map_y = TOP_BAR_H + 10 + map_offset_y;
+    layout.map_x = viewport.left + (available_w - layout.draw_w) / 2 + map_offset_x;
+    layout.map_y = viewport.top + (available_h - layout.draw_h) / 2 + map_offset_y;
     return layout;
+}
+
+RECT get_side_panel_handle_rect(RECT client) {
+    RECT rect;
+    int panel_left = client.right - panel_effective_width();
+    if (!side_panel_collapsed) {
+        int handle_w = SIDE_PANEL_COLLAPSED_W - 8;
+        int handle_h = 68;
+        int area_top = TOP_BAR_H;
+        int area_bottom = client.bottom - BOTTOM_BAR_H;
+        rect.left = panel_left - handle_w / 2;
+        rect.right = rect.left + handle_w;
+        rect.top = area_top + ((area_bottom - area_top) - handle_h) / 2;
+        rect.bottom = rect.top + handle_h;
+        return rect;
+    }
+    rect.left = panel_left;
+    rect.top = TOP_BAR_H;
+    rect.right = panel_left + SIDE_PANEL_COLLAPSED_W;
+    rect.bottom = client.bottom - BOTTOM_BAR_H;
+    if (rect.right > client.right) rect.right = client.right;
+    return rect;
+}
+
+int side_panel_handle_hit_test(RECT client, int x, int y) {
+    RECT rect = get_side_panel_handle_rect(client);
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+void ui_map_view_reset(void) {
+    map_offset_x = 0;
+    map_offset_y = 0;
+    map_view_auto_centered = 1;
+}
+
+void ui_map_view_clamp(RECT client) {
+    RECT viewport = get_map_viewport_rect(client);
+    MapLayout layout;
+    int viewport_w = viewport.right - viewport.left;
+    int viewport_h = viewport.bottom - viewport.top;
+    int keep = 48;
+    int base_x, base_y, min_x, max_x, min_y, max_y;
+
+    if (map_view_auto_centered) {
+        map_offset_x = 0;
+        map_offset_y = 0;
+        return;
+    }
+    layout = get_map_layout(client);
+    base_x = layout.map_x - map_offset_x;
+    base_y = layout.map_y - map_offset_y;
+    if (keep > viewport_w / 2) keep = viewport_w / 2;
+    if (keep > viewport_h / 2) keep = viewport_h / 2;
+    min_x = viewport.left + keep - (base_x + layout.draw_w);
+    max_x = viewport.right - keep - base_x;
+    min_y = viewport.top + keep - (base_y + layout.draw_h);
+    max_y = viewport.bottom - keep - base_y;
+    if (min_x > max_x) min_x = max_x = 0;
+    if (min_y > max_y) min_y = max_y = 0;
+    map_offset_x = clamp(map_offset_x, min_x, max_x);
+    map_offset_y = clamp(map_offset_y, min_y, max_y);
+}
+
+void ui_side_panel_apply_state(RECT client) {
+    if (side_panel_collapsed) {
+        side_panel_w = SIDE_PANEL_COLLAPSED_W;
+    } else {
+        side_panel_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
+        side_panel_expanded_w = side_panel_w;
+    }
+    ui_map_view_clamp(client);
+}
+
+void ui_toggle_side_panel(RECT client) {
+    if (side_panel_collapsed) {
+        side_panel_collapsed = 0;
+        side_panel_w = clamp(side_panel_expanded_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
+    } else {
+        side_panel_expanded_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
+        side_panel_w = SIDE_PANEL_COLLAPSED_W;
+        side_panel_collapsed = 1;
+    }
+    if (map_view_auto_centered) ui_map_view_reset();
+    ui_map_view_clamp(client);
 }
 
 RECT get_play_button_rect(RECT client) {
@@ -85,13 +187,16 @@ RECT get_language_button_rect(RECT client) {
 RECT get_map_legend_box_rect(RECT client) {
     RECT box;
     int panel_left = client.right - side_panel_w;
-    int geo_count = GEO_COUNT;
+    int geo_count = 11;
     int climate_count = CLIMATE_COUNT;
     int line_h = 20;
-    int rows = display_mode == DISPLAY_CLIMATE ? climate_count : geo_count;
+    int water_rows = 3;
+    int terrain_rows = geo_count + 1;
+    int climate_rows = climate_count + 1;
+    int rows = display_mode == DISPLAY_CLIMATE ? climate_rows : water_rows + terrain_rows;
     int box_w = display_mode == DISPLAY_ALL ? 390 : 210;
 
-    if (display_mode == DISPLAY_ALL && climate_count > rows) rows = climate_count;
+    if (display_mode == DISPLAY_ALL && climate_rows > rows) rows = climate_rows;
     box.right = panel_left - 14;
     box.left = box.right - box_w;
     box.bottom = client.bottom - BOTTOM_BAR_H - 12;
@@ -119,10 +224,20 @@ RECT get_map_legend_toggle_rect(RECT client) {
 
 const char *speed_seconds_text(int index) {
     switch (index) {
-        case 0: return "1s";
-        case 1: return "0.25s";
-        case 2: return "0.10s";
-        case 3: return "0.05s";
-        default: return "0.01s";
+        case 0: return "10s";
+        case 1: return "5s";
+        case 2: return "1s";
+        case 3: return "0.25s";
+        default: return "0.1s";
+    }
+}
+
+const char *speed_button_icon(int index) {
+    switch (index) {
+        case 0: return "▶";
+        case 1: return "▶▶";
+        case 2: return "▶▶▶";
+        case 3: return "▶▶▶▶";
+        default: return "▶▶▶▶▶";
     }
 }

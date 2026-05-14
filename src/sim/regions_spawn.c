@@ -327,7 +327,9 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
         touched++;
     }
     profiler_add_claim_tiles_touched(touched);
-    ports_maybe_make_city_port(admin_city);
+    if (!ports_activate_region_port_for_city(region_id, admin_city, owner)) {
+        ports_maybe_make_city_port(admin_city);
+    }
     territory_integrity_repair_capitals();
     world_invalidate_region_cache();
     dirty_mark_territory();

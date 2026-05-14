@@ -25,9 +25,21 @@ static RECT offset_rect_y(RECT rect, int dy) {
     return rect;
 }
 
+static RECT inset_rect(RECT rect, int dx, int dy) {
+    rect.left += dx;
+    rect.right -= dx;
+    rect.top += dy;
+    rect.bottom -= dy;
+    return rect;
+}
+
 static void place_section(RECT *out, int x, int width, int *y, int scroll) {
     *out = offset_rect_y(make_rect(x, *y, x + width, *y + 26), -scroll);
     *y += 32;
+}
+
+static RECT section_button(RECT section) {
+    return make_rect(section.right - 78, section.top + 1, section.right, section.top + 25);
 }
 
 static void place_slider(WorldgenSliderLayout *out, int x, int width, int *y, int scroll) {
@@ -47,10 +59,12 @@ static void place_slider(WorldgenSliderLayout *out, int x, int width, int *y, in
 
 static void place_metric(WorldgenLayout *layout, int idx, int x, int y, int col_w, int scroll) {
     RECT label = make_rect(x, y, x + col_w - 6, y + 18);
-    RECT input = make_rect(x, y + 20, x + col_w - 16, y + 44);
-    RECT help = make_rect(x, y + 47, x + col_w - 6, y + 83);
+    RECT frame = make_rect(x, y + 22, x + col_w - 16, y + 52);
+    RECT input = inset_rect(frame, 5, 3);
+    RECT help = make_rect(x, y + 58, x + col_w - 6, y + 104);
 
     layout->metric_label[idx] = offset_rect_y(label, -scroll);
+    layout->metric_input_frame[idx] = offset_rect_y(frame, -scroll);
     layout->metric_input[idx] = offset_rect_y(input, -scroll);
     layout->metric_help[idx] = offset_rect_y(help, -scroll);
 }
@@ -96,18 +110,21 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     y += 34;
     layout->map_size_help = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
     y += 26;
-    layout->initial_label = offset_rect_y(make_rect(panel_x, y, panel_x + width - 86, y + 24), -scroll_offset);
-    layout->initial_input = offset_rect_y(make_rect(panel_x + width - 76, y - 2, panel_x + width, y + 22), -scroll_offset);
-    y += 26;
+    layout->initial_label = offset_rect_y(make_rect(panel_x, y, panel_x + width - 92, y + 28), -scroll_offset);
+    layout->initial_input_frame = offset_rect_y(make_rect(panel_x + width - 84, y, panel_x + width, y + 30), -scroll_offset);
+    layout->initial_input = offset_rect_y(inset_rect(make_rect(panel_x + width - 84, y, panel_x + width, y + 30), 5, 3), -scroll_offset);
+    y += 34;
     layout->initial_help = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
     y += 30;
 
     place_section(&layout->physical_section, panel_x, width, &y, scroll_offset);
+    layout->physical_random_button = section_button(layout->physical_section);
     for (i = WORLD_SLIDER_OCEAN; i <= WORLD_SLIDER_VEGETATION; i++) {
         place_slider(&layout->sliders[i], panel_x, width, &y, scroll_offset);
     }
     y += 4;
     place_section(&layout->terrain_section, panel_x, width, &y, scroll_offset);
+    layout->terrain_random_button = section_button(layout->terrain_section);
     for (i = WORLD_SLIDER_BIAS_FOREST; i <= WORLD_SLIDER_BIAS_WETLAND; i++) {
         place_slider(&layout->sliders[i], panel_x, width, &y, scroll_offset);
     }
@@ -118,15 +135,18 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     y += 36;
 
     place_section(&layout->civ_section, panel_x, width, &y, scroll_offset);
+    layout->civ_random_button = section_button(layout->civ_section);
     layout->civ_hint = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 20), -scroll_offset);
     y += 24;
     layout->civ_range_help = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 40), -scroll_offset);
     y += 44;
     layout->name_label = offset_rect_y(make_rect(panel_x, y, panel_x + 160, y + 18), -scroll_offset);
     layout->symbol_label = offset_rect_y(make_rect(panel_x + 176, y, panel_x + 238, y + 18), -scroll_offset);
-    layout->name_input = offset_rect_y(make_rect(panel_x, y + 20, panel_x + 160, y + 44), -scroll_offset);
-    layout->symbol_input = offset_rect_y(make_rect(panel_x + 176, y + 20, panel_x + 226, y + 44), -scroll_offset);
-    y += 52;
+    layout->name_input_frame = offset_rect_y(make_rect(panel_x, y + 22, panel_x + 164, y + 52), -scroll_offset);
+    layout->symbol_input_frame = offset_rect_y(make_rect(panel_x + 176, y + 22, panel_x + 232, y + 52), -scroll_offset);
+    layout->name_input = offset_rect_y(inset_rect(make_rect(panel_x, y + 22, panel_x + 164, y + 52), 5, 3), -scroll_offset);
+    layout->symbol_input = offset_rect_y(inset_rect(make_rect(panel_x + 176, y + 22, panel_x + 232, y + 52), 5, 3), -scroll_offset);
+    y += 62;
     layout->civ_color_label = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
     y += 22;
     for (i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
@@ -141,15 +161,15 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     y += 2 * swatch_size + swatch_gap + 14;
     place_metric(layout, WORLDGEN_METRIC_MILITARY, panel_x, y, metric_col_w, scroll_offset);
     place_metric(layout, WORLDGEN_METRIC_LOGISTICS, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
-    y += 88;
+    y += 112;
     place_metric(layout, WORLDGEN_METRIC_GOVERNANCE, panel_x, y, metric_col_w, scroll_offset);
     place_metric(layout, WORLDGEN_METRIC_COHESION, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
-    y += 88;
+    y += 112;
     place_metric(layout, WORLDGEN_METRIC_PRODUCTION, panel_x, y, metric_col_w, scroll_offset);
     place_metric(layout, WORLDGEN_METRIC_COMMERCE, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
-    y += 88;
+    y += 112;
     place_metric(layout, WORLDGEN_METRIC_INNOVATION, panel_x, y, metric_col_w, scroll_offset);
-    y += 88;
+    y += 112;
     layout->add_button = offset_rect_y(make_rect(panel_x, y, panel_x + command_w, y + 30), -scroll_offset);
     layout->apply_button = offset_rect_y(make_rect(panel_x + command_w + command_gap, y, panel_x + width, y + 30), -scroll_offset);
     y += 42;

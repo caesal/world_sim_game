@@ -33,6 +33,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\maritime.c ^
   src\sim\maritime_diag.c ^
   src\sim\sea_nav.c ^
+  src\sim\route_potential.c ^
   src\sim\sea_lanes.c ^
   src\sim\territory_integrity.c ^
   src\sim\vassal.c ^
@@ -66,6 +67,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\cartography_layers.c ^
   src\render\contour_paths.c ^
   src\render\vector_paths.c ^
+  src\render\diplomacy_map_anim.c ^
   src\render\map_render.c ^
   src\render\map_highlight.c ^
   src\render\terrain_present.c ^
@@ -77,6 +79,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\plague_visual.c ^
   src\render\pause_menu_render.c ^
   src\render\panel_country.c ^
+  src\render\panel_country_actions.c ^
   src\render\panel_country_detail.c ^
   src\render\panel_country_tech.c ^
   src\render\panel_country_decision.c ^

@@ -52,8 +52,14 @@ typedef struct {
 typedef struct {
     int active;
     int type;
+    int from_node;
+    int to_node;
+    int from_region;
+    int to_region;
     int from_city;
     int to_city;
+    MapPoint from_port;
+    MapPoint to_port;
     MapPoint from_sea_entry;
     MapPoint to_sea_entry;
     int point_count;

@@ -4,9 +4,11 @@
 #include "core/constants.h"
 #include "core/value_types.h"
 
-#define MAX_SEA_LANES 192
+#define MAX_SEA_LANES 512
 #define MAX_SEA_LANE_POINTS 192
 #define MAX_SEA_LANE_MEMBERS 24
+#define SHALLOW_NETWORK_MAX_PORTS 5
+#define MAX_SHALLOW_CANDIDATE_EDGES 1024
 
 typedef enum {
     SEA_LANE_SHALLOW = 0,
@@ -24,8 +26,14 @@ typedef struct {
     int type;
     int network_a;
     int network_b;
+    int from_node;
+    int to_node;
+    int from_region;
+    int to_region;
     int from_city;
     int to_city;
+    MapPoint from_port;
+    MapPoint to_port;
     MapPoint from_sea_entry;
     MapPoint to_sea_entry;
     int point_count;
@@ -42,6 +50,17 @@ typedef struct {
     int merged_routes;
     int skipped_routes;
     int land_rejections;
+    int shallow_candidate_edges;
+    int shallow_accepted_edges;
+    int shallow_rejected_too_far;
+    int shallow_rejected_path;
+    int shallow_rejected_full;
+    int shallow_rejected_diameter;
+    int shallow_isolated_ports;
+    int active_port_nodes;
+    int missing_admin_city;
+    int max_lane_skips;
+    int deep_links;
     int rebuild_ms;
 } SeaLaneStats;
 

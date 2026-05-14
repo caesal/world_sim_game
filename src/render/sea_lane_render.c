@@ -2,6 +2,9 @@
 
 #include "render/render_common.h"
 #include "render/render_context.h"
+#include "core/game_state.h"
+#include "sim/regions.h"
+#include "sim/route_potential.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -12,14 +15,6 @@ static POINT tile_point(const RenderSnapshot *snapshot, MapPoint tile, MapLayout
     POINT point;
     point.x = layout.map_x + (tile.x * 2 + 1) * layout.draw_w / (max(1, snapshot->map_w) * 2);
     point.y = layout.map_y + (tile.y * 2 + 1) * layout.draw_h / (max(1, snapshot->map_h) * 2);
-    return point;
-}
-
-static POINT port_point(const RenderSnapshot *snapshot, int city_id, MapLayout layout) {
-    const SnapshotCity *city = &snapshot->cities[city_id];
-    POINT point;
-    point.x = layout.map_x + (city->port_x * 2 + 1) * layout.draw_w / (max(1, snapshot->map_w) * 2);
-    point.y = layout.map_y + (city->port_y * 2 + 1) * layout.draw_h / (max(1, snapshot->map_h) * 2);
     return point;
 }
 
@@ -112,23 +107,15 @@ static void dashed_path(HDC hdc, const POINT *points, int count, int dash, int g
     for (i = 1; i < count; i++) dashed_line(hdc, points[i - 1], points[i], dash, gap);
 }
 
-static int valid_port_city(const RenderSnapshot *snapshot, int city_id) {
-    const SnapshotCity *city;
-    if (!snapshot || city_id < 0 || city_id >= snapshot->city_count) return 0;
-    city = &snapshot->cities[city_id];
-    return city->alive && city->port && city->port_x >= 0 && city->port_y >= 0;
-}
-
-static void draw_harbor_connector(HDC hdc, const RenderSnapshot *snapshot, int city_id,
+static void draw_harbor_connector(HDC hdc, const RenderSnapshot *snapshot, MapPoint port_tile,
                                   MapPoint sea_entry, MapLayout layout) {
     POINT port;
     POINT sea;
     int tile_dist;
-    if (!valid_port_city(snapshot, city_id)) return;
-    port = port_point(snapshot, city_id, layout);
+    if (port_tile.x < 0 || port_tile.y < 0) return;
+    port = tile_point(snapshot, port_tile, layout);
     sea = tile_point(snapshot, sea_entry, layout);
-    tile_dist = abs(snapshot->cities[city_id].port_x - sea_entry.x) +
-                abs(snapshot->cities[city_id].port_y - sea_entry.y);
+    tile_dist = abs(port_tile.x - sea_entry.x) + abs(port_tile.y - sea_entry.y);
     if (tile_dist <= 3 && !segment_crosses_land(snapshot, port, sea, layout, 1)) {
         MoveToEx(hdc, port.x, port.y, NULL);
         LineTo(hdc, sea.x, sea.y);
@@ -146,8 +133,74 @@ static void draw_lane_stroke(HDC hdc, const POINT *points, int count, COLORREF c
 static void draw_lane_branches(HDC hdc, const RenderSnapshot *snapshot,
                                const SnapshotSeaLane *lane, MapLayout layout) {
     if (!lane->active || lane->point_count < 2) return;
-    draw_harbor_connector(hdc, snapshot, lane->from_city, lane->from_sea_entry, layout);
-    draw_harbor_connector(hdc, snapshot, lane->to_city, lane->to_sea_entry, layout);
+    draw_harbor_connector(hdc, snapshot, lane->from_port, lane->from_sea_entry, layout);
+    draw_harbor_connector(hdc, snapshot, lane->to_port, lane->to_sea_entry, layout);
+}
+
+static COLORREF color32_to_ref(Color32 color) {
+    return RGB((int)(color & 0xff), (int)((color >> 8) & 0xff), (int)((color >> 16) & 0xff));
+}
+
+static COLORREF route_node_color(int region_id) {
+    int owner;
+    if (region_id < 0 || region_id >= region_count) return RGB(130, 138, 144);
+    owner = natural_regions[region_id].owner_civ;
+    if (owner >= 0 && owner < civ_count && civs[owner].alive) return color32_to_ref(civs[owner].color);
+    return RGB(132, 140, 146);
+}
+
+static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot, MapLayout layout) {
+    const RoutePotentialEdge *potential_edges;
+    const RoutePortNode *potential_nodes;
+    int edge_count;
+    int node_count;
+    POINT points[MAX_ROUTE_POTENTIAL_POINTS];
+    int i;
+
+    potential_edges = route_potential_edges(&edge_count);
+    potential_nodes = route_potential_nodes(&node_count);
+    for (i = 0; i < edge_count; i++) {
+        const RoutePotentialEdge *edge = &potential_edges[i];
+        COLORREF color;
+        int width;
+        int dash;
+        int gap;
+        int j;
+        if (!edge->active || edge->point_count < 2) continue;
+        for (j = 0; j < edge->point_count && j < MAX_ROUTE_POTENTIAL_POINTS; j++) {
+            points[j] = tile_point(snapshot, edge->points[j], layout);
+        }
+        if (edge->type == ROUTE_POTENTIAL_DEEP) {
+            color = RGB(112, 116, 218);
+            width = max(2, layout.tile_size / 5);
+            dash = 28;
+            gap = 16;
+        } else {
+            color = RGB(72, 190, 212);
+            width = max(2, layout.tile_size / 6);
+            dash = 18;
+            gap = 12;
+        }
+        draw_lane_stroke(hdc, points, edge->point_count, color, width, dash, gap);
+    }
+    for (i = 0; i < node_count; i++) {
+        MapPoint port = {potential_nodes[i].port_x, potential_nodes[i].port_y};
+        POINT point = tile_point(snapshot, port, layout);
+        int r = max(3, layout.tile_size / 3);
+        RECT mark = {point.x - r, point.y - r, point.x + r, point.y + r};
+        int owner = potential_nodes[i].region_id >= 0 && potential_nodes[i].region_id < region_count ?
+                    natural_regions[potential_nodes[i].region_id].owner_civ : -1;
+        HBRUSH brush = CreateSolidBrush(route_node_color(potential_nodes[i].region_id));
+        HBRUSH old_brush = SelectObject(hdc, brush);
+        HPEN pen = CreatePen(PS_SOLID, 1, owner == selected_civ ?
+                             RGB(255, 244, 190) : RGB(28, 34, 38));
+        HPEN old_pen = SelectObject(hdc, pen);
+        Ellipse(hdc, mark.left, mark.top, mark.right, mark.bottom);
+        SelectObject(hdc, old_pen);
+        SelectObject(hdc, old_brush);
+        DeleteObject(pen);
+        DeleteObject(brush);
+    }
 }
 
 void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
@@ -156,10 +209,19 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
     int saved;
     int i;
     if (layout.tile_size < 1) return;
-    if (!snapshot || !snapshot->world_generated || snapshot->lane_count <= 0) return;
+    if (!snapshot || !snapshot->world_generated) return;
     saved = SaveDC(hdc);
     IntersectClipRect(hdc, client.left, TOP_BAR_H, client.right - side_panel_w, client.bottom - BOTTOM_BAR_H);
     SetBkMode(hdc, TRANSPARENT);
+    if (display_mode == DISPLAY_ROUTE_POTENTIAL) {
+        draw_route_potential_overlay(hdc, snapshot, layout);
+        RestoreDC(hdc, saved);
+        return;
+    }
+    if (snapshot->lane_count <= 0) {
+        RestoreDC(hdc, saved);
+        return;
+    }
     for (i = 0; i < snapshot->lane_count; i++) {
         int count = lane_screen_points(snapshot, &snapshot->lanes[i], layout, points);
         int dash = snapshot->lanes[i].type == SEA_LANE_DEEP ? 30 : 22;

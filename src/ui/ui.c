@@ -1,5 +1,4 @@
 ﻿#include "ui.h"
-
 #include "game/game.h"
 #include "core/game_types.h"
 #include "render/panel_country.h"
@@ -16,13 +15,10 @@
 #include "ui/ui_worldgen_layout.h"
 #include <string.h>
 #include <windowsx.h>
-
 static int tracking_mouse_leave = 0;
-
 static void invalidate_side_panel(HWND hwnd) {
     RECT client;
     RECT panel;
-
     GetClientRect(hwnd, &client);
     panel.left = client.right - side_panel_w;
     panel.top = TOP_BAR_H;
@@ -30,16 +26,13 @@ static void invalidate_side_panel(HWND hwnd) {
     panel.bottom = client.bottom;
     InvalidateRect(hwnd, &panel, FALSE);
 }
-
 static int selected_tile_owner(void) { return selected_x < 0 || selected_y < 0 ? -1 : world[selected_y][selected_x].owner; }
-
 static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     MapLayout layout;
     int x;
     int y;
     int owner;
-
     if (!world_generated) return;
     GetClientRect(hwnd, &client);
     layout = get_map_layout(client);
@@ -47,11 +40,9 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
         mouse_x >= layout.map_x + layout.draw_w || mouse_y >= layout.map_y + layout.draw_h) {
         return;
     }
-
     x = (mouse_x - layout.map_x) * MAP_W / layout.draw_w;
     y = (mouse_y - layout.map_y) * MAP_H / layout.draw_h;
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return;
-
     selected_x = x;
     selected_y = y;
     owner = selected_tile_owner();
@@ -59,13 +50,11 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     else ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
     InvalidateRect(hwnd, NULL, FALSE);
 }
-
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     RECT legend_toggle;
     int i;
     int slider;
-
     GetClientRect(hwnd, &client);
     if (pause_menu_open) {
         int hit = pause_menu_hit_test(client, mouse_x, mouse_y);
@@ -81,7 +70,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     if (point_in_rect(get_language_button_rect(client), mouse_x, mouse_y)) {
         ui_language = ui_language == UI_LANG_EN ? UI_LANG_ZH : UI_LANG_EN;
-        ui_forms_translate_name_input();
+        ui_forms_refresh_language(hwnd);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
     }
@@ -97,6 +86,8 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
     }
+    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) { ui_toggle_side_panel(client); ui_forms_layout(hwnd); InvalidateRect(hwnd, NULL, FALSE); return; }
+    if (side_panel_collapsed) { select_tile_from_mouse(hwnd, mouse_x, mouse_y); return; }
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         if (point_in_rect(get_panel_tab_rect(client, i), mouse_x, mouse_y)) {
             panel_tab = i;
@@ -170,6 +161,10 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
+        if (hit == COUNTRY_PANEL_HIT_VASSAL_ACTION) {
+            int vassal_id = country_panel_vassal_action_target(client, mouse_x, mouse_y);
+            if (vassal_id < 0 || !game_request_release_vassal(vassal_id)) MessageBeep(MB_ICONWARNING);
+            InvalidateRect(hwnd, NULL, FALSE); return; }
         if (hit == COUNTRY_PANEL_HIT_LOCATE) {
             if (selected_civ >= 0) ui_locate_civ(hwnd, selected_civ);
             InvalidateRect(hwnd, NULL, FALSE);
@@ -209,6 +204,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (panel_tab == PANEL_WORLD) {
         WorldgenLayout layout;
         worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
+        if (ui_forms_handle_worldgen_random_click(hwnd, client, mouse_x, mouse_y)) return;
         for (i = 0; i < MAP_SIZE_COUNT; i++) {
             if (point_in_rect(layout.map_size_buttons[i], mouse_x, mouse_y)) {
                 pending_map_size = i;
@@ -239,7 +235,6 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     select_tile_from_mouse(hwnd, mouse_x, mouse_y);
 }
-
 static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     TRACKMOUSEEVENT track;
@@ -247,7 +242,6 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     int old_hover_y = hover_y;
     int was_panel;
     int is_panel;
-
     GetClientRect(hwnd, &client);
     if (pause_menu_open) return;
     if (!tracking_mouse_leave) {
@@ -271,6 +265,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
         map_interaction_preview = 1;
         map_offset_x += mouse_x - last_mouse_x;
         map_offset_y += mouse_y - last_mouse_y;
+        map_view_auto_centered = 0; ui_map_view_clamp(client);
         last_mouse_x = mouse_x;
         last_mouse_y = mouse_y;
         InvalidateRect(hwnd, NULL, FALSE);
@@ -278,6 +273,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     }
     if (dragging_panel) {
         side_panel_w = clamp(client.right - mouse_x, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
+        side_panel_expanded_w = side_panel_w; ui_map_view_clamp(client);
         ui_forms_layout(hwnd);
         InvalidateRect(hwnd, NULL, FALSE);
         return;
@@ -290,7 +286,6 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
         SetCursor(LoadCursor(NULL, IDC_SIZEWE));
     }
 }
-
 static void handle_mouse_leave(HWND hwnd) {
     tracking_mouse_leave = 0;
     if (hover_x >= 0 || hover_y >= 0) {
@@ -299,7 +294,6 @@ static void handle_mouse_leave(HWND hwnd) {
         invalidate_side_panel(hwnd);
     }
 }
-
 static void handle_mouse_up(HWND hwnd) {
     int was_dragging_map = dragging_map;
     if (debug_panel_event_scrollbar_is_dragging()) { debug_panel_event_scrollbar_end_drag(); ReleaseCapture(); InvalidateRect(hwnd, NULL, FALSE); return; }
@@ -312,10 +306,8 @@ static void handle_mouse_up(HWND hwnd) {
         InvalidateRect(hwnd, NULL, FALSE);
     }
 }
-
 static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
-
     GetClientRect(hwnd, &client);
     if (pause_menu_open) return;
     if (mouse_x >= client.right - side_panel_w || mouse_y < TOP_BAR_H || mouse_y > client.bottom - BOTTOM_BAR_H) return;
@@ -325,7 +317,6 @@ static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     last_mouse_y = mouse_y;
     SetCapture(hwnd);
 }
-
 static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta) {
     RECT client;
     POINT point;
@@ -334,14 +325,13 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
     int tile_y_scaled;
     int old_zoom = map_zoom_percent;
     int steps = delta / WHEEL_DELTA;
-
     point.x = screen_x;
     point.y = screen_y;
     ScreenToClient(hwnd, &point);
     GetClientRect(hwnd, &client);
     if (pause_menu_open) return;
     if (steps == 0) steps = delta > 0 ? 1 : -1;
-    if (point.x >= client.right - side_panel_w) {
+    if (!side_panel_collapsed && point.x >= client.right - side_panel_w) {
         if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
             if (country_panel_scroll(client, -steps * 72)) InvalidateRect(hwnd, NULL, FALSE);
             return;
@@ -366,25 +356,22 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
         return;
     }
     if (point.y < TOP_BAR_H || point.y > client.bottom - BOTTOM_BAR_H) return;
-
     before = get_map_layout(client);
     tile_x_scaled = (point.x - before.map_x) * 100000 / before.draw_w;
     tile_y_scaled = (point.y - before.map_y) * 100000 / before.draw_h;
-
     map_zoom_percent = clamp(map_zoom_percent + steps * 5, 25, 700);
     if (map_zoom_percent == old_zoom) return;
-
     {
         MapLayout after = get_map_layout(client);
         map_offset_x += point.x - (after.map_x + tile_x_scaled * after.draw_w / 100000);
         map_offset_y += point.y - (after.map_y + tile_y_scaled * after.draw_h / 100000);
+        map_view_auto_centered = 0; ui_map_view_clamp(client);
     }
     map_interaction_preview = 1;
     KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
     SetTimer(hwnd, MAP_PREVIEW_TIMER_ID, 140, NULL);
     InvalidateRect(hwnd, NULL, FALSE);
 }
-
 int handle_shortcut(HWND hwnd, WPARAM key) {
     if (key == VK_ESCAPE) {
         pause_menu_open = !pause_menu_open;
@@ -414,19 +401,15 @@ int handle_shortcut(HWND hwnd, WPARAM key) {
     }
     return 0;
 }
-
 int is_game_shortcut(WPARAM key) {
     return key == VK_SPACE || key == VK_F1 || key == VK_F2 || key == VK_F5 || key == VK_ESCAPE;
 }
-
 int is_game_char_shortcut(WPARAM key) { return key == ' '; }
-
 int handle_char_shortcut(HWND hwnd, WPARAM key) {
     if (pause_menu_open) return 1;
     if (key == ' ') return handle_shortcut(hwnd, VK_SPACE);
     return 0;
 }
-
 LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CREATE:
@@ -434,7 +417,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             SetTimer(hwnd, TIMER_ID, FRAME_TIMER_MS, NULL);
             return 0;
         case WM_SIZE:
-            side_panel_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
+            { RECT client; GetClientRect(hwnd, &client); ui_side_panel_apply_state(client); }
             ui_forms_layout(hwnd);
             InvalidateRect(hwnd, NULL, FALSE);
             return 0;
@@ -442,9 +425,11 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             if (pause_menu_open) return 0;
             if (HIWORD(wparam) == EN_CHANGE && ui_forms_handle_metric_change(LOWORD(wparam))) return 0;
             if (HIWORD(wparam) == EN_KILLFOCUS && ui_forms_normalize_metric_edit(LOWORD(wparam))) return 0;
-            if (LOWORD(wparam) == ID_ADD_BUTTON) ui_forms_add_civ(hwnd);
-            else if (LOWORD(wparam) == ID_APPLY_BUTTON) ui_forms_apply_selected(hwnd);
+            if (ui_forms_handle_command(hwnd, LOWORD(wparam))) return 0;
             return 0;
+        case WM_CTLCOLOREDIT:
+            { HBRUSH brush = ui_forms_control_color(wparam, lparam); if (brush) return (LRESULT)brush; }
+            return DefWindowProc(hwnd, msg, wparam, lparam);
         case WM_TIMER:
             if (wparam == MAP_PREVIEW_TIMER_ID) {
                 map_interaction_preview = 0;
@@ -483,6 +468,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             return 0;
         case WM_PAINT:
             paint_window(hwnd);
+            ui_forms_redraw_visible_controls();
             return 0;
         case WM_ERASEBKGND:
             return 1;

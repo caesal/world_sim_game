@@ -132,6 +132,11 @@ COLORREF geography_color(Geography geography) {
     }
 }
 
+static COLORREF water_visual_color(int x, int y) {
+    int deep_percent = world_water_visual_deep_percent(x, y);
+    return blend_color(RGB(92, 177, 214), RGB(38, 92, 154), deep_percent);
+}
+
 COLORREF climate_color(Climate climate) {
     switch (climate) {
         case CLIMATE_TROPICAL_RAINFOREST: return RGB(30, 126, 52);
@@ -154,7 +159,8 @@ COLORREF climate_color(Climate climate) {
 }
 
 COLORREF overview_color(int x, int y) {
-    COLORREF base = geography_color(world[y][x].geography);
+    COLORREF base = world_water_depth_at(x, y) == WATER_DEPTH_NONE ?
+                    geography_color(world[y][x].geography) : water_visual_color(x, y);
     COLORREF climate = climate_color(world[y][x].climate);
     int blend = is_land(world[y][x].geography) ? 48 : 18;
     COLORREF color = blend_color(base, climate, blend);
@@ -284,7 +290,8 @@ COLORREF tile_display_color(int x, int y) {
             base = climate_color(world[y][x].climate);
             break;
         case DISPLAY_GEOGRAPHY:
-            base = blend_color(geography_color(world[y][x].geography), overview_color(x, y), 35);
+            if (world_water_depth_at(x, y) != WATER_DEPTH_NONE) base = water_visual_color(x, y);
+            else base = blend_color(geography_color(world[y][x].geography), overview_color(x, y), 35);
             break;
         case DISPLAY_REGIONS:
             base = overview_color(x, y);
@@ -295,6 +302,9 @@ COLORREF tile_display_color(int x, int y) {
             }
             break;
         case DISPLAY_POLITICAL:
+            base = overview_color(x, y);
+            break;
+        case DISPLAY_ROUTE_POTENTIAL:
             base = overview_color(x, y);
             break;
         case DISPLAY_ALL:

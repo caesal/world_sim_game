@@ -181,6 +181,7 @@ static int compute_border_tension(int civ_a, int civ_b, DiplomacyRelation relati
     }
     tension = relation.resource_conflict + border_pressure + militarism + blocked -
               (relation.trade_fit * 3) / 5 - barrier_relief;
+    if (relation.border_length <= 0) tension = tension * 2 / 5;
     return clamp(tension, 0, 100);
 }
 static int strength_score(int civ_id) {
@@ -253,8 +254,21 @@ static int war_desire(int civ_a, int civ_b, DiplomacyRelation relation) {
     }
     return desire;
 }
+
+static void log_relation_transition(int civ_a, int civ_b, DiplomacyStatus old_state, DiplomacyStatus new_state) {
+    if (old_state == new_state) return;
+    if (new_state == DIPLOMACY_PEACE) {
+        event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
+                                  civ_a, civ_b, -1, -1, 0, 0, "");
+    } else if (new_state == DIPLOMACY_TENSE) {
+        event_log_push_structured(EVENT_TYPE_DIPLOMACY_TENSE, EVENT_SEVERITY_WARNING,
+                                  civ_a, civ_b, -1, -1, 0, 0, "");
+    }
+}
+
 static void refresh_known_relation(int civ_a, int civ_b) {
     DiplomacyRelation relation = diplomacy_matrix[civ_a][civ_b];
+    DiplomacyStatus old_state = relation.state;
     int relation_delta;
     if (relation.state == DIPLOMACY_NONE) return;
     if (!pair_contact_stats(civ_a, civ_b, &relation.border_length, &relation.natural_barrier) &&
@@ -325,6 +339,7 @@ static void refresh_known_relation(int civ_a, int civ_b) {
             apply_tension_easing(&relation, desire_a, desire_b);
         }
     }
+    log_relation_transition(civ_a, civ_b, old_state, relation.state);
     set_relation_pair(civ_a, civ_b, relation);
 }
 void diplomacy_update_contacts(void) {
@@ -345,7 +360,11 @@ void diplomacy_update_contacts(void) {
             sea_contact = maritime_has_contact(a, b);
             if (!land_contact && !sea_contact) continue;
             relation = diplomacy_matrix[a][b];
-            if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
+            if (relation.state == DIPLOMACY_NONE) {
+                relation = default_relation(DIPLOMACY_PEACE, 50);
+                event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
+                                          a, b, -1, -1, 0, 0, "");
+            }
             if (land_contact) {
                 relation.border_length = border;
                 relation.natural_barrier = barrier;
@@ -432,6 +451,10 @@ void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score) 
     relation.overlord = -1;
     relation.vassal = -1;
     set_relation_pair(civ_a, civ_b, relation);
+    if (years > 0) {
+        event_log_push_structured(EVENT_TYPE_TRUCE_SIGNED, EVENT_SEVERITY_INFO,
+                                  civ_a, civ_b, -1, -1, years, 0, "");
+    }
 }
 void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
 #if DIPLOMACY_ENABLE_ADVANCED_STATES

@@ -23,15 +23,16 @@ static int required_years_for_civ(int civ_id) {
     int resources = resource_score_for_civ(civ_id);
     int pressure = population_pressure_for_civ(civ_id);
     int stage = clamp(civ->tech_stage, 0, 10);
-    int years = 130 - (civ->innovation - 5) * 4;
+    int base_years = clamp(78 - (civ->innovation - 5) * 4, 60, 96);
+    int years = base_years;
 
-    if (resources >= 36) years -= 10;
-    else if (resources < 24) years += 12;
-    if (pressure < 50) years -= 5;
-    else if (pressure > 115) years += 20;
-    else if (pressure > 80) years += 10;
-    if (stage >= 8) years = years * 90 / 100;
-    return clamp(years, 95, 160);
+    if (resources >= 36) years -= 6;
+    else if (resources < 24) years += 6;
+    if (pressure < 50) years -= 3;
+    else if (pressure > 115) years += 8;
+    else if (pressure > 80) years += 4;
+    if (stage >= 8) years = years * 92 / 100;
+    return clamp(years, 58, 96);
 }
 
 static void bonus_summary_for_stage(int stage, TechnologyBonusSummary *out) {
@@ -61,7 +62,7 @@ void technology_update_month(void) {
         Civilization *civ = &civs[i];
         int required;
         if (!civ->alive || civ->tech_stage >= 10) continue;
-        required = required_years_for_civ(i) * 12;
+        required = technology_required_months_for_civ(i);
         tech_progress_remainder[i] += disorder_technology_percent(civ->disorder);
         while (tech_progress_remainder[i] >= 100) {
             civ->tech_progress++;
@@ -84,10 +85,15 @@ int technology_months_to_next(int civ_id) {
     int remaining;
     int monthly;
     if (civ_id < 0 || civ_id >= civ_count || civs[civ_id].tech_stage >= 10) return 0;
-    remaining = required_years_for_civ(civ_id) * 12 - civs[civ_id].tech_progress;
+    remaining = technology_required_months_for_civ(civ_id) - civs[civ_id].tech_progress;
     remaining = remaining * 100 - tech_progress_remainder[civ_id];
     monthly = max(1, disorder_technology_percent(civs[civ_id].disorder));
     return max(0, (remaining + monthly - 1) / monthly);
+}
+
+int technology_required_months_for_civ(int civ_id) {
+    if (civ_id < 0 || civ_id >= civ_count) return 0;
+    return required_years_for_civ(civ_id) * 12;
 }
 
 int technology_expansion_percent(int civ_id) {
@@ -112,7 +118,7 @@ int technology_progress_percent(int civ_id) {
 int technology_stage_progress_percent(int civ_id) {
     int required;
     if (civ_id < 0 || civ_id >= civ_count || civs[civ_id].tech_stage >= 10) return 100;
-    required = max(1, required_years_for_civ(civ_id) * 12);
+    required = max(1, technology_required_months_for_civ(civ_id));
     return clamp((civs[civ_id].tech_progress * 100 + tech_progress_remainder[civ_id]) / required, 0, 99);
 }
 

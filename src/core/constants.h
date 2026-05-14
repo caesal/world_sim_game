@@ -2,16 +2,16 @@
 #define WORLD_SIM_CONSTANTS_H
 
 #define MAX_MAP_W 960
-#define MAX_MAP_H 540
+#define MAX_MAP_H 600
 #define MAP_SIZE_SMALL 0
 #define MAP_SIZE_MEDIUM 1
 #define MAP_SIZE_LARGE 2
 #define MAP_SIZE_COUNT 3
 #define SPEED_COUNT 5
-#define MAP_DISPLAY_MODE_COUNT 5
+#define MAP_DISPLAY_MODE_COUNT 6
 #define CIV_COLOR_PALETTE_COUNT 16
-#define DEFAULT_MAP_W 800
-#define DEFAULT_MAP_H 450
+#define DEFAULT_MAP_W 720
+#define DEFAULT_MAP_H 500
 extern int map_w;
 extern int map_h;
 #define MAP_W map_w
@@ -29,10 +29,11 @@ extern int map_h;
 #define DEFAULT_SIDE_PANEL_W 520
 #define MIN_SIDE_PANEL_W 500
 #define MAX_SIDE_PANEL_W 720
+#define SIDE_PANEL_COLLAPSED_W 34
 #define BOTTOM_BAR_H 44
 #define TIMER_ID 1
 #define MAP_PREVIEW_TIMER_ID 2
-#define FRAME_TIMER_MS 33
+#define FRAME_TIMER_MS 16
 #define FORM_X_PAD 18
 #define CITY_MIN_DISTANCE 18
 #define MAX_POPULATION 2000000000

@@ -47,6 +47,9 @@ GameState g_game = {
     &panel_tab,
     &ui_language,
     &side_panel_w,
+    &side_panel_collapsed,
+    &side_panel_expanded_w,
+    &map_view_auto_centered,
     &dragging_panel,
     &dragging_slider,
     &dragging_map,
@@ -81,8 +84,8 @@ GameState g_game = {
     &selected_civ_color
 };
 
-const int SPEED_MS[SPEED_COUNT] = {1000, 250, 100, 50, 10};
-const char *SPEED_NAMES[SPEED_COUNT] = {"1.00s", "0.25s", "0.10s", "0.05s", "0.01s"};
+const int SPEED_MS[SPEED_COUNT] = {10000, 5000, 1000, 250, 100};
+const char *SPEED_NAMES[SPEED_COUNT] = {"Observe 10s/mo", "Slow 5s/mo", "Normal 1s/mo", "Fast 0.25s/mo", "Max 0.1s/mo"};
 const Color32 CIV_COLORS[MAX_CIVS] = {
     COLOR32_RGB(232, 31, 39),
     COLOR32_RGB(34, 88, 230),
@@ -155,11 +158,11 @@ void map_size_dimensions(int size, int *out_w, int *out_h) {
     int height = DEFAULT_MAP_H;
 
     if (size == MAP_SIZE_SMALL) {
-        width = 640;
-        height = 360;
+        width = 576;
+        height = 400;
     } else if (size == MAP_SIZE_LARGE) {
-        width = 960;
-        height = 540;
+        width = 864;
+        height = 600;
     }
     if (out_w) *out_w = width;
     if (out_h) *out_h = height;

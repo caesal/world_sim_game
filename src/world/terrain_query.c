@@ -1,5 +1,6 @@
 ﻿#include "terrain_query.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "data/game_tables.h"
 
@@ -8,6 +9,15 @@
 
 static TerrainStats tile_stats_cache[MAX_MAP_H][MAX_MAP_W];
 static int tile_stats_cache_valid = 0;
+static unsigned char water_depth_cache[MAX_MAP_H][MAX_MAP_W];
+static unsigned char water_land_dist[MAX_MAP_H][MAX_MAP_W];
+static int water_depth_cache_revision = -1;
+static int water_depth_cache_w = 0;
+static int water_depth_cache_h = 0;
+
+static int in_bounds(int x, int y) {
+    return x >= 0 && x < MAP_W && y >= 0 && y < MAP_H;
+}
 
 static void add_table_stats(TerrainStats *stats, TableStats delta) {
     stats->food += delta.food;
@@ -68,6 +78,10 @@ int is_land(Geography geography) {
     return geography != GEO_OCEAN && geography != GEO_LAKE && geography != GEO_BAY;
 }
 
+static int is_water_geography(Geography geography) {
+    return geography == GEO_OCEAN || geography == GEO_LAKE || geography == GEO_BAY;
+}
+
 static int is_sea_water(Geography geography) {
     return geography == GEO_OCEAN || geography == GEO_BAY;
 }
@@ -121,6 +135,98 @@ static TerrainStats compute_tile_stats_uncached(int x, int y) {
 
 void terrain_stats_invalidate_cache(void) {
     tile_stats_cache_valid = 0;
+    water_depth_cache_revision = -1;
+}
+
+static void rebuild_water_depth_cache(void) {
+    int x;
+    int y;
+    int pass;
+    const unsigned char max_dist = 60;
+
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int water_tile = is_water_geography(world[y][x].geography);
+            water_land_dist[y][x] = water_tile ? max_dist : 0;
+            water_depth_cache[y][x] = WATER_DEPTH_NONE;
+        }
+    }
+    for (pass = 0; pass < 2; pass++) {
+        for (y = 0; y < MAP_H; y++) {
+            for (x = 0; x < MAP_W; x++) {
+                unsigned char *dist = &water_land_dist[y][x];
+                if (!is_water_geography(world[y][x].geography)) continue;
+                if (x > 0) *dist = min(*dist, (unsigned char)(water_land_dist[y][x - 1] + 1));
+                if (y > 0) *dist = min(*dist, (unsigned char)(water_land_dist[y - 1][x] + 1));
+                if (x > 0 && y > 0) *dist = min(*dist, (unsigned char)(water_land_dist[y - 1][x - 1] + 1));
+                if (x + 1 < MAP_W && y > 0) *dist = min(*dist, (unsigned char)(water_land_dist[y - 1][x + 1] + 1));
+            }
+        }
+        for (y = MAP_H - 1; y >= 0; y--) {
+            for (x = MAP_W - 1; x >= 0; x--) {
+                unsigned char *dist = &water_land_dist[y][x];
+                if (!is_water_geography(world[y][x].geography)) continue;
+                if (x + 1 < MAP_W) *dist = min(*dist, (unsigned char)(water_land_dist[y][x + 1] + 1));
+                if (y + 1 < MAP_H) *dist = min(*dist, (unsigned char)(water_land_dist[y + 1][x] + 1));
+                if (x + 1 < MAP_W && y + 1 < MAP_H) *dist = min(*dist, (unsigned char)(water_land_dist[y + 1][x + 1] + 1));
+                if (x > 0 && y + 1 < MAP_H) *dist = min(*dist, (unsigned char)(water_land_dist[y + 1][x - 1] + 1));
+            }
+        }
+    }
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            Geography g = world[y][x].geography;
+            unsigned char dist = water_land_dist[y][x];
+            if (!is_water_geography(g)) {
+                water_depth_cache[y][x] = WATER_DEPTH_NONE;
+            } else if (dist <= SHALLOW_WATER_LOGIC_MAX_DIST) {
+                water_depth_cache[y][x] = WATER_DEPTH_SHALLOW;
+            } else {
+                water_depth_cache[y][x] = WATER_DEPTH_DEEP;
+            }
+        }
+    }
+    water_depth_cache_revision = dirty_revision_coast();
+    water_depth_cache_w = MAP_W;
+    water_depth_cache_h = MAP_H;
+}
+
+static void ensure_water_depth_cache(void) {
+    if (water_depth_cache_revision != dirty_revision_coast() ||
+        water_depth_cache_w != MAP_W || water_depth_cache_h != MAP_H) {
+        rebuild_water_depth_cache();
+    }
+}
+
+WaterDepth world_water_depth_at(int x, int y) {
+    if (!in_bounds(x, y)) return WATER_DEPTH_NONE;
+    ensure_water_depth_cache();
+    return (WaterDepth)water_depth_cache[y][x];
+}
+
+int world_is_shallow_water(int x, int y) {
+    return world_water_depth_at(x, y) == WATER_DEPTH_SHALLOW;
+}
+
+int world_is_deep_water(int x, int y) {
+    return world_water_depth_at(x, y) == WATER_DEPTH_DEEP;
+}
+
+int world_water_distance_to_land(int x, int y) {
+    if (!in_bounds(x, y)) return 0;
+    ensure_water_depth_cache();
+    return water_land_dist[y][x];
+}
+
+int world_water_visual_deep_percent(int x, int y) {
+    int dist;
+    int range = WATER_VISUAL_BLEND_END_DIST - WATER_VISUAL_BLEND_START_DIST;
+
+    if (world_water_depth_at(x, y) == WATER_DEPTH_NONE) return 0;
+    dist = world_water_distance_to_land(x, y);
+    if (dist <= WATER_VISUAL_BLEND_START_DIST) return 0;
+    if (dist >= WATER_VISUAL_BLEND_END_DIST) return 100;
+    return clamp((dist - WATER_VISUAL_BLEND_START_DIST) * 100 / range, 0, 100);
 }
 
 void terrain_stats_rebuild_cache(void) {

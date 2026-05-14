@@ -6,24 +6,14 @@
 #include "sim/plague.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/route_potential.h"
 #include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
-#include "world/ports.h"
-#include "world/terrain_query.h"
 #include <stdlib.h>
 #include <string.h>
-#define MARITIME_LINKS_PER_PORT 3
-#define MARITIME_MAX_ROUTE_DISTANCE 700
-#define MARITIME_MAX_SEARCH_NODES 52000
 #define MARITIME_TARGET_KEEP 8
 #define MARITIME_PATH_CHECKS_PER_CALL 2
-static MapPoint sea_queue[MAX_MAP_W * MAX_MAP_H];
-static MapPoint raw_path[MARITIME_MAX_ROUTE_DISTANCE + 2];
-static unsigned short sea_dist[MAX_MAP_H][MAX_MAP_W];
-static int sea_mark[MAX_MAP_H][MAX_MAP_W];
-static signed char sea_prev_dir[MAX_MAP_H][MAX_MAP_W];
-static int sea_mark_id = 1;
 static int maritime_routes_dirty = 1;
 static int route_revision = 1;
 static int ownership_revision = 1;
@@ -37,6 +27,7 @@ typedef struct {
     int land_region_id;
     int score;
     int direct_distance;
+    int route_type;
 } MaritimeTarget;
 void maritime_reset(void) {
     memset(maritime_routes, 0, sizeof(maritime_routes));
@@ -46,189 +37,31 @@ void maritime_reset(void) {
     route_revision++;
     dirty_mark_maritime();
 }
-void maritime_mark_routes_dirty(void) { maritime_routes_dirty = 1; route_revision++; }
-void maritime_mark_ownership_dirty(void) { ownership_revision++; }
+void maritime_mark_routes_dirty(void) { maritime_routes_dirty = 1; route_revision++; dirty_mark_maritime(); }
+void maritime_mark_ownership_dirty(void) { maritime_routes_dirty = 1; ownership_revision++; dirty_mark_maritime(); }
 int maritime_route_revision(void) { return route_revision; }
 int maritime_ownership_revision(void) { return ownership_revision; }
 void maritime_ensure_routes(void) { if (maritime_routes_dirty) maritime_rebuild_routes(); }
-static int city_sea_entry(int city_id, int *sea_x, int *sea_y, int *region) {
-    City *city;
-    if (!ports_city_is_valid_port(city_id)) return 0;
-    city = &cities[city_id];
-    if (!ports_find_nearby_sea_entry(city->port_x, city->port_y, sea_x, sea_y)) return 0;
-    if (region) *region = ports_tile_shallow_region_near_land(*sea_x, *sea_y);
-    return region == NULL || *region >= 0;
-}
-static int route_exists(int city_a, int city_b) {
-    int i;
-    for (i = 0; i < maritime_route_count; i++) {
-        MaritimeRoute *route = &maritime_routes[i];
-        if (!route->active) continue;
-        if ((route->from_city == city_a && route->to_city == city_b) ||
-            (route->from_city == city_b && route->to_city == city_a)) return 1;
-    }
-    return 0;
-}
-static int route_tile_ok(int x, int y, int region) {
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    if (region < 0) return world[y][x].geography == GEO_OCEAN || world[y][x].geography == GEO_BAY;
-    return ports_tile_shallow_region_near_land(x, y) == region;
-}
-static void append_sampled_point(MapPoint *points, int *count, MapPoint point) {
-    if (*count <= 0 || points[*count - 1].x != point.x || points[*count - 1].y != point.y) {
-        if (*count < MAX_MARITIME_ROUTE_POINTS) points[(*count)++] = point;
-    }
-}
-static int sample_route_points(int raw_count, MapPoint *points, int *point_count) {
-    int i;
-    int stride = raw_count / (MAX_MARITIME_ROUTE_POINTS - 2) + 1;
-    int last_dx = 0;
-    int last_dy = 0;
-    *point_count = 0;
-    if (raw_count < 2) return 0;
-    append_sampled_point(points, point_count, raw_path[raw_count - 1]);
-    for (i = raw_count - 2; i > 0; i--) {
-        int dx = raw_path[i - 1].x - raw_path[i].x;
-        int dy = raw_path[i - 1].y - raw_path[i].y;
-        int bend = i < raw_count - 2 && (dx != last_dx || dy != last_dy);
-        if (bend || (raw_count - 1 - i) % stride == 0) append_sampled_point(points, point_count, raw_path[i]);
-        last_dx = dx;
-        last_dy = dy;
-    }
-    append_sampled_point(points, point_count, raw_path[0]);
-    return *point_count >= 2;
-}
-static int find_sea_path(int sx, int sy, int ex, int ey, int region,
-                         MapPoint *points, int *point_count, int *distance) {
-    static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    int head = 0;
-    int tail = 0;
-    int found = 0;
-    int raw_count = 0;
-    int cx;
-    int cy;
-    if (!route_tile_ok(sx, sy, region) || !route_tile_ok(ex, ey, region)) return 0;
-    if (++sea_mark_id == 0) {
-        memset(sea_mark, 0, sizeof(sea_mark));
-        sea_mark_id = 1;
-    }
-    sea_queue[tail].x = sx;
-    sea_queue[tail].y = sy;
-    sea_mark[sy][sx] = sea_mark_id;
-    sea_dist[sy][sx] = 0;
-    sea_prev_dir[sy][sx] = -1;
-    tail++;
-    while (head < tail && tail < MARITIME_MAX_SEARCH_NODES) {
-        MapPoint node = sea_queue[head++];
-        int i;
-        if (node.x == ex && node.y == ey) {
-            found = 1;
-            break;
-        }
-        if (sea_dist[node.y][node.x] >= MARITIME_MAX_ROUTE_DISTANCE) continue;
-        for (i = 0; i < 4; i++) {
-            int nx = node.x + dirs[i][0];
-            int ny = node.y + dirs[i][1];
-            if (!route_tile_ok(nx, ny, region) || sea_mark[ny][nx] == sea_mark_id) continue;
-            sea_mark[ny][nx] = sea_mark_id;
-            sea_dist[ny][nx] = sea_dist[node.y][node.x] + 1;
-            sea_prev_dir[ny][nx] = (signed char)i;
-            sea_queue[tail].x = nx;
-            sea_queue[tail].y = ny;
-            tail++;
-        }
-    }
-    profiler_add_maritime_path_search(head);
-    if (!found) return 0;
-    cx = ex;
-    cy = ey;
-    while (raw_count < MARITIME_MAX_ROUTE_DISTANCE + 2) {
-        int dir = sea_prev_dir[cy][cx];
-        raw_path[raw_count].x = cx;
-        raw_path[raw_count].y = cy;
-        raw_count++;
-        if (cx == sx && cy == sy) break;
-        if (dir < 0) return 0;
-        cx -= dirs[dir][0];
-        cy -= dirs[dir][1];
-    }
-    if (distance) *distance = sea_dist[ey][ex];
-    return sample_route_points(raw_count, points, point_count);
-}
-static int add_route_if_path_exists(int city_a, int city_b) {
-    MaritimeRoute *route;
-    MapPoint points[MAX_MARITIME_ROUTE_POINTS];
-    int point_count = 0;
-    int distance = 0;
-    int ax;
-    int ay;
-    int bx;
-    int by;
-    int region_a;
-    int region_b;
-    if (maritime_route_count >= MAX_MARITIME_ROUTES || route_exists(city_a, city_b)) return 0;
-    if (!city_sea_entry(city_a, &ax, &ay, &region_a) || !city_sea_entry(city_b, &bx, &by, &region_b)) return 0;
-    if (region_a < 0 || region_a != region_b) return 0;
-    if (abs(ax - bx) + abs(ay - by) > MARITIME_MAX_ROUTE_DISTANCE) return 0;
-    if (!find_sea_path(ax, ay, bx, by, region_a, points, &point_count, &distance)) return 0;
-    route = &maritime_routes[maritime_route_count++];
-    memset(route, 0, sizeof(*route));
-    route->active = 1;
-    route->from_city = city_a;
-    route->to_city = city_b;
-    route->sea_region = region_a;
-    route->distance = distance;
-    route->point_count = point_count;
-    memcpy(route->points, points, (size_t)point_count * sizeof(points[0]));
-    return 1;
-}
-static void select_nearest_ports(int city_id, int ports[MAX_CITIES], int port_count,
-                                 int best_city[MARITIME_LINKS_PER_PORT]) {
-    int best_dist[MARITIME_LINKS_PER_PORT];
-    int i;
-    int slot;
-    for (slot = 0; slot < MARITIME_LINKS_PER_PORT; slot++) {
-        best_city[slot] = -1;
-        best_dist[slot] = 1000000;
-    }
-    for (i = 0; i < port_count; i++) {
-        int other = ports[i];
-        int dist;
-        if (other == city_id || !ports_same_region(city_id, other)) continue;
-        dist = abs(cities[city_id].port_x - cities[other].port_x) +
-               abs(cities[city_id].port_y - cities[other].port_y);
-        if (dist > MARITIME_MAX_ROUTE_DISTANCE) continue;
-        for (slot = 0; slot < MARITIME_LINKS_PER_PORT; slot++) {
-            if (dist < best_dist[slot]) {
-                int move;
-                for (move = MARITIME_LINKS_PER_PORT - 1; move > slot; move--) {
-                    best_dist[move] = best_dist[move - 1];
-                    best_city[move] = best_city[move - 1];
-                }
-                best_dist[slot] = dist;
-                best_city[slot] = other;
-                break;
-            }
-        }
-    }
-}
 void maritime_rebuild_routes(void) {
-    int ports[MAX_CITIES];
-    int port_count = 0;
+    const SeaLane *lanes;
+    int lane_count;
     int i;
     memset(maritime_routes, 0, sizeof(maritime_routes));
     maritime_route_count = 0;
     ports_refresh_city_regions();
-    for (i = 0; i < city_count; i++) {
-        if (ports_city_is_valid_port(i)) ports[port_count++] = i;
-    }
-    for (i = 0; i < port_count && maritime_route_count < MAX_MARITIME_ROUTES; i++) {
-        int best_city[MARITIME_LINKS_PER_PORT];
-        int slot;
-        select_nearest_ports(ports[i], ports, port_count, best_city);
-        for (slot = 0; slot < MARITIME_LINKS_PER_PORT; slot++) {
-            if (best_city[slot] >= 0) add_route_if_path_exists(ports[i], best_city[slot]);
-        }
+    lanes = sea_lanes_get(&lane_count);
+    for (i = 0; i < lane_count && maritime_route_count < MAX_MARITIME_ROUTES; i++) {
+        MaritimeRoute *route;
+        if (!lanes[i].active || lanes[i].point_count < 2) continue;
+        route = &maritime_routes[maritime_route_count++];
+        memset(route, 0, sizeof(*route));
+        route->active = 1;
+        route->from_city = lanes[i].from_city;
+        route->to_city = lanes[i].to_city;
+        route->sea_region = lanes[i].network_a;
+        route->distance = lanes[i].point_count;
+        route->point_count = min(lanes[i].point_count, MAX_MARITIME_ROUTE_POINTS);
+        memcpy(route->points, lanes[i].points, (size_t)route->point_count * sizeof(route->points[0]));
     }
     maritime_routes_dirty = 0;
     dirty_mark_maritime();
@@ -277,43 +110,6 @@ int maritime_has_contact(int civ_a, int civ_b) {
 int maritime_trade_bonus(int civ_a, int civ_b) {
     return sea_lanes_trade_bonus(civ_a, civ_b);
 }
-static int civ_port_in_region(int civ_id, int region, int target_x, int target_y,
-                              int *port_city, int *distance) {
-    int i;
-    int best_city = -1;
-    int best_dist = 1000000;
-    for (i = 0; i < city_count; i++) {
-        int dist;
-        if (!ports_city_is_valid_port(i) || cities[i].owner != civ_id || cities[i].port_region != region) continue;
-        dist = abs(cities[i].port_x - target_x) + abs(cities[i].port_y - target_y);
-        if (dist < best_dist) {
-            best_dist = dist;
-            best_city = i;
-        }
-    }
-    if (best_city < 0) return 0;
-    if (port_city) *port_city = best_city;
-    if (distance) *distance = best_dist;
-    return 1;
-}
-static int civ_nearest_port(int civ_id, int target_x, int target_y, int *port_city, int *distance) {
-    int i;
-    int best_city = -1;
-    int best_dist = 1000000;
-    for (i = 0; i < city_count; i++) {
-        int dist;
-        if (!ports_city_is_valid_port(i) || cities[i].owner != civ_id) continue;
-        dist = abs(cities[i].port_x - target_x) + abs(cities[i].port_y - target_y);
-        if (dist < best_dist) {
-            best_dist = dist;
-            best_city = i;
-        }
-    }
-    if (best_city < 0) return 0;
-    if (port_city) *port_city = best_city;
-    if (distance) *distance = best_dist;
-    return 1;
-}
 static void keep_maritime_target(MaritimeTarget targets[MARITIME_TARGET_KEEP], MaritimeTarget candidate) {
     int i;
     for (i = 0; i < MARITIME_TARGET_KEEP; i++) {
@@ -349,53 +145,43 @@ static int collect_overseas_targets(int civ_id, int pressure, int allow_deep,
                                     MaritimeTarget targets[MARITIME_TARGET_KEEP]) {
     int i;
     int found = 0;
+    const RoutePortNode *nodes;
+    int node_count;
+    nodes = route_potential_nodes(&node_count);
     for (i = 0; i < MARITIME_TARGET_KEEP; i++) targets[i].score = -1000000;
     for (i = 0; i < region_count; i++) {
         const NaturalRegion *region = regions_get(i);
         MaritimeTarget candidate;
-        int port_city;
+        int node_index;
         int direct;
+        int route_type;
         if (!region_claimable_by_alive_civ(region) || !region->has_port_site) continue;
         if (region->capital_x < 0 || region->port_x < 0 || region->port_y < 0) continue;
         if (city_at(region->capital_x, region->capital_y) >= 0) continue;
-        if (!ports_find_nearby_sea_entry(region->port_x, region->port_y, &candidate.sea_x, &candidate.sea_y)) continue;
-        candidate.region = ports_tile_shallow_region_near_land(candidate.sea_x, candidate.sea_y);
-        if (allow_deep) {
-            if (!civ_nearest_port(civ_id, candidate.sea_x, candidate.sea_y, &port_city, &direct)) continue;
-        } else if (!civ_port_in_region(civ_id, candidate.region, candidate.sea_x, candidate.sea_y,
-                                       &port_city, &direct)) continue;
+        node_index = route_potential_region_node(i);
+        if (node_index < 0 || node_index >= node_count) continue;
+        if (!route_potential_region_reachable(civ_id, i, allow_deep, &direct, &route_type)) continue;
         candidate.land_region_id = i;
         candidate.x = region->capital_x;
         candidate.y = region->capital_y;
+        candidate.sea_x = nodes[node_index].sea_x;
+        candidate.sea_y = nodes[node_index].sea_y;
+        candidate.region = nodes[node_index].network;
         candidate.direct_distance = direct;
-        candidate.score = target_region_score(civ_id, region, pressure) - direct / 3 + rnd(24);
+        candidate.route_type = route_type;
+        candidate.score = target_region_score(civ_id, region, pressure) - direct / 3 +
+                          (route_type == ROUTE_POTENTIAL_SHALLOW ? 18 : 0) + rnd(24);
         keep_maritime_target(targets, candidate);
         found = 1;
     }
     return found;
 }
 static int path_distance_to_target(int civ_id, MaritimeTarget target, int *distance, int *checks_left) {
-    MapPoint points[MAX_MARITIME_ROUTE_POINTS];
-    int point_count;
-    int i;
-    int best = 1000000;
-    int allow_deep = technology_deep_sea_stability(civ_id) > 0;
-    for (i = 0; i < city_count; i++) {
-        int sx;
-        int sy;
-        int region;
-        int dist;
-        if (checks_left && *checks_left <= 0) return 0;
-        if (!ports_city_is_valid_port(i) || cities[i].owner != civ_id) continue;
-        if (!city_sea_entry(i, &sx, &sy, &region)) continue;
-        if (!allow_deep && region != target.region) continue;
-        if (checks_left) (*checks_left)--;
-        if (!find_sea_path(sx, sy, target.sea_x, target.sea_y,
-                           allow_deep ? -1 : region, points, &point_count, &dist)) continue;
-        if (dist < best) best = dist;
-    }
-    if (best == 1000000) return 0;
-    if (distance) *distance = best;
+    (void)civ_id;
+    if (checks_left && *checks_left <= 0) return 0;
+    if (checks_left) (*checks_left)--;
+    if (target.direct_distance <= 0) return 0;
+    if (distance) *distance = target.direct_distance;
     return 1;
 }
 void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, size_t log_size) {

@@ -14,25 +14,9 @@ static int shallow_sea_region[MAX_MAP_H][MAX_MAP_W];
 static int shallow_sea_dirty = 1;
 static SeaFrontierNode sea_frontier[MAX_MAP_W * MAX_MAP_H];
 
-static int is_sea_water(Geography geography) {
-    return geography == GEO_OCEAN || geography == GEO_BAY || geography == GEO_LAKE;
-}
-
 static int is_shallow_sea_tile(int x, int y) {
-    int dy;
-    int dx;
-
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    if (!is_sea_water(world[y][x].geography)) return 0;
-    for (dy = -2; dy <= 2; dy++) {
-        for (dx = -2; dx <= 2; dx++) {
-            int nx = x + dx;
-            int ny = y + dy;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-            if (is_land(world[ny][nx].geography)) return 1;
-        }
-    }
-    return 0;
+    return world_is_shallow_water(x, y);
 }
 
 static void rebuild_shallow_sea_regions(void) {

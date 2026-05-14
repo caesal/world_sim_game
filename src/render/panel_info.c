@@ -6,8 +6,8 @@
 #include "ui/ui_worldgen_layout.h"
 
 void draw_mode_buttons(HDC hdc, RECT client) {
-    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political"};
-    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治"};
+    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political", "Routes"};
+    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治", "航道潜力网"};
     int i;
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);

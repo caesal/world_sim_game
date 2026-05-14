@@ -8,6 +8,7 @@
 #define COUNTRY_PANEL_HIT_BACK_TO_LIST -3
 #define COUNTRY_PANEL_HIT_CIVIL_UNREST -4
 #define COUNTRY_PANEL_HIT_LOCATE -5
+#define COUNTRY_PANEL_HIT_VASSAL_ACTION -6
 #define COUNTRY_PANEL_HIT_SORT_POPULATION -10
 #define COUNTRY_PANEL_HIT_SORT_PROVINCES -11
 #define COUNTRY_PANEL_HIT_SORT_ARMY -12
@@ -17,6 +18,7 @@
 #define COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE -60
 
 int country_panel_hit_test(RECT client, int mouse_x, int mouse_y);
+int country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y);
 int country_panel_scroll(RECT client, int delta);
 
 #endif

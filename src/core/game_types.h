@@ -27,6 +27,9 @@ typedef struct {
     int *panel_tab;
     int *ui_language;
     int *side_panel_w;
+    int *side_panel_collapsed;
+    int *side_panel_expanded_w;
+    int *map_view_auto_centered;
     int *dragging_panel;
     int *dragging_slider;
     int *dragging_map;
@@ -86,6 +89,9 @@ extern int display_mode;
 extern int panel_tab;
 extern int ui_language;
 extern int side_panel_w;
+extern int side_panel_collapsed;
+extern int side_panel_expanded_w;
+extern int map_view_auto_centered;
 extern int dragging_panel;
 extern int dragging_slider;
 extern int dragging_map;
@@ -170,7 +176,9 @@ typedef enum {
     EVENT_TYPE_ENCLAVE_JOINED,
     EVENT_TYPE_ENCLAVE_INDEPENDENT,
     EVENT_TYPE_ENCLAVE_FAILED,
-    EVENT_TYPE_CIV_CREATED
+    EVENT_TYPE_CIV_CREATED,
+    EVENT_TYPE_DIPLOMACY_PEACE,
+    EVENT_TYPE_DIPLOMACY_TENSE
 } EventLogType;
 
 typedef enum {

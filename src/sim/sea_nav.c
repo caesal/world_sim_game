@@ -4,6 +4,7 @@
 #include "core/game_state.h"
 #include "core/profiler.h"
 #include "world/ports.h"
+#include "world/terrain_query.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -32,12 +33,11 @@ static int cached_h = 0;
 
 static int idx_xy(int x, int y) { return y * MAP_W + x; }
 static int in_bounds(int x, int y) { return x >= 0 && x < MAP_W && y >= 0 && y < MAP_H; }
+static void ensure_nav_field(void);
 
 int sea_nav_is_water(int x, int y) {
-    Geography g;
     if (!in_bounds(x, y)) return 0;
-    g = world[y][x].geography;
-    return g == GEO_OCEAN || g == GEO_BAY || g == GEO_LAKE;
+    return world_water_depth_at(x, y) != WATER_DEPTH_NONE;
 }
 
 int sea_nav_is_shallow(int x, int y, int shallow_region) {
@@ -45,9 +45,16 @@ int sea_nav_is_shallow(int x, int y, int shallow_region) {
     return ports_tile_shallow_region_near_land(x, y) == shallow_region;
 }
 
+int sea_nav_is_shallow_water_tile(int x, int y) {
+    ensure_nav_field();
+    if (!in_bounds(x, y) || !water[idx_xy(x, y)]) return 0;
+    return world_is_shallow_water(x, y);
+}
+
 static int nav_tile_ok(int x, int y, SeaNavMode mode, int shallow_region) {
     if (!in_bounds(x, y)) return 0;
     if (mode == SEA_NAV_SHALLOW_ONLY) return sea_nav_is_shallow(x, y, shallow_region);
+    if (mode == SEA_NAV_SHALLOW_ANY) return sea_nav_is_shallow_water_tile(x, y);
     return water[idx_xy(x, y)] != 0;
 }
 

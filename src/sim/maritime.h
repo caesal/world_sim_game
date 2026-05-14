@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 
 typedef struct {
+    int own_port_count;
     int port_candidate_regions;
     int shallow_reachable_regions;
     int maritime_reachable_regions;
@@ -17,6 +18,7 @@ typedef struct {
     int blocked_deep_locked;
     int blocked_city_at_capital;
     int blocked_no_path;
+    int blocked_no_shallow_path;
     int blocked_low_score;
     int blocked_city_cap;
     int blocked_path_budget;

@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
+#include "render/diplomacy_map_anim.h"
 #include "render/plague_visual.h"
 #include "sim/simulation_scheduler.h"
 #include "sim/simulation_worker.h"
@@ -35,7 +36,8 @@ int game_loop_tick_frame(void) {
                           simulation_worker_actual_ms_per_month(),
                           game_loop_pending_months(), game_loop_simulation_overloaded());
     completed_months = simulation_worker_take_visual_tick();
-    return did_visual || completed_months > 0 || map_interaction_preview || dirty_any_render();
+    return did_visual || completed_months > 0 || map_interaction_preview ||
+           diplomacy_map_anim_active() || dirty_any_render();
 }
 
 int game_loop_actual_ms_per_month(void) {
