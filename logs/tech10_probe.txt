@@ -1,0 +1,12 @@
+tech_stage=1 year=110 month=2 civ=3 name=Moonvale Compact
+tech_stage=2 year=226 month=6 civ=0 name=Valemarch Dominion
+tech_stage=3 year=340 month=10 civ=31 name=Redmere Dominion
+tech_stage=4 year=447 month=10 civ=31 name=Redmere Dominion
+tech_stage=5 year=567 month=8 civ=3 name=Maerwyn Compact
+tech_stage=6 year=695 month=11 civ=11 name=Eldermarch Dominion
+tech_stage=7 year=810 month=2 civ=11 name=Eldermarch Dominion
+tech_stage=8 year=927 month=7 civ=11 name=Eldermarch Dominion
+tech_stage=9 year=1075 month=6 civ=25 name=Dominion of Kaelor
+tech_stage=10 year=1178 month=2 civ=24 name=Westwatch Kingdom
+result reached_stage10=yes elapsed_months=14137 elapsed_years=1178 max_stage=10 civ=24 sim_ms=399797 avg_ms_per_month=28.282
+stage10_bonus expansion=120 resource=120 tech=110 deep_stability=99 deep_plague=0 defense=120 battle=15 annex=1

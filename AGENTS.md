@@ -30,8 +30,8 @@ Future coding agents working in this repository must follow these rules:
 
 ## Code Review Rules
 
-The tracked code review source of truth is `docs/ver0.1.4a_code_review_notes_for_codex.pdf`.
-Its version metadata is recorded in `docs/ver0.1.4a_code_review_notes_for_codex.version.md`.
+The tracked code review source of truth is `docs/unofficial/ver0.1.4a_code_review_notes_for_codex.pdf`.
+Its version metadata is recorded in `docs/unofficial/ver0.1.4a_code_review_notes_for_codex.version.md`.
 
 When performing code review in this repository:
 

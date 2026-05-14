@@ -7,11 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.4.a is a Windows graphical sandbox prototype written in C.
+Ver0.2.5 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.4.a keeps the Ver0.2.4 diplomacy clarity, structured bilingual event logs, safer
-event-log country highlighting, and validation through a deterministic technology
-stage 10 probe, with repository agent rules tightened for follow-up work.
+Ver0.2.5 focuses on the water-route architecture and UI stability pass: shallow/deep
+water rendering is unified, route potential ports become deterministic active ports
+when their regions are occupied, ordinary sea lanes are activated from the same route
+potential graph used by the debug overlay, World-tab random/form controls were
+restyled, and map/sidebar layout behavior was tightened.
 
 You can:
 
@@ -60,7 +62,7 @@ You can:
 43. Keep the year/month top bar visible above the map and reduce white repaint flashes during tab or panel interaction
 44. Use city stage icons for outpost, village, town, city, capital, and harbor markers
 45. Show Chinese two-character stat labels beside icons when the UI language is Chinese
-46. Keep versioned design PDFs in `docs` with version-matched filenames
+46. Keep versioned design and review documents under `docs/official` and `docs/unofficial` with version-matched filenames
 47. Keep `.c` and `.h` files under the 500-line module size rule
 48. Draw smoother cartographic country borders, province borders, coastlines, political fills, labels, and subtle map grid overlays
 49. Render continuous river path objects instead of scattered tile-center fragments
@@ -115,16 +117,21 @@ You can:
 98. Transfer 40% of vassal non-money resource output to the overlord by deducting it from the vassal summary
 99. Add vassal governance burden to disorder as `min(100, 10n)` for direct vassal count
 100. Release vassals on overlord collapse and keep successor states independent after a vassal collapse
+101. Use a route-potential graph to precompute potential port nodes and shallow/deep route edges after world generation
+102. Activate occupied region port sites deterministically so ordinary map sea lanes come from the same graph shown in the route-potential debug layer
+103. Render shallow and deep water as the visible water categories, with a soft visual gradient while gameplay still uses hard shallow/deep thresholds
+104. Collapse or expand the right sidebar while centering the map inside the actual available viewport
+105. Use custom dark Random buttons and clearer World-tab form layout for civilization and world-generation setup
 
 ## Controls
 
 1. `Space` starts or pauses auto-run
 2. The bottom play button also starts or pauses auto-run
-3. The first speed button sets slow speed, 1 second per month
-4. The second speed button sets normal speed, 0.25 seconds per month
-5. The third speed button sets brisk speed, 0.10 seconds per month
-6. The fourth speed button sets fast speed, 0.05 seconds per month
-7. The fifth speed button sets maximum target speed, 0.01 seconds per month
+3. The first speed button sets observation speed, 10 seconds per month
+4. The second speed button sets slow speed, 5 seconds per month
+5. The third speed button sets normal speed, 1 second per month
+6. The fourth speed button sets fast speed, 0.25 seconds per month
+7. The fifth speed button sets maximum target speed, 0.1 seconds per month
 8. `F1` adds a civilization from the right-side form
 9. `F2` applies the form to the selected civilization
 10. `F5` generates a new random world using the right-side world setup
@@ -181,4 +188,5 @@ $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
 13. `assets/icons` contains the PNG icons used by the right-side information panel
 14. `Makefile` contains the canonical build command
 15. `build.bat` mirrors the same source list for Windows command prompts
-16. `docs/ver0.1.5_province_expansion_logic.pdf` and `docs/ver0.1.5_diplomacy_war_framework.pdf` track the design references used by the current simulation systems
+16. `docs/official` contains current universal documentation and versioned change summaries
+17. `docs/unofficial` contains historical side docs, review notes, design PDFs, and the version log used during development

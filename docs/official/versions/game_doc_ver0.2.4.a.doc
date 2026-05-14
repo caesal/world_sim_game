@@ -1,0 +1,1353 @@
+﻿<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Ver0.2.4.a</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 22pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 16pt; margin-top: 18pt; color: #24364a; }
+h3 { font-size: 13pt; margin-top: 12pt; color: #334; }
+p { margin: 6pt 0; }
+ul, ol { margin-top: 4pt; margin-bottom: 8pt; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+pre { font-family: Consolas, monospace; font-size: 9.5pt; background: #f5f5f5; border: 1px solid #ddd; padding: 8pt; white-space: pre-wrap; }
+a { color: #1558a6; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Universal Documentation</h1>
+<p>Version covered: Ver0.2.4.a</p>
+<p>Status: official documentation generated from settled code. This document records</p>
+<p>implemented behavior only unless a section explicitly says &quot;To confirm&quot; or</p>
+<p>&quot;Known issue&quot;.</p>
+<p>Primary source anchors:</p>
+<ul>
+<li>Entry/game loop: <code>src/main.c</code>, <code>src/game/game.c</code>, <code>src/game/game_loop.c</code></li>
+<li>Shared state/types: <code>src/core/constants.h</code>, <code>src/core/world_types.h</code>,</li>
+</ul>
+<p>  <code>src/core/sim_types.h</code>, <code>src/core/game_types.h</code></p>
+<ul>
+<li>World generation: <code>src/world/*</code></li>
+<li>Simulation: <code>src/sim/*</code></li>
+<li>Rendering: <code>src/render/*</code></li>
+<li>UI/input: <code>src/ui/*</code></li>
+<li>Static tables: <code>src/data/game_tables.c</code>, <code>src/data/game_tables.h</code></li>
+<li>Save/load: <code>src/io/*</code></li>
+</ul>
+<h2>1. Game Overview</h2>
+<p>World Sim Game is a Windows graphical civilization sandbox prototype written in C.</p>
+<p>The player generates a procedural world, creates or seeds civilizations, and lets</p>
+<p>monthly simulation systems advance automatically.</p>
+<p>Implemented player actions:</p>
+<ul>
+<li>Generate a new world from the World Generation tab or shortcut.</li>
+<li>Choose map size: Small 640x360, Medium 800x450, Large 960x540.</li>
+<li>Set initial civilization count.</li>
+<li>Add or edit civilizations from UI form controls.</li>
+<li>Change selected civilization color.</li>
+<li>Select tiles/countries, locate countries, and highlight countries from panels or logs.</li>
+<li>Switch map display modes and side-panel tabs/subtabs.</li>
+<li>Start/pause auto-run and choose one of five target month speeds.</li>
+<li>Open the pause menu, resume, view version log, save, load, or exit.</li>
+</ul>
+<p>Core data relationship:</p>
+<ul>
+<li><code>Tile</code> stores geography, climate, ecology, resource feature, owner,</li>
+</ul>
+<p>  province id, natural region id, elevation, moisture, temperature, variation,</p>
+<p>  and river flag.</p>
+<ul>
+<li><code>NaturalRegion</code> groups land tiles into geography-aware regions and tracks</li>
+</ul>
+<p>  ownership, city binding, port site, neighbors, dominant terrain/climate/ecology,</p>
+<p>  natural defense, movement difficulty, development, and disconnection state.</p>
+<ul>
+<li><code>City</code> is the administrative anchor for a province. In current code, province</li>
+</ul>
+<p>  ids are city ids.</p>
+<ul>
+<li><code>Civilization</code> stores country state: identity, color, alive flag, population,</li>
+</ul>
+<p>  core metrics, technology, capital city, disorder buckets, plague recovery,</p>
+<p>  collapse grace, and event/simulation flags.</p>
+<ul>
+<li><code>CountrySummary</code>, <code>RegionSummary</code>, and <code>PopulationSummary</code> are derived views</li>
+</ul>
+<p>  rebuilt or cached by simulation modules.</p>
+<p>Important boundary:</p>
+<ul>
+<li>World generation builds physical map data.</li>
+<li>Simulation may depend on world data.</li>
+<li>Rendering should be read-only. Some render paths already use <code>RenderSnapshot</code>;</li>
+</ul>
+<p>  some legacy paths still read globals directly. See Performance Architecture.</p>
+<h2>2. Runtime Flow</h2>
+<p>Startup:</p>
+<ul>
+<li><code>main()</code> in <code>src/main.c</code> dispatches to <code>run_game()</code>.</li>
+<li>Probe modes exist for deterministic validation, including expansion and</li>
+</ul>
+<p>  technology stage 10 probes.</p>
+<ul>
+<li><code>run_game()</code> initializes Win32/GDI+, render snapshots, UI forms, and the main</li>
+</ul>
+<p>  message loop.</p>
+<p>New world request:</p>
+<ul>
+<li><code>game_request_new_world()</code> builds <code>WorldGenConfig</code> from UI slider globals.</li>
+<li>It resets diplomacy, war, plague, simulation state, dirty flags, ports, and</li>
+</ul>
+<p>  natural regions.</p>
+<ul>
+<li>It calls <code>generate_world_with_config()</code>.</li>
+<li>It calls <code>regions_generate(region_size_slider)</code>.</li>
+<li>It seeds default civilizations through <code>simulation_seed_default_civilizations()</code>.</li>
+<li>It publishes a render snapshot.</li>
+</ul>
+<p>Frame vs month:</p>
+<ul>
+<li><code>WM_TIMER</code> drives frame ticks at <code>FRAME_TIMER_MS</code>.</li>
+<li><code>game_loop_tick_frame()</code> updates render-only plague animation, records profiler</li>
+</ul>
+<p>  frame data, consumes completed simulation visual ticks, and requests repaint</p>
+<p>  when visuals or dirty flags changed.</p>
+<ul>
+<li>Auto-run does not directly run an entire month in the paint path. It schedules</li>
+</ul>
+<p>  month work through <code>simulation_worker</code> and <code>simulation_scheduler</code>.</p>
+<p>Monthly simulation phases:</p>
+<p>Source: <code>src/sim/simulation_month.c</code></p>
+<ol>
+<li><code>SIM_MONTH_RESOURCES</code>: optionally scans owned tiles and computes resource scores.</li>
+<li><code>SIM_MONTH_CIVS</code>: updates disorder/adaptation and technology.</li>
+<li><code>SIM_MONTH_GROWTH_PORTS</code>: updates population, province cache, ports, migration.</li>
+<li><code>SIM_MONTH_EXPANSION</code>: runs bounded expansion work by civilization.</li>
+<li><code>SIM_MONTH_PLAGUE</code>: runs batched plague updates.</li>
+<li><code>SIM_MONTH_RANDOM_EVENT</code>: attempts plague random outbreak and legacy events.</li>
+<li><code>SIM_MONTH_TERRITORY</code>: repairs capital/integrity state only when territory changed.</li>
+<li><code>SIM_MONTH_DIPLOMACY</code>: refreshes contact data.</li>
+<li><code>SIM_MONTH_CALENDAR</code>: advances month/year; yearly systems run here.</li>
+</ol>
+<p>Yearly systems:</p>
+<ul>
+<li><code>diplomacy_update_year()</code></li>
+<li><code>vassal_update_year()</code></li>
+<li><code>war_update_year()</code></li>
+<li><code>territory_integrity_update_year()</code></li>
+<li><code>collapse_update_decade()</code> every 25 years</li>
+<li><code>collapse_update_immediate()</code> after each month</li>
+</ul>
+<h2>3. UI / UX Map</h2>
+<p>Top bar:</p>
+<ul>
+<li>Source: <code>src/render/panel_info.c</code></li>
+<li>Shows version/year/month and high-level controls.</li>
+<li>Uses <code>draw_top_bar()</code>.</li>
+</ul>
+<p>Bottom bar:</p>
+<ul>
+<li>Source: <code>src/render/panel_map.c</code></li>
+<li>Shows play/pause and speed controls.</li>
+<li>Input handled by <code>src/ui/ui.c</code> and <code>src/ui/ui_actions.c</code>.</li>
+</ul>
+<p>Map view:</p>
+<ul>
+<li>Source: <code>src/ui/ui_layout.c</code>, <code>src/render/render.c</code>, <code>src/render/map_render.c</code></li>
+<li>Left click selects a tile/country.</li>
+<li>Right drag pans.</li>
+<li>Mouse wheel zooms around cursor.</li>
+<li><code>ui_select_civ()</code>, <code>ui_highlight_civ()</code>, and <code>ui_locate_civ()</code> manage selection,</li>
+</ul>
+<p>  highlight pulses, and map offsets.</p>
+<p>Panel tabs:</p>
+<ul>
+<li>Defined by <code>PanelTab</code> in <code>src/ui/ui_types.h</code>.</li>
+<li>Current tabs: Country, Population, Plague, World, Debug.</li>
+<li>Rendering dispatcher: <code>draw_side_panel()</code> in <code>src/render/panel_map.c</code>.</li>
+</ul>
+<p>Country tab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country.c</code>, <code>src/render/panel_country_detail.c</code></li>
+<li>Supports all-country list, selected-country detail, sorting, scrolling, and</li>
+</ul>
+<p>  back-to-list behavior.</p>
+<ul>
+<li>Sort columns: population, provinces, army, tech, disorder.</li>
+<li>Subtabs: Overview, Technology, Decision, Population, Resources, Diplomacy,</li>
+</ul>
+<p>  Disorder.</p>
+<p>Technology subtab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country_tech.c</code></li>
+<li>Shows stage track, current stage, progress to next, bonus grid, next stage,</li>
+</ul>
+<p>  progress balance, and stage detail.</p>
+<p>Decision subtab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country_decision.c</code>,</li>
+</ul>
+<p>  <code>src/sim/decision_snapshot.c</code></p>
+<ul>
+<li>Shows intent, reachability, territory integrity, decision funnel, countdowns,</li>
+</ul>
+<p>  and last attempt reasons.</p>
+<p>Population subtab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country_population.c</code></li>
+<li>Shows country and city population summaries.</li>
+</ul>
+<p>Resources subtab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country_resources.c</code></li>
+<li>Shows resource output, technology/disorder modifiers, and selected tile or</li>
+</ul>
+<p>  province inspection.</p>
+<p>Diplomacy subtab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country_diplomacy.c</code>,</li>
+</ul>
+<p>  <code>src/render/panel_country_diplomacy_cards.c</code></p>
+<ul>
+<li>Views: peace/tense, war/truce, tribute/vassal, other.</li>
+<li>Ver0.2.4 reworked relation cards so each relation type has a clearer template.</li>
+</ul>
+<p>Disorder subtab:</p>
+<ul>
+<li>Source: <code>src/render/panel_country_disorder.c</code></li>
+<li>Shows pressure sources, recovery components, active effects, plague status,</li>
+</ul>
+<p>  and collapse risk.</p>
+<p>World Generation tab:</p>
+<ul>
+<li>Source: <code>src/render/panel_worldgen.c</code>, <code>src/ui/ui_worldgen_layout.c</code>,</li>
+</ul>
+<p>  <code>src/ui/ui_sliders.c</code></p>
+<ul>
+<li>Shows map size selector, sliders, initial civilization count, color palette,</li>
+</ul>
+<p>  and setup stages.</p>
+<p>Population global tab:</p>
+<ul>
+<li>Source: <code>src/render/panel_population_page.c</code></li>
+<li>Shows global age structure, loss/pressure summary, and ranking.</li>
+</ul>
+<p>Plague tab:</p>
+<ul>
+<li>Source: <code>src/render/panel_plague_page.c</code></li>
+<li>Shows map overlay opacity, active infected cities, country summary, and spread</li>
+</ul>
+<p>  factors. The fog opacity slider is viewer-only.</p>
+<p>Debug tab:</p>
+<ul>
+<li>Source: <code>src/render/panel_debug.c</code></li>
+<li>Shows map layers, target speed, event log, expansion gate, legacy/internal</li>
+</ul>
+<p>  information, performance, scheduler, snapshot, and render cache details.</p>
+<ul>
+<li>Event log supports filters, scroll freeze, top reset, country chips, and clear</li>
+</ul>
+<p>  highlight.</p>
+<h2>4. World Generation</h2>
+<p>Source files:</p>
+<ul>
+<li><code>src/world/world_gen.c</code>, <code>src/world/world_gen.h</code></li>
+<li><code>src/world/noise.c</code></li>
+<li><code>src/world/mountain_gen.c</code></li>
+<li><code>src/world/rivers.c</code></li>
+<li><code>src/world/world_smoothing.c</code></li>
+<li><code>src/world/ports.c</code></li>
+<li><code>src/world/terrain_query.c</code></li>
+</ul>
+<p>WorldGenConfig fields:</p>
+<ul>
+<li><code>ocean</code></li>
+<li><code>continent</code> (UI concept: fragmentation/continent shape)</li>
+<li><code>relief</code></li>
+<li><code>moisture</code></li>
+<li><code>drought</code></li>
+<li><code>vegetation</code></li>
+<li><code>bias_forest</code></li>
+<li><code>bias_desert</code></li>
+<li><code>bias_mountain</code></li>
+<li><code>bias_wetland</code></li>
+<li><code>seed</code></li>
+<li><code>random_seed</code></li>
+</ul>
+<p>Generation order:</p>
+<ol>
+<li>Seed RNG.</li>
+<li>Generate elevation, moisture, and temperature fields with value noise.</li>
+<li>Compute target land percent from ocean slider.</li>
+<li>Smooth fields based on continent/fragmentation.</li>
+<li>Add relief/mountain uplift passes.</li>
+<li>Compute sea level and ocean distance.</li>
+<li>Classify geography and climate per tile.</li>
+<li>Smooth small artifacts.</li>
+<li>Classify ecology and resource feature.</li>
+<li>Apply continuous mountain chains.</li>
+<li>Generate rivers.</li>
+</ol>
+<p>Slider effects:</p>
+<ul>
+<li>Ocean: increases sea coverage. At 0, generation switches to land-first logic.</li>
+</ul>
+<p>  Ocean also affects coast band and sea-distance climate moderation.</p>
+<ul>
+<li>Fragment/Continent: affects noise weighting and smoothing. Higher values make</li>
+</ul>
+<p>  fragmented terrain and smaller features more likely.</p>
+<ul>
+<li>Relief: affects elevation, mountain/hill/canyon classification, uplift passes,</li>
+</ul>
+<p>  and mountain-chain strength.</p>
+<ul>
+<li>Moisture: raises moisture field and river target count; affects wet climates,</li>
+</ul>
+<p>  ecology, lakes, wetlands, deltas, and resources.</p>
+<ul>
+<li>Drought: subtracts moisture through dry shift and raises desert/semi-arid</li>
+</ul>
+<p>  likelihood with desert bias.</p>
+<ul>
+<li>Vegetation: affects forest ecology through forest bias.</li>
+<li>Terrain Bias / Forest: raises chance of forest/rainforest ecology.</li>
+<li>Terrain Bias / Desert: strengthens dry climate classification.</li>
+<li>Terrain Bias / Mountain: increases mountain thresholds, uplift, chain count,</li>
+</ul>
+<p>  and chain strength.</p>
+<ul>
+<li>Natural Regions / Region Size: not part of <code>WorldGenConfig</code>; it is passed to</li>
+</ul>
+<p>  <code>regions_generate()</code> after terrain generation.</p>
+<p>Geography categories:</p>
+<ul>
+<li>Ocean, Coast, Plain, Hill, Mountain, Plateau, Basin, Canyon, Volcano, Lake,</li>
+</ul>
+<p>  Bay, Delta, Wetland, Oasis, Island.</p>
+<p>Climate categories:</p>
+<ul>
+<li>Tropical Rainforest, Tropical Monsoon, Tropical Savanna, Desert, Semi-Arid,</li>
+</ul>
+<p>  Mediterranean, Oceanic, Temperate Monsoon, Continental, Subarctic, Tundra,</p>
+<p>  Ice Cap, Alpine, Highland Plateau.</p>
+<p>Ecology categories:</p>
+<ul>
+<li>None, Forest, Rainforest, Grassland, Desert, Tundra, Swamp, Bamboo, Mangrove.</li>
+</ul>
+<p>Resource features:</p>
+<ul>
+<li>None, Farmland, Pasture, Forest Resource, Mine, Fishery, Salt Lake, Geothermal.</li>
+</ul>
+<h2>5. Terrain Resources</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/world/terrain_query.c</code></li>
+<li><code>src/data/game_tables.c</code></li>
+<li><code>src/data/game_tables.h</code></li>
+</ul>
+<p><code>tile_stats(x, y)</code> combines:</p>
+<ul>
+<li>Geography table stats.</li>
+<li>Climate table stats.</li>
+<li>Ecology table stats.</li>
+<li>Resource feature table stats.</li>
+<li>River bonuses.</li>
+<li>Tile resource variation.</li>
+<li>Moisture adjustments.</li>
+</ul>
+<p>TerrainStats fields:</p>
+<ul>
+<li>food</li>
+<li>livestock</li>
+<li>wood</li>
+<li>stone</li>
+<li>minerals</li>
+<li>water</li>
+<li>pop_capacity</li>
+<li>money</li>
+<li>habitability</li>
+<li>attack</li>
+<li>defense</li>
+</ul>
+<p>Uses:</p>
+<ul>
+<li>City radius and site scoring.</li>
+<li>Country summary.</li>
+<li>Resource pressure.</li>
+<li>Technology progress requirement.</li>
+<li>Expansion need.</li>
+<li>Population carrying capacity.</li>
+<li>UI tile/province/country resource display.</li>
+</ul>
+<h2>6. Map Rendering</h2>
+<p>Source files:</p>
+<ul>
+<li><code>src/render/render.c</code></li>
+<li><code>src/render/terrain_present.c</code></li>
+<li><code>src/render/render_common.c</code></li>
+<li><code>src/render/map_render.c</code></li>
+<li><code>src/render/cartography_layers.c</code></li>
+<li><code>src/render/contour_paths.c</code></li>
+<li><code>src/render/vector_paths.c</code></li>
+<li><code>src/render/border_paths.c</code></li>
+<li><code>src/render/sea_lane_render.c</code></li>
+<li><code>src/render/plague_render.c</code></li>
+<li><code>src/render/plague_visual.c</code></li>
+</ul>
+<p>Display modes:</p>
+<ul>
+<li>Overview</li>
+<li>Climate</li>
+<li>Geography</li>
+<li>Regions</li>
+<li>Political</li>
+<li>All</li>
+</ul>
+<p>Terrain colors:</p>
+<ul>
+<li><code>geography_color()</code>, <code>climate_color()</code>, and <code>overview_color()</code> live in</li>
+</ul>
+<p>  <code>src/render/render_common.c</code>.</p>
+<ul>
+<li><code>tile_display_color()</code> switches by display mode.</li>
+</ul>
+<p>Static map cache:</p>
+<ul>
+<li><code>draw_cached_static_map()</code> maintains separate layer caches:</li>
+</ul>
+<p>  terrain, coast, political, border/static, and UI.</p>
+<ul>
+<li>Dirty flags decide rebuilds.</li>
+<li>During zoom/pan preview, <code>draw_map_cache_preview()</code> transforms the last cached</li>
+</ul>
+<p>  map before high-quality layers rebuild.</p>
+<p>Terrain bitmap cache:</p>
+<ul>
+<li><code>terrain_present.c</code> keeps a base terrain surface and a screen-space surface.</li>
+<li>Uses <code>StretchBlt</code>; stretch mode switches between <code>HALFTONE</code> and <code>COLORONCOLOR</code></li>
+</ul>
+<p>  depending on tile size and preview mode.</p>
+<p>Borders/coasts:</p>
+<ul>
+<li>Cartographic path layers draw political fills, coast halo, region borders,</li>
+</ul>
+<p>  province borders, country borders, and coastlines.</p>
+<ul>
+<li><code>contour_paths.c</code> has cached contour paths keyed by dirty revisions.</li>
+<li><code>border_paths.c</code> also contains older alpha-mask/blur drawing helpers.</li>
+</ul>
+<p>Dynamic overlays:</p>
+<ul>
+<li>Cities and ports.</li>
+<li>Country highlight.</li>
+<li>Maritime routes/sea lanes.</li>
+<li>Plague region overlay and render-only plague animation.</li>
+<li>Labels.</li>
+</ul>
+<p>Icons:</p>
+<ul>
+<li>Source: <code>src/render/icons.c</code>, <code>src/render/icons.h</code>, <code>assets/icons/*</code></li>
+<li>City markers use outpost/village/town/city/capital icons.</li>
+<li>Harbor marker uses <code>ICON_HARBOR</code>.</li>
+</ul>
+<p>RenderSnapshot:</p>
+<ul>
+<li>Source: <code>src/core/render_snapshot.c</code>, <code>src/core/render_snapshot.h</code></li>
+<li>Captures tiles, civs, cities, sea lanes, plague state, and recent events for</li>
+</ul>
+<p>  render-side reads.</p>
+<ul>
+<li>Snapshot text and clickable event payload are paired through copied</li>
+</ul>
+<p>  <code>EventLogEntry</code> data.</p>
+<p>To confirm:</p>
+<ul>
+<li>Some render modules still use legacy global state while snapshot migration is</li>
+</ul>
+<p>  in progress. This is implementation state, not intended gameplay.</p>
+<h2>7. Natural Regions, Provinces, Cities, Capitals, Ports</h2>
+<p>Natural regions:</p>
+<ul>
+<li>Source: <code>src/sim/regions.c</code>, <code>src/sim/regions_shape.c</code>,</li>
+</ul>
+<p>  <code>src/sim/region_boundary.c</code></p>
+<ul>
+<li><code>regions_generate(region_size_value)</code> creates geography-aware land regions.</li>
+<li>Boundary costs are influenced by mountains, canyons, rivers, coastlines,</li>
+</ul>
+<p>  climate/ecology transitions, and compactness.</p>
+<ul>
+<li><code>NaturalRegion</code> stores neighbors, average/total stats, dominant geography,</li>
+</ul>
+<p>  climate, ecology, defense, difficulty, habitability, development, cradle,</p>
+<p>  resource diversity, port site, and disconnection data.</p>
+<p>Province and city:</p>
+<ul>
+<li>Source: <code>src/sim/province.c</code>, <code>src/sim/province_partition.c</code>,</li>
+</ul>
+<p>  <code>src/sim/simulation.c</code></p>
+<ul>
+<li><code>world_create_city()</code> creates a city and initializes population.</li>
+<li><code>province_claim_city_region()</code> claims a geography-aware province around that</li>
+</ul>
+<p>  city.</p>
+<ul>
+<li>Current province id is the city id.</li>
+<li>Province selection uses city radius, terrain cost, rivers, mountains, coast,</li>
+</ul>
+<p>  and enemy border penalties.</p>
+<p>Capital:</p>
+<ul>
+<li><code>Civilization.capital_city</code> stores the capital city id.</li>
+<li>Initial spawn creates a capital city in a selected region.</li>
+<li>Territory integrity can repair capitals after ownership changes.</li>
+</ul>
+<p>Ports:</p>
+<ul>
+<li>World-level port helpers: <code>src/world/ports.c</code></li>
+<li>Simulation port updates: <code>src/sim/ports.c</code></li>
+<li>A city can become a port if its province has coast and a port site is found.</li>
+<li>Port fields: <code>City.port</code>, <code>port_x</code>, <code>port_y</code>, <code>port_region</code>.</li>
+</ul>
+<h2>8. Civilization Metrics</h2>
+<p>Seven core metrics:</p>
+<ul>
+<li>Governance</li>
+<li>Cohesion</li>
+<li>Production</li>
+<li>Military</li>
+<li>Commerce</li>
+<li>Logistics</li>
+<li>Innovation</li>
+</ul>
+<p>Source anchors:</p>
+<ul>
+<li><code>CivilizationMetric</code> in <code>src/core/sim_types.h</code></li>
+<li><code>Civilization</code> fields in <code>src/core/sim_types.h</code></li>
+<li><code>CIVILIZATION_METRIC_RULES</code> in <code>src/data/game_tables.h</code></li>
+<li>Metric editing UI: <code>src/ui/ui_forms.c</code>, <code>src/render/panel_info.c</code></li>
+</ul>
+<p>Displayed in UI:</p>
+<ul>
+<li>Country overview/details.</li>
+<li>Country cards and metric chips.</li>
+<li>Civilization form fields.</li>
+<li>Technology and decision panels indirectly show effects.</li>
+</ul>
+<p>Implemented reads:</p>
+<ul>
+<li>Governance: disorder recovery and vassal governance pressure context.</li>
+<li>Cohesion: disorder recovery during war and stability-related displays.</li>
+<li>Production: resource/country display and civilization metric table.</li>
+<li>Military: mobilized soldiers and war pressure.</li>
+<li>Commerce: trade fit/resource economy displays and formulas.</li>
+<li>Logistics: expansion, migration, remote reach, and adaptation.</li>
+<li>Innovation: technology progress requirement.</li>
+</ul>
+<p>Dynamic non-core metric:</p>
+<ul>
+<li><code>adaptation</code> exists on <code>Civilization</code> but is derived monthly from environment,</li>
+</ul>
+<p>  resources, culture/cohesion/logistics/innovation, hardship, and instability.</p>
+<p>  It is not one of the seven core metrics.</p>
+<p>To confirm:</p>
+<ul>
+<li>Some legacy fields remain (<code>aggression</code>, <code>defense</code>, <code>culture</code>). They still</li>
+</ul>
+<p>  affect diplomacy/war/UI but are not part of the seven core metric list.</p>
+<h2>9. Technology System</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/technology.c</code></li>
+<li><code>src/data/game_tables.c</code></li>
+<li><code>src/render/panel_country_tech.c</code></li>
+</ul>
+<p>Stages:</p>
+<ul>
+<li>Stage 0 - Tribal Age: no technology bonus.</li>
+<li>Stage 1 - Settlement Age: expansion x1.10.</li>
+<li>Stage 2 - Regional Age: expansion x1.20.</li>
+<li>Stage 3 - Craft Age: resource output x1.05.</li>
+<li>Stage 4 - Market Age: resource output x1.10.</li>
+<li>Stage 5 - Administrative Age: resource output up to x1.20.</li>
+<li>Stage 6 - Ocean Age: deep sea stability 50%, deep plague spread 50%.</li>
+<li>Stage 7 - Navigation Age: deep sea stability 80%, deep plague spread 35%.</li>
+<li>Stage 8 - Engineering Age: deep sea stability 90%, plague 15%, tech +10%,</li>
+</ul>
+<p>  defense x1.20.</p>
+<ul>
+<li>Stage 9 - Strategic Age: deep sea stability 99%, plague 5%, battle chance +15.</li>
+<li>Stage 10 - Imperial Age: deep plague spread 0%, long-held vassals can be</li>
+</ul>
+<p>  annexed.</p>
+<p>Progress:</p>
+<ul>
+<li><code>technology_initialize_civ()</code> starts civs at stage 0 and progress 0.</li>
+<li><code>technology_update_month()</code> updates every living civ below stage 10.</li>
+<li>Required years begin at 130, adjusted by innovation, resource score,</li>
+</ul>
+<p>  population pressure, and high stages.</p>
+<ul>
+<li>Monthly progress is affected by <code>disorder_technology_percent()</code>.</li>
+<li>Stage advancement resets progress and invalidates population/resource caches.</li>
+</ul>
+<p>Displayed UI:</p>
+<ul>
+<li>Current stage and name.</li>
+<li>Stage track and percent progress.</li>
+<li>Time to next stage.</li>
+<li>Bonus grid for current and next stage.</li>
+<li>Progress balance: innovation, resources, population pressure, disorder drag.</li>
+</ul>
+<p>Validation:</p>
+<ul>
+<li>Ver0.2.4 added deterministic <code>--probe-tech10</code>.</li>
+<li>Side doc reports stage 10 reached naturally at year 1178 month 2 in the probe.</li>
+</ul>
+<h2>10. Expansion System</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/expansion.c</code></li>
+<li><code>src/sim/maritime.c</code></li>
+<li><code>src/sim/decision_snapshot.c</code></li>
+</ul>
+<p>Core structures:</p>
+<ul>
+<li><code>ExpansionWorkState</code></li>
+<li><code>ExpansionAIDiagnostics</code></li>
+<li><code>MaritimeExpansionDiagnostics</code></li>
+</ul>
+<p>Need and threshold:</p>
+<ul>
+<li><code>expansion_need_for_civ()</code> uses population pressure and resource score.</li>
+<li><code>expansion_threshold_for_civ()</code> is reduced by technology expansion percent.</li>
+<li>Expansion desire includes land adjacent regions, nearby regions, shallow sea,</li>
+</ul>
+<p>  maritime/deep reachability, population pressure, resource pressure, and</p>
+<p>  expansion trait.</p>
+<p>Land expansion:</p>
+<ul>
+<li>Preferred path is neighboring unowned natural regions.</li>
+<li>Nearby land can be considered through region pathing.</li>
+<li>Claiming uses <code>regions_claim_for_civ()</code>.</li>
+<li>Claims can create a city or attach to an existing administrative city.</li>
+</ul>
+<p>Sea expansion:</p>
+<ul>
+<li>Nearshore/shallow-sea candidates are considered after land diagnostics.</li>
+<li>Deep-sea candidates require deep sea stability from technology.</li>
+<li><code>maritime_try_overseas_expansion()</code> handles overseas target collection,</li>
+</ul>
+<p>  route/path validation, city cap fallback, and event logging.</p>
+<p>Why expansion may not happen:</p>
+<ul>
+<li>Cooldown not complete.</li>
+<li>Desire below threshold.</li>
+<li>No reachable land/sea target.</li>
+<li>No port or no port site.</li>
+<li>Deep sea locked.</li>
+<li>No sea entry/path.</li>
+<li>City cap.</li>
+<li>Random chance or low score.</li>
+<li>Land targets suppress overseas targets.</li>
+</ul>
+<p>Decision UI:</p>
+<ul>
+<li><code>decision_snapshot_for_civ()</code> exposes reachability, expansion weights,</li>
+</ul>
+<p>  countdowns, territory integrity, and last reasons.</p>
+<h2>11. Sea Lanes and Ports</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/maritime.c</code></li>
+<li><code>src/sim/sea_lanes.c</code></li>
+<li><code>src/sim/sea_nav.c</code></li>
+<li><code>src/sim/ports.c</code></li>
+<li><code>src/world/ports.c</code></li>
+<li><code>src/render/sea_lane_render.c</code></li>
+<li><code>src/render/route_render.c</code></li>
+</ul>
+<p>Port generation:</p>
+<ul>
+<li><code>ports_maybe_make_city_port()</code> can assign a port to a city with coastal</li>
+</ul>
+<p>  province access.</p>
+<ul>
+<li><code>ports_refresh_city_regions()</code> syncs port region data.</li>
+</ul>
+<p>Route layers:</p>
+<ul>
+<li><code>MaritimeRoute</code> is the older route structure in <code>src/core/sim_types.h</code>.</li>
+<li><code>SeaLane</code> is the newer visual/logical lane structure in <code>src/sim/sea_lanes.h</code>.</li>
+<li><code>RenderSnapshot</code> copies sea lanes for rendering.</li>
+</ul>
+<p>Lane types:</p>
+<ul>
+<li><code>SEA_LANE_SHALLOW</code></li>
+<li><code>SEA_LANE_DEEP</code></li>
+</ul>
+<p>Port statuses:</p>
+<ul>
+<li>isolated</li>
+<li>shallow</li>
+<li>deep gateway</li>
+</ul>
+<p>Used by:</p>
+<ul>
+<li>Overseas expansion.</li>
+<li>Trade bonus.</li>
+<li>Diplomacy contact.</li>
+<li>Plague spread.</li>
+<li>War front reachability through sea lanes.</li>
+<li>Rendering dashed routes and infected route intensity.</li>
+</ul>
+<p>Technology effects:</p>
+<ul>
+<li>Stage 6 unlocks deep-sea capability.</li>
+<li>Stages 6-10 reduce deep-sea death/plague risk through deep sea stability and</li>
+</ul>
+<p>  deep plague percent.</p>
+<p>Known issue / migration note:</p>
+<ul>
+<li><code>src/render/maritime_render.c</code> notes that active build uses</li>
+</ul>
+<p>  <code>src/render/route_render.c</code> for <code>draw_maritime_routes()</code>. Treat</p>
+<p>  <code>maritime_render.c</code> as legacy/inactive unless build wiring changes.</p>
+<h2>12. Diplomacy</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/diplomacy.c</code></li>
+<li><code>src/sim/diplomacy.h</code></li>
+<li><code>src/sim/war_front.c</code></li>
+<li><code>src/render/panel_country_diplomacy.c</code></li>
+<li><code>src/render/panel_country_diplomacy_cards.c</code></li>
+</ul>
+<p>Diplomacy states:</p>
+<ul>
+<li>None</li>
+<li>Peace</li>
+<li>Alliance</li>
+<li>Tense</li>
+<li>Truce</li>
+<li>War</li>
+<li>Vassal</li>
+</ul>
+<p>Relation fields:</p>
+<ul>
+<li>state</li>
+<li>relation_score</li>
+<li>border_tension</li>
+<li>trade_fit</li>
+<li>resource_conflict</li>
+<li>truce_years_left</li>
+<li>border_length</li>
+<li>natural_barrier</li>
+<li>years_known</li>
+<li>vassal_years</li>
+<li>overlord</li>
+<li>vassal</li>
+</ul>
+<p>Contact:</p>
+<ul>
+<li><code>diplomacy_update_contacts()</code> scans/caches border contacts when dirty.</li>
+<li>Sea lane contact contributes through maritime/sea-lane systems.</li>
+</ul>
+<p>Tension and peace:</p>
+<ul>
+<li>Border tension is computed from border pressure, militarism, blocked pressure,</li>
+</ul>
+<p>  trade fit, resources, and natural barriers.</p>
+<ul>
+<li>Peace can become tense when border tension is at least 55 or relation score is</li>
+</ul>
+<p>  below 35.</p>
+<ul>
+<li>Tense can return to peace when border tension drops below 35 and relation</li>
+</ul>
+<p>  score is above 45.</p>
+<ul>
+<li>Truce counts down yearly; when it reaches zero, relation returns to tense if</li>
+</ul>
+<p>  border tension is at least 55, otherwise peace.</p>
+<ul>
+<li>Ver0.2.4 added visible clarity around peace-return thresholds and easing.</li>
+</ul>
+<p>War:</p>
+<ul>
+<li>Tense relations compute war desire for both sides.</li>
+<li>If either desire reaches 70, war may start.</li>
+<li>War start still requires an active land/sea/vassal front.</li>
+</ul>
+<p>Alliance:</p>
+<ul>
+<li>Peace can become alliance when relation score is at least 78, trade fit at</li>
+</ul>
+<p>  least 60, and border tension at most 25.</p>
+<ul>
+<li>Alliance can fall back to peace if tension or resource conflict rises.</li>
+</ul>
+<p>Vassal:</p>
+<ul>
+<li>Vassal relation stores overlord/vassal ids.</li>
+<li>Stage 10 overlords can annex long-held vassals after 100 vassal years.</li>
+</ul>
+<h2>13. Vassal System</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/vassal.c</code></li>
+<li><code>src/sim/vassal.h</code></li>
+<li><code>src/sim/diplomacy.c</code></li>
+<li><code>src/sim/simulation.c</code></li>
+<li><code>src/sim/war.c</code></li>
+</ul>
+<p>Core functions:</p>
+<ul>
+<li><code>vassal_make()</code></li>
+<li><code>vassal_release()</code></li>
+<li><code>vassal_release_all()</code></li>
+<li><code>vassal_normalize_all()</code></li>
+<li><code>vassal_update_year()</code></li>
+<li><code>vassal_resource_tribute_breakdown_from()</code></li>
+<li><code>vassal_callable_soldiers()</code></li>
+</ul>
+<p>Implemented behavior:</p>
+<ul>
+<li>Vassal state is represented by <code>DIPLOMACY_VASSAL</code>.</li>
+<li>A direct vassal has one direct overlord.</li>
+<li>Nested vassals are normalized/transferred to root overlord.</li>
+<li>Vassals do not start ordinary wars as independent actors.</li>
+<li>Attacks on vassals route to overlord.</li>
+<li>Direct vassals are released when overlord collapses.</li>
+<li>Successors after vassal collapse remain independent.</li>
+</ul>
+<p>Tribute:</p>
+<ul>
+<li>40% of food, livestock, wood, stone, minerals, and water transfers from vassal</li>
+</ul>
+<p>  summary to overlord summary.</p>
+<ul>
+<li>Money, population, population capacity, and habitability are not tribute.</li>
+<li>Ver0.2.4 UI displays only the six actually transferred resource fields.</li>
+</ul>
+<p>Army:</p>
+<ul>
+<li>Callable army is 70% of vassal current soldiers.</li>
+<li>Home guard is total minus callable.</li>
+<li>War support tracks current support use and support casualties.</li>
+</ul>
+<p>Independence:</p>
+<ul>
+<li>Yearly update compares vassal army to overlord army.</li>
+<li>Very strong vassals may be released peacefully or start independence war.</li>
+</ul>
+<p>Governance burden:</p>
+<ul>
+<li><code>vassal_governance_disorder()</code> contributes a minimum disorder floor from</li>
+</ul>
+<p>  direct vassal count.</p>
+<ul>
+<li>Current documentation should be checked against code when changing this</li>
+</ul>
+<p>  formula because older version notes used a different expression.</p>
+<h2>14. War System</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/war.c</code></li>
+<li><code>src/sim/war_front.c</code></li>
+<li><code>src/sim/war_resolution.c</code></li>
+<li><code>src/sim/diplomacy.c</code></li>
+</ul>
+<p>Core structure:</p>
+<ul>
+<li><code>ActiveWar</code></li>
+</ul>
+<p>Start conditions:</p>
+<ul>
+<li>Attacker and defender must be valid living civs.</li>
+<li>Vassal attackers cannot start ordinary war.</li>
+<li>If defender is a vassal, target routes to overlord.</li>
+<li>An active front must exist.</li>
+<li>Duplicate active war pair is rejected.</li>
+</ul>
+<p>Fronts:</p>
+<ul>
+<li>Land border.</li>
+<li>Vassal land.</li>
+<li>Sea lane.</li>
+<li>Vassal sea.</li>
+</ul>
+<p>Soldiers:</p>
+<ul>
+<li><code>mobilized_soldiers()</code> derives military strength from population and civ</li>
+</ul>
+<p>  military/defense/logistics context.</p>
+<ul>
+<li>Wars allocate a share of current national soldiers to each front.</li>
+<li>Multi-front wars split/withdraw deployed soldiers as needed.</li>
+<li>Direct vassals provide support soldiers to overlord fronts.</li>
+</ul>
+<p>Battle update:</p>
+<ul>
+<li><code>war_update_year()</code> calls <code>run_war_year()</code> once per active war per year.</li>
+<li>Current design is a 3-year battle model.</li>
+<li>Defender can receive technology defense army percent.</li>
+<li>Stage 9+ battle chance bonus affects battle chance.</li>
+<li>Casualties are applied to population through <code>population_apply_casualties()</code>.</li>
+<li>War deaths add disorder and can notify plague system.</li>
+</ul>
+<p>Peace/outcome:</p>
+<ul>
+<li>Peace desire increases with disorder, casualties, total active casualties,</li>
+</ul>
+<p>  and multiple fronts.</p>
+<ul>
+<li>If both sides have peace desire at least 70, war resolves.</li>
+<li>Winner can take bordering provinces; severe outcomes can create vassal state.</li>
+<li>Stalemate starts truce.</li>
+<li>Severed front ends war with truce.</li>
+</ul>
+<p>Known issue:</p>
+<ul>
+<li>Multi-line/multi-front wars are implemented, but exact UX explanation should</li>
+</ul>
+<p>  call out that soldiers/support are approximated per front rather than stored</p>
+<p>  as persistent province armies.</p>
+<h2>15. Population</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/population.c</code></li>
+<li><code>src/sim/population.h</code></li>
+<li><code>src/render/panel_population.c</code></li>
+<li><code>src/render/panel_population_page.c</code></li>
+<li><code>src/render/panel_country_population.c</code></li>
+</ul>
+<p>Age bands:</p>
+<ul>
+<li>0-4</li>
+<li>5-17</li>
+<li>18-24</li>
+<li>25-39</li>
+<li>40-54</li>
+<li>55-64</li>
+<li>65-74</li>
+<li>75+</li>
+</ul>
+<p>Sex:</p>
+<ul>
+<li>Each cohort has male and female counts.</li>
+</ul>
+<p>Derived summary:</p>
+<ul>
+<li>total</li>
+<li>male/female</li>
+<li>children</li>
+<li>working</li>
+<li>fertile</li>
+<li>recruitable</li>
+<li>elder</li>
+<li>carrying capacity</li>
+<li>pressure</li>
+</ul>
+<p>Monthly update:</p>
+<ul>
+<li>Cohorts age by width-based movement.</li>
+<li>Births depend on fertile couples, carrying pressure, city stats, owner</li>
+</ul>
+<p>  disorder, and disorder population-growth percent.</p>
+<ul>
+<li>Deaths include pressure deaths, child stress from low food/water, and elder</li>
+</ul>
+<p>  deaths.</p>
+<p>Casualties:</p>
+<ul>
+<li>War casualties remove population from recruitable/working male-heavy cohorts.</li>
+<li>Plague deaths remove population across bands by vulnerability.</li>
+</ul>
+<p>Migration:</p>
+<ul>
+<li>Ports and maritime systems can migrate people between cities.</li>
+<li>Migration can notify plague spread.</li>
+</ul>
+<h2>16. Resource System</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/world/terrain_query.c</code></li>
+<li><code>src/sim/simulation.c</code></li>
+<li><code>src/sim/vassal.c</code></li>
+<li><code>src/sim/technology.c</code></li>
+<li><code>src/sim/disorder.c</code></li>
+<li><code>src/render/panel_country_resources.c</code></li>
+</ul>
+<p>Country summary:</p>
+<ul>
+<li><code>summarize_country()</code> aggregates owned tile stats and cities.</li>
+<li>Technology resource percent modifies resource output.</li>
+<li>Disorder productivity percent reduces effective output.</li>
+<li>Vassal tribute is then deducted from vassals and added to overlords.</li>
+</ul>
+<p>Resource score:</p>
+<ul>
+<li>Used by technology, expansion, disorder, and decision UI.</li>
+<li>Built from food, livestock, water, wood, stone, minerals, money, capacity, and</li>
+</ul>
+<p>  habitability style components depending on context.</p>
+<p>Affected systems:</p>
+<ul>
+<li>Expansion need/threshold.</li>
+<li>Technology required years.</li>
+<li>Disorder resource pressure.</li>
+<li>Population carrying pressure.</li>
+<li>Diplomacy resource conflict.</li>
+<li>Vassal tribute.</li>
+</ul>
+<h2>17. Disorder</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/disorder.c</code></li>
+<li><code>src/sim/disorder.h</code></li>
+<li><code>src/render/panel_country_disorder.c</code></li>
+</ul>
+<p>Total disorder:</p>
+<ul>
+<li>Range: 0-100.</li>
+<li>Used as debuff for productivity, population growth, and technology.</li>
+<li>At 100, immediate collapse attempt path is used.</li>
+</ul>
+<p>Buckets:</p>
+<ul>
+<li><code>disorder_resource</code>: population/resource pressure.</li>
+<li><code>disorder_plague</code>: plague pressure and plague deaths.</li>
+<li><code>disorder_stability</code>: war and civil unrest.</li>
+<li><code>disorder_migration</code>: migration/expansion pressure.</li>
+<li>Vassal governance burden: separate floor/source shown in UI.</li>
+</ul>
+<p>Monthly pressure:</p>
+<ul>
+<li>Resource pressure uses population pressure and scarcity.</li>
+<li>Pressure contribution uses scaled bucket values.</li>
+</ul>
+<p>Recovery:</p>
+<ul>
+<li>Base recovery.</li>
+<li>Governance recovery.</li>
+<li>Peace recovery when not at war.</li>
+<li>Cohesion recovery during war.</li>
+<li>Condition recovery when not at war, pressure is low, and resource score is</li>
+</ul>
+<p>  healthy.</p>
+<ul>
+<li>Plague, war, and migration bucket decay have separate rates.</li>
+</ul>
+<p>Effects:</p>
+<ul>
+<li><code>disorder_productivity_percent()</code></li>
+<li><code>disorder_population_growth_percent()</code></li>
+<li><code>disorder_technology_percent()</code></li>
+</ul>
+<p>UI:</p>
+<ul>
+<li>Shows pressure cards, recovery stacked bar, active effects, plague status,</li>
+</ul>
+<p>  and collapse risk.</p>
+<h2>18. Plague</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/plague.c</code></li>
+<li><code>src/sim/plague.h</code></li>
+<li><code>src/sim/sea_lanes.c</code></li>
+<li><code>src/render/plague_render.c</code></li>
+<li><code>src/render/plague_visual.c</code></li>
+<li><code>src/render/panel_plague_page.c</code></li>
+</ul>
+<p>Random outbreak:</p>
+<ul>
+<li>Monthly random outbreak attempt has a 4% gate.</li>
+<li>Best city is selected by outbreak risk plus random noise.</li>
+<li>A city must pass risk threshold and be valid.</li>
+</ul>
+<p>Random immunity:</p>
+<ul>
+<li>After a civilization has plague activity end, it receives 50 years</li>
+</ul>
+<p>  (<code>50 * 12</code> months) of random-outbreak immunity.</p>
+<p>City outbreak state:</p>
+<ul>
+<li>active</li>
+<li>infected</li>
+<li>severity</li>
+<li>months_left</li>
+<li>immunity</li>
+<li>deaths_total</li>
+<li>origin_city</li>
+<li>age_months</li>
+</ul>
+<p>Spread:</p>
+<ul>
+<li>Local city-to-city spread uses distance, severity, and port-to-port bonus.</li>
+<li>Maritime spread uses <code>sea_lanes_plague_contacts_from_city()</code>.</li>
+<li>Deep sea lanes use <code>technology_deep_sea_plague_percent()</code> for exposure.</li>
+<li>Migration and war casualties can notify plague system.</li>
+</ul>
+<p>Deaths:</p>
+<ul>
+<li>Active city plague calls <code>population_apply_city_plague()</code>.</li>
+<li>Deaths add plague disorder pressure and plague death pressure.</li>
+</ul>
+<p>Visuals:</p>
+<ul>
+<li>Render-only plague animation uses soft dark-green infection clouds, pulsing</li>
+</ul>
+<p>  city cores, and route exposure intensity.</p>
+<ul>
+<li>Rendering does not mutate simulation state.</li>
+</ul>
+<h2>19. Collapse and Territory Integrity</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/collapse.c</code></li>
+<li><code>src/sim/territory_integrity.c</code></li>
+</ul>
+<p>Collapse probability:</p>
+<ul>
+<li>Disorder below 75: no ordinary 25-year collapse risk.</li>
+<li>75+: 10%.</li>
+<li>80+: 20%.</li>
+<li>85+: 30%.</li>
+<li>90+: 45%.</li>
+<li>95+: 65%.</li>
+<li>100: immediate path; ordinary 25-year roll is skipped.</li>
+</ul>
+<p>Checks:</p>
+<ul>
+<li><code>collapse_update_decade()</code> is called every 25 years.</li>
+<li><code>collapse_update_immediate()</code> checks disorder 100 every month.</li>
+</ul>
+<p>Block reasons:</p>
+<ul>
+<li>Not alive.</li>
+<li>Max civ slots.</li>
+<li>No valid capital region.</li>
+<li>No splittable non-capital region.</li>
+<li>Only core left.</li>
+<li>City cap.</li>
+<li>Unknown.</li>
+</ul>
+<p>Collapse behavior:</p>
+<ul>
+<li>Capital/core remnant stays with old civ.</li>
+<li>Non-capital natural regions can form successor civs.</li>
+<li>Successors inherit partial disorder bucket state.</li>
+<li>Direct vassals are released on overlord collapse.</li>
+<li>Former vassal collapse successors remain independent.</li>
+<li>Post-collapse grace clamps disorder buckets and pauses ordinary collapse rolls.</li>
+</ul>
+<p>Territory integrity:</p>
+<ul>
+<li>Tracks capital-connected regions.</li>
+<li>Disconnected components accumulate disconnected months.</li>
+<li>Enclave limit is 300 months.</li>
+<li>Disconnected regions can join a better candidate civ or become independent.</li>
+<li>Events: enclave joined, independent, failed.</li>
+</ul>
+<h2>20. Event Log and Debug</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/core/event_log.c</code></li>
+<li><code>src/core/game_types.h</code></li>
+<li><code>src/core/render_snapshot.c</code></li>
+<li><code>src/render/panel_debug.c</code></li>
+</ul>
+<p>Event types:</p>
+<ul>
+<li>Generic</li>
+<li>Expansion claimed</li>
+<li>War started</li>
+<li>War front severed</li>
+<li>Battle resolved</li>
+<li>Truce signed</li>
+<li>Collapse succeeded/failed</li>
+<li>Plague started/spread/ended</li>
+<li>Vassal created/released/transferred/independence/annexed</li>
+<li>Performance throttled/slow call/scheduler yield</li>
+<li>World generation notice</li>
+<li>Disorder changed</li>
+<li>Debug notice</li>
+<li>Deep sea route created/failed</li>
+<li>Civil unrest triggered</li>
+<li>Enclave joined/independent/failed</li>
+<li>Civ created</li>
+</ul>
+<p>Structured event data:</p>
+<ul>
+<li><code>EventLogEntry</code> stores type, severity, civ ids, target ids, region/city ids,</li>
+</ul>
+<p>  params, civ uids, civ snapshots, and raw message.</p>
+<ul>
+<li>Structured events support bilingual formatting.</li>
+<li>Legacy raw events are parsed into event types when pushed by raw text.</li>
+</ul>
+<p>Ver0.2.4 fixes:</p>
+<ul>
+<li>Snapshot event formatting uses the copied event entry, keeping displayed text</li>
+</ul>
+<p>  and clickable country payload paired.</p>
+<ul>
+<li>Historical event country chips validate <code>civ_uid</code> before highlighting so a</li>
+</ul>
+<p>  reused civ slot is not highlighted incorrectly.</p>
+<p>Debug panel:</p>
+<ul>
+<li>Event filters: all, expansion/routes, war/diplomacy, collapse/plague,</li>
+</ul>
+<p>  performance/system.</p>
+<ul>
+<li>Scroll can freeze; Top unfreezes and returns to latest.</li>
+<li>Country chips can highlight countries on map.</li>
+<li>Performance sections show snapshot age, scheduler queue, render cache rebuilds,</li>
+</ul>
+<p>  slow calls, and route diagnostics.</p>
+<h2>21. Performance Architecture</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/sim/simulation_scheduler.c</code></li>
+<li><code>src/sim/simulation_worker.c</code></li>
+<li><code>src/sim/simulation_month.c</code></li>
+<li><code>src/core/dirty_flags.c</code></li>
+<li><code>src/core/profiler.c</code></li>
+<li><code>src/core/render_snapshot.c</code></li>
+<li><code>src/render/render.c</code></li>
+</ul>
+<p>Scheduler:</p>
+<ul>
+<li>Auto-run queues bounded month work.</li>
+<li>Pending month backlog is capped/trimmed.</li>
+<li>Faster speed targets receive larger bounded work budgets.</li>
+<li>Heavy phases are split into batches.</li>
+</ul>
+<p>Worker:</p>
+<ul>
+<li><code>simulation_worker_start()</code> starts background simulation worker path.</li>
+<li>The frame path consumes completed visual ticks.</li>
+</ul>
+<p>Dirty flags:</p>
+<ul>
+<li>World.</li>
+<li>Territory/ownership.</li>
+<li>Province.</li>
+<li>Population.</li>
+<li>Plague.</li>
+<li>Maritime.</li>
+<li>Labels.</li>
+<li>UI/render revisions.</li>
+</ul>
+<p>Render cache:</p>
+<ul>
+<li>Terrain, coast, political, border/static, and UI caches are independent.</li>
+<li>Dynamic overlays avoid rebuilding static layers.</li>
+<li>Label redraw does not force full map rebuild.</li>
+<li>Stale UI cache fallback keeps UI visible if snapshot data is not fresh.</li>
+</ul>
+<p>Profiler:</p>
+<ul>
+<li>Tracks month phases, render rebuilds, GDI recreates, scanned regions/tiles,</li>
+</ul>
+<p>  expansion scans/claims, maritime path search, sea lane stats, contour rebuilds,</p>
+<p>  terrain presentation mode, scheduler step, and slow calls.</p>
+<p>Known hot paths:</p>
+<ul>
+<li>Full-map resource scans.</li>
+<li>Region/territory scans.</li>
+<li>Contour/path rebuilds.</li>
+<li>Sea lane pathfinding.</li>
+<li>Blocking validation probes.</li>
+</ul>
+<h2>22. Save / Load</h2>
+<p>Source:</p>
+<ul>
+<li><code>src/io/map_save.c</code></li>
+<li><code>src/io/map_save_regions.c</code></li>
+<li><code>src/io/map_save_legacy.h</code></li>
+<li><code>src/game/game.c</code></li>
+<li><code>src/ui/pause_menu.c</code></li>
+</ul>
+<p>Implemented:</p>
+<ul>
+<li>Pause menu has Resume, Version Log, Save Map, Load Map, Exit.</li>
+<li>Save Map opens Save As dialog.</li>
+<li>Load Map opens file dialog.</li>
+<li>Save/load routes through <code>game_request_after_load_map()</code> after loading.</li>
+<li>Natural regions have dedicated save/read helpers.</li>
+</ul>
+<p>To confirm:</p>
+<ul>
+<li>Save format details should be documented only after reading <code>map_save.c</code> in a</li>
+</ul>
+<p>  dedicated save-format pass.</p>
+<h2>23. Known Issues and Technical Debt</h2>
+<p>Architecture:</p>
+<ul>
+<li><code>core/game_types.h</code> still exposes broad global state and compatibility includes.</li>
+</ul>
+<p>  Direction: continue using narrower headers for new modules.</p>
+<p>  Gameplay-changing: no.</p>
+<p>Rendering:</p>
+<ul>
+<li>Snapshot migration is partial; some render panels read globals directly.</li>
+</ul>
+<p>  Direction: migrate read-heavy panel data into snapshot or stable copied views.</p>
+<p>  Gameplay-changing: no.</p>
+<p>Maritime rendering:</p>
+<ul>
+<li><code>src/render/maritime_render.c</code> is present but comments say active build uses</li>
+</ul>
+<p>  <code>route_render.c</code>.</p>
+<p>  Direction: remove or clearly mark inactive after confirming build history.</p>
+<p>  Gameplay-changing: no.</p>
+<p>Diplomacy / vassal docs:</p>
+<ul>
+<li>Older version logs mention a vassal governance formula different from current</li>
+</ul>
+<p>  README wording. Current official docs should be regenerated from code when the</p>
+<p>  exact expression changes.</p>
+<p>  Gameplay-changing: no if docs-only; yes if formula changes.</p>
+<p>War UI:</p>
+<ul>
+<li>Per-province armies are estimates; persistent province armies are not stored.</li>
+</ul>
+<p>  Direction: document as estimate, not simulation fact.</p>
+<p>  Gameplay-changing: yes if changed into real province armies.</p>
+<p>Events:</p>
+<ul>
+<li>Legacy raw events still coexist with structured events.</li>
+</ul>
+<p>  Direction: keep raw compatibility but prefer structured pushes.</p>
+<p>  Gameplay-changing: no.</p>
+<p>Localization:</p>
+<ul>
+<li>Tables include bilingual text. Tool output can show mojibake depending on</li>
+</ul>
+<p>  terminal/codepage even though build flags use UTF-8.</p>
+<p>  Direction: preserve UTF-8 and verify in app rendering.</p>
+<p>  Gameplay-changing: no.</p>
+<p>Performance:</p>
+<ul>
+<li>Blocking probes are not representative of UI scheduler behavior.</li>
+</ul>
+<p>  Direction: keep probe results separate from runtime UX claims.</p>
+<p>  Gameplay-changing: no.</p>
+<h2>24. Version Notes for Ver0.2.4.a</h2>
+<p>Ver0.2.4.a is a small follow-up tag after Ver0.2.4 stabilization.</p>
+<p>Implemented according to version files:</p>
+<ul>
+<li>Active version marker changed to <code>0.2.4.a</code>.</li>
+<li>Ver0.2.4 diplomacy clarity, event log, vassal display, and validation changes</li>
+</ul>
+<p>  are preserved.</p>
+<ul>
+<li>Repository agent rules were tightened for future work.</li>
+<li>No gameplay behavior changes are claimed for Ver0.2.4.a.</li>
+<li><code>make</code> and 500-line <code>.c/.h</code> rule were verified in side docs.</li>
+</ul>
+</body>
+</html>

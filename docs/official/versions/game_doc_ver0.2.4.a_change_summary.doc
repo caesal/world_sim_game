@@ -1,0 +1,124 @@
+﻿<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Change Summary Ver0.2.4.a</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 22pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 16pt; margin-top: 18pt; color: #24364a; }
+h3 { font-size: 13pt; margin-top: 12pt; color: #334; }
+p { margin: 6pt 0; }
+ul, ol { margin-top: 4pt; margin-bottom: 8pt; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+pre { font-family: Consolas, monospace; font-size: 9.5pt; background: #f5f5f5; border: 1px solid #ddd; padding: 8pt; white-space: pre-wrap; }
+a { color: #1558a6; }
+</style>
+</head>
+<body>
+<h1>Game Documentation Change Summary - Ver0.2.4.a</h1>
+<p>This summary is based on current source code, README, version log, and side docs</p>
+<p>that were moved to <code>docs/unofficial</code>.</p>
+<h2>Documentation Layout</h2>
+<ul>
+<li>Previous loose docs were archived under <code>docs/unofficial/</code>.</li>
+<li>Official documentation now lives under <code>docs/official/</code>.</li>
+<li>Main universal documentation:</li>
+</ul>
+<p>  <code>docs/official/game_universal_documentation.md</code></p>
+<ul>
+<li>Version snapshot:</li>
+</ul>
+<p>  <code>docs/official/versions/game_doc_ver0.2.4.a.md</code></p>
+<ul>
+<li>This change summary:</li>
+</ul>
+<p>  <code>docs/official/versions/game_doc_ver0.2.4.a_change_summary.md</code></p>
+<h2>Ver0.2.4.a Scope</h2>
+<p>Ver0.2.4.a is a stabilization tag, not a gameplay feature release.</p>
+<p>Implemented changes recorded by existing version notes:</p>
+<ul>
+<li>Version marker updated to <code>0.2.4.a</code>.</li>
+<li>Ver0.2.4 diplomacy, structured event log, vassal display, and validation work</li>
+</ul>
+<p>  are preserved.</p>
+<ul>
+<li>Repository agent instructions were tightened for future development.</li>
+<li>Validation recorded: <code>make</code> passed and all <code>.c/.h</code> files stayed at or below</li>
+</ul>
+<p>  500 lines.</p>
+<p>Gameplay changes in Ver0.2.4.a:</p>
+<ul>
+<li>None claimed in the side doc.</li>
+</ul>
+<h2>Ver0.2.4 Stabilization Preserved In This Documentation</h2>
+<p>Diplomacy UI:</p>
+<ul>
+<li>Relation cards now use state-specific templates for peace/tension, war/truce,</li>
+</ul>
+<p>  and tribute/vassal views.</p>
+<ul>
+<li>Tense relation return-to-peace thresholds are visible.</li>
+</ul>
+<p>Vassal display:</p>
+<ul>
+<li>Tribute display matches actual simulation: 40% of food, livestock, wood,</li>
+</ul>
+<p>  stone, minerals, and water.</p>
+<ul>
+<li>Money, population, capacity, and habitability are not tribute.</li>
+<li>Army display exposes total soldiers, callable 70%, home guard, current support</li>
+</ul>
+<p>  use, and support casualties.</p>
+<p>Event log:</p>
+<ul>
+<li>Structured bilingual event entries are the source of truth for new event data.</li>
+<li>Snapshot event text and clickable payload now come from the same copied entry.</li>
+<li>Historical country chips validate <code>civ_uid</code> before highlighting.</li>
+</ul>
+<p>Validation:</p>
+<ul>
+<li><code>--probe-tech10</code> exists and Ver0.2.4 side doc records a successful natural</li>
+</ul>
+<p>  stage 10 run.</p>
+<h2>Documentation Coverage Added</h2>
+<p>The new universal documentation covers:</p>
+<ul>
+<li>Core loop and scheduler.</li>
+<li>UI tabs and subtabs.</li>
+<li>World generation sliders.</li>
+<li>Terrain/geography/climate/ecology/resource tables.</li>
+<li>Map rendering, render cache, dirty flags, and RenderSnapshot state.</li>
+<li>Natural regions, provinces, cities, capitals, and ports.</li>
+<li>Seven civilization metrics and legacy metric caveats.</li>
+<li>Technology stages 0-10 and UI.</li>
+<li>Expansion, sea lanes, diplomacy, vassals, war.</li>
+<li>Population, resources, disorder, plague, collapse.</li>
+<li>Event log/debug/performance architecture.</li>
+<li>Known technical debt and to-confirm items.</li>
+</ul>
+<h2>Code / Design Intent Notes</h2>
+<ul>
+<li>Ver0.2.4.a itself does not claim gameplay behavior changes.</li>
+<li>Some README/version-log items describe long-running intended architecture;</li>
+</ul>
+<p>  the official documentation labels partial areas such as RenderSnapshot</p>
+<p>  migration and legacy raw events as implementation state.</p>
+<ul>
+<li>Older notes mentioned a different direct-vassal governance burden expression</li>
+</ul>
+<p>  than later README wording. The official doc warns future maintainers to verify</p>
+<p>  this directly from <code>src/sim/vassal.c</code> before changing docs or gameplay.</p>
+<h2>Future Freeze Checklist</h2>
+<p>For the next version freeze:</p>
+<ol>
+<li>Read <code>docs/official/game_universal_documentation.md</code>.</li>
+<li>Read the new source tree and version marker.</li>
+<li>Compare git diff from Ver0.2.4.a to the new version.</li>
+<li>Copy this version snapshot as the starting point.</li>
+<li>Update only behavior that changed in code.</li>
+<li>Generate a new version snapshot and change summary.</li>
+<li>Mark discrepancies as implemented behavior, intended design, or to-confirm.</li>
+</ol>
+</body>
+</html>

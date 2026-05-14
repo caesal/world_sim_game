@@ -1,5 +1,22 @@
 # Version Log
 
+## Ver0.2.5
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.5
+2. Moved historical side docs and design references under `docs/unofficial`
+3. Added official Ver0.2.5 universal documentation and change-summary documents under `docs/official`
+4. Unified player-facing water categories around shallow sea and deep sea while preserving hard gameplay thresholds
+5. Added visual shallow-to-deep water blending without changing route, expansion, or technology logic
+6. Added a route-potential graph that precomputes potential port nodes and shallow/deep route edges after world generation
+7. Made occupied port-site regions deterministically activate their route-potential port node
+8. Rebuilt ordinary visible sea lanes from occupied route-potential nodes instead of random city-port discovery
+9. Added a route-potential map layer and sea-lane diagnostics for active ports, hidden endpoints, and lane-cap skips
+10. Tightened World-tab random buttons, input repainting, map centering, sidebar collapse, and legend clipping
+11. Updated README, AGENTS documentation paths, ESC version log text, and the tracked version marker
+12. Verified `make` and the 500-line `.c/.h` rule
+
 ## Ver0.2.4.a
 
 Implemented fixes:

@@ -1,0 +1,118 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Change Summary Ver0.2.5</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 21pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 15pt; margin-top: 16pt; color: #24364a; }
+p { margin: 6pt 0; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Documentation Change Summary</h1>
+<p>Version: Ver0.2.5</p>
+<p>Baseline: Ver0.2.4.a official documentation.</p>
+<p>Status: official docs-only freeze output. Code was read but not modified.</p>
+<h2>Generated Official Files</h2>
+<ul>
+<li><code>docs/official/game_universal_documentation_ver0.2.5.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.5.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.5_change_summary.doc</code></li>
+</ul>
+<h2>Important Metadata Note</h2>
+<ul>
+<li>User-declared freeze target is Ver0.2.5.</li>
+<li>At freeze time, <code>src/core/version.h</code> still defines <code>WORLD_SIM_VERSION</code> as</li>
+</ul>
+<p>  <code>0.2.4.a</code>. The docs record this mismatch and do not change code.</p>
+<h2>Major Implemented Changes Documented</h2>
+<ul>
+<li>Map sizing and frame pacing changed: default map is 720x500, large map is</li>
+</ul>
+<p>  864x600, max map height is 600, and frame timer target is 16 ms.</p>
+<ul>
+<li>Simulation speed labels/targets changed to Observe 10s/mo, Slow 5s/mo, Normal</li>
+</ul>
+<p>  1s/mo, Fast 0.25s/mo, and Max 0.1s/mo.</p>
+<ul>
+<li>UI layout now supports a collapsible side panel, map viewport clamping, panel</li>
+</ul>
+<p>  handle hit testing, and map-centered resize behavior.</p>
+<ul>
+<li>Worldgen UI now has Random buttons for Physical World, Advanced Terrain Bias,</li>
+</ul>
+<p>  and Civilization Setup. Form edits use improved suppression/normalization and</p>
+<p>  custom edit control drawing.</p>
+<ul>
+<li>Water depth logic moved into reusable terrain queries: shallow/deep water</li>
+</ul>
+<p>  detection, distance-to-land, and visual deep-water blending are cached.</p>
+<ul>
+<li>Island port completion was added through <code>ports_ensure_island_ports()</code> and</li>
+</ul>
+<p>  region-port activation via <code>ports_activate_region_port_for_city()</code>.</p>
+<ul>
+<li>Route potential network was added through <code>src/sim/route_potential.c/.h</code>.</li>
+</ul>
+<p>  It builds route port nodes plus shallow and deep potential edges before active</p>
+<p>  sea lanes are selected.</p>
+<ul>
+<li>Sea lanes now derive from route-potential edges. Shallow lanes respect network</li>
+</ul>
+<p>  size/diameter limits; deep lanes require tech stage 6 and use degree caps.</p>
+<ul>
+<li>Route Potential / 航道潜力网 map display mode was added and rendered through</li>
+</ul>
+<p>  <code>src/render/sea_lane_render.c</code>.</p>
+<ul>
+<li>Maritime expansion diagnostics now include own port count and shallow path</li>
+</ul>
+<p>  blockage, with reachability routed through <code>route_potential_region_reachable()</code>.</p>
+<ul>
+<li>Diplomacy now logs peace/tense structured events and truce events more visibly.</li>
+<li>Diplomacy map animation was added through <code>src/render/diplomacy_map_anim.c/.h</code>.</li>
+<li>Country overview vassal actions were added through</li>
+</ul>
+<p>  <code>src/render/panel_country_actions.c/.h</code> and <code>game_request_release_vassal()</code>.</p>
+<ul>
+<li>Selected-country highlight now includes overlord/vassal/sibling-vassal visual</li>
+</ul>
+<p>  relationships and tribute-style lines.</p>
+<ul>
+<li>Technology pacing now uses the faster centralized</li>
+</ul>
+<p>  <code>technology_required_months_for_civ()</code> formula in both simulation and UI</p>
+<p>  stage-arrival estimates.</p>
+<ul>
+<li>Plague fog visual rebuilds are throttled and expose rebuild count/last duration</li>
+</ul>
+<p>  in debug/performance output.</p>
+<h2>Build Wiring Changes Noted</h2>
+<ul>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/sim/route_potential.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/render/diplomacy_map_anim.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/render/panel_country_actions.c</code>.</li>
+</ul>
+<h2>Future Documentation Attention</h2>
+<ul>
+<li>Confirm whether code version metadata should be updated from 0.2.4.a to 0.2.5.</li>
+<li>Keep route-potential graph, active sea lanes, and legacy <code>MaritimeRoute</code></li>
+</ul>
+<p>  compatibility structures clearly separated in future docs.</p>
+<ul>
+<li>Document vassal release UI carefully: the button can read as Independence, but</li>
+</ul>
+<p>  implementation routes through release validation and <code>vassal_release()</code>.</p>
+<ul>
+<li>Debug/raw fallback event <code>VASSAL_RELEASE_FAILED_NO_OVERLORD</code> remains a</li>
+</ul>
+<p>  structured-event consistency point to watch.</p>
+<ul>
+<li>No build/test was run for this documentation freeze; this pass only read code</li>
+</ul>
+<p>  and wrote docs.</p>
+</body>
+</html>
