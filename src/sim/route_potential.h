@@ -5,8 +5,8 @@
 #include "core/value_types.h"
 
 #define MAX_ROUTE_PORT_NODES MAX_NATURAL_REGIONS
-#define MAX_ROUTE_POTENTIAL_EDGES 1536
-#define MAX_ROUTE_POTENTIAL_POINTS 96
+#define MAX_ROUTE_POTENTIAL_EDGES 4096
+#define MAX_ROUTE_POTENTIAL_POINTS 192
 
 typedef enum {
     ROUTE_POTENTIAL_SHALLOW = 0,
@@ -17,7 +17,10 @@ typedef enum {
     ROUTE_POTENTIAL_VALID = 0,
     ROUTE_POTENTIAL_INVALID_TOO_FAR,
     ROUTE_POTENTIAL_INVALID_NO_PATH,
-    ROUTE_POTENTIAL_INVALID_NETWORK_LIMIT
+    ROUTE_POTENTIAL_INVALID_NETWORK_LIMIT,
+    ROUTE_POTENTIAL_INVALID_TRUNCATED,
+    ROUTE_POTENTIAL_INVALID_NO_DEEP_WATER,
+    ROUTE_POTENTIAL_INVALID_ENDPOINT
 } RoutePotentialInvalidReason;
 
 typedef struct {
@@ -54,6 +57,18 @@ typedef struct {
     int rejected_no_path;
     int rejected_network_full;
     int rejected_diameter;
+    int rejected_truncated;
+    int rejected_no_deep_water;
+    int rejected_near_shore;
+    int rejected_endpoint;
+    int deep_bridge_candidates;
+    int deep_bridge_count;
+    int connected_networks;
+    int disconnected_networks;
+    int shallow_network_count;
+    int small_shallow_network_count;
+    int average_shallow_network_size;
+    int isolated_small_network_count;
 } RoutePotentialStats;
 
 void route_potential_reset(void);

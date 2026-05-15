@@ -3,7 +3,7 @@
 #include "render/render_context.h"
 #include "render_map_internal.h"
 
-#define MAX_RENDER_LABELS 72
+#define MAX_RENDER_LABELS 160
 
 static int rects_overlap(RECT a, RECT b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
@@ -43,6 +43,20 @@ static void draw_label_text(HDC hdc, int x, int y, const char *text, COLORREF co
     draw_text_line(hdc, x + 1, y, text, outline);
     draw_text_line(hdc, x, y - 1, text, outline);
     draw_text_line(hdc, x, y + 1, text, outline);
+    draw_text_line(hdc, x + 1, y + 1, text, outline);
+    draw_text_line(hdc, x, y, text, color);
+}
+
+static void draw_province_label_text(HDC hdc, int x, int y, const char *text) {
+    COLORREF outline = RGB(22, 24, 24);
+    COLORREF color = RGB(232, 236, 220);
+    draw_text_line(hdc, x - 2, y, text, outline);
+    draw_text_line(hdc, x + 2, y, text, outline);
+    draw_text_line(hdc, x, y - 2, text, outline);
+    draw_text_line(hdc, x, y + 2, text, outline);
+    draw_text_line(hdc, x - 1, y - 1, text, outline);
+    draw_text_line(hdc, x + 1, y - 1, text, outline);
+    draw_text_line(hdc, x - 1, y + 1, text, outline);
     draw_text_line(hdc, x + 1, y + 1, text, outline);
     draw_text_line(hdc, x, y, text, color);
 }
@@ -173,6 +187,51 @@ static void draw_city_labels(HDC hdc, RECT client, MapLayout layout, RECT *used,
     DeleteObject(font);
 }
 
+static void draw_province_labels(HDC hdc, RECT client, MapLayout layout, RECT *used, int *used_count) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    int font_height = layout.tile_size >= 9 ? 15 : 13;
+    HFONT font = CreateFontW(font_height, 0, 0, 0, FW_NORMAL, TRUE, FALSE, FALSE, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                             DEFAULT_PITCH, L"Microsoft YaHei UI");
+    HFONT old_font = SelectObject(hdc, font);
+    int i;
+
+    if (display_mode == DISPLAY_CLIMATE || display_mode == DISPLAY_ROUTE_POTENTIAL || layout.tile_size < 6) {
+        SelectObject(hdc, old_font);
+        DeleteObject(font);
+        return;
+    }
+    if (!snapshot || !snapshot->world_generated) {
+        SelectObject(hdc, old_font);
+        DeleteObject(font);
+        return;
+    }
+    for (i = 0; i < snapshot->region_count; i++) {
+        const SnapshotRegion *region = &snapshot->regions[i];
+        const char *name;
+        int cx;
+        int cy;
+        RECT rect;
+        int min_tiles = layout.tile_size < 8 ? 86 : (layout.tile_size < 10 ? 42 : 18);
+
+        if (!region->alive || region->tile_count < min_tiles) continue;
+        if (layout.tile_size < 9 && region->city_id < 0 && region->tile_count < 90) continue;
+        name = ui_language == UI_LANG_ZH ? region->name_zh : region->name_en;
+        if (!name || !name[0]) continue;
+        cx = (snap_tile_left(layout, snapshot, region->center_x) +
+              snap_tile_right(layout, snapshot, region->center_x)) / 2;
+        cy = (snap_tile_top(layout, snapshot, region->center_y) +
+              snap_tile_bottom(layout, snapshot, region->center_y)) / 2 + font_height;
+        if (cx < client.left || cx > client.right - side_panel_w || cy < TOP_BAR_H || cy > client.bottom - BOTTOM_BAR_H) continue;
+        rect = label_rect_for_centered_text(hdc, cx, cy, name, 7);
+        if (!label_is_open(used, *used_count, rect)) continue;
+        draw_province_label_text(hdc, rect.left + 7, rect.top + 3, name);
+        remember_label(used, used_count, rect);
+    }
+    SelectObject(hdc, old_font);
+    DeleteObject(font);
+}
+
 void draw_map_labels(HDC hdc, RECT client, MapLayout layout) {
     RECT used[MAX_RENDER_LABELS];
     int used_count = 0;
@@ -182,5 +241,6 @@ void draw_map_labels(HDC hdc, RECT client, MapLayout layout) {
     SetBkMode(hdc, TRANSPARENT);
     draw_country_labels(hdc, client, layout, used, &used_count);
     draw_city_labels(hdc, client, layout, used, &used_count);
+    draw_province_labels(hdc, client, layout, used, &used_count);
     RestoreDC(hdc, saved_dc);
 }

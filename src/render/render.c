@@ -9,6 +9,8 @@
 #include "render/map_highlight.h"
 #include "render/pause_menu_render.h"
 #include "render/render_context.h"
+#include "render/worldgen_progress_overlay.h"
+#include "core/worldgen_progress.h"
 
 typedef struct {
     HDC dc;
@@ -309,7 +311,17 @@ static void render_world(HDC hdc, RECT client) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     int snapshot_world_ready = snapshot && snapshot->world_generated;
     int labels_dirty = dirty_render_labels();
+    WorldGenProgress progress;
 
+    worldgen_progress_get(&progress);
+    if (progress.active) {
+        RECT viewport = get_map_viewport_rect(client);
+        fill_rect(hdc, client, RGB(13, 17, 21));
+        draw_legacy_ui_nonblocking(hdc, client);
+        fill_rect(hdc, viewport, RGB(13, 17, 21));
+        draw_worldgen_progress_overlay(hdc, client);
+        return;
+    }
     draw_cached_static_map_nonblocking(hdc, client, layout);
     if (snapshot_world_ready) {
         if (!map_interaction_preview) {
@@ -334,6 +346,7 @@ static void render_world(HDC hdc, RECT client) {
         dirty_clear_render_labels();
     }
     draw_legacy_ui_nonblocking(hdc, client);
+    draw_worldgen_progress_overlay(hdc, client);
 }
 
 void paint_window(HWND hwnd) {

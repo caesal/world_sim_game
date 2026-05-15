@@ -1,0 +1,125 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Change Summary Ver0.2.6</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 21pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 15pt; margin-top: 16pt; color: #24364a; }
+p { margin: 6pt 0; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Documentation Change Summary</h1>
+<p>Version: Ver0.2.6</p>
+<p>Baseline: Ver0.2.5 official documentation.</p>
+<p>Status: official docs-only freeze output. Code was read but not modified.</p>
+<h2>Generated Official Files</h2>
+<ul>
+<li><code>docs/official/game_universal_documentation_ver0.2.6.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.6.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.6_change_summary.doc</code></li>
+</ul>
+<h2>Important Metadata Note</h2>
+<ul>
+<li>User-declared freeze target is Ver0.2.6.</li>
+<li>At freeze time, <code>src/core/version.h</code> defines <code>WORLD_SIM_VERSION</code> as</li>
+</ul>
+<p>  <code>0.2.5</code>. The docs record this mismatch and do not change code.</p>
+<h2>Major Implemented Changes Documented</h2>
+<ul>
+<li>World generation orchestration moved into <code>src/game/game_worldgen.c/.h</code>.</li>
+<li>World generation now tracks visible progress through</li>
+</ul>
+<p>  <code>src/core/worldgen_progress.c/.h</code>, including stage percentage, total timing,</p>
+<p>  per-stage timing, and route statistics.</p>
+<ul>
+<li>Rendering now shows a worldgen progress overlay through</li>
+</ul>
+<p>  <code>src/render/worldgen_progress_overlay.c/.h</code>; the World tab also shows a</p>
+<p>  progress status card.</p>
+<ul>
+<li>Debug/performance UI added <code>src/render/panel_debug_worldgen.c/.h</code> for worldgen</li>
+</ul>
+<p>  timing, route candidate, shallow-network, and deep-backbone stats.</p>
+<ul>
+<li>Map display buttons were reduced/reordered to five visible modes: Political,</li>
+</ul>
+<p>  Geography, Climate, Regions, and Routes. <code>DISPLAY_ALL</code> remains as legacy enum</p>
+<p>  support but is not in the normal button list.</p>
+<ul>
+<li>Province names were added through <code>src/data/province_names.c/.h</code> and</li>
+</ul>
+<p>  <code>data/province_names_1000_bilingual_v2.tsv</code>. Natural regions now carry</p>
+<p>  <code>name_id</code>, and localized names are used in labels, selected-region resource</p>
+<p>  display, and render snapshots.</p>
+<ul>
+<li>Save format advanced to <code>MAP_SAVE_VERSION 7</code>. Older natural-region save data</li>
+</ul>
+<p>  is upgraded by assigning missing province names after load.</p>
+<ul>
+<li>Country overview gained a recent-events card list via</li>
+</ul>
+<p>  <code>src/render/panel_country_events.c/.h</code>, with per-country filtering, local</p>
+<p>  scroll handling, and clickable UID-checked country chips.</p>
+<ul>
+<li>Diplomacy contact logic moved into <code>src/sim/diplomacy_contact.c</code>. Contact kinds</li>
+</ul>
+<p>  now include land border, shallow sea network, deep sea network, and vassal</p>
+<p>  proxy.</p>
+<ul>
+<li>Known diplomacy relations with no current contact now decay and can return to</li>
+</ul>
+<p>  <code>DIPLOMACY_NONE</code> after 10 distant-known years, except for war/truce/vassal</p>
+<p>  handling paths.</p>
+<ul>
+<li>War-front detection now uses diplomacy direct-contact kinds instead of directly</li>
+</ul>
+<p>  scanning city sea lanes inside <code>war_front.c</code>.</p>
+<ul>
+<li>War cards now use <code>war_peace_pressure_between()</code> and show mirrored peace</li>
+</ul>
+<p>  pressure bars against the 70 threshold.</p>
+<ul>
+<li>Route-potential capacity and diagnostics expanded: 4096 potential edges, 192</li>
+</ul>
+<p>  route points, 1024 sea lanes, shallow max network ports 7, and deep-backbone</p>
+<p>  connected/disconnected stats.</p>
+<ul>
+<li>Diplomacy map animation now requires current contact for peace, tense, and</li>
+</ul>
+<p>  war-start event animations.</p>
+<h2>Build Wiring Changes Noted</h2>
+<ul>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/game/game_worldgen.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/core/worldgen_progress.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/data/province_names.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/sim/diplomacy_contact.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/render/worldgen_progress_overlay.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/render/panel_country_events.c</code>.</li>
+<li><code>Makefile</code> and <code>build.bat</code> include <code>src/render/panel_debug_worldgen.c</code>.</li>
+</ul>
+<h2>Future Documentation Attention</h2>
+<ul>
+<li>Confirm whether code version metadata should be updated from 0.2.5 to 0.2.6.</li>
+<li>Worldgen progress enum includes a water-depth stage, but current orchestration</li>
+</ul>
+<p>  visibly advances terrain, regions, ports, route potential, civ placement, and</p>
+<p>  finalize stages. Future docs should keep enum intent and actually displayed</p>
+<p>  stages separate if this changes.</p>
+<ul>
+<li>Keep visible map display buttons distinct from legacy/internal display enum</li>
+</ul>
+<p>  values such as <code>DISPLAY_ALL</code>.</p>
+<ul>
+<li>Province-name source text is UTF-8; terminal output may display mojibake. Verify</li>
+</ul>
+<p>  in-app Chinese rendering before making localization claims.</p>
+<ul>
+<li>No build/test was run for this documentation freeze; this pass only read code</li>
+</ul>
+<p>  and wrote docs.</p>
+</body>
+</html>

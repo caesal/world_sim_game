@@ -24,6 +24,7 @@ static int total_started_wars = 0;
 
 static int total_active_war_casualties(int civ_id);
 static int support_share_for_front(int overlord, int vassal);
+static int peace_desire(int civ_id, int casualties, int initial_soldiers, int initial_national);
 
 static int is_valid_civ(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
@@ -221,6 +222,19 @@ int war_vassal_support_used_for_overlord(int overlord, int vassal) {
 }
 int war_vassal_support_casualties(int vassal) {
     return is_valid_civ(vassal) ? support_casualties[vassal] : 0;
+}
+int war_peace_pressure_between(int civ_id, int other_id) {
+    int index = active_war_index(civ_id, other_id);
+    ActiveWar *war;
+    if (index < 0) return 0;
+    war = &active_wars[index];
+    if (civ_id == war->attacker) {
+        return peace_desire(civ_id, war->casualties_a, war->initial_soldiers_a, war->initial_national_a);
+    }
+    if (civ_id == war->defender) {
+        return peace_desire(civ_id, war->casualties_b, war->initial_soldiers_b, war->initial_national_b);
+    }
+    return 0;
 }
 int war_total_started_count(void) { return total_started_wars; }
 

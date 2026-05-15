@@ -75,6 +75,10 @@ static int pair_contact_stats(int civ_a, int civ_b, int *border_length, int *nat
     if (natural_barrier) *natural_barrier = border_contact_cache.natural_barrier[civ_a][civ_b];
     return border_contact_cache.border_length[civ_a][civ_b] > 0;
 }
+int diplomacy_land_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier) {
+    return (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS) ? 0 :
+           pair_contact_stats(civ_a, civ_b, border_length, natural_barrier);
+}
 static void rebuild_border_contact_cache(void) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int x;
@@ -269,13 +273,27 @@ static void log_relation_transition(int civ_a, int civ_b, DiplomacyStatus old_st
 static void refresh_known_relation(int civ_a, int civ_b) {
     DiplomacyRelation relation = diplomacy_matrix[civ_a][civ_b];
     DiplomacyStatus old_state = relation.state;
+    DiplomacyContactKind contact_kind;
     int relation_delta;
     if (relation.state == DIPLOMACY_NONE) return;
-    if (!pair_contact_stats(civ_a, civ_b, &relation.border_length, &relation.natural_barrier) &&
-        relation.state != DIPLOMACY_TRUCE && relation.state != DIPLOMACY_WAR) {
-        relation.border_length = 0;
+    contact_kind = diplomacy_current_contact_kind(civ_a, civ_b);
+    relation.contact_kind = contact_kind;
+    if (contact_kind == DIP_CONTACT_LAND_BORDER) pair_contact_stats(civ_a, civ_b, &relation.border_length, &relation.natural_barrier);
+    else { relation.border_length = 0; relation.natural_barrier = 0; }
+    if (contact_kind == DIP_CONTACT_NONE &&
+        relation.state != DIPLOMACY_TRUCE && relation.state != DIPLOMACY_WAR &&
+        relation.state != DIPLOMACY_VASSAL) {
         relation.border_tension = clamp(relation.border_tension - 8, 0, 100);
+        relation.resource_conflict = clamp(relation.resource_conflict - 4, 0, 100);
+        relation.trade_fit = 0;
+        relation.relation_score += relation.relation_score > 50 ? -1 : (relation.relation_score < 50 ? 1 : 0);
+        relation.years_distant_known++;
+        relation.easing_years = 0;
+        if (relation.years_distant_known >= 10) relation = default_relation(DIPLOMACY_NONE, 50);
+        set_relation_pair(civ_a, civ_b, relation);
+        return;
     }
+    relation.years_distant_known = 0;
     relation.trade_fit = compute_trade_fit(civ_a, civ_b);
     relation.resource_conflict = compute_resource_conflict(civ_a, civ_b);
     relation.border_tension = compute_border_tension(civ_a, civ_b, relation);
@@ -289,7 +307,8 @@ static void refresh_known_relation(int civ_a, int civ_b) {
     if (relation.state == DIPLOMACY_TRUCE) {
         relation.truce_years_left = clamp(relation.truce_years_left - 1, 0, 100);
         if (relation.truce_years_left == 0) {
-            relation.state = relation.border_tension >= 55 ? DIPLOMACY_TENSE : DIPLOMACY_PEACE;
+            relation.state = contact_kind == DIP_CONTACT_NONE ? DIPLOMACY_NONE :
+                             (relation.border_tension >= 55 ? DIPLOMACY_TENSE : DIPLOMACY_PEACE);
         }
     }
 #if DIPLOMACY_ENABLE_ADVANCED_STATES
@@ -353,22 +372,22 @@ void diplomacy_update_contacts(void) {
             DiplomacyRelation relation;
             int border = 0;
             int barrier = 0;
-            int land_contact;
-            int sea_contact;
+            DiplomacyContactKind contact_kind;
             if (!is_valid_civ(b)) continue;
-            land_contact = pair_contact_stats(a, b, &border, &barrier);
-            sea_contact = maritime_has_contact(a, b);
-            if (!land_contact && !sea_contact) continue;
+            contact_kind = diplomacy_current_contact_kind(a, b);
+            if (contact_kind == DIP_CONTACT_NONE) continue;
             relation = diplomacy_matrix[a][b];
             if (relation.state == DIPLOMACY_NONE) {
                 relation = default_relation(DIPLOMACY_PEACE, 50);
                 event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
                                           a, b, -1, -1, 0, 0, "");
             }
-            if (land_contact) {
+            relation.contact_kind = contact_kind;
+            relation.years_distant_known = 0;
+            if (contact_kind == DIP_CONTACT_LAND_BORDER) { pair_contact_stats(a, b, &border, &barrier);
                 relation.border_length = border;
                 relation.natural_barrier = barrier;
-            }
+            } else { relation.border_length = 0; relation.natural_barrier = 0; }
             set_relation_pair(a, b, relation);
         }
     }

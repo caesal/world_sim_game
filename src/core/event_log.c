@@ -426,6 +426,35 @@ EventLogType event_log_get_type(int index) {
     return event_log_get_entry(index, &entry) ? entry.type : EVENT_TYPE_GENERIC;
 }
 
+static int event_type_is_country_scoped(EventLogType type) {
+    switch (type) {
+        case EVENT_TYPE_GENERIC:
+        case EVENT_TYPE_PERFORMANCE_THROTTLED:
+        case EVENT_TYPE_PERFORMANCE_SLOW_CALL:
+        case EVENT_TYPE_SCHEDULER_YIELD:
+        case EVENT_TYPE_WORLD_GENERATION_NOTICE:
+        case EVENT_TYPE_DEBUG_NOTICE:
+            return 0;
+        default:
+            return 1;
+    }
+}
+
+static int event_civ_identity_matches(int civ_id, int stored_id, int stored_uid) {
+    if (stored_id != civ_id || stored_uid <= 0) return 0;
+    return civ_id >= 0 && civ_id < civ_count && civs[civ_id].uid == stored_uid;
+}
+
+int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id) {
+    if (!entry || civ_id < 0 || civ_id >= civ_count) return 0;
+    if (!event_type_is_country_scoped(entry->type)) return 0;
+    if (event_civ_identity_matches(civ_id, entry->civ_id, entry->civ_uid)) return 1;
+    if (event_civ_identity_matches(civ_id, entry->target_id, entry->target_uid)) return 1;
+    if (event_param_a_is_civ(entry->type) &&
+        event_civ_identity_matches(civ_id, entry->param_a, entry->param_a_uid)) return 1;
+    return 0;
+}
+
 int event_log_get_entry(int index, EventLogEntry *out) {
     int pos;
     if (!out || index < 0 || index >= event_log_count) return 0;

@@ -1,5 +1,6 @@
 #include "render/panel_country_resources.h"
 
+#include "data/province_names.h"
 #include "render_panel_internal.h"
 #include "sim/disorder.h"
 #include "sim/expansion.h"
@@ -82,7 +83,7 @@ static TerrainStats selected_stats(int *tiles, int *population, const char **nam
     } else if (region) {
         stats = region->average_stats;
         *tiles = region->tile_count;
-        snprintf(region_name, sizeof(region_name), "%s %d", tr("Natural Region", "自然区域"), region->id + 1);
+        snprintf(region_name, sizeof(region_name), "%.79s", province_display_name(natural_id, ui_language));
         *name = region_name;
     }
     return stats;

@@ -7,6 +7,7 @@ SOURCES := \
 	src/main.c \
 	src/game/game.c \
 	src/game/game_loop.c \
+	src/game/game_worldgen.c \
 	src/io/map_save.c \
 	src/io/map_save_regions.c \
 	src/core/event_log.c \
@@ -16,7 +17,9 @@ SOURCES := \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
 	src/core/state_lock.c \
+	src/core/worldgen_progress.c \
 	src/data/country_names.c \
+	src/data/province_names.c \
 	src/data/game_tables.c \
 	src/world/world_gen.c \
 	src/world/world_seed.c \
@@ -58,6 +61,7 @@ SOURCES := \
 	src/sim/spawn.c \
 	src/sim/expansion.c \
 	src/sim/diplomacy.c \
+	src/sim/diplomacy_contact.c \
 	src/sim/diplomacy_names.c \
 	src/sim/war.c \
 	src/sim/war_front.c \
@@ -69,6 +73,7 @@ SOURCES := \
 	src/render/cartography_layers.c \
 	src/render/contour_paths.c \
 	src/render/vector_paths.c \
+	src/render/worldgen_progress_overlay.c \
 	src/render/diplomacy_map_anim.c \
 	src/render/map_render.c \
 	src/render/map_highlight.c \
@@ -82,6 +87,7 @@ SOURCES := \
 	src/render/pause_menu_render.c \
 	src/render/panel_country.c \
 	src/render/panel_country_actions.c \
+	src/render/panel_country_events.c \
 	src/render/panel_country_detail.c \
 	src/render/panel_country_tech.c \
 	src/render/panel_country_decision.c \
@@ -94,6 +100,7 @@ SOURCES := \
 	src/render/panel_population_page.c \
 	src/render/panel_plague_page.c \
 	src/render/panel_worldgen.c \
+	src/render/panel_debug_worldgen.c \
 	src/render/panel_debug.c \
 	src/render/panel_population.c \
 	src/render/panel_info.c \

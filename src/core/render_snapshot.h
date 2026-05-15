@@ -50,6 +50,18 @@ typedef struct {
 } SnapshotCity;
 
 typedef struct {
+    int alive;
+    int owner;
+    int center_x;
+    int center_y;
+    int tile_count;
+    int city_id;
+    int name_id;
+    char name_en[96];
+    char name_zh[96];
+} SnapshotRegion;
+
+typedef struct {
     int active;
     int type;
     int from_node;
@@ -82,6 +94,7 @@ typedef struct {
     int world_generated;
     int civ_count;
     int city_count;
+    int region_count;
     int lane_count;
     int event_count;
     int event_total_entries;
@@ -93,6 +106,7 @@ typedef struct {
     SnapshotTile tiles[MAX_MAP_W * MAX_MAP_H];
     SnapshotCiv civs[MAX_CIVS];
     SnapshotCity cities[MAX_CITIES];
+    SnapshotRegion regions[MAX_NATURAL_REGIONS];
     SnapshotSeaLane lanes[MAX_SEA_LANES];
     int plague_city_severity[MAX_CITIES];
     int plague_lane_exposure[MAX_SEA_LANES];

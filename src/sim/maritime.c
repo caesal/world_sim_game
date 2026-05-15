@@ -1,6 +1,7 @@
 ﻿#include "maritime.h"
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
+#include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/population.h"
 #include "sim/plague.h"
@@ -37,8 +38,12 @@ void maritime_reset(void) {
     route_revision++;
     dirty_mark_maritime();
 }
-void maritime_mark_routes_dirty(void) { maritime_routes_dirty = 1; route_revision++; dirty_mark_maritime(); }
-void maritime_mark_ownership_dirty(void) { maritime_routes_dirty = 1; ownership_revision++; dirty_mark_maritime(); }
+void maritime_mark_routes_dirty(void) {
+    maritime_routes_dirty = 1; route_revision++; dirty_mark_maritime(); diplomacy_mark_contacts_dirty();
+}
+void maritime_mark_ownership_dirty(void) {
+    maritime_routes_dirty = 1; ownership_revision++; dirty_mark_maritime(); diplomacy_mark_contacts_dirty();
+}
 int maritime_route_revision(void) { return route_revision; }
 int maritime_ownership_revision(void) { return ownership_revision; }
 void maritime_ensure_routes(void) { if (maritime_routes_dirty) maritime_rebuild_routes(); }

@@ -13,6 +13,14 @@ typedef enum {
     DIPLOMACY_VASSAL
 } DiplomacyStatus;
 
+typedef enum {
+    DIP_CONTACT_NONE = 0,
+    DIP_CONTACT_LAND_BORDER,
+    DIP_CONTACT_SHALLOW_SEA_NETWORK,
+    DIP_CONTACT_DEEP_SEA_NETWORK,
+    DIP_CONTACT_VASSAL_PROXY
+} DiplomacyContactKind;
+
 typedef struct {
     DiplomacyStatus state;
     int relation_score;
@@ -25,6 +33,8 @@ typedef struct {
     int years_known;
     int vassal_years;
     int easing_years;
+    int contact_kind;
+    int years_distant_known;
     int overlord;
     int vassal;
 } DiplomacyRelation;
@@ -42,6 +52,9 @@ void diplomacy_update_contacts(void);
 void diplomacy_update_year(void);
 DiplomacyStatus diplomacy_status(int civ_a, int civ_b);
 DiplomacyRelation diplomacy_relation(int civ_a, int civ_b);
+int diplomacy_land_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier);
+DiplomacyContactKind diplomacy_direct_contact_kind(int civ_a, int civ_b);
+DiplomacyContactKind diplomacy_current_contact_kind(int civ_a, int civ_b);
 void diplomacy_force_war(int civ_a, int civ_b);
 void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score);
 void diplomacy_start_vassal(int overlord, int vassal, int relation_score);

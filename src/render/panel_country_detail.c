@@ -4,6 +4,7 @@
 #include "render/panel_country_diplomacy.h"
 #include "render/panel_country_disorder.h"
 #include "render/panel_country_actions.h"
+#include "render/panel_country_events.h"
 #include "render/panel_country_population.h"
 #include "render/panel_country_resources.h"
 #include "render/panel_country_tech.h"
@@ -85,7 +86,7 @@ int country_detail_content_height(int civ_id) {
         case COUNTRY_DETAIL_DIPLOMACY: return country_diplomacy_tab_height(civ_id);
         case COUNTRY_DETAIL_DISORDER: return country_disorder_tab_height(civ_id);
         default:
-            return 460 + country_overview_vassal_actions_height(civ_id) +
+            return 620 + country_overview_vassal_actions_height(civ_id) +
                    (plague_civ_active_count(civ_id) > 0 ? 67 : 0);
     }
 }
@@ -94,6 +95,7 @@ void country_detail_reset_hit(void) {
     last_civil_unrest_enabled = 0;
     SetRectEmpty(&last_civil_unrest_button);
     country_overview_vassal_actions_reset_hit();
+    country_recent_events_reset_hit();
 }
 
 int country_detail_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y) {
@@ -253,7 +255,6 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     DecisionSnapshot decision;
     int progress = technology_stage_progress_percent(civ_id);
     int months_next = technology_months_to_next(civ_id);
-    int i;
     char text[192];
     char span[48];
 
@@ -276,9 +277,7 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     ui_section(hdc, cursor, tr("Actions", "操作"));
     draw_civil_unrest_action(hdc, cursor, civ_id);
     draw_country_overview_vassal_actions(hdc, cursor, civ_id);
-    ui_section(hdc, cursor, tr("Recent Events", "近期事件"));
-    if (event_log_count <= 0) ui_row_text(hdc, cursor, "", tr("No recent events.", "暂无近期事件。"));
-    for (i = 0; i < event_log_count && i < 3; i++) ui_row_text(hdc, cursor, "", event_log_get(i));
+    draw_country_recent_events(hdc, cursor, civ_id);
 }
 
 static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {

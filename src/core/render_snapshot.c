@@ -2,8 +2,10 @@
 
 #include "core/dirty_flags.h"
 #include "core/state_lock.h"
+#include "data/province_names.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
+#include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
 
@@ -103,6 +105,24 @@ static void copy_cities(RenderSnapshot *snapshot) {
         dst->port_x = src->port_x;
         dst->port_y = src->port_y;
         snprintf(dst->name, sizeof(dst->name), "%s", src->name);
+    }
+}
+
+static void copy_regions(RenderSnapshot *snapshot) {
+    int i;
+    snapshot->region_count = clamp(region_count, 0, MAX_NATURAL_REGIONS);
+    for (i = 0; i < snapshot->region_count; i++) {
+        SnapshotRegion *dst = &snapshot->regions[i];
+        NaturalRegion *src = &natural_regions[i];
+        dst->alive = src->alive;
+        dst->owner = src->owner_civ;
+        dst->center_x = src->center_x;
+        dst->center_y = src->center_y;
+        dst->tile_count = src->tile_count;
+        dst->city_id = src->city_id;
+        dst->name_id = src->name_id;
+        snprintf(dst->name_en, sizeof(dst->name_en), "%s", province_display_name(i, 0));
+        snprintf(dst->name_zh, sizeof(dst->name_zh), "%s", province_display_name(i, 1));
     }
 }
 
@@ -249,6 +269,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     }
     copy_civs(snapshot);
     copy_cities(snapshot);
+    copy_regions(snapshot);
     if (world_generated && (snapshot->revision == 0 || snapshot->lanes_revision != lane_key)) {
         copy_lanes(snapshot);
         snapshot->lanes_revision = lane_key;

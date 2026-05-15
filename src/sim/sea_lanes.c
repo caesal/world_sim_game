@@ -252,11 +252,9 @@ static int deep_find_root(int *deep_parent, int x) {
 }
 static void build_deep_networks(void) {
     const RoutePotentialEdge *potential;
-    int deep_degree[MAX_CITIES];
     int deep_parent[MAX_CITIES];
     int potential_count;
     int i;
-    memset(deep_degree, 0, sizeof(deep_degree));
     for (i = 0; i < MAX_CITIES; i++) deep_parent[i] = i;
     potential = route_potential_edges(&potential_count);
     for (i = 0; i < potential_count && lane_count < MAX_SEA_LANES; i++) {
@@ -276,12 +274,9 @@ static void build_deep_networks(void) {
         root_a = deep_find_root(deep_parent, net_a);
         root_b = deep_find_root(deep_parent, net_b);
         if (root_a == root_b) continue;
-        if (deep_degree[net_a] >= 2 || deep_degree[net_b] >= 2) continue;
         if (add_lane(SEA_LANE_DEEP, net_a, net_b, a, b, edge->points, edge->point_count)) {
             ports[a].status = SEA_PORT_DEEP_GATEWAY;
             ports[b].status = SEA_PORT_DEEP_GATEWAY;
-            deep_degree[net_a]++;
-            deep_degree[net_b]++;
             deep_parent[root_b] = root_a;
             last_stats.deep_links++;
         }
@@ -373,7 +368,7 @@ int sea_lanes_network_connected(int city_a, int city_b) {
     }
     return 0;
 }
-static int sea_lanes_contact_kind(int civ_a, int civ_b) {
+int sea_lanes_contact_kind(int civ_a, int civ_b) {
     unsigned char a_net[MAX_CITIES];
     unsigned char b_net[MAX_CITIES];
     unsigned char seen[MAX_CITIES];

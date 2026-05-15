@@ -1,5 +1,6 @@
 #include "render_panel_internal.h"
 
+#include "core/worldgen_progress.h"
 #include "sim/regions.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
@@ -44,6 +45,84 @@ static void draw_random_button(HDC hdc, RECT rect) {
     draw_icon(hdc, ICON_ADAPTATION, icon, RGB(190, 206, 214));
     draw_text_rect(hdc, text, tr("Random", "随机"), RGB(232, 238, 244),
                    DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS);
+}
+
+#if 0
+static void draw_worldgen_progress_status(HDC hdc, const WorldgenLayout *layout) {
+    WorldGenProgress progress;
+    RECT card, title, stage, bar, fill;
+    HBRUSH border;
+    char percent[32];
+    worldgen_progress_get(&progress);
+    if (!progress.active) return;
+    card = (RECT){layout->viewport.left, layout->viewport.top + 6,
+                  layout->viewport.right, layout->viewport.top + 83};
+    if (!worldgen_rect_visible(layout->viewport, card)) return;
+    fill_rect_alpha(hdc, card, RGB(22, 28, 33), 238);
+    border = CreateSolidBrush(RGB(78, 96, 106));
+    FrameRect(hdc, &card, border);
+    DeleteObject(border);
+    title = (RECT){card.left + 10, card.top + 7, card.right - 10, card.top + 27};
+    stage = (RECT){card.left + 10, title.bottom + 3, card.right - 10, title.bottom + 23};
+    bar = (RECT){card.left + 10, card.bottom - 20, card.right - 10, card.bottom - 8};
+    fill = bar;
+    fill.right = fill.left + (bar.right - bar.left) * progress.percent / 100;
+    snprintf(percent, sizeof(percent), "%s: %d%%", tr("Progress", "进度"), progress.percent);
+    draw_text_rect(hdc, title, tr("Generating world", "正在生成世界"),
+                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, stage, progress.stage_total > 0 ?
+                   (ui_language == UI_LANG_ZH ? progress.message_zh : progress.message_en) :
+                   (ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) : worldgen_stage_name_en(progress.stage)),
+                   ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    fill_rect(hdc, bar, RGB(42, 50, 58));
+    if (fill.right > fill.left) fill_rect(hdc, fill, RGB(103, 164, 196));
+    draw_center_text(hdc, bar, percent, RGB(242, 246, 248));
+}
+#endif
+
+static void draw_worldgen_progress_status_v2(HDC hdc, const WorldgenLayout *layout) {
+    WorldGenProgress progress;
+    RECT card, title, overall, overall_bar, stage, detail, stage_bar, fill;
+    HBRUSH border;
+    char text[160];
+    const char *stage_name;
+    worldgen_progress_get(&progress);
+    if (!progress.active) return;
+    card = (RECT){layout->viewport.left, layout->viewport.top + 6,
+                  layout->viewport.right, layout->viewport.top + 132};
+    if (!worldgen_rect_visible(layout->viewport, card)) return;
+    fill_rect_alpha(hdc, card, RGB(22, 28, 33), 238);
+    border = CreateSolidBrush(RGB(78, 96, 106));
+    FrameRect(hdc, &card, border);
+    DeleteObject(border);
+    title = (RECT){card.left + 10, card.top + 7, card.right - 10, card.top + 27};
+    overall = (RECT){card.left + 10, title.bottom + 2, card.right - 10, title.bottom + 22};
+    overall_bar = (RECT){card.left + 10, overall.bottom + 3, card.right - 10, overall.bottom + 14};
+    stage = (RECT){card.left + 10, overall_bar.bottom + 8, card.right - 10, overall_bar.bottom + 28};
+    detail = (RECT){card.left + 10, stage.bottom + 1, card.right - 10, stage.bottom + 19};
+    stage_bar = (RECT){card.left + 10, card.bottom - 18, card.right - 10, card.bottom - 7};
+    stage_name = ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) :
+                                             worldgen_stage_name_en(progress.stage);
+    draw_text_rect(hdc, title, tr("Generating world", "正在生成世界"),
+                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    snprintf(text, sizeof(text), "%s: %d%%", tr("Overall progress", "总体进度"), progress.percent);
+    draw_text_rect(hdc, overall, text, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER);
+    fill_rect(hdc, overall_bar, RGB(42, 50, 58));
+    fill = overall_bar;
+    fill.right = fill.left + (overall_bar.right - overall_bar.left) * progress.percent / 100;
+    if (fill.right > fill.left) fill_rect(hdc, fill, RGB(103, 164, 196));
+    snprintf(text, sizeof(text), "%s: %s %d%%", tr("Current stage", "当前阶段"),
+             stage_name, progress.stage_percent);
+    draw_text_rect(hdc, stage, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    if (progress.stage_total > 0) snprintf(text, sizeof(text), "%d / %d", progress.stage_current, progress.stage_total);
+    else snprintf(text, sizeof(text), "%s", stage_name);
+    draw_text_rect(hdc, detail, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    fill_rect(hdc, stage_bar, RGB(42, 50, 58));
+    fill = stage_bar;
+    fill.right = fill.left + (stage_bar.right - stage_bar.left) * progress.stage_percent / 100;
+    if (fill.right > fill.left) fill_rect(hdc, fill, RGB(154, 184, 112));
 }
 
 static void draw_section_rect_with_button(HDC hdc, RECT rect, RECT button, const char *title) {
@@ -265,6 +344,7 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
                    "生成：F5 使用这些设置重建世界。"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_civilization_placement(hdc, &layout, &tooltip_text);
+    draw_worldgen_progress_status_v2(hdc, &layout);
     SelectClipRgn(hdc, NULL);
     DeleteObject(clip);
     draw_tooltip(hdc, client, tooltip_text);

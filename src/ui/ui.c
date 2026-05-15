@@ -1,7 +1,9 @@
 ﻿#include "ui.h"
 #include "game/game.h"
+#include "game/game_worldgen.h"
 #include "core/game_types.h"
 #include "render/panel_country.h"
+#include "render/panel_country_events.h"
 #include "render/panel_debug.h"
 #include "render/panel_country_diplomacy_hits.h"
 #include "render/render.h"
@@ -131,6 +133,14 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     }
     if (panel_tab == PANEL_COUNTRY && mouse_x >= client.right - side_panel_w) {
         int hit = country_panel_hit_test(client, mouse_x, mouse_y);
+        if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW) {
+            int event_civ = country_recent_events_country_hit_test(mouse_x, mouse_y);
+            if (event_civ >= 0) {
+                ui_highlight_civ(event_civ, UI_HIGHLIGHT_SOURCE_EVENT_LOG);
+                InvalidateRect(hwnd, NULL, FALSE);
+                return;
+            }
+        }
         if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
             int relation_civ = country_diplomacy_civ_hit_test(mouse_x, mouse_y);
             if (relation_civ >= 0 && relation_civ < civ_count && relation_civ != selected_civ) {
@@ -333,6 +343,11 @@ static void handle_mouse_wheel(HWND hwnd, int screen_x, int screen_y, int delta)
     if (steps == 0) steps = delta > 0 ? 1 : -1;
     if (!side_panel_collapsed && point.x >= client.right - side_panel_w) {
         if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+            if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW &&
+                country_recent_events_scroll_hit_test(point.x, point.y)) {
+                if (country_recent_events_scroll(-steps * 3)) InvalidateRect(hwnd, NULL, FALSE);
+                return;
+            }
             if (country_panel_scroll(client, -steps * 72)) InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
@@ -395,7 +410,7 @@ int handle_shortcut(HWND hwnd, WPARAM key) {
     }
     if (key == VK_F5 || key == 'R') {
         ui_forms_read_world_setup_controls();
-        game_request_new_world();
+        game_request_new_world_with_progress(hwnd);
         InvalidateRect(hwnd, NULL, FALSE);
         return 1;
     }

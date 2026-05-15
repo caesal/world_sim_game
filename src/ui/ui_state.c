@@ -1,7 +1,7 @@
 #include "ui_types.h"
 #include "world/world_gen.h"
 
-int display_mode = DISPLAY_ALL;
+int display_mode = DISPLAY_POLITICAL;
 int panel_tab = PANEL_WORLD;
 int ui_language = UI_LANG_EN;
 int side_panel_w = DEFAULT_SIDE_PANEL_W;
@@ -73,5 +73,5 @@ const Color32 UI_CIV_COLOR_PALETTE[CIV_COLOR_PALETTE_COUNT] = {
     COLOR32_RGB(191, 89, 89)
 };
 
-const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT] = {DISPLAY_ALL, DISPLAY_CLIMATE, DISPLAY_GEOGRAPHY, DISPLAY_REGIONS, DISPLAY_POLITICAL, DISPLAY_ROUTE_POTENTIAL};
-const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political", "Routes"};
+const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT] = {DISPLAY_POLITICAL, DISPLAY_GEOGRAPHY, DISPLAY_CLIMATE, DISPLAY_REGIONS, DISPLAY_ROUTE_POTENTIAL};
+const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT] = {"Political", "Geography", "Climate", "Regions", "Routes"};

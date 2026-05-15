@@ -4,6 +4,7 @@
 #include "core/render_snapshot.h"
 #include "core/state_lock.h"
 #include "game/game_loop.h"
+#include "game/game_worldgen.h"
 #include "sim/collapse.h"
 #include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
@@ -24,31 +25,12 @@
 #include "ui/ui.h"
 #include "world/ports.h"
 #include "world/terrain_query.h"
-#include "world/world_gen.h"
 #include <stdio.h>
 #include <string.h>
-static void clear_world_tiles(void) {
-    int x;
-    int y;
-    for (y = 0; y < MAX_MAP_H; y++) {
-        for (x = 0; x < MAX_MAP_W; x++) {
-            memset(&world[y][x], 0, sizeof(world[y][x]));
-            world[y][x].geography = GEO_OCEAN;
-            world[y][x].climate = CLIMATE_OCEANIC;
-            world[y][x].owner = -1;
-            world[y][x].province_id = -1;
-            world[y][x].region_id = -1;
-        }
-    }
-    river_path_count = 0;
-    maritime_route_count = 0;
-    regions_reset();
-    route_potential_reset();
-}
 static void game_start_blank_world(void) {
     set_active_map_size(MAP_SIZE_MEDIUM);
     simulation_reset_state();
-    clear_world_tiles();
+    game_clear_world_tiles();
     selected_x = -1;
     selected_y = -1;
     selected_civ = -1;
@@ -61,58 +43,6 @@ void game_toggle_auto_run(void) {
     if (!world_generated) return;
     auto_run = !auto_run;
     game_loop_reset();
-}
-static WorldGenConfig game_world_gen_config_from_globals(void) {
-    WorldGenConfig config;
-    config.ocean = ocean_slider;
-    config.continent = continent_slider;
-    config.relief = relief_slider;
-    config.moisture = moisture_slider;
-    config.drought = drought_slider;
-    config.vegetation = vegetation_slider;
-    config.bias_forest = bias_forest_slider;
-    config.bias_desert = bias_desert_slider;
-    config.bias_mountain = bias_mountain_slider;
-    config.bias_wetland = bias_wetland_slider;
-    config.seed = 0u;
-    config.random_seed = 1;
-    return config;
-}
-void game_request_new_world(void) {
-    WorldGenConfig config = game_world_gen_config_from_globals();
-    auto_run = 0;
-    game_loop_reset();
-    set_active_map_size(pending_map_size);
-    diplomacy_reset();
-    war_reset();
-    simulation_reset_state();
-    clear_world_tiles();
-    dirty_mark_world();
-    selected_x = -1;
-    selected_y = -1;
-    selected_civ = -1;
-    map_zoom_percent = 100;
-    map_offset_x = 0;
-    map_offset_y = 0;
-    map_view_auto_centered = 1;
-    generate_world_with_config(&config);
-    world_generated = 1;
-    ports_reset_regions();
-    regions_generate(region_size_slider);
-    ports_ensure_island_ports();
-    world_invalidate_region_cache();
-    simulation_seed_default_civilizations();
-    world_recalculate_territory();
-    ports_ensure_island_ports();
-    ports_refresh_city_regions();
-    route_potential_rebuild();
-    maritime_rebuild_routes();
-    diplomacy_update_contacts();
-    civilization_repair_alive_colors();
-    civilization_colors_debug_check();
-    dirty_mark_world();
-    auto_run = 0;
-    render_snapshot_publish_from_live_state();
 }
 void game_request_regenerate_regions(void) {
     if (!world_generated || civ_count > 0) return;
@@ -311,7 +241,7 @@ int run_expansion_probe(void) {
     diplomacy_reset();
     war_reset();
     simulation_reset_state();
-    clear_world_tiles();
+    game_clear_world_tiles();
     config.seed = 1234567u;
     config.random_seed = 0;
     generate_world_with_config(&config);
@@ -377,7 +307,7 @@ int run_tech10_probe(void) {
     diplomacy_reset();
     war_reset();
     simulation_reset_state();
-    clear_world_tiles();
+    game_clear_world_tiles();
     config.seed = 987654u;
     config.random_seed = 0;
     generate_world_with_config(&config);

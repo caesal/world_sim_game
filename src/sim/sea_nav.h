@@ -17,5 +17,7 @@ int sea_nav_segment_water(MapPoint a, MapPoint b);
 int sea_nav_segment_water_mode(MapPoint a, MapPoint b, SeaNavMode mode, int shallow_region);
 int sea_nav_find_path(MapPoint start, MapPoint goal, MapPoint *out, int max_points);
 int sea_nav_find_path_mode(MapPoint start, MapPoint goal, SeaNavMode mode, int shallow_region, MapPoint *out, int max_points);
+int sea_nav_find_path_mode_checked(MapPoint start, MapPoint goal, SeaNavMode mode, int shallow_region,
+                                   MapPoint *out, int max_points, int *out_full_count, int *out_truncated);
 
 #endif

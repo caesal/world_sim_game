@@ -236,6 +236,7 @@ void event_log_format_entry(int index, int language, char *out, size_t out_size)
 void event_log_format_entry_data(const EventLogEntry *entry, int language, char *out, size_t out_size);
 EventLogType event_log_get_type(int index);
 int event_log_get_entry(int index, EventLogEntry *out);
+int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
 int point_in_rect(RECT rect, int x, int y);
 void map_size_dimensions(int size, int *out_w, int *out_h);

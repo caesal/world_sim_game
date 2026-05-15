@@ -1,5 +1,6 @@
 #include "render/panel_debug.h"
 #include "render/contour_paths.h"
+#include "render/panel_debug_worldgen.h"
 #include "render/plague_visual.h"
 #include "render/render_context.h"
 #include "render_panel_internal.h"
@@ -28,9 +29,7 @@ static int event_scrollbar_match_count = 0;
 static int event_scrollbar_visible_count = 0;
 static int event_clear_highlight_valid = 0;
 static int event_country_hit_count = 0;
-static const RenderSnapshot *debug_snapshot(void) {
-    return render_context_snapshot();
-}
+static const RenderSnapshot *debug_snapshot(void) { return render_context_snapshot(); }
 static int debug_event_count(void) {
     const RenderSnapshot *snapshot = debug_snapshot();
     return snapshot ? snapshot->event_count : event_log_count;
@@ -290,6 +289,7 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
              perf.contour_path_count, perf.contour_rebuild_ms);
     debug_row(hdc, cursor, tr("Contours", "轮廓线"), text,
               perf.contour_rebuild_ms > 50 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    draw_worldgen_debug_rows(hdc, cursor);
     { SeaLaneStats sea; sea_lanes_last_stats(&sea);
       snprintf(text, sizeof(text), "lanes %d / ports %d / shallow %d-%d / deep %d / no-admin %d / cap %d", sea.visual_lanes, sea.active_port_nodes, sea.shallow_accepted_edges, sea.shallow_candidate_edges, sea.deep_links, sea.missing_admin_city, sea.max_lane_skips);
       debug_row(hdc, cursor, tr("Sea lanes", "航道网络"), text, ui_theme_color(UI_COLOR_TEXT_MUTED)); }
@@ -471,8 +471,8 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
     SelectObject(hdc, body_font);
     ui_section(hdc, &cursor, tr("Map Layers", "地图图层"));
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
-        const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political", "Routes"};
-        const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治", "航道潜力网"};
+        const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Political", "Geography", "Climate", "Regions", "Routes"};
+        const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"政治", "地理", "气候", "区域", "航道潜力网"};
         RECT button = get_mode_button_rect(client, i);
         fill_rect(hdc, button, MAP_DISPLAY_MODES[i] == display_mode ? RGB(87, 93, 78) : ui_theme_color(UI_COLOR_PANEL_SOFT));
         draw_text_rect(hdc, button, tr(names_en[i], names_zh[i]), ui_theme_color(UI_COLOR_TEXT),

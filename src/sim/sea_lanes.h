@@ -4,10 +4,11 @@
 #include "core/constants.h"
 #include "core/value_types.h"
 
-#define MAX_SEA_LANES 512
+#define MAX_SEA_LANES 1024
 #define MAX_SEA_LANE_POINTS 192
 #define MAX_SEA_LANE_MEMBERS 24
-#define SHALLOW_NETWORK_MAX_PORTS 5
+#define SHALLOW_NETWORK_MIN_PORTS 4
+#define SHALLOW_NETWORK_MAX_PORTS 7
 #define MAX_SHALLOW_CANDIDATE_EDGES 1024
 
 typedef enum {
@@ -79,6 +80,7 @@ int sea_lanes_city_status(int city_id);
 int sea_lanes_city_network(int city_id);
 int sea_lanes_connected(int city_a, int city_b, int *out_distance);
 int sea_lanes_network_connected(int city_a, int city_b);
+int sea_lanes_contact_kind(int civ_a, int civ_b);
 int sea_lanes_has_contact(int civ_a, int civ_b);
 int sea_lanes_trade_bonus(int civ_a, int civ_b);
 int sea_lanes_plague_contacts_from_city(int source_city, SeaLanePlagueContact *out, int max_contacts);

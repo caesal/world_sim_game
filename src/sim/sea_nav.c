@@ -25,6 +25,7 @@ static int nav_seen[SEA_NAV_MAX_CELLS];
 static int nav_closed[SEA_NAV_MAX_CELLS];
 static unsigned char nav_dir[SEA_NAV_MAX_CELLS];
 static HeapNode heap[SEA_NAV_MAX_CELLS];
+static MapPoint path_reverse[SEA_NAV_MAX_CELLS];
 static int heap_count;
 static int nav_stamp = 1;
 static int cached_revision = -1;
@@ -175,29 +176,112 @@ static int shore_penalty(int idx) {
     return 0;
 }
 
-static int reconstruct_path(int end_idx, MapPoint *out, int max_points) {
-    MapPoint reverse[MAX_MARITIME_ROUTE_POINTS * 4];
+static int append_simplified_point(MapPoint *out, int *count, int max_points, MapPoint point) {
+    if (*count > 0 && out[*count - 1].x == point.x && out[*count - 1].y == point.y) return 1;
+    if (*count >= max_points) return 0;
+    out[(*count)++] = point;
+    return 1;
+}
+
+static int compressed_segment_limit(SeaNavMode mode) {
+    return mode == SEA_NAV_SHALLOW_ANY || mode == SEA_NAV_SHALLOW_ONLY ? 5 : 10;
+}
+
+static int tile_span(MapPoint a, MapPoint b) {
+    return max(abs(a.x - b.x), abs(a.y - b.y));
+}
+
+static int direction_code(MapPoint a, MapPoint b) {
+    int dx = b.x - a.x;
+    int dy = b.y - a.y;
+    int sx = dx > 0 ? 1 : (dx < 0 ? -1 : 0);
+    int sy = dy > 0 ? 1 : (dy < 0 ? -1 : 0);
+    return (sx + 1) * 3 + (sy + 1);
+}
+
+static int point_depth_code(MapPoint p) {
+    return (int)world_water_depth_at(p.x, p.y);
+}
+
+static int path_point_is_key(const MapPoint *path, int i, int full_count) {
+    int prev_dir;
+    int next_dir;
+    if (i <= 0 || i >= full_count - 1) return 1;
+    prev_dir = direction_code(path[i - 1], path[i]);
+    next_dir = direction_code(path[i], path[i + 1]);
+    if (prev_dir != next_dir) return 1;
+    if (point_depth_code(path[i - 1]) != point_depth_code(path[i]) ||
+        point_depth_code(path[i]) != point_depth_code(path[i + 1])) return 1;
+    return 0;
+}
+
+static int compress_path(const MapPoint *path, int full_count, SeaNavMode mode, int shallow_region,
+                         MapPoint *out, int max_points, int *truncated) {
+    int count = 0;
+    int index = 0;
+    int max_segment = compressed_segment_limit(mode);
+    if (truncated) *truncated = 0;
+    if (full_count <= 1 || max_points <= 1) return 0;
+    if (!append_simplified_point(out, &count, max_points, path[0])) {
+        if (truncated) *truncated = 1;
+        return 0;
+    }
+    while (index < full_count - 1) {
+        int next = min(full_count - 1, index + max_segment);
+        int key;
+        for (key = index + 1; key < next; key++) {
+            if (path_point_is_key(path, key, full_count)) {
+                next = key;
+                break;
+            }
+        }
+        while (next > index + 1 && tile_span(path[index], path[next]) > max_segment) next--;
+        while (next > index + 1 && !sea_nav_segment_water_mode(path[index], path[next], mode, shallow_region)) next--;
+        if (next <= index) {
+            if (truncated) *truncated = 1;
+            return 0;
+        }
+        if (!append_simplified_point(out, &count, max_points, path[next])) {
+            if (truncated) *truncated = 1;
+            return 0;
+        }
+        index = next;
+    }
+    return count;
+}
+
+static int reconstruct_path(int end_idx, SeaNavMode mode, int shallow_region, MapPoint *out,
+                            int max_points, int *out_full_count, int *out_truncated) {
     int count = 0;
     int idx = end_idx;
     int i;
-    while (idx >= 0 && count < (int)(sizeof(reverse) / sizeof(reverse[0]))) {
-        reverse[count].x = idx % MAP_W;
-        reverse[count].y = idx / MAP_W;
+    if (out_truncated) *out_truncated = 0;
+    while (idx >= 0 && count < SEA_NAV_MAX_CELLS) {
+        path_reverse[count].x = idx % MAP_W;
+        path_reverse[count].y = idx / MAP_W;
         count++;
         idx = nav_prev[idx];
     }
     if (count <= 1) return 0;
-    for (i = 0; i < count && i < max_points; i++) out[i] = reverse[count - 1 - i];
-    return min(count, max_points);
+    if (out_full_count) *out_full_count = count;
+    for (i = 0; i < count / 2; i++) {
+        MapPoint tmp = path_reverse[i];
+        path_reverse[i] = path_reverse[count - 1 - i];
+        path_reverse[count - 1 - i] = tmp;
+    }
+    return compress_path(path_reverse, count, mode, shallow_region, out, max_points, out_truncated);
 }
 
-int sea_nav_find_path_mode(MapPoint start, MapPoint goal, SeaNavMode mode, int shallow_region, MapPoint *out, int max_points) {
+int sea_nav_find_path_mode_checked(MapPoint start, MapPoint goal, SeaNavMode mode, int shallow_region,
+                                   MapPoint *out, int max_points, int *out_full_count, int *out_truncated) {
     static const int dirs[8][2] = {{1,0},{1,1},{0,1},{-1,1},{-1,0},{-1,-1},{0,-1},{1,-1}};
     int start_idx;
     int goal_idx;
     int visited = 0;
 
     ensure_nav_field();
+    if (out_full_count) *out_full_count = 0;
+    if (out_truncated) *out_truncated = 0;
     if (!out || max_points <= 1 || !in_bounds(start.x, start.y) || !in_bounds(goal.x, goal.y)) return 0;
     start_idx = idx_xy(start.x, start.y);
     goal_idx = idx_xy(goal.x, goal.y);
@@ -219,7 +303,7 @@ int sea_nav_find_path_mode(MapPoint start, MapPoint goal, SeaNavMode mode, int s
         visited++;
         if (current == goal_idx) {
             profiler_add_maritime_path_search(visited);
-            return reconstruct_path(goal_idx, out, max_points);
+            return reconstruct_path(goal_idx, mode, shallow_region, out, max_points, out_full_count, out_truncated);
         }
         for (d = 0; d < 8; d++) {
             int nx = cx + dirs[d][0], ny = cy + dirs[d][1];
@@ -244,6 +328,13 @@ int sea_nav_find_path_mode(MapPoint start, MapPoint goal, SeaNavMode mode, int s
     }
     profiler_add_maritime_path_search(visited);
     return 0;
+}
+
+int sea_nav_find_path_mode(MapPoint start, MapPoint goal, SeaNavMode mode, int shallow_region, MapPoint *out, int max_points) {
+    int full_count = 0;
+    int truncated = 0;
+    return sea_nav_find_path_mode_checked(start, goal, mode, shallow_region, out, max_points,
+                                          &full_count, &truncated);
 }
 
 int sea_nav_find_path(MapPoint start, MapPoint goal, MapPoint *out, int max_points) {

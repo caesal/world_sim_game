@@ -1,13 +1,14 @@
 ﻿#include "render_panel_internal.h"
 
+#include "data/province_names.h"
 #include "sim/plague.h"
 #include "sim/regions.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
 void draw_mode_buttons(HDC hdc, RECT client) {
-    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"All", "Climate", "Geography", "Regions", "Political", "Routes"};
-    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"全部", "气候", "地理", "区域", "政治", "航道潜力网"};
+    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Political", "Geography", "Climate", "Regions", "Routes"};
+    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"政治", "地理", "气候", "区域", "航道潜力网"};
     int i;
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);
@@ -255,8 +256,8 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         int province_population = 0;
 
         if (region_id < 0 && natural_region) {
-            snprintf(natural_region_name, sizeof(natural_region_name), "%s %d",
-                     tr("Natural Region", "自然区域"), natural_region->id + 1);
+            snprintf(natural_region_name, sizeof(natural_region_name), "%.79s",
+                     province_display_name(natural_region_id, ui_language));
             province_name = natural_region_name;
             metric_food = natural_region->average_stats.food;
             metric_livestock = natural_region->average_stats.livestock;

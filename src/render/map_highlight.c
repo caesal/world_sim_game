@@ -4,6 +4,7 @@
 #include "core/game_state.h"
 #include "render/render_map_internal.h"
 #include "sim/vassal.h"
+#include "sim/war.h"
 
 static int highlight_civ(void) {
     if (map_highlight_civ >= 0 && map_highlight_civ < civ_count) return map_highlight_civ;
@@ -48,6 +49,15 @@ static COLORREF civ_highlight_color(int civ_id, int strong) {
 
 static COLORREF civ_shadow_color(int civ_id) {
     return mix_color(civ_color(civ_id), RGB(24, 22, 18), 68);
+}
+
+static COLORREF relation_border_color(int civ_id, int strong) {
+    COLORREF own = civ_highlight_color(civ_id, strong);
+    if (selected_civ < 0 || selected_civ >= civ_count || civ_id == selected_civ) return own;
+    if (war_active_between(selected_civ, civ_id)) return RGB(214, 70, 58);
+    if (vassal_is_direct(selected_civ, civ_id)) return RGB(232, 200, 86);
+    if (vassal_overlord(selected_civ) == civ_id) return RGB(176, 112, 218);
+    return own;
 }
 
 static void draw_focus_ring(HDC hdc, MapLayout layout, int civ_id, int strong, int pulse_start) {
@@ -122,8 +132,8 @@ static void draw_country_highlight_one(HDC hdc, RECT client, MapLayout layout,
     HPEN outer_pen;
     HPEN inner_pen;
     COLORREF fill = civ_highlight_color(civ_id, strong);
-    COLORREF inner = civ_highlight_color(civ_id, strong);
-    COLORREF outer = civ_shadow_color(civ_id);
+    COLORREF inner = relation_border_color(civ_id, strong);
+    COLORREF outer = mix_color(inner, RGB(18, 16, 14), 72);
 
     if (civ_id < 0) return;
     if (!visible_tile_bounds(client, layout, &min_x, &max_x, &min_y, &max_y)) return;
@@ -165,44 +175,11 @@ static void dim_other_countries(HDC hdc, RECT client, MapLayout layout, int prim
     }
 }
 
-static POINT focus_screen_point(MapLayout layout, int civ_id, int *ok) {
-    int x;
-    int y;
-    POINT p = {0, 0};
-    *ok = country_focus_point(civ_id, &x, &y);
-    if (!*ok) return p;
-    p.x = layout.map_x + (x * 2 + 1) * layout.draw_w / (MAP_W * 2);
-    p.y = layout.map_y + (y * 2 + 1) * layout.draw_h / (MAP_H * 2);
-    return p;
-}
-
-static void draw_relation_line(HDC hdc, MapLayout layout, int from_civ, int to_civ, COLORREF color, int strong) {
-    int ok_a;
-    int ok_b;
-    POINT a = focus_screen_point(layout, from_civ, &ok_a);
-    POINT b = focus_screen_point(layout, to_civ, &ok_b);
-    HPEN pen;
-    HGDIOBJ old_pen;
-    int mx;
-    int my;
-    if (!ok_a || !ok_b) return;
-    pen = CreatePen(strong ? PS_SOLID : PS_DOT, strong ? 3 : 2, color);
-    old_pen = SelectObject(hdc, pen);
-    MoveToEx(hdc, a.x, a.y, NULL);
-    LineTo(hdc, b.x, b.y);
-    mx = (a.x + b.x) / 2;
-    my = (a.y + b.y) / 2;
-    Ellipse(hdc, mx - 4, my - 4, mx + 4, my + 4);
-    SelectObject(hdc, old_pen);
-    DeleteObject(pen);
-}
-
 static void draw_vassal_relation_highlights(HDC hdc, RECT client, MapLayout layout) {
     int ids[MAX_CIVS];
     int count;
     int i;
     int overlord;
-    COLORREF tribute = RGB(226, 196, 104);
     if (selected_civ < 0 || selected_civ >= civ_count) return;
     overlord = vassal_overlord(selected_civ);
     if (overlord >= 0) {
@@ -211,13 +188,19 @@ static void draw_vassal_relation_highlights(HDC hdc, RECT client, MapLayout layo
         for (i = 0; i < count; i++) {
             if (ids[i] != selected_civ) draw_country_highlight_one(hdc, client, layout, ids[i], 0, 0);
         }
-        draw_relation_line(hdc, layout, selected_civ, overlord, tribute, 1);
         return;
     }
     count = vassal_collect_direct(selected_civ, ids, MAX_CIVS);
     for (i = 0; i < count; i++) {
         draw_country_highlight_one(hdc, client, layout, ids[i], 0, 0);
-        draw_relation_line(hdc, layout, ids[i], selected_civ, tribute, 0);
+    }
+}
+
+static void draw_war_relation_highlights(HDC hdc, RECT client, MapLayout layout) {
+    if (selected_civ < 0 || selected_civ >= civ_count) return;
+    for (int i = 0; i < civ_count; i++) {
+        if (i == selected_civ || !civs[i].alive) continue;
+        if (war_active_between(selected_civ, i)) draw_country_highlight_one(hdc, client, layout, i, 0, 0);
     }
 }
 
@@ -231,6 +214,7 @@ void draw_country_highlight(HDC hdc, RECT client, MapLayout layout) {
         draw_country_highlight_one(hdc, client, layout, secondary, 0, selected_civ_pulse_start_ms);
     }
     draw_vassal_relation_highlights(hdc, client, layout);
+    draw_war_relation_highlights(hdc, client, layout);
     draw_country_highlight_one(hdc, client, layout, primary,
                                primary == map_highlight_civ || map_highlight_civ < 0,
                                primary == map_highlight_civ ? map_highlight_pulse_start_ms : selected_civ_pulse_start_ms);
