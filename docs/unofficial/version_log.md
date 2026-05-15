@@ -1,5 +1,22 @@
 # Version Log
 
+## Ver0.2.6.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.6.a
+2. Added Ver0.2.6.a official documentation and change-summary documents under `docs/official`
+3. Added a Ver0.2.6.a side doc under `docs/unofficial`
+4. Strengthened AGENTS release/verification rules to reduce missed version, docs, tag, and push steps
+5. Added snapshot-backed country/UI read helpers and country card support already present in this patch workspace
+6. Added natural-region validation/config helpers for size distribution and shape diagnostics
+7. Added a dedicated hydrology dirty flag and render revision
+8. Moved river rendering out of the border cache into a dedicated map-space hydrology cache
+9. Added render-side river geometry smoothing and diagnostics without changing river gameplay data
+10. Added hierarchy-aware, terrain-aware, multi-pass river rendering with subtle mouth caps
+11. Added Debug hydrology rows for river counts, lengths, confluences, invalid uphill segments, dead ends, short rivers, and cache rebuild timing
+12. Verified `git diff --check` and `make` for Ver0.2.6.a
+
 ## Ver0.2.6
 
 Implemented fixes:

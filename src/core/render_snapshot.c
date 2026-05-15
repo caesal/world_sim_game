@@ -3,11 +3,16 @@
 #include "core/dirty_flags.h"
 #include "core/state_lock.h"
 #include "data/province_names.h"
+#include "sim/collapse.h"
+#include "sim/decision_snapshot.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
+#include "sim/population.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/technology.h"
 #include "sim/vassal.h"
+#include "sim/war.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -52,8 +57,12 @@ static void copy_tiles(RenderSnapshot *snapshot) {
             Tile *src = &world[y][x];
             dst->geography = (unsigned char)src->geography;
             dst->climate = (unsigned char)src->climate;
+            dst->ecology = (unsigned char)src->ecology;
+            dst->resource = (unsigned char)src->resource;
             dst->river = (unsigned char)src->river;
             dst->elevation = (unsigned char)clamp(src->elevation, 0, 255);
+            dst->moisture = (short)src->moisture;
+            dst->temperature = (short)src->temperature;
             dst->owner = (short)src->owner;
             dst->region_id = (short)src->region_id;
             dst->province_id = (short)src->province_id;
@@ -74,13 +83,77 @@ static void copy_civs(RenderSnapshot *snapshot) {
         dst->symbol = src->symbol;
         dst->population = src->population;
         dst->army = src->military;
+        dst->current_soldiers = war_current_soldiers_for_civ(i);
+        dst->aggression = src->aggression;
+        dst->expansion = src->expansion;
+        dst->defense = src->defense;
+        dst->culture = src->culture;
+        dst->governance = src->governance;
+        dst->cohesion = src->cohesion;
+        dst->production = src->production;
+        dst->military = src->military;
+        dst->commerce = src->commerce;
+        dst->logistics = src->logistics;
+        dst->innovation = src->innovation;
+        dst->adaptation = src->adaptation;
         dst->tech_stage = src->tech_stage;
         dst->tech_progress = src->tech_progress;
+        dst->tech_stage_progress_percent = technology_stage_progress_percent(i);
+        dst->tech_months_to_next = technology_months_to_next(i);
+        dst->tech_required_months = technology_required_months_for_civ(i);
+        dst->tech_expansion_percent = technology_expansion_percent(i);
+        dst->tech_resource_percent = technology_resource_percent(i);
+        dst->tech_progress_percent = technology_progress_percent(i);
         dst->disorder = src->disorder;
+        dst->disorder_resource = src->disorder_resource;
+        dst->disorder_plague = src->disorder_plague;
+        dst->disorder_migration = src->disorder_migration;
+        dst->disorder_stability = src->disorder_stability;
+        dst->disorder_last_pressure = src->disorder_last_pressure;
+        dst->disorder_last_recovery = src->disorder_last_recovery;
+        dst->disorder_last_net = src->disorder_last_net;
+        dst->disorder_last_pressure_x10 = src->disorder_last_pressure_x10;
+        dst->disorder_last_recovery_x10 = src->disorder_last_recovery_x10;
+        dst->disorder_last_net_x10 = src->disorder_last_net_x10;
+        dst->disorder_last_base_recovery_x10 = src->disorder_last_base_recovery_x10;
+        dst->disorder_last_governance_recovery_x10 = src->disorder_last_governance_recovery_x10;
+        dst->disorder_last_cohesion_recovery_x10 = src->disorder_last_cohesion_recovery_x10;
+        dst->disorder_last_peace_recovery_x10 = src->disorder_last_peace_recovery_x10;
+        dst->disorder_last_condition_recovery_x10 = src->disorder_last_condition_recovery_x10;
+        dst->disorder_last_plague_decay = src->disorder_last_plague_decay;
+        dst->disorder_last_war_decay = src->disorder_last_war_decay;
+        dst->disorder_last_migration_decay = src->disorder_last_migration_decay;
+        dst->collapse_grace_months = src->collapse_grace_months;
+        dst->plague_random_immunity_months = src->plague_random_immunity_months;
+        dst->plague_active_count = plague_civ_active_count(i);
+        dst->plague_months_left = plague_civ_months_left(i);
+        dst->plague_peak_severity = plague_civ_peak_severity(i);
+        dst->plague_deaths_total = plague_civ_deaths_total(i);
+        dst->war_active = war_active_for_civ(i);
+        dst->war_deployed_soldiers = war_deployed_soldiers_for_civ(i);
+        dst->war_available_reserve = war_available_reserve_for_civ(i);
+        dst->war_front_count = war_front_count_for_civ(i);
+        dst->vassal_governance_disorder = vassal_governance_disorder(i);
+        dst->collapse_can_trigger = collapse_can_trigger(i);
+        dst->collapse_block_reason = collapse_block_reason(i);
         dst->capital_city = src->capital_city;
         dst->overlord = vassal_overlord(i);
         dst->vassal_count = vassal_direct_count(i);
         dst->name_id = src->name_id;
+        dst->summary = summarize_country(i);
+        dst->population_summary = population_country_summary(i);
+        {
+            DecisionSnapshot decision;
+            decision_snapshot_for_civ(i, &decision);
+            dst->decision_expansion_weight = decision.expansion_weight;
+            dst->decision_war_weight = decision.war_weight;
+            dst->decision_stability_weight = decision.stability_weight;
+            dst->decision_next_expansion_months = decision.next_expansion_months;
+            snprintf(dst->main_intent, sizeof(dst->main_intent), "%s",
+                     decision.main_intent ? decision.main_intent : "");
+            snprintf(dst->decision_expansion_reason, sizeof(dst->decision_expansion_reason),
+                     "%s", decision.expansion_reason ? decision.expansion_reason : "");
+        }
         snprintf(dst->name_en, sizeof(dst->name_en), "%s",
                  civilization_display_name_for_language(i, 0));
         snprintf(dst->name_zh, sizeof(dst->name_zh), "%s",
@@ -104,6 +177,13 @@ static void copy_cities(RenderSnapshot *snapshot) {
         dst->port = src->port;
         dst->port_x = src->port_x;
         dst->port_y = src->port_y;
+        dst->port_region = src->port_region;
+        dst->plague_active = plague_city_active(i);
+        dst->plague_severity = plague_city_severity(i);
+        dst->plague_months_left = plague_city_months_left(i);
+        dst->plague_deaths_total = plague_city_deaths_total(i);
+        dst->region_summary = summarize_city_region(i);
+        dst->population_summary = population_city_summary(i);
         snprintf(dst->name, sizeof(dst->name), "%s", src->name);
     }
 }
@@ -120,6 +200,18 @@ static void copy_regions(RenderSnapshot *snapshot) {
         dst->center_y = src->center_y;
         dst->tile_count = src->tile_count;
         dst->city_id = src->city_id;
+        dst->capital_x = src->capital_x;
+        dst->capital_y = src->capital_y;
+        dst->port_x = src->port_x;
+        dst->port_y = src->port_y;
+        dst->has_port_site = src->has_port_site;
+        dst->development_score = src->development_score;
+        dst->natural_defense = src->natural_defense;
+        dst->cradle_score = src->cradle_score;
+        dst->dominant_geography = src->dominant_geography;
+        dst->dominant_climate = src->dominant_climate;
+        dst->dominant_ecology = src->dominant_ecology;
+        dst->average_stats = src->average_stats;
         dst->name_id = src->name_id;
         snprintf(dst->name_en, sizeof(dst->name_en), "%s", province_display_name(i, 0));
         snprintf(dst->name_zh, sizeof(dst->name_zh), "%s", province_display_name(i, 1));

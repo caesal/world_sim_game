@@ -1,8 +1,6 @@
 ﻿#include "render_panel_internal.h"
 
-#include "data/province_names.h"
-#include "sim/plague.h"
-#include "sim/regions.h"
+#include "render/snapshot_ui.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -42,16 +40,11 @@ void draw_top_bar(HDC hdc, RECT client) {
 
 int selected_tile_owner(void) {
     if (selected_x < 0 || selected_y < 0) return -1;
-    return world[selected_y][selected_x].owner;
+    return snapshot_ui_tile_owner(selected_x, selected_y);
 }
 
 const char *capital_name_for_civ(int civ_id) {
-    int city_id;
-
-    if (civ_id < 0 || civ_id >= civ_count) return tr("None", "无");
-    city_id = civs[civ_id].capital_city;
-    if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) return tr("None", "无");
-    return cities[city_id].name;
+    return snapshot_ui_capital_name(civ_id);
 }
 
 void draw_panel_tabs(HDC hdc, RECT client) {
@@ -132,13 +125,15 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
     int quad_w = (inner_w - 24) / 4;
     int metric_h = 30;
     const char *tooltip_text = NULL;
+    const SnapshotCiv *civ = NULL;
 
-    if (owner >= 0 && owner < civ_count) civ_id = owner;
-    if (civ_id >= 0 && civ_id < civ_count) {
+    if (snapshot_ui_civ_visible(owner, 0)) civ_id = owner;
+    civ = snapshot_ui_civ(civ_id);
+    if (civ && civ->alive) {
         RECT swatch = {x, y + 3, x + 18, y + 21};
-        CountrySummary country = summarize_country(civ_id);
-        fill_rect(hdc, swatch, civs[civ_id].color);
-        snprintf(text, sizeof(text), "%c  %.63s", civs[civ_id].symbol, civilization_display_name(civ_id));
+        CountrySummary country = civ->summary;
+        fill_rect(hdc, swatch, civ->color);
+        snprintf(text, sizeof(text), "%c  %.63s", civ->symbol, snapshot_ui_civ_name(civ_id));
         SelectObject(hdc, title_font);
         draw_text_line(hdc, x + 28, y, text, RGB(245, 245, 245));
         y += 22;
@@ -155,26 +150,26 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
             draw_metric_box(hdc, m, ICON_CITY_CAPITAL, metric_label("CITY", "城市"), country.cities, RGB(154, 128, 74), tr("Total cities", "国家城市数量"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_metric_box(hdc, m, ICON_DISORDER, metric_label("DIS", "混乱"), civs[civ_id].disorder, RGB(170, 73, 73), tr("Total disorder", "总混乱度"), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_DISORDER, metric_label("DIS", "混乱"), civ->disorder, RGB(170, 73, 73), tr("Total disorder", "总混乱度"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 4);
-            draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("GOV", "治理"), civs[civ_id].governance, RGB(82, 114, 153), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_GOVERNANCE].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("GOV", "治理"), civ->governance, RGB(82, 114, 153), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_GOVERNANCE].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 5);
-            draw_metric_box(hdc, m, ICON_CULTURE, metric_label("COH", "凝聚"), civs[civ_id].cohesion, RGB(147, 105, 167), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COHESION].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_CULTURE, metric_label("COH", "凝聚"), civ->cohesion, RGB(147, 105, 167), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COHESION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 6);
-            draw_metric_box(hdc, m, ICON_PRODUCTION, metric_label("PROD", "生产"), civs[civ_id].production, RGB(67, 128, 76), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_PRODUCTION].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_PRODUCTION, metric_label("PROD", "生产"), civ->production, RGB(67, 128, 76), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_PRODUCTION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 7);
-            draw_metric_box(hdc, m, ICON_BATTLE, metric_label("MIL", "军备"), civs[civ_id].military, RGB(158, 74, 62), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_MILITARY].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_BATTLE, metric_label("MIL", "军备"), civ->military, RGB(158, 74, 62), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_MILITARY].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 8);
-            draw_metric_box(hdc, m, ICON_ECONOMY, metric_label("COM", "贸易"), civs[civ_id].commerce, RGB(169, 134, 54), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COMMERCE].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_ECONOMY, metric_label("COM", "贸易"), civ->commerce, RGB(169, 134, 54), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COMMERCE].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 9);
-            draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LOG", "后勤"), civs[civ_id].logistics, RGB(82, 133, 87), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_LOGISTICS].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LOG", "后勤"), civ->logistics, RGB(82, 133, 87), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_LOGISTICS].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 10);
-            draw_metric_box(hdc, m, ICON_INNOVATION, metric_label("INN", "技术"), civs[civ_id].innovation, RGB(102, 128, 180), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_INNOVATION].ability, ui_language), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_INNOVATION, metric_label("INN", "技术"), civ->innovation, RGB(102, 128, 180), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_INNOVATION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 11);
-            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("ADP", "适应"), civs[civ_id].adaptation, RGB(116, 145, 94), tr("Dynamic adaptation from environment, resources, culture, and disorder", "由环境、资源、文化和混乱度动态决定的适应力"), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("ADP", "适应"), civ->adaptation, RGB(116, 145, 94), tr("Dynamic adaptation from environment, resources, culture, and disorder", "由环境、资源、文化和混乱度动态决定的适应力"), &tooltip_text);
             y += 3 * (metric_h + 6) + 4;
         }
-        y = draw_population_pyramid(hdc, client, x, y, inner_w, civ_id, body_font);
+        y = draw_population_pyramid_summary(hdc, client, x, y, inner_w, civ->population_summary, body_font);
         draw_text_line(hdc, x, y, tr("Country Resources", "国家资源"), RGB(205, 214, 222));
         y += 22;
         {
@@ -200,27 +195,27 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         y += 22;
         {
             RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("RES", "资源"), civs[civ_id].disorder_resource, RGB(170, 73, 73), tr("Resource pressure disorder", "资源压力混乱"), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("RES", "资源"), civ->disorder_resource, RGB(170, 73, 73), tr("Resource pressure disorder", "资源压力混乱"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-            draw_metric_box(hdc, m, ICON_DISORDER, metric_label("PLG", "瘟疫"), civs[civ_id].disorder_plague, RGB(170, 73, 73), tr("Plague disorder", "瘟疫混乱"), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_DISORDER, metric_label("PLG", "瘟疫"), civ->disorder_plague, RGB(170, 73, 73), tr("Plague disorder", "瘟疫混乱"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-            draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("MIG", "迁徙"), civs[civ_id].disorder_migration, RGB(170, 73, 73), tr("Migration disorder", "迁徙混乱"), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("MIG", "迁徙"), civ->disorder_migration, RGB(170, 73, 73), tr("Migration disorder", "迁徙混乱"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("STAB", "稳定"), civs[civ_id].disorder_stability, RGB(82, 114, 153), tr("Stability pressure reduction", "稳定因素"), &tooltip_text);
+            draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("STAB", "稳定"), civ->disorder_stability, RGB(82, 114, 153), tr("Stability pressure reduction", "稳定因素"), &tooltip_text);
             y += metric_h + 18;
         }
-        if (plague_civ_active_count(civ_id) > 0) {
+        if (civ->plague_active_count > 0) {
             draw_text_line(hdc, x, y, tr("Plague Status", "瘟疫状态"), RGB(205, 214, 222));
             y += 22;
             {
                 RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("ACT", "感染"), plague_civ_active_count(civ_id), RGB(35, 115, 72), tr("Active plague cities", "正在感染的城市"), &tooltip_text);
+                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("ACT", "感染"), civ->plague_active_count, RGB(35, 115, 72), tr("Active plague cities", "正在感染的城市"), &tooltip_text);
                 m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("SEV", "烈度"), plague_civ_peak_severity(civ_id), RGB(22, 96, 62), tr("Peak plague severity", "最高瘟疫烈度"), &tooltip_text);
+                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("SEV", "烈度"), civ->plague_peak_severity, RGB(22, 96, 62), tr("Peak plague severity", "最高瘟疫烈度"), &tooltip_text);
                 m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-                draw_metric_box(hdc, m, ICON_POPULATION, metric_label("DEAD", "死亡"), plague_civ_deaths_total(civ_id), RGB(76, 92, 78), tr("Total plague deaths", "瘟疫累计死亡"), &tooltip_text);
+                draw_metric_box(hdc, m, ICON_POPULATION, metric_label("DEAD", "死亡"), civ->plague_deaths_total, RGB(76, 92, 78), tr("Total plague deaths", "瘟疫累计死亡"), &tooltip_text);
                 m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-                draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LEFT", "剩余"), plague_civ_months_left(civ_id), RGB(56, 128, 78), tr("Longest months remaining", "最长剩余月份"), &tooltip_text);
+                draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LEFT", "剩余"), civ->plague_months_left, RGB(56, 128, 78), tr("Longest months remaining", "最长剩余月份"), &tooltip_text);
                 y += metric_h + 18;
             }
         }
@@ -234,13 +229,16 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
     }
 
     if (selected_x >= 0 && selected_y >= 0) {
-        TerrainStats stats = tile_stats(selected_x, selected_y);
-        int city_id = city_at(selected_x, selected_y);
-        int region_id = city_for_tile(selected_x, selected_y);
-        int natural_region_id = world[selected_y][selected_x].region_id;
-        const NaturalRegion *natural_region = regions_get(natural_region_id);
+        const SnapshotTile *tile = snapshot_ui_tile(selected_x, selected_y);
+        int city_id = snapshot_ui_city_at(selected_x, selected_y);
+        int region_id = snapshot_ui_region_city_for_tile(selected_x, selected_y);
+        int natural_region_id = tile ? tile->region_id : -1;
+        const SnapshotRegion *natural_region = snapshot_ui_region(natural_region_id);
+        const SnapshotCity *region_city = snapshot_ui_city(region_id);
+        const SnapshotCity *selected_city = snapshot_ui_city(city_id);
         char natural_region_name[80];
-        const char *province_name = region_id >= 0 ? cities[region_id].name : tr("Unorganized Land", "未设行省");
+        const char *province_name = region_city ? region_city->name : tr("Unorganized Land", "未设行省");
+        TerrainStats stats = natural_region ? natural_region->average_stats : (TerrainStats){0};
         int metric_food = stats.food;
         int metric_livestock = stats.livestock;
         int metric_wood = stats.wood;
@@ -257,7 +255,7 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
 
         if (region_id < 0 && natural_region) {
             snprintf(natural_region_name, sizeof(natural_region_name), "%.79s",
-                     province_display_name(natural_region_id, ui_language));
+                     snapshot_ui_region_name(natural_region_id));
             province_name = natural_region_name;
             metric_food = natural_region->average_stats.food;
             metric_livestock = natural_region->average_stats.livestock;
@@ -267,13 +265,13 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             metric_water = natural_region->average_stats.water;
             metric_pop = natural_region->average_stats.pop_capacity;
             metric_money = natural_region->average_stats.money;
-            metric_live = natural_region->habitability;
+            metric_live = natural_region->average_stats.habitability;
             metric_attack = natural_region->average_stats.attack;
             metric_defense = natural_region->average_stats.defense;
             province_tiles = natural_region->tile_count;
         }
-        if (region_id >= 0) {
-            RegionSummary summary = summarize_city_region(region_id);
+        if (region_city) {
+            RegionSummary summary = region_city->region_summary;
             metric_food = summary.food;
             metric_livestock = summary.livestock;
             metric_wood = summary.wood;
@@ -296,27 +294,27 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         snprintf(text, sizeof(text), "%s: %d, %d", tr("Tile", "地块"), selected_x, selected_y);
         draw_text_line(hdc, x, y, text, RGB(220, 225, 230)); y += 20;
         snprintf(text, sizeof(text), "%s: %s%s", tr("Geography", "地理"),
-                 geography_name(world[selected_y][selected_x].geography),
-                 world[selected_y][selected_x].river ? tr(" + River", " + 河流") : "");
+                 tile ? geography_name((Geography)tile->geography) : tr("Unknown", "未知"),
+                 tile && tile->river ? tr(" + River", " + 河流") : "");
         draw_icon_text_line(hdc, x, y, ICON_GEOGRAPHY, text, RGB(220, 225, 230)); y += 22;
-        snprintf(text, sizeof(text), "%s: %s", tr("Climate", "气候"), climate_name(world[selected_y][selected_x].climate));
+        snprintf(text, sizeof(text), "%s: %s", tr("Climate", "气候"), tile ? climate_name((Climate)tile->climate) : tr("Unknown", "未知"));
         draw_icon_text_line(hdc, x, y, ICON_CLIMATE, text, RGB(220, 225, 230)); y += 22;
-        snprintf(text, sizeof(text), "%s: %s", tr("Ecology", "生态"), ecology_name(world[selected_y][selected_x].ecology));
+        snprintf(text, sizeof(text), "%s: %s", tr("Ecology", "生态"), tile ? ecology_name((Ecology)tile->ecology) : tr("Unknown", "未知"));
         draw_text_line(hdc, x + 26, y, text, RGB(220, 225, 230)); y += 20;
-        snprintf(text, sizeof(text), "%s: %s", tr("Resource", "资源点"), resource_name(world[selected_y][selected_x].resource));
+        snprintf(text, sizeof(text), "%s: %s", tr("Resource", "资源点"), tile ? resource_name((ResourceFeature)tile->resource) : tr("Unknown", "未知"));
         draw_text_line(hdc, x + 26, y, text, RGB(220, 225, 230)); y += 20;
         snprintf(text, sizeof(text), "%s %d  %s %d  %s %d",
                  tr("Elev", "海拔"),
-                 world[selected_y][selected_x].elevation,
+                 tile ? tile->elevation : 0,
                  tr("Moist", "湿度"),
-                 world[selected_y][selected_x].moisture,
+                 tile ? tile->moisture : 0,
                  tr("Temp", "温度"),
-                 world[selected_y][selected_x].temperature);
+                 tile ? tile->temperature : 0);
         draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 20;
-        if (region_id >= 0) {
-            if (cities[region_id].owner >= 0 && cities[region_id].owner < civ_count) {
+        if (region_city) {
+            if (snapshot_ui_civ_visible(region_city->owner, 0)) {
                 snprintf(text, sizeof(text), "%s: %s", tr("Country", "国家"),
-                         civilization_display_name(cities[region_id].owner));
+                         snapshot_ui_civ_name(region_city->owner));
                 draw_text_line(hdc, x, y, text, RGB(180, 190, 198)); y += 20;
             }
             snprintf(text, sizeof(text), "%s %d  %s %d", tr("Tiles", "地块"), province_tiles, tr("Pop", "人口"), province_population);
@@ -370,10 +368,10 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         }
         draw_text_line(hdc, x, y, text, RGB(145, 158, 168));
         y += 18;
-        if (city_id >= 0) {
-            snprintf(text, sizeof(text), "%s: %s%s  %s %d", tr("City", "城市"), cities[city_id].name,
-                     cities[city_id].port ? tr(" Port", " 港口") : "",
-                     tr("Pop", "人口"), cities[city_id].population);
+        if (selected_city) {
+            snprintf(text, sizeof(text), "%s: %s%s  %s %d", tr("City", "城市"), selected_city->name,
+                     selected_city->port ? tr(" Port", " 港口") : "",
+                     tr("Pop", "人口"), selected_city->population);
             draw_text_line(hdc, x, y, text, RGB(220, 225, 230)); y += 20;
         }
     } else {
@@ -390,25 +388,28 @@ void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font
     int y = TOP_BAR_H + 58;
     int i;
     char text[512];
+    const RenderSnapshot *snapshot = snapshot_ui_current();
 
     SelectObject(hdc, title_font);
     draw_text_line(hdc, x, y, tr("Civilizations", "文明"), RGB(245, 245, 245));
     y += 30;
     SelectObject(hdc, body_font);
-    for (i = 0; i < civ_count && y < client.bottom - 500; i++) {
+    for (i = 0; snapshot && i < snapshot->civ_count && y < client.bottom - 500; i++) {
+        const SnapshotCiv *civ = &snapshot->civs[i];
+        if (!civ->alive) continue;
         RECT swatch = {x, y + 3, x + 15, y + 18};
-        fill_rect(hdc, swatch, civs[i].color);
-        snprintf(text, sizeof(text), "%c  %.63s", civs[i].symbol, civilization_display_name(i));
+        fill_rect(hdc, swatch, civ->color);
+        snprintf(text, sizeof(text), "%c  %.63s", civ->symbol, snapshot_ui_civ_name(i));
         draw_text_line(hdc, x + 24, y, text, i == selected_civ ? RGB(255, 238, 150) : RGB(238, 238, 238));
         y += 19;
         if (ui_language == UI_LANG_ZH) {
             snprintf(text, sizeof(text), "人口 %d 土地 %d 治理%d 凝聚%d 生产%d 军备%d",
-                     civs[i].population, civs[i].territory, civs[i].governance,
-                     civs[i].cohesion, civs[i].production, civs[i].military);
+                     civ->summary.population, civ->summary.territory, civ->governance,
+                     civ->cohesion, civ->production, civ->military);
         } else {
             snprintf(text, sizeof(text), "Pop %d Land %d GOV%d COH%d PROD%d MIL%d",
-                     civs[i].population, civs[i].territory, civs[i].governance,
-                     civs[i].cohesion, civs[i].production, civs[i].military);
+                     civ->summary.population, civ->summary.territory, civ->governance,
+                     civ->cohesion, civ->production, civ->military);
         }
         draw_text_line(hdc, x + 24, y, text, RGB(175, 186, 196));
         y += 25;

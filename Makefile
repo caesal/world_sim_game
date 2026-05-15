@@ -55,7 +55,9 @@ SOURCES := \
 	src/sim/province.c \
 	src/sim/province_partition.c \
 	src/sim/region_boundary.c \
+	src/sim/regions_config.c \
 	src/sim/regions.c \
+	src/sim/regions_validate.c \
 	src/sim/regions_shape.c \
 	src/sim/regions_spawn.c \
 	src/sim/spawn.c \
@@ -68,6 +70,7 @@ SOURCES := \
 	src/sim/war_resolution.c \
 	src/render/render.c \
 	src/render/render_context.c \
+	src/render/snapshot_ui.c \
 	src/render/render_common.c \
 	src/render/ui_format.c \
 	src/render/cartography_layers.c \
@@ -81,12 +84,15 @@ SOURCES := \
 	src/render/region_render.c \
 	src/render/map_labels.c \
 	src/render/route_render.c \
+	src/render/river_geometry.c \
+	src/render/river_render.c \
 	src/render/sea_lane_render.c \
 	src/render/plague_render.c \
 	src/render/plague_visual.c \
 	src/render/pause_menu_render.c \
 	src/render/panel_country.c \
 	src/render/panel_country_actions.c \
+	src/render/panel_country_cards.c \
 	src/render/panel_country_events.c \
 	src/render/panel_country_detail.c \
 	src/render/panel_country_tech.c \
@@ -116,6 +122,7 @@ SOURCES := \
 	src/ui/ui_sliders.c \
 	src/ui/ui_forms.c \
 	src/ui/ui_selection.c \
+	src/ui/ui_snapshot_read.c \
 	src/ui/ui.c
 
 .PHONY: all clean

@@ -1,13 +1,11 @@
 #include "render/panel_country_resources.h"
 
-#include "data/province_names.h"
+#include "render/snapshot_ui.h"
 #include "render_panel_internal.h"
 #include "sim/disorder.h"
-#include "sim/expansion.h"
-#include "sim/population.h"
-#include "sim/regions.h"
-#include "sim/technology.h"
 #include "ui/ui_widgets.h"
+
+#include <stdio.h>
 
 static void metric3(HDC hdc, UiCursor *cursor, int a, int b, int c,
                     IconId ia, IconId ib, IconId ic,
@@ -42,6 +40,11 @@ static int stat_value(CountrySummary s, int index) {
     }
 }
 
+static int expansion_resource_score_snapshot(CountrySummary s) {
+    return (s.food + s.livestock + s.wood + s.stone + s.minerals +
+            s.water + s.pop_capacity + s.money + s.habitability) / 2;
+}
+
 static void country_shortage_surplus(CountrySummary s, const char **shortage, const char **surplus) {
     int min_i = 0;
     int max_i = 0;
@@ -55,17 +58,18 @@ static void country_shortage_surplus(CountrySummary s, const char **shortage, co
 }
 
 static TerrainStats selected_stats(int *tiles, int *population, const char **name) {
-    static char region_name[80];
-    int city_id = city_for_tile(selected_x, selected_y);
-    int natural_id = world[selected_y][selected_x].region_id;
-    const NaturalRegion *region = regions_get(natural_id);
-    TerrainStats stats = tile_stats(selected_x, selected_y);
+    static char region_name[96];
+    const SnapshotTile *tile = snapshot_ui_tile(selected_x, selected_y);
+    const SnapshotRegion *region = tile ? snapshot_ui_region(tile->region_id) : NULL;
+    int city_id = snapshot_ui_city_at(selected_x, selected_y);
+    const SnapshotCity *city = snapshot_ui_city(city_id);
+    TerrainStats stats = {0};
 
     *tiles = 1;
     *population = 0;
     *name = tr("Tile", "地块");
-    if (city_id >= 0) {
-        RegionSummary summary = summarize_city_region(city_id);
+    if (city) {
+        RegionSummary summary = city->region_summary;
         stats.food = summary.food;
         stats.livestock = summary.livestock;
         stats.wood = summary.wood;
@@ -79,28 +83,29 @@ static TerrainStats selected_stats(int *tiles, int *population, const char **nam
         stats.defense = summary.defense;
         *tiles = summary.tiles;
         *population = summary.population;
-        *name = cities[city_id].name;
+        *name = city->name;
     } else if (region) {
         stats = region->average_stats;
         *tiles = region->tile_count;
-        snprintf(region_name, sizeof(region_name), "%.79s", province_display_name(natural_id, ui_language));
+        snprintf(region_name, sizeof(region_name), "%.95s", snapshot_ui_region_name(tile->region_id));
         *name = region_name;
     }
     return stats;
 }
 
 static void draw_country_resource_summary(HDC hdc, UiCursor *cursor, int civ_id) {
-    CountrySummary country = summarize_country(civ_id);
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    CountrySummary country = civ ? civ->summary : (CountrySummary){0};
     const char *shortage;
     const char *surplus;
     char text[160];
-    int tech = technology_resource_percent(civ_id);
-    int disorder = disorder_productivity_percent(civs[civ_id].disorder);
+    int tech = civ ? civ->tech_resource_percent : 100;
+    int disorder = civ ? disorder_productivity_percent(civ->disorder) : 100;
 
     country_shortage_surplus(country, &shortage, &surplus);
     ui_section(hdc, cursor, tr("Country Resources", "国家资源"));
-    metric3(hdc, cursor, country.resource_score, expansion_resource_score_for_civ(civ_id),
-            population_pressure_for_civ(civ_id), ICON_HABITABILITY, ICON_DISORDER, ICON_POPULATION,
+    metric3(hdc, cursor, country.resource_score, expansion_resource_score_snapshot(country),
+            civ ? civ->population_summary.pressure : 0, ICON_HABITABILITY, ICON_DISORDER, ICON_POPULATION,
             metric_label("Score", "评分"), metric_label("Pressure", "压力"), metric_label("Pop Pressure", "人口压力"));
     snprintf(text, sizeof(text), "%s: %s   %s: %s",
              tr("Biggest shortage", "最大短板"), shortage, tr("Biggest surplus", "最大优势"), surplus);
@@ -125,7 +130,9 @@ static void draw_country_resource_summary(HDC hdc, UiCursor *cursor, int civ_id)
 
 static void draw_selection_inspector(HDC hdc, UiCursor *cursor) {
     TerrainStats stats;
-    const NaturalRegion *region;
+    const SnapshotTile *tile;
+    const SnapshotRegion *region;
+    const SnapshotCity *city;
     int city_id;
     int province_city;
     int region_id;
@@ -135,7 +142,7 @@ static void draw_selection_inspector(HDC hdc, UiCursor *cursor) {
     char text[160];
 
     ui_section(hdc, cursor, tr("Selection Inspector", "选择检查器"));
-    if (!world_generated) {
+    if (!snapshot_ui_world_generated()) {
         ui_row_text(hdc, cursor, tr("World", "世界"), tr("Generate a physical world first.", "请先生成物理世界。"));
         return;
     }
@@ -145,32 +152,34 @@ static void draw_selection_inspector(HDC hdc, UiCursor *cursor) {
                        "在地图上选择城市、行省或地块来检查资源。"));
         return;
     }
+    tile = snapshot_ui_tile(selected_x, selected_y);
+    if (!tile) return;
     stats = selected_stats(&tiles, &population, &name);
-    city_id = city_at(selected_x, selected_y);
-    province_city = city_for_tile(selected_x, selected_y);
-    region_id = world[selected_y][selected_x].region_id;
-    region = regions_get(region_id);
+    city_id = snapshot_ui_city_at(selected_x, selected_y);
+    city = snapshot_ui_city(city_id);
+    province_city = snapshot_ui_region_city_for_tile(selected_x, selected_y);
+    region_id = tile->region_id;
+    region = snapshot_ui_region(region_id);
     snprintf(text, sizeof(text), "%d, %d", selected_x, selected_y);
     ui_row_text(hdc, cursor, tr("Tile", "地块"), text);
     ui_row_text(hdc, cursor, tr("Area", "区域"), name);
-    ui_row_text(hdc, cursor, tr("Geography", "地理"), geography_name(world[selected_y][selected_x].geography));
-    ui_row_text(hdc, cursor, tr("Climate", "气候"), climate_name(world[selected_y][selected_x].climate));
-    ui_row_text(hdc, cursor, tr("Ecology", "生态"), ecology_name(world[selected_y][selected_x].ecology));
-    ui_row_text(hdc, cursor, tr("Resource", "资源点"), resource_name(world[selected_y][selected_x].resource));
+    ui_row_text(hdc, cursor, tr("Geography", "地理"), geography_name(tile->geography));
+    ui_row_text(hdc, cursor, tr("Climate", "气候"), climate_name(tile->climate));
+    ui_row_text(hdc, cursor, tr("Ecology", "生态"), ecology_name(tile->ecology));
+    ui_row_text(hdc, cursor, tr("Resource", "资源点"), resource_name(tile->resource));
     ui_row_text(hdc, cursor, tr("Owner", "所属"),
-                world[selected_y][selected_x].owner >= 0 ? civilization_display_name(world[selected_y][selected_x].owner) : tr("Unowned", "无主"));
+                tile->owner >= 0 ? snapshot_ui_civ_name(tile->owner) : tr("Unowned", "无主"));
     snprintf(text, sizeof(text), "%d   %s %d", region_id, tr("Province", "行省"), province_city);
     ui_row_text(hdc, cursor, tr("Natural Region", "自然区域"), text);
     snprintf(text, sizeof(text), "%s %d  %s %d  %s %d",
-             tr("Elev", "海拔"), world[selected_y][selected_x].elevation,
-             tr("Moist", "湿度"), world[selected_y][selected_x].moisture,
-             tr("Temp", "温度"), world[selected_y][selected_x].temperature);
+             tr("Elev", "海拔"), tile->elevation,
+             tr("Moist", "湿度"), tile->moisture,
+             tr("Temp", "温度"), tile->temperature);
     ui_row_text(hdc, cursor, tr("Terrain Fields", "地形数值"), text);
-    snprintf(text, sizeof(text), "%s%s%s%s",
-             world[selected_y][selected_x].river ? tr("River ", "河流 ") : "",
+    snprintf(text, sizeof(text), "%s%s%s",
+             tile->river ? tr("River ", "河流 ") : "",
              region && region->has_port_site ? tr("Port site ", "港口点 ") : "",
-             region && region->has_port_site ? "" : tr("", ""),
-             world[selected_y][selected_x].geography == GEO_MOUNTAIN ? tr("Mountain", "山地") : "");
+             tile->geography == GEO_MOUNTAIN ? tr("Mountain", "山地") : "");
     ui_row_text(hdc, cursor, tr("Flags", "标记"), text[0] ? text : tr("None", "无"));
     if (region) {
         snprintf(text, sizeof(text), "%d,%d   %s %d,%d", region->capital_x, region->capital_y,
@@ -193,12 +202,12 @@ static void draw_selection_inspector(HDC hdc, UiCursor *cursor) {
             metric_label("Ore", "矿石"), metric_label("Money", "金钱"), metric_label("Live", "宜居"));
     snprintf(text, sizeof(text), "%s %d   %s %d", tr("Tiles", "地块"), tiles, tr("Population", "人口"), population);
     ui_row_text(hdc, cursor, tr("Area Summary", "区域摘要"), text);
-    if (city_id >= 0) {
+    if (city) {
         snprintf(text, sizeof(text), "%s%s  %s %d",
-                 cities[city_id].capital ? tr("Capital ", "首都 ") : "",
-                 cities[city_id].port ? tr("Port", "港口") : tr("City", "城市"),
-                 tr("Pop", "人口"), cities[city_id].population);
-        ui_row_text(hdc, cursor, cities[city_id].name, text);
+                 city->capital ? tr("Capital ", "首都 ") : "",
+                 city->port ? tr("Port", "港口") : tr("City", "城市"),
+                 tr("Pop", "人口"), city->population);
+        ui_row_text(hdc, cursor, city->name, text);
     }
 }
 

@@ -66,10 +66,7 @@ static const char *filter_label(int index) {
     index = clamp(index, 0, DEBUG_EVENT_FILTER_COUNT - 1);
     return tr(labels_en[index], labels_zh[index]);
 }
-static RECT empty_rect(void) {
-    RECT r = {0, 0, 0, 0};
-    return r;
-}
+static RECT empty_rect(void) { RECT r = {0, 0, 0, 0}; return r; }
 static RECT event_filter_button_rect(int index) {
     if (!event_filter_rects_valid || index < 0 || index >= DEBUG_EVENT_FILTER_COUNT) return empty_rect();
     return event_filter_rects[index];
@@ -82,18 +79,9 @@ int debug_panel_event_filter_hit_test(RECT client, int mouse_x, int mouse_y) {
     }
     return -1;
 }
-int debug_panel_event_log_hit_test(RECT client, int mouse_x, int mouse_y) {
-    (void)client;
-    return event_log_rect_valid && point_in_rect(event_log_rect, mouse_x, mouse_y);
-}
-int debug_panel_event_top_hit_test(RECT client, int mouse_x, int mouse_y) {
-    (void)client;
-    return event_top_rect_valid && point_in_rect(event_top_rect, mouse_x, mouse_y);
-}
-int debug_panel_event_clear_highlight_hit_test(RECT client, int mouse_x, int mouse_y) {
-    (void)client;
-    return event_clear_highlight_valid && point_in_rect(event_clear_highlight_rect, mouse_x, mouse_y);
-}
+int debug_panel_event_log_hit_test(RECT client, int mouse_x, int mouse_y) { (void)client; return event_log_rect_valid && point_in_rect(event_log_rect, mouse_x, mouse_y); }
+int debug_panel_event_top_hit_test(RECT client, int mouse_x, int mouse_y) { (void)client; return event_top_rect_valid && point_in_rect(event_top_rect, mouse_x, mouse_y); }
+int debug_panel_event_clear_highlight_hit_test(RECT client, int mouse_x, int mouse_y) { (void)client; return event_clear_highlight_valid && point_in_rect(event_clear_highlight_rect, mouse_x, mouse_y); }
 static void event_scrollbar_set_offset_from_y(int y) {
     int max_offset = max(0, event_scrollbar_match_count - max(1, event_scrollbar_visible_count));
     int movable = max(1, (event_scroll_track.bottom - event_scroll_track.top) -
@@ -103,20 +91,9 @@ static void event_scrollbar_set_offset_from_y(int y) {
     debug_event_log_frozen = 1;
     debug_event_log_seen_total = debug_event_total_entries();
 }
-int debug_panel_event_scrollbar_hit_test(RECT client, int mouse_x, int mouse_y) {
-    (void)client;
-    return event_scrollbar_valid && point_in_rect(event_scroll_track, mouse_x, mouse_y);
-}
-void debug_panel_event_scrollbar_begin_drag(int mouse_y) {
-    if (!event_scrollbar_valid) return;
-    event_scrollbar_dragging = 1;
-    event_scrollbar_set_offset_from_y(mouse_y);
-}
-int debug_panel_event_scrollbar_drag(int mouse_y) {
-    if (!event_scrollbar_dragging) return 0;
-    event_scrollbar_set_offset_from_y(mouse_y);
-    return 1;
-}
+int debug_panel_event_scrollbar_hit_test(RECT client, int mouse_x, int mouse_y) { (void)client; return event_scrollbar_valid && point_in_rect(event_scroll_track, mouse_x, mouse_y); }
+void debug_panel_event_scrollbar_begin_drag(int mouse_y) { if (!event_scrollbar_valid) return; event_scrollbar_dragging = 1; event_scrollbar_set_offset_from_y(mouse_y); }
+int debug_panel_event_scrollbar_drag(int mouse_y) { if (!event_scrollbar_dragging) return 0; event_scrollbar_set_offset_from_y(mouse_y); return 1; }
 void debug_panel_event_scrollbar_end_drag(void) { event_scrollbar_dragging = 0; }
 int debug_panel_event_scrollbar_is_dragging(void) { return event_scrollbar_dragging; }
 int debug_panel_event_country_hit_test(RECT client, int mouse_x, int mouse_y) {
@@ -124,8 +101,19 @@ int debug_panel_event_country_hit_test(RECT client, int mouse_x, int mouse_y) {
     (void)client;
     for (i = event_country_hit_count - 1; i >= 0; i--) {
         int civ_id = event_country_hit_civs[i];
+        const RenderSnapshot *snapshot;
+        int owned_snapshot = 0;
+        int valid;
         if (!point_in_rect(event_country_hit_rects[i], mouse_x, mouse_y)) continue;
-        if (civ_id >= 0 && civ_id < civ_count && civs[civ_id].uid == event_country_hit_uids[i]) return civ_id;
+        snapshot = debug_snapshot();
+        if (!snapshot) {
+            snapshot = render_snapshot_acquire();
+            owned_snapshot = 1;
+        }
+        valid = snapshot && civ_id >= 0 && civ_id < snapshot->civ_count &&
+                snapshot->civs[civ_id].uid == event_country_hit_uids[i];
+        if (owned_snapshot) render_snapshot_release(snapshot);
+        if (valid) return civ_id;
         return -1;
     }
     return -1;
@@ -489,12 +477,17 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
                 game_loop_actual_ms_per_month() > 0 ? text : tr("No sample yet", "暂无样本"));
     draw_performance_panel(hdc, &cursor);
     draw_recent_events(hdc, &cursor);
-    if (selected_civ >= 0 && selected_civ < civ_count) {
-        CountrySummary country = summarize_country(selected_civ);
+    if (selected_civ >= 0 && debug_snapshot() && selected_civ < debug_snapshot()->civ_count) {
+        const SnapshotCiv *civ = &debug_snapshot()->civs[selected_civ];
+        CountrySummary country = civ->summary;
+        int scarcity = clamp(22 - country.resource_score, 0, 22) * 4;
+        int need = max(civ->population_summary.pressure, scarcity);
+        int threshold = 106 - civ->expansion * 4 - civ->logistics / 2;
+        threshold = threshold * 100 / max(1, civ->tech_expansion_percent);
         ui_section(hdc, &cursor, tr("Expansion Gate", "扩张门槛"));
-        ui_row_int(hdc, &cursor, tr("Need", "需求"), expansion_need_for_civ(selected_civ, country.resource_score));
-        ui_row_int(hdc, &cursor, tr("Threshold", "门槛"), expansion_threshold_for_civ(selected_civ));
+        ui_row_int(hdc, &cursor, tr("Need", "需求"), need);
+        ui_row_int(hdc, &cursor, tr("Threshold", "门槛"), clamp(threshold, 58, 112));
         ui_section(hdc, &cursor, tr("Legacy / Internal", "兼容 / 内部"));
-        ui_row_int(hdc, &cursor, tr("Legacy culture", "兼容文化"), civs[selected_civ].culture);
+        ui_row_int(hdc, &cursor, tr("Legacy culture", "兼容文化"), civ->culture);
     }
 }

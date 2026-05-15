@@ -1,10 +1,9 @@
 #include "panel_country_tech.h"
 
 #include "render/render_common.h"
+#include "render/snapshot_ui.h"
 #include "render/ui_format.h"
 #include "sim/disorder.h"
-#include "sim/population.h"
-#include "sim/simulation.h"
 #include "sim/technology.h"
 #include "ui/ui_widgets.h"
 
@@ -194,7 +193,8 @@ static void draw_expected_advance(HDC hdc, UiCursor *cursor, int stage, int mont
 }
 
 static void draw_stage_detail(HDC hdc, UiCursor *cursor, int civ_id, int inspect_stage) {
-    int current = clamp(civs[civ_id].tech_stage, 0, 10);
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    int current = civ ? clamp(civ->tech_stage, 0, 10) : 0;
     const char *status = inspect_stage < current ? tr("Completed", "已完成") :
                          (inspect_stage == current ? tr("Current", "当前") : tr("Locked", "未解锁"));
     char text[96];
@@ -204,11 +204,11 @@ static void draw_stage_detail(HDC hdc, UiCursor *cursor, int civ_id, int inspect
     ui_row_text(hdc, cursor, status, text);
     ui_row_text(hdc, cursor, tr("Unlock", "解锁"), technology_stage_effect(inspect_stage, ui_language));
     if (inspect_stage == current) {
-        snprintf(text, sizeof(text), "%d%%", technology_stage_progress_percent(civ_id));
+        snprintf(text, sizeof(text), "%d%%", civ ? civ->tech_stage_progress_percent : 0);
         ui_row_text(hdc, cursor, tr("Progress", "进度"), text);
     } else if (inspect_stage > current) {
-        int months = technology_months_to_next(civ_id) +
-                     (inspect_stage - current - 1) * technology_required_months_for_civ(civ_id);
+        int months = (civ ? civ->tech_months_to_next : 0) +
+                     (inspect_stage - current - 1) * (civ ? max(1, civ->tech_required_months) : 1);
         ui_format_months(text, sizeof(text), months, UI_MONTH_ZERO_NOW);
         ui_row_text(hdc, cursor, tr("Estimated arrival", "预计到达"), text);
     }
@@ -221,16 +221,17 @@ int country_tech_tab_height(int civ_id) {
 
 void draw_country_tech_tab(HDC hdc, UiCursor *cursor, int civ_id) {
     TechnologyBonusSummary current, next;
-    CountrySummary country = summarize_country(civ_id);
-    int stage = clamp(civs[civ_id].tech_stage, 0, 10);
-    int progress = technology_stage_progress_percent(civ_id);
-    int months = technology_months_to_next(civ_id);
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    CountrySummary country = civ ? civ->summary : (CountrySummary){0};
+    int stage = civ ? clamp(civ->tech_stage, 0, 10) : 0;
+    int progress = civ ? civ->tech_stage_progress_percent : 0;
+    int months = civ ? civ->tech_months_to_next : 0;
     RECT track = {cursor->x + 12, cursor->y + 26, cursor->x + cursor->width - 12, cursor->y + 26};
     char text[160];
     char span[80];
 
-    technology_current_bonus_summary(civ_id, &current);
-    technology_next_bonus_summary(civ_id, &next);
+    technology_bonus_for_stage(stage, &current);
+    technology_bonus_for_stage(stage >= 10 ? 10 : stage + 1, &next);
     ui_section(hdc, cursor, tr("Technology Stage", "科技阶段"));
     draw_stage_track(hdc, track, stage, progress);
     cursor->y += 48;
@@ -255,15 +256,15 @@ void draw_country_tech_tab(HDC hdc, UiCursor *cursor, int civ_id) {
     }
 
     {
-        int tech_force = clamp(civs[civ_id].innovation * 10, 0, 100);
+        int tech_force = clamp((civ ? civ->innovation : 0) * 10, 0, 100);
         int resource_force = clamp(country.resource_score * 2, 0, 100);
-        int pressure_drag = clamp(population_pressure_for_civ(civ_id), 0, 100);
-        int disorder_drag = clamp(100 - disorder_technology_percent(civs[civ_id].disorder), 0, 100);
+        int pressure_drag = clamp(civ ? civ->population_summary.pressure : 0, 0, 100);
+        int disorder_drag = clamp(100 - disorder_technology_percent(civ ? civ->disorder : 0), 0, 100);
         int acceleration = clamp((tech_force + resource_force) / 2, 0, 100);
         int drag = clamp((pressure_drag + disorder_drag) / 2, 0, 100);
 
         ui_section(hdc, cursor, tr("Progress Balance", "推进平衡"));
-        draw_factor_mini_bar(hdc, cursor, tr("Tech", "技术"), civs[civ_id].innovation, 10, "", RGB(104, 158, 186));
+        draw_factor_mini_bar(hdc, cursor, tr("Tech", "技术"), civ ? civ->innovation : 0, 10, "", RGB(104, 158, 186));
         draw_factor_mini_bar(hdc, cursor, tr("Resources", "资源"), country.resource_score, 100, "", RGB(190, 156, 78));
         draw_factor_mini_bar(hdc, cursor, tr("Population", "人口"), pressure_drag, 100, "%", RGB(178, 128, 74));
         draw_factor_mini_bar(hdc, cursor, tr("Disorder", "混乱"), disorder_drag, 100, "%", RGB(178, 84, 74));

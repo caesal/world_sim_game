@@ -1,7 +1,6 @@
 #include "render_panel_internal.h"
 
-#include "sim/plague.h"
-#include "sim/population.h"
+#include "render/snapshot_ui.h"
 #include "ui/ui_widgets.h"
 
 static void metric3(HDC hdc, UiCursor *cursor, int a, int b, int c,
@@ -17,14 +16,14 @@ static void metric3(HDC hdc, UiCursor *cursor, int a, int b, int c,
     cursor->y += 36;
 }
 
-static void sort_population_ids(int *ids, int count) {
+static void sort_population_ids(const RenderSnapshot *snapshot, int *ids, int count) {
     int i;
     int j;
     for (i = 1; i < count; i++) {
         int id = ids[i];
-        int value = population_country_summary(id).total;
+        int value = snapshot->civs[id].population_summary.total;
         j = i - 1;
-        while (j >= 0 && population_country_summary(ids[j]).total < value) {
+        while (j >= 0 && snapshot->civs[ids[j]].population_summary.total < value) {
             ids[j + 1] = ids[j];
             j--;
         }
@@ -43,15 +42,17 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
     int active_fronts = 0;
     int i;
     char text[192];
+    const RenderSnapshot *snapshot = snapshot_ui_current();
 
     SelectObject(hdc, title_font);
     draw_text_line(hdc, x, cursor.y, tr("World Population", "世界人口"), ui_theme_color(UI_COLOR_TEXT));
     cursor.y += 30;
     SelectObject(hdc, body_font);
-    for (i = 0; i < civ_count; i++) {
+    for (i = 0; snapshot && i < snapshot->civ_count; i++) {
         PopulationSummary s;
-        if (!civs[i].alive) continue;
-        s = population_country_summary(i);
+        const SnapshotCiv *civ = &snapshot->civs[i];
+        if (!civ->alive) continue;
+        s = civ->population_summary;
         ids[id_count++] = i;
         active_civs++;
         world.total += s.total;
@@ -69,8 +70,8 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
             world.cohorts[band].female += s.cohorts[band].female;
         }
         if (s.pressure > 100) high_pressure++;
-        plague_deaths += plague_civ_deaths_total(i);
-        active_fronts += war_front_count_for_civ(i);
+        plague_deaths += civ->plague_deaths_total;
+        active_fronts += civ->war_front_count;
     }
     if (active_civs <= 0) {
         ui_row_text(hdc, &cursor, tr("World", "世界"), tr("No alive countries yet.", "尚无存活国家。"));
@@ -109,11 +110,12 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
     ui_row_int(hdc, &cursor, tr("Active war fronts", "活跃战线"), active_fronts);
     ui_row_int(hdc, &cursor, tr("High-pressure countries", "高压国家"), high_pressure);
     ui_section(hdc, &cursor, tr("Population Ranking", "人口排行"));
-    sort_population_ids(ids, id_count);
+    sort_population_ids(snapshot, ids, id_count);
     for (i = 0; i < id_count && i < 8; i++) {
-        PopulationSummary s = population_country_summary(ids[i]);
-        snprintf(text, sizeof(text), "%d. %c %.62s", i + 1, civs[ids[i]].symbol,
-                 civilization_display_name(ids[i]));
+        const SnapshotCiv *civ = &snapshot->civs[ids[i]];
+        PopulationSummary s = civ->population_summary;
+        snprintf(text, sizeof(text), "%d. %c %.62s", i + 1, civ->symbol,
+                 snapshot_ui_civ_name(ids[i]));
         ui_row_int(hdc, &cursor, text, s.total);
     }
 }

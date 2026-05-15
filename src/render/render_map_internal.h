@@ -17,7 +17,6 @@ int tile_top(MapLayout layout, int y);
 int tile_bottom(MapLayout layout, int y);
 
 void draw_land_texture(HDC hdc, MapLayout layout, int x, int y);
-void draw_rivers(HDC hdc, RECT client, MapLayout layout);
 void draw_maritime_routes(HDC hdc, RECT client, MapLayout layout);
 void draw_cities(HDC hdc, MapLayout layout);
 void draw_selected_tile(HDC hdc, MapLayout layout);

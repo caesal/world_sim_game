@@ -27,6 +27,16 @@ Future coding agents working in this repository must follow these rules:
 23. New UI text must use the existing localization helpers and UTF-8-safe rendering path. Do not paste mojibake strings. Verify Chinese labels render correctly when the UI language is Chinese.
 24. If build output such as `world_sim.exe` is locked, do not kill processes, delete files, or force-unlock handles unless explicitly approved. Report the lock and use the approved build workflow.
 25. Keep gameplay constants, balance values, and feature rules in design or documentation files unless the user explicitly asks to encode them in repository instructions.
+26. For multi-part user requests, maintain an explicit checklist that covers every requested deliverable. Before final response, compare the checklist against the latest user message and the actual repository state; do not rely on memory.
+27. After any resume, reminder, heartbeat, context compaction, or user status question, first inspect the current repo/task state with commands such as `git status --short --branch`, recent `git log`, relevant files, or build artifacts before claiming what happened.
+28. Never say a build, test, commit, tag, or push succeeded unless the corresponding command was run in the current task context and its result was checked. If a previous attempt failed because an executable was locked, report that and use the approved temporary-target build workflow for verification.
+29. A scheduled automation or heartbeat is only a reminder, not completion of the work. When the thread wakes or the user asks for status, continue the task immediately and verify state before answering.
+30. For any request to release, push, or label a version, perform a release checklist before final response: update the active version marker, root `README.md`, `docs/README.md`, `docs/unofficial/version_log.md`, the version side doc, and any requested official docs/change summaries. If a file does not apply, explicitly note why.
+31. Before committing a version release, inspect staged content with `git status --short` and a summary such as `git diff --cached --stat`. Ensure new source files, data files, build lists, docs, and version metadata are all staged together when they are part of the requested version.
+32. Before saying code was pushed, verify `git push` succeeded, `git status --short --branch` is clean and aligned with the upstream branch, and the latest `git log --oneline -1` matches the intended release commit.
+33. If a version tag is created or updated, verify the tag points at the final release commit after all metadata/docs fixes. If a follow-up release metadata commit is made, move and push the tag again or clearly report that the tag intentionally remains on the earlier commit.
+34. When the user asks "did you push?", "is it done?", or a similar status question, do not answer from memory. Inspect branch, commit, tag, and remote state first, then answer with the exact commit/tag/push status.
+35. If a previous response missed an explicit user requirement, fix the repository state first when possible, then report the correction. Do not treat a partial push or partial documentation update as complete.
 
 ## Code Review Rules
 

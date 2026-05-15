@@ -7,14 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.6 is a Windows graphical sandbox prototype written in C.
+Ver0.2.6.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.6 focuses on diplomacy contact correctness, route readability, world-generation
-feedback, and province-name localization. Diplomacy contact now requires current land
-or active sea-lane reachability, disconnected known relations fade instead of drifting
-into tension or war, war fronts use the same contact source, world generation shows
-separate total/stage progress, province names use stable bilingual IDs, and sea-lane
-visuals were tuned for clearer shallow/deep route reading.
+Ver0.2.6.a is a patch over Ver0.2.6 focused on rendering architecture and UI
+responsiveness. It keeps the Ver0.2.6 diplomacy contact, route readability,
+world-generation feedback, and province-name localization work, while adding
+snapshot-backed panel reads, country summary cards, natural-region diagnostics,
+and a dedicated map-space hydrology layer for smoother river rendering.
 
 You can:
 

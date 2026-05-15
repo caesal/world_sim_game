@@ -1,16 +1,11 @@
 ﻿#include "render_panel_internal.h"
 #include "render/panel_country.h"
+#include "render/panel_country_cards.h"
 #include "render/panel_country_detail.h"
 #include "render/panel_country_diplomacy.h"
+#include "render/render_context.h"
+#include "render/snapshot_ui.h"
 
-#include "sim/collapse.h"
-#include "sim/decision_snapshot.h"
-#include "sim/expansion.h"
-#include "sim/plague.h"
-#include "sim/population.h"
-#include "sim/regions.h"
-#include "sim/technology.h"
-#include "sim/vassal.h"
 #include "ui/ui_widgets.h"
 
 #include <string.h>
@@ -41,50 +36,49 @@ typedef struct {
 } CountryListEntry;
 
 static int displayed_country(void) {
-    if (selected_civ >= 0 && selected_civ < civ_count &&
-        (civs[selected_civ].alive || country_show_fallen)) return selected_civ;
+    if (snapshot_ui_civ_visible(selected_civ, country_show_fallen)) return selected_civ;
     return -1;
 }
 
 static int country_province_count(int civ_id) {
-    int i;
-    int count = 0;
-    for (i = 0; i < region_count; i++) {
-        if (natural_regions[i].alive && natural_regions[i].owner_civ == civ_id) count++;
-    }
-    return count > 0 ? count : summarize_country(civ_id).cities;
-}
-
-static COLORREF disorder_color(int disorder) {
-    if (disorder <= 30) return RGB(104, 153, 92);
-    if (disorder <= 65) return RGB(191, 154, 78);
-    return RGB(188, 78, 68);
-}
-
-static const char *country_intent_label(const char *intent) {
-    if (!intent) return tr("Unknown", "未知");
-    if (strcmp(intent, "War") == 0) return tr("War", "战争");
-    if (strcmp(intent, "Stability") == 0) return tr("Stability", "稳定");
-    return tr("Expansion", "扩张");
+    return snapshot_ui_province_count(civ_id);
 }
 
 static void draw_scrollbar(HDC hdc, RECT viewport, int scroll, int max_scroll);
 
+static const RenderSnapshot *country_panel_snapshot_begin(int *owned) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    *owned = 0;
+    if (snapshot) return snapshot;
+    snapshot = render_snapshot_acquire();
+    render_context_begin(snapshot);
+    *owned = 1;
+    return snapshot;
+}
+
+static void country_panel_snapshot_end(int owned, const RenderSnapshot *snapshot) {
+    if (!owned) return;
+    render_context_end();
+    render_snapshot_release(snapshot);
+}
+
 static int include_country_in_list(int civ_id) {
-    return civ_id >= 0 && civ_id < civ_count && (civs[civ_id].alive || country_show_fallen);
+    return snapshot_ui_civ_visible(civ_id, country_show_fallen);
 }
 
 static int country_sort_value(int civ_id, int column) {
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    if (!civ) return 0;
     switch (clamp(column, 0, COUNTRY_SORT_COUNT - 1)) {
         case COUNTRY_SORT_PROVINCES: return country_province_count(civ_id);
-        case COUNTRY_SORT_ARMY: return war_current_soldiers_for_civ(civ_id);
+        case COUNTRY_SORT_ARMY: return civ->current_soldiers;
         case COUNTRY_SORT_TECH: {
-            int stage = clamp(civs[civ_id].tech_stage, 0, 10);
-            int progress = clamp(technology_stage_progress_percent(civ_id), 0, 99);
+            int stage = clamp(civ->tech_stage, 0, 10);
+            int progress = clamp(civ->tech_stage_progress_percent, 0, 99);
             return stage * 100 + progress;
         }
-        case COUNTRY_SORT_DISORDER: return civs[civ_id].disorder;
-        default: return summarize_country(civ_id).population;
+        case COUNTRY_SORT_DISORDER: return civ->disorder;
+        default: return civ->summary.population;
     }
 }
 
@@ -101,9 +95,12 @@ static void sort_country_ids(int *ids, int *count) {
             int other_value = country_sort_value(other, country_sort_column);
             int move = country_sort_descending ? other_value < value : other_value > value;
             if (!move && other_value == value) {
-                move = country_sort_descending ? civs[other].population < civs[id].population :
-                                                 civs[other].population > civs[id].population;
-                if (!move && civs[other].population == civs[id].population) move = other > id;
+                const SnapshotCiv *a = snapshot_ui_civ(other);
+                const SnapshotCiv *b = snapshot_ui_civ(id);
+                int pop_a = a ? a->summary.population : 0;
+                int pop_b = b ? b->summary.population : 0;
+                move = country_sort_descending ? pop_a < pop_b : pop_a > pop_b;
+                if (!move && pop_a == pop_b) move = other > id;
             }
             if (!move) break;
             ids[j + 1] = ids[j];
@@ -124,9 +121,12 @@ static void append_vassal_tree(int root, int depth, int *used,
     entries[*entry_count].depth = clamp(depth, 0, 1);
     (*entry_count)++;
     used[root] = 1;
-    for (i = 0; i < civ_count; i++) {
+    for (i = 0; i < snapshot_ui_civ_count(); i++) {
         if (used[i] || !include_country_in_list(i)) continue;
-        if (vassal_is_direct(root, i)) children[child_count++] = i;
+        {
+            const SnapshotCiv *child = snapshot_ui_civ(i);
+            if (child && child->overlord == root) children[child_count++] = i;
+        }
     }
     sort_country_ids(children, &child_count);
     for (i = 0; i < child_count && *entry_count < MAX_CIVS; i++) {
@@ -144,14 +144,17 @@ static void country_list_entries(CountryListEntry *entries, int *out_count) {
     int i;
 
     memset(used, 0, sizeof(used));
-    for (i = 0; i < civ_count; i++) {
+    for (i = 0; i < snapshot_ui_civ_count(); i++) {
         if (!include_country_in_list(i)) continue;
-        if (vassal_overlord(i) < 0) roots[root_count++] = i;
+        {
+            const SnapshotCiv *civ = snapshot_ui_civ(i);
+            if (civ && civ->overlord < 0) roots[root_count++] = i;
+        }
     }
     sort_country_ids(roots, &root_count);
     *out_count = 0;
     for (i = 0; i < root_count; i++) append_vassal_tree(roots[i], 0, used, entries, out_count);
-    for (i = 0; i < civ_count && *out_count < MAX_CIVS; i++) {
+    for (i = 0; i < snapshot_ui_civ_count() && *out_count < MAX_CIVS; i++) {
         if (include_country_in_list(i) && !used[i]) append_vassal_tree(i, 0, used, entries, out_count);
     }
 }
@@ -168,7 +171,7 @@ static void country_panel_layout_build(RECT client, CountryPanelLayout *layout) 
     int content_h;
 
     memset(layout, 0, sizeof(*layout));
-    layout->selected_detail = civ_id >= 0 && civ_id < civ_count;
+    layout->selected_detail = snapshot_ui_civ(civ_id) != NULL;
     layout->header = (RECT){x, y, x + width, y + 24};
     y += 25;
     layout->sort_label = (RECT){x, y, x + width, y + 20};
@@ -219,71 +222,6 @@ static void country_panel_layout_build(RECT client, CountryPanelLayout *layout) 
         layout->card_count++;
     }
     layout->detail_viewport = layout->list_viewport;
-}
-
-static void draw_card_metric(HDC hdc, RECT rect, const char *label, int value, COLORREF color) {
-    char text[32];
-    RECT label_rect = {rect.left, rect.top, rect.right, rect.top + 15};
-    RECT value_rect = {rect.left, rect.top + 16, rect.right, rect.top + 38};
-
-    format_metric_value(value, text, sizeof(text));
-    draw_text_rect(hdc, label_rect, label, ui_theme_color(UI_COLOR_TEXT_DIM),
-                   DT_SINGLELINE | DT_CENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, value_rect, text, color, DT_SINGLELINE | DT_CENTER | DT_END_ELLIPSIS);
-}
-
-static void draw_country_card(HDC hdc, RECT rect, int civ_id) {
-    RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
-    RECT name_rect = {rect.left + 32, rect.top + 5, rect.right - 8, rect.top + 27};
-    int metric_w = (rect.right - rect.left - 16) / 5;
-    RECT metric = {rect.left + 8, rect.top + 30, rect.left + 8 + metric_w - 4, rect.top + 68};
-    CountrySummary country = summarize_country(civ_id);
-    char title[160];
-    char prefix[16] = "";
-    COLORREF text_color = civs[civ_id].alive ? ui_theme_color(UI_COLOR_TEXT) : ui_theme_color(UI_COLOR_TEXT_DIM);
-
-    fill_rect(hdc, rect, civ_id == selected_civ ? RGB(54, 61, 58) : ui_theme_color(UI_COLOR_PANEL_SOFT));
-    fill_rect(hdc, swatch, civs[civ_id].color);
-    if (vassal_overlord(civ_id) >= 0) snprintf(prefix, sizeof(prefix), "sub ");
-    snprintf(title, sizeof(title), "%s%c  %.80s%s", prefix, civs[civ_id].symbol, civilization_display_name(civ_id),
-             civs[civ_id].alive ? "" : tr(" (fallen)", "（已灭亡）"));
-    draw_text_rect(hdc, name_rect, title, text_color, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_card_metric(hdc, metric, metric_label("Pop", "人口"), country.population, text_color);
-    metric.left += metric_w; metric.right += metric_w;
-    draw_card_metric(hdc, metric, metric_label("Provinces", "省份"), country_province_count(civ_id), RGB(190, 204, 216));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_card_metric(hdc, metric, metric_label("Army", "军队"), war_current_soldiers_for_civ(civ_id), RGB(204, 172, 112));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_card_metric(hdc, metric, metric_label("Tech", "科技"), clamp(civs[civ_id].tech_stage, 0, 10), RGB(147, 176, 214));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_card_metric(hdc, metric, metric_label("Disorder", "混乱"), civs[civ_id].disorder, disorder_color(civs[civ_id].disorder));
-}
-
-static void draw_country_selector(HDC hdc, RECT rect, int civ_id) {
-    RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
-    RECT locate_rect = {rect.right - 64, rect.top + 6, rect.right - 8, rect.top + 26};
-    RECT name_rect = {rect.left + 32, rect.top + 5, locate_rect.left - 6, rect.top + 26};
-    RECT summary_rect = {rect.left + 32, rect.top + 27, rect.right - 8, rect.bottom - 4};
-    CountrySummary country = summarize_country(civ_id);
-    DecisionSnapshot decision;
-    char title[160];
-    char summary[192];
-
-    decision_snapshot_for_civ(civ_id, &decision);
-    fill_rect(hdc, rect, RGB(54, 61, 58));
-    fill_rect(hdc, swatch, civs[civ_id].color);
-    snprintf(title, sizeof(title), "%c  %.80s%s", civs[civ_id].symbol, civilization_display_name(civ_id),
-             civs[civ_id].alive ? "" : tr(" (fallen)", "（已灭亡）"));
-    snprintf(summary, sizeof(summary), "%s %.24s   %s %d   %s %d   %s %d   %s %d   %s %.16s",
-             tr("Capital", "首都"), capital_name_for_civ(civ_id),
-             tr("Pop", "人口"), country.population, tr("Army", "军队"), war_current_soldiers_for_civ(civ_id),
-             tr("Tech", "科技"), clamp(civs[civ_id].tech_stage, 0, 10),
-             tr("Disorder", "混乱"), civs[civ_id].disorder, tr("Intent", "意图"),
-             country_intent_label(decision.main_intent));
-    draw_text_rect(hdc, name_rect, title, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, locate_rect, RGB(87, 93, 78));
-    draw_center_text(hdc, locate_rect, tr("Locate", "定位"), RGB(255, 238, 190));
-    draw_text_rect(hdc, summary_rect, summary, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
 static const char *sort_column_label(int column) {
@@ -345,7 +283,7 @@ static void draw_country_list(HDC hdc, const CountryPanelLayout *layout) {
         fill_rect(hdc, layout->back_to_list, RGB(43, 49, 52));
         draw_center_text(hdc, layout->back_to_list, tr("All Countries / Back to list", "全部国家 / 返回列表"),
                          ui_theme_color(UI_COLOR_TEXT));
-        draw_country_selector(hdc, layout->selected_summary, displayed_country());
+        draw_country_selected_summary(hdc, layout->selected_summary, displayed_country());
         draw_detail_tabs(hdc, layout);
         return;
     }
@@ -355,7 +293,8 @@ static void draw_country_list(HDC hdc, const CountryPanelLayout *layout) {
                                   layout->list_viewport.right, layout->list_viewport.bottom);
         SelectClipRgn(hdc, clip);
         for (i = 0; i < layout->card_count; i++) {
-            draw_country_card(hdc, layout->cards[i], layout->card_civ_ids[i]);
+            draw_country_summary_card(hdc, layout->cards[i], layout->card_civ_ids[i],
+                                      layout->card_civ_ids[i] == selected_civ);
         }
         SelectClipRgn(hdc, NULL);
         DeleteObject(clip);
@@ -392,7 +331,7 @@ void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
     country_detail_reset_hit();
     country_panel_layout_build(client, &layout);
     draw_country_list(hdc, &layout);
-    if (civ_id < 0 || civ_id >= civ_count) return;
+    if (civ_id < 0 || !snapshot_ui_civ(civ_id)) return;
     {
         HRGN clip = CreateRectRgn(layout.detail_viewport.left, layout.detail_viewport.top,
                                   layout.detail_viewport.right, layout.detail_viewport.bottom);
@@ -410,73 +349,115 @@ void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
 
 int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
     CountryPanelLayout layout;
+    const RenderSnapshot *snapshot;
+    int owned;
     int i;
 
+    snapshot = country_panel_snapshot_begin(&owned);
     country_panel_layout_build(client, &layout);
-    if (point_in_rect_local(layout.fallen_toggle, mouse_x, mouse_y)) return COUNTRY_PANEL_HIT_TOGGLE_FALLEN;
+    if (!snapshot) {
+        country_panel_snapshot_end(owned, snapshot);
+        return COUNTRY_PANEL_HIT_NONE;
+    }
+    if (point_in_rect_local(layout.fallen_toggle, mouse_x, mouse_y)) {
+        country_panel_snapshot_end(owned, snapshot);
+        return COUNTRY_PANEL_HIT_TOGGLE_FALLEN;
+    }
     if (!layout.selected_detail) {
         for (i = 0; i < COUNTRY_SORT_COUNT; i++) {
             if (point_in_rect_local(layout.sort_columns[i], mouse_x, mouse_y)) {
-                return COUNTRY_PANEL_HIT_SORT_POPULATION - i;
+                { int hit = COUNTRY_PANEL_HIT_SORT_POPULATION - i; country_panel_snapshot_end(owned, snapshot); return hit; }
             }
         }
     } else {
         for (i = 0; i < COUNTRY_DETAIL_TAB_COUNT; i++) {
             if (point_in_rect_local(layout.detail_tabs[i], mouse_x, mouse_y)) {
-                return COUNTRY_PANEL_HIT_SUBTAB_BASE - i;
+                { int hit = COUNTRY_PANEL_HIT_SUBTAB_BASE - i; country_panel_snapshot_end(owned, snapshot); return hit; }
             }
         }
     }
     if (layout.selected_detail && point_in_rect_local(layout.back_to_list, mouse_x, mouse_y)) {
+        country_panel_snapshot_end(owned, snapshot);
         return COUNTRY_PANEL_HIT_BACK_TO_LIST;
     }
     if (layout.selected_detail && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
         int diplomacy_hit = country_diplomacy_view_hit_test(displayed_country(), layout.detail_viewport,
                                                             layout.detail_scroll, mouse_x, mouse_y);
-        if (diplomacy_hit != COUNTRY_PANEL_HIT_NONE) return diplomacy_hit;
+        if (diplomacy_hit != COUNTRY_PANEL_HIT_NONE) { country_panel_snapshot_end(owned, snapshot); return diplomacy_hit; }
     }
     if (country_detail_civil_unrest_hit(layout.detail_viewport, mouse_x, mouse_y)) {
+        country_panel_snapshot_end(owned, snapshot);
         return COUNTRY_PANEL_HIT_CIVIL_UNREST;
     }
     if (country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y) >= 0) {
+        country_panel_snapshot_end(owned, snapshot);
         return COUNTRY_PANEL_HIT_VASSAL_ACTION;
     }
     if (layout.selected_detail) {
         RECT locate = {layout.selected_summary.right - 64, layout.selected_summary.top + 6,
                        layout.selected_summary.right - 8, layout.selected_summary.top + 26};
-        if (point_in_rect_local(locate, mouse_x, mouse_y)) return COUNTRY_PANEL_HIT_LOCATE;
+        if (point_in_rect_local(locate, mouse_x, mouse_y)) { country_panel_snapshot_end(owned, snapshot); return COUNTRY_PANEL_HIT_LOCATE; }
     }
-    if (layout.selected_detail && point_in_rect_local(layout.selected_summary, mouse_x, mouse_y)) return displayed_country();
+    if (layout.selected_detail && point_in_rect_local(layout.selected_summary, mouse_x, mouse_y)) {
+        int hit = displayed_country();
+        country_panel_snapshot_end(owned, snapshot);
+        return hit;
+    }
     for (i = 0; i < layout.card_count; i++) {
-        if (point_in_rect_local(layout.cards[i], mouse_x, mouse_y)) return layout.card_civ_ids[i];
+        if (point_in_rect_local(layout.cards[i], mouse_x, mouse_y)) {
+            int hit = layout.card_civ_ids[i];
+            country_panel_snapshot_end(owned, snapshot);
+            return hit;
+        }
     }
+    country_panel_snapshot_end(owned, snapshot);
     return COUNTRY_PANEL_HIT_NONE;
 }
 
 int country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y) {
     CountryPanelLayout layout;
+    const RenderSnapshot *snapshot;
+    int owned;
+    int result;
+    snapshot = country_panel_snapshot_begin(&owned);
     country_panel_layout_build(client, &layout);
-    if (!layout.selected_detail) return -1;
-    return country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y);
+    if (!snapshot || !layout.selected_detail) {
+        country_panel_snapshot_end(owned, snapshot);
+        return -1;
+    }
+    result = country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y);
+    country_panel_snapshot_end(owned, snapshot);
+    return result;
 }
 
 int country_panel_scroll(RECT client, int delta) {
     CountryPanelLayout layout;
+    const RenderSnapshot *snapshot;
+    int owned;
+    int result = 0;
 
+    snapshot = country_panel_snapshot_begin(&owned);
     country_panel_layout_build(client, &layout);
+    if (!snapshot) {
+        country_panel_snapshot_end(owned, snapshot);
+        return 0;
+    }
     if (layout.selected_detail) {
         int old_offset;
-        if (layout.detail_max_scroll <= 0) return 0;
+        if (layout.detail_max_scroll <= 0) goto done;
         country_detail_subtab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
         old_offset = country_detail_scroll_offsets[country_detail_subtab];
         country_detail_scroll_offsets[country_detail_subtab] =
             clamp(country_detail_scroll_offsets[country_detail_subtab] + delta, 0, layout.detail_max_scroll);
         country_detail_scroll_offset = country_detail_scroll_offsets[country_detail_subtab];
-        return country_detail_scroll_offsets[country_detail_subtab] != old_offset;
+        result = country_detail_scroll_offsets[country_detail_subtab] != old_offset;
     } else {
         int old_offset = country_list_scroll_offset;
-        if (layout.list_max_scroll <= 0) return 0;
+        if (layout.list_max_scroll <= 0) goto done;
         country_list_scroll_offset = clamp(country_list_scroll_offset + delta, 0, layout.list_max_scroll);
-        return country_list_scroll_offset != old_offset;
+        result = country_list_scroll_offset != old_offset;
     }
+done:
+    country_panel_snapshot_end(owned, snapshot);
+    return result;
 }

@@ -1,0 +1,40 @@
+﻿<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Change Summary Ver0.2.6.a</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 21pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 15pt; margin-top: 16pt; color: #24364a; }
+p { margin: 6pt 0; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Documentation Change Summary</h1>
+<p>Version: Ver0.2.6.a</p>
+<p>Baseline: Ver0.2.6.</p>
+<p>Status: patch release metadata and implementation summary.</p>
+<h2>Generated Official Files</h2>
+<ul>
+<li><code>docs/official/game_universal_documentation_ver0.2.6.a.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.6.a.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.6.a_change_summary.doc</code></li>
+</ul>
+<h2>Patch Delta</h2>
+<ul>
+<li>Added a dedicated hydrology render dirty flag and map-space hydrology cache.</li>
+<li>Moved river drawing out of the border layer.</li>
+<li>Added river geometry preparation for smoother visual paths and river diagnostics.</li>
+<li>Rendered rivers with hierarchy-aware width, terrain-aware muted colors, understroke, main stroke, highlights, and mouth caps.</li>
+<li>Added Debug hydrology rows for river count, length, confluences, invalid uphill segments, dead ends, short rivers, and cache rebuild timing.</li>
+<li>Carried forward the snapshot/UI and natural-region validation work already present in this patch workspace.</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li><code>git diff --check</code> passed.</li>
+<li><code>make</code> passed.</li>
+</ul>
+</body>
+</html>

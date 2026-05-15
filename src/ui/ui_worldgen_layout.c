@@ -102,6 +102,13 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
         y += 21;
     }
     y += 6;
+    place_section(&layout->viewer_section, panel_x, width, &y, scroll_offset);
+    for (i = 0; i < 3; i++) {
+        layout->viewer_row[i] = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 20), -scroll_offset);
+        y += 22;
+    }
+    y += 6;
+    place_section(&layout->generation_section, panel_x, width, &y, scroll_offset);
     place_section(&layout->map_size_section, panel_x, width, &y, scroll_offset);
     for (i = 0; i < MAP_SIZE_COUNT; i++) {
         RECT button = make_rect(panel_x + i * (button_w + gap), y, panel_x + i * (button_w + gap) + button_w, y + 28);
@@ -131,6 +138,10 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     y += 4;
     place_section(&layout->regions_section, panel_x, width, &y, scroll_offset);
     place_slider(&layout->sliders[UI_SLIDER_REGION_SIZE], panel_x, width, &y, scroll_offset);
+    layout->region_estimate = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 20), -scroll_offset);
+    y += 22;
+    layout->region_warning = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 34), -scroll_offset);
+    y += 38;
     layout->generate_row = offset_rect_y(make_rect(panel_x, y + 2, panel_x + width, y + 24), -scroll_offset);
     y += 36;
 

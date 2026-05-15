@@ -42,6 +42,9 @@ extern int region_count;
 void regions_reset(void);
 void regions_generate(int region_size_value);
 const NaturalRegion *regions_get(int region_id);
+int regions_target_size_from_slider(int value);
+int regions_estimated_count_for_settings(int width, int height, int ocean_percent,
+                                         int region_size_value, int *cap_reached);
 int regions_select_spawn_region(int preferred_x, int preferred_y, int *out_region_id, int *out_x, int *out_y);
 int regions_claim_as_province(int region_id, int owner, int city_id);
 int regions_region_for_city(int city_id);

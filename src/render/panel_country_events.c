@@ -67,7 +67,9 @@ static COLORREF event_accent(EventLogSeverity severity) {
 }
 
 static void add_country_hit(RECT rect, int civ_id, int uid) {
-    if (civ_id < 0 || civ_id >= civ_count || uid <= 0 || recent_hit_count >= COUNTRY_EVENT_HIT_MAX) return;
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count || uid <= 0 ||
+        recent_hit_count >= COUNTRY_EVENT_HIT_MAX) return;
     recent_hit_rects[recent_hit_count] = rect;
     recent_hit_civs[recent_hit_count] = civ_id;
     recent_hit_uids[recent_hit_count] = uid;
@@ -211,8 +213,19 @@ int country_recent_events_country_hit_test(int mouse_x, int mouse_y) {
     int i;
     for (i = recent_hit_count - 1; i >= 0; i--) {
         int civ_id = recent_hit_civs[i];
+        const RenderSnapshot *snapshot;
+        int owned_snapshot = 0;
+        int valid;
         if (!point_in_rect(recent_hit_rects[i], mouse_x, mouse_y)) continue;
-        if (civ_id >= 0 && civ_id < civ_count && civs[civ_id].uid == recent_hit_uids[i]) return civ_id;
+        snapshot = render_context_snapshot();
+        if (!snapshot) {
+            snapshot = render_snapshot_acquire();
+            owned_snapshot = 1;
+        }
+        valid = snapshot && civ_id >= 0 && civ_id < snapshot->civ_count &&
+                snapshot->civs[civ_id].uid == recent_hit_uids[i];
+        if (owned_snapshot) render_snapshot_release(snapshot);
+        if (valid) return civ_id;
         return -1;
     }
     return -1;

@@ -12,6 +12,7 @@
 #include "ui/ui_forms.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_selection.h"
+#include "ui/ui_snapshot_read.h"
 #include "ui/ui_sliders.h"
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_layout.h"
@@ -28,7 +29,7 @@ static void invalidate_side_panel(HWND hwnd) {
     panel.bottom = client.bottom;
     InvalidateRect(hwnd, &panel, FALSE);
 }
-static int selected_tile_owner(void) { return selected_x < 0 || selected_y < 0 ? -1 : world[selected_y][selected_x].owner; }
+static int selected_tile_owner(void) { return ui_snapshot_tile_owner(selected_x, selected_y); }
 static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     MapLayout layout;
@@ -48,7 +49,7 @@ static void select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     selected_x = x;
     selected_y = y;
     owner = selected_tile_owner();
-    if (owner >= 0 && owner < civ_count && civs[owner].alive) ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
+    if (ui_snapshot_civ_alive(owner)) ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
     else ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
     InvalidateRect(hwnd, NULL, FALSE);
 }
@@ -143,7 +144,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
         if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
             int relation_civ = country_diplomacy_civ_hit_test(mouse_x, mouse_y);
-            if (relation_civ >= 0 && relation_civ < civ_count && relation_civ != selected_civ) {
+            if (ui_snapshot_civ_alive(relation_civ) && relation_civ != selected_civ) {
                 ui_select_civ_preserve_view(relation_civ, UI_SELECT_SOURCE_DIPLOMACY_CARD);
                 InvalidateRect(hwnd, NULL, FALSE);
                 return;
@@ -152,7 +153,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         if (hit == COUNTRY_PANEL_HIT_TOGGLE_FALLEN) {
             country_show_fallen = !country_show_fallen;
             country_list_scroll_offset = 0;
-            if (!country_show_fallen && selected_civ >= 0 && selected_civ < civ_count && !civs[selected_civ].alive) {
+            if (!country_show_fallen && selected_civ >= 0 && !ui_snapshot_civ_alive(selected_civ)) {
                 ui_clear_selected_civ(UI_SELECT_SOURCE_COUNTRY_LIST);
             }
             InvalidateRect(hwnd, NULL, FALSE);
@@ -205,7 +206,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             InvalidateRect(hwnd, NULL, FALSE);
             return;
         }
-        if (hit >= 0 && hit < civ_count) {
+        if (hit >= 0 && ui_snapshot_civ_alive(hit)) {
             ui_select_civ(hit, UI_SELECT_SOURCE_COUNTRY_LIST);
             InvalidateRect(hwnd, NULL, FALSE);
             return;

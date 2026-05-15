@@ -138,6 +138,34 @@ static void maybe_tooltip(RECT rect, const char *text, const char **active_toolt
     if (point_in_rect_local(rect, hover_x, hover_y)) *active_tooltip = text;
 }
 
+static const char *worldgen_mode_label(void) {
+    switch (display_mode) {
+        case DISPLAY_GEOGRAPHY: return tr("Geography", "地理");
+        case DISPLAY_CLIMATE: return tr("Climate", "气候");
+        case DISPLAY_REGIONS: return tr("Regions", "区域");
+        case DISPLAY_ROUTE_POTENTIAL: return tr("Routes", "航道潜力网");
+        default: return tr("Political", "政治");
+    }
+}
+
+static void draw_viewer_controls_summary(HDC hdc, const WorldgenLayout *layout) {
+    char text[160];
+    draw_section_rect(hdc, layout->viewer_section, tr("Viewer Controls", "查看器控制"));
+    snprintf(text, sizeof(text), "%s: %s    %s: %d%%",
+             tr("Layer", "图层"), worldgen_mode_label(), tr("Zoom", "缩放"), map_zoom_percent);
+    draw_text_rect(hdc, layout->viewer_row[0], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    snprintf(text, sizeof(text), "%s: %s    %s: %s",
+             tr("Legend", "图例"), map_legend_collapsed ? tr("collapsed", "已收起") : tr("visible", "显示中"),
+             tr("Sidebar", "侧栏"), side_panel_collapsed ? tr("collapsed", "已收起") : tr("expanded", "展开中"));
+    draw_text_rect(hdc, layout->viewer_row[1], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, layout->viewer_row[2],
+                   tr("Pan, zoom, layer, and legend controls do not change the generated world.",
+                      "平移、缩放、图层和图例只影响查看，不改变已生成世界。"),
+                   ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+}
+
 static void draw_map_size_selector(HDC hdc, const WorldgenLayout *layout) {
     const char *size_en[3] = {"Small", "Medium", "Large"};
     const char *size_zh[3] = {"小", "中", "大"};
@@ -197,6 +225,33 @@ static void draw_worldgen_slider(HDC hdc, const WorldgenLayout *layout, int inde
     draw_text_rect_clipped(hdc, slider->help, help, ui_theme_color(UI_COLOR_TEXT_DIM),
                            DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     maybe_tooltip(slider->hit, help, active_tooltip);
+}
+
+static void draw_region_size_estimate(HDC hdc, const WorldgenLayout *layout) {
+    int map_w_setting, map_h_setting, cap_reached = 0;
+    int target_area = regions_target_size_from_slider(region_size_slider);
+    int estimated_count;
+    char text[192];
+
+    map_size_dimensions(pending_map_size, &map_w_setting, &map_h_setting);
+    estimated_count = regions_estimated_count_for_settings(map_w_setting, map_h_setting,
+                                                           ocean_slider, region_size_slider,
+                                                           &cap_reached);
+    if (worldgen_rect_visible(layout->viewport, layout->region_estimate)) {
+        snprintf(text, sizeof(text), "%s: %d    %s: %d / %d",
+                 tr("Target area", "目标面积"), target_area,
+                 tr("Estimated regions", "估算区域数"), estimated_count,
+                 MAX_NATURAL_REGIONS);
+        draw_text_rect_clipped(hdc, layout->region_estimate, text,
+                               ui_theme_color(UI_COLOR_TEXT_DIM),
+                               DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    }
+    if (cap_reached && worldgen_rect_visible(layout->viewport, layout->region_warning)) {
+        draw_text_rect_clipped(hdc, layout->region_warning,
+                               tr("Region cap reached; some regions may be larger than requested.",
+                                  "区域数量已达上限；部分区域可能大于请求值。"),
+                               RGB(225, 178, 92), DT_WORDBREAK | DT_END_ELLIPSIS);
+    }
 }
 
 static const char *metric_help(int index) {
@@ -311,6 +366,8 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     SelectObject(hdc, body_font);
     draw_setup_stages(hdc, &layout);
+    draw_viewer_controls_summary(hdc, &layout);
+    draw_section_rect(hdc, layout.generation_section, tr("World Generation Controls", "世界生成控制"));
     draw_section_rect(hdc, layout.map_size_section, tr("Map Size", "地图大小"));
     draw_map_size_selector(hdc, &layout);
     draw_text_rect(hdc, layout.map_size_help,
@@ -340,6 +397,7 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_BIAS_WETLAND, tr("Wetland Bias", "湿地偏好"), bias_wetland_slider, &tooltip_text);
     draw_section_rect(hdc, layout.regions_section, tr("Natural Regions", "自然区域"));
     draw_worldgen_slider(hdc, &layout, UI_SLIDER_REGION_SIZE, tr("Region Size", "区域大小"), region_size_slider, &tooltip_text);
+    draw_region_size_estimate(hdc, &layout);
     draw_text_rect(hdc, layout.generate_row, tr("Generate: F5 rebuilds world with these settings.",
                    "生成：F5 使用这些设置重建世界。"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);

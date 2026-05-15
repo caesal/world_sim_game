@@ -33,6 +33,9 @@ typedef struct {
     RECT title;
     RECT stage_section;
     RECT stage_row[4];
+    RECT viewer_section;
+    RECT viewer_row[3];
+    RECT generation_section;
     RECT map_size_section;
     RECT map_size_buttons[MAP_SIZE_COUNT];
     RECT map_size_help;
@@ -45,6 +48,8 @@ typedef struct {
     RECT terrain_section;
     RECT terrain_random_button;
     RECT regions_section;
+    RECT region_estimate;
+    RECT region_warning;
     RECT generate_row;
     WorldgenSliderLayout sliders[UI_SLIDER_COUNT];
     RECT civ_section;

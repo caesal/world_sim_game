@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "data/province_names.h"
 #include "sim/region_boundary.h"
+#include "sim/regions_validate.h"
 #include "sim/regions_shape.h"
 #include "world/terrain_query.h"
 
@@ -110,11 +111,6 @@ static int land_tile_count(void) {
         }
     }
     return count;
-}
-
-static int region_target_size_from_slider(int value) {
-    int v = clamp(value, 0, 100);
-    return 90 + v * 4 + v * v * 630 / 10000;
 }
 
 static void log_region_generation_debug(int slider, int target_size, int seeded_regions) {
@@ -467,7 +463,7 @@ void regions_generate(int region_size_value) {
     static int seed_x[MAX_NATURAL_REGIONS];
     static int seed_y[MAX_NATURAL_REGIONS];
     int land = land_tile_count();
-    int target_size = region_target_size_from_slider(region_size_value);
+    int target_size = regions_target_size_from_slider(region_size_value);
     int target_count;
 
     regions_reset();
@@ -480,6 +476,8 @@ void regions_generate(int region_size_value) {
     grow_regions_from_seeds(target_count, target_size, seed_x, seed_y);
     assign_unreached_land();
     merge_tiny_regions(max(24, target_size / REGION_TINY_DIVISOR));
+    regions_validate_postprocess(target_size);
+    rebuild_region_metadata();
     regions_shape_refine(target_size);
     rebuild_region_metadata();
     compute_direction_scores();
