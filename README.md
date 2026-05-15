@@ -7,13 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.5 is a Windows graphical sandbox prototype written in C.
+Ver0.2.6 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.5 focuses on the water-route architecture and UI stability pass: shallow/deep
-water rendering is unified, route potential ports become deterministic active ports
-when their regions are occupied, ordinary sea lanes are activated from the same route
-potential graph used by the debug overlay, World-tab random/form controls were
-restyled, and map/sidebar layout behavior was tightened.
+Ver0.2.6 focuses on diplomacy contact correctness, route readability, world-generation
+feedback, and province-name localization. Diplomacy contact now requires current land
+or active sea-lane reachability, disconnected known relations fade instead of drifting
+into tension or war, war fronts use the same contact source, world generation shows
+separate total/stage progress, province names use stable bilingual IDs, and sea-lane
+visuals were tuned for clearer shallow/deep route reading.
 
 You can:
 
@@ -122,6 +123,12 @@ You can:
 103. Render shallow and deep water as the visible water categories, with a soft visual gradient while gameplay still uses hard shallow/deep thresholds
 104. Collapse or expand the right sidebar while centering the map inside the actual available viewport
 105. Use custom dark Random buttons and clearer World-tab form layout for civilization and world-generation setup
+106. Show world-generation progress as separate overall and current-stage progress while hiding half-built maps
+107. Assign stable bilingual province names from the province-name table and redraw labels when the UI language changes
+108. Default ordinary map display to the political layer and keep composite all-layer display out of the player-facing selector
+109. Draw sea-lane dashes with stable world-distance rhythm and clearer shallow/deep colors and widths
+110. Gate diplomacy peace, tension, war starts, and map animations on current land or active sea-lane contact
+111. Fade disconnected known peace/tension relationships instead of allowing them to escalate without a current front
 
 ## Controls
 

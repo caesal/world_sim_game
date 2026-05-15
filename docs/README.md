@@ -10,11 +10,11 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.2.5, the current official docs are:
+For Ver0.2.6, the current official docs are:
 
-- `docs/official/game_universal_documentation_ver0.2.5.doc`
-- `docs/official/versions/game_doc_ver0.2.5.doc`
-- `docs/official/versions/game_doc_ver0.2.5_change_summary.doc`
+- `docs/official/game_universal_documentation_ver0.2.6.doc`
+- `docs/official/versions/game_doc_ver0.2.6.doc`
+- `docs/official/versions/game_doc_ver0.2.6_change_summary.doc`
 
 The working version log is:
 

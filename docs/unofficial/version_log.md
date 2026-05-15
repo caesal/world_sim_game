@@ -1,5 +1,24 @@
 # Version Log
 
+## Ver0.2.6
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.6
+2. Added Ver0.2.6 official documentation and change-summary documents under `docs/official`
+3. Added stable bilingual province-name data and region/province name ID handling
+4. Improved province label readability and language switching
+5. Changed the default player-facing map layer to Political and removed the ordinary All-layer option
+6. Split world-generation progress into overall and current-stage progress bars
+7. Kept the right sidebar visible during world generation while masking only the map area
+8. Tuned route-potential shallow and deep sea-lane rendering colors, widths, dash rhythm, and draw order
+9. Tightened deep sea route potential into a sparse backbone over shallow networks
+10. Added unified diplomacy contact checks for land, active shallow sea networks, active deep sea networks, and vassal proxy contact
+11. Prevented peace, tension, war starts, and diplomacy map animations from appearing without current contact
+12. Made disconnected known peace/tension relationships cool down and eventually return to no active relationship
+13. Updated Makefile/build source lists for the new progress, province-name, country-event, debug-worldgen, and diplomacy-contact modules
+14. Verified `git diff --check` and a full temporary-target build for Ver0.2.6
+
 ## Ver0.2.5
 
 Implemented fixes:
