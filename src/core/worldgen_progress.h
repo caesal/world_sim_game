@@ -20,12 +20,15 @@ typedef struct {
     int active;
     WorldGenStage stage;
     int percent;
+    int percent_x1000;
     int target_percent;
+    int target_percent_x1000;
     int stage_index;
     int stage_count;
     int stage_current;
     int stage_total;
     int stage_percent;
+    int stage_percent_x1000;
     char message_en[128];
     char message_zh[128];
     int stage_ms[WORLDGEN_STAGE_COUNT];

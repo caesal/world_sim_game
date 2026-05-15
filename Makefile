@@ -16,6 +16,7 @@ SOURCES := \
 	src/core/dirty_flags.c \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
+	src/core/render_snapshot_keys.c \
 	src/core/state_lock.c \
 	src/core/worldgen_progress.c \
 	src/data/country_names.c \
@@ -82,6 +83,7 @@ SOURCES := \
 	src/render/map_highlight.c \
 	src/render/terrain_present.c \
 	src/render/region_render.c \
+	src/render/snapshot_map_layers.c \
 	src/render/map_labels.c \
 	src/render/route_render.c \
 	src/render/river_geometry.c \
@@ -114,18 +116,20 @@ SOURCES := \
 	src/render/icons.c \
 	src/ui/ui_theme.c \
 	src/ui/ui_widgets.c \
+	src/ui/color_picker.c \
 	src/ui/pause_menu.c \
 	src/ui/ui_actions.c \
 	src/ui/ui_worldgen_layout.c \
 	src/ui/ui_state.c \
 	src/ui/ui_layout.c \
+	src/ui/ui_map_input.c \
 	src/ui/ui_sliders.c \
 	src/ui/ui_forms.c \
 	src/ui/ui_selection.c \
 	src/ui/ui_snapshot_read.c \
 	src/ui/ui.c
 
-.PHONY: all clean
+.PHONY: all clean check-text
 
 all: $(TARGET)
 
@@ -134,3 +138,6 @@ $(TARGET): $(SOURCES)
 
 clean:
 	rm -f $(TARGET)
+
+check-text:
+	python tools/check_mojibake.py

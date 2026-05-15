@@ -1,0 +1,239 @@
+World Sim expansion probe seed=1234567 map=720x500 initial_civs=20
+Technology sanity initial_stage0=yes stage0_expansion=100 stage0_resource=100 stage0_deep=0 stage0_defense=100 stage0_battle=0 stage1_expansion=110 stage2_expansion=120
+year=1 active_owned_regions=43 owned_regions=43 land_regions=472 active_ownership=9% wars=0
+  civ=0 name=Crown of Emberlyn regions=3 land_adj=6 land_near=3 shallow=4 route=4 deep=0 port_candidates=237 global=90% desire=146 threshold=79 war_desire=0
+  civ=1 name=Republic of Starhaven regions=2 land_adj=5 land_near=4 shallow=0 route=0 deep=0 port_candidates=237 global=90% desire=126 threshold=84 war_desire=0
+  civ=2 name=Stonefall Kingdom regions=2 land_adj=10 land_near=15 shallow=5 route=5 deep=0 port_candidates=237 global=90% desire=147 threshold=79 war_desire=0
+  civ=3 name=Scarlet Republic regions=2 land_adj=8 land_near=10 shallow=5 route=5 deep=0 port_candidates=237 global=90% desire=164 threshold=75 war_desire=0
+  civ=4 name=Wolfmere Kingdom regions=2 land_adj=9 land_near=10 shallow=9 route=9 deep=0 port_candidates=237 global=90% desire=151 threshold=79 war_desire=0
+  civ=5 name=Redwyvern Dominion regions=2 land_adj=11 land_near=4 shallow=5 route=5 deep=0 port_candidates=237 global=90% desire=135 threshold=84 war_desire=0
+  civ=6 name=Dragonhelm Empire regions=2 land_adj=9 land_near=14 shallow=5 route=5 deep=0 port_candidates=237 global=90% desire=154 threshold=70 war_desire=0
+  civ=7 name=Silverthorn Dominion regions=2 land_adj=10 land_near=9 shallow=0 route=0 deep=0 port_candidates=237 global=90% desire=156 threshold=79 war_desire=0
+  civ=8 name=Stormthorn Empire regions=3 land_adj=10 land_near=8 shallow=0 route=0 deep=0 port_candidates=237 global=90% desire=166 threshold=75 war_desire=0
+  civ=9 name=Redcrown Dominion regions=2 land_adj=5 land_near=7 shallow=2 route=2 deep=0 port_candidates=237 global=90% desire=172 threshold=84 war_desire=0
+  civ=10 name=Starhaven Dominion regions=2 land_adj=8 land_near=8 shallow=8 route=8 deep=0 port_candidates=237 global=90% desire=156 threshold=70 war_desire=0
+  civ=11 name=Ebonreach Kingdom regions=3 land_adj=8 land_near=23 shallow=1 route=1 deep=0 port_candidates=237 global=90% desire=142 threshold=75 war_desire=0
+  civ=12 name=Marches of Duskfall regions=2 land_adj=10 land_near=18 shallow=0 route=0 deep=0 port_candidates=237 global=90% desire=164 threshold=79 war_desire=0
+  civ=13 name=Ravenspire Duchy regions=2 land_adj=5 land_near=3 shallow=0 route=0 deep=0 port_candidates=237 global=90% desire=123 threshold=84 war_desire=0
+  civ=14 name=Wolfguard Kingdom regions=2 land_adj=5 land_near=4 shallow=1 route=1 deep=0 port_candidates=237 global=90% desire=163 threshold=75 war_desire=0
+  civ=15 name=Silvercrown Kingdom regions=2 land_adj=8 land_near=3 shallow=2 route=2 deep=0 port_candidates=237 global=90% desire=147 threshold=75 war_desire=0
+  civ=16 name=Blackmere Covenant regions=2 land_adj=7 land_near=9 shallow=0 route=0 deep=0 port_candidates=237 global=90% desire=173 threshold=75 war_desire=0
+  civ=17 name=The Stormborn Realm regions=2 land_adj=11 land_near=8 shallow=5 route=5 deep=0 port_candidates=237 global=90% desire=147 threshold=84 war_desire=0
+  civ=18 name=Eldergate Realm regions=2 land_adj=7 land_near=5 shallow=4 route=4 deep=0 port_candidates=237 global=90% desire=160 threshold=70 war_desire=0
+  civ=19 name=The Nightfall Realm regions=2 land_adj=10 land_near=12 shallow=3 route=3 deep=0 port_candidates=237 global=90% desire=148 threshold=79 war_desire=0
+  total_reachable_unowned_sum=339
+year=10 active_owned_regions=158 owned_regions=158 land_regions=472 active_ownership=33% wars=0
+  civ=0 name=Crown of Emberlyn regions=9 land_adj=3 land_near=1 shallow=2 route=2 deep=0 port_candidates=162 global=66% desire=113 threshold=79 war_desire=0
+  civ=1 name=Republic of Starhaven regions=5 land_adj=2 land_near=0 shallow=0 route=0 deep=0 port_candidates=162 global=66% desire=60 threshold=84 war_desire=0
+  civ=2 name=Stonefall Kingdom regions=8 land_adj=9 land_near=15 shallow=6 route=6 deep=0 port_candidates=162 global=66% desire=130 threshold=79 war_desire=0
+  civ=3 name=Scarlet Republic regions=8 land_adj=10 land_near=4 shallow=10 route=10 deep=0 port_candidates=162 global=66% desire=137 threshold=75 war_desire=0
+  civ=4 name=Wolfmere Kingdom regions=8 land_adj=16 land_near=7 shallow=5 route=5 deep=0 port_candidates=162 global=66% desire=134 threshold=79 war_desire=0
+  civ=5 name=Redwyvern Dominion regions=8 land_adj=8 land_near=3 shallow=10 route=10 deep=0 port_candidates=162 global=66% desire=127 threshold=84 war_desire=0
+  civ=6 name=Dragonhelm Empire regions=8 land_adj=10 land_near=12 shallow=5 route=5 deep=0 port_candidates=162 global=66% desire=145 threshold=66 war_desire=0
+  civ=7 name=Silverthorn Dominion regions=9 land_adj=14 land_near=8 shallow=5 route=5 deep=0 port_candidates=162 global=66% desire=139 threshold=71 war_desire=0
+  civ=8 name=Stormthorn Empire regions=10 land_adj=11 land_near=1 shallow=9 route=9 deep=0 port_candidates=162 global=66% desire=140 threshold=71 war_desire=0
+  civ=9 name=Redcrown Dominion regions=8 land_adj=5 land_near=3 shallow=1 route=1 deep=0 port_candidates=162 global=66% desire=131 threshold=84 war_desire=0
+  civ=10 name=Starhaven Dominion regions=8 land_adj=8 land_near=8 shallow=3 route=3 deep=0 port_candidates=162 global=66% desire=150 threshold=70 war_desire=0
+  civ=11 name=Ebonreach Kingdom regions=9 land_adj=18 land_near=23 shallow=3 route=3 deep=0 port_candidates=162 global=66% desire=161 threshold=75 war_desire=0
+  civ=12 name=Marches of Duskfall regions=8 land_adj=15 land_near=13 shallow=7 route=7 deep=0 port_candidates=162 global=66% desire=148 threshold=79 war_desire=0
+  civ=13 name=Ravenspire Duchy regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=162 global=66% desire=41 threshold=84 war_desire=0
+  civ=14 name=Wolfguard Kingdom regions=8 land_adj=6 land_near=5 shallow=4 route=4 deep=0 port_candidates=162 global=66% desire=140 threshold=75 war_desire=0
+  civ=15 name=Silvercrown Kingdom regions=7 land_adj=3 land_near=1 shallow=0 route=0 deep=0 port_candidates=162 global=66% desire=96 threshold=75 war_desire=0
+  civ=16 name=Blackmere Covenant regions=8 land_adj=11 land_near=10 shallow=1 route=1 deep=0 port_candidates=162 global=66% desire=145 threshold=75 war_desire=0
+  civ=17 name=The Stormborn Realm regions=8 land_adj=16 land_near=15 shallow=7 route=7 deep=0 port_candidates=162 global=66% desire=138 threshold=80 war_desire=0
+  civ=18 name=Eldergate Realm regions=8 land_adj=7 land_near=8 shallow=4 route=4 deep=0 port_candidates=162 global=66% desire=150 threshold=70 war_desire=0
+  civ=19 name=The Nightfall Realm regions=8 land_adj=16 land_near=15 shallow=0 route=0 deep=0 port_candidates=162 global=66% desire=147 threshold=75 war_desire=0
+  total_reachable_unowned_sum=340
+year=50 active_owned_regions=410 owned_regions=410 land_regions=472 active_ownership=86% wars=51
+  civ=0 name=Crown of Emberlyn regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=53 threshold=79 war_desire=58
+  civ=1 name=Republic of Starhaven regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=50 threshold=72 war_desire=42
+  civ=2 name=Stonefall Kingdom regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=53 threshold=75 war_desire=93
+  civ=3 name=Scarlet Republic regions=23 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=44 threshold=75 war_desire=52
+  civ=4 name=Wolfmere Kingdom regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=49 threshold=67 war_desire=62
+  civ=5 name=Redwyvern Dominion regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=39 threshold=80 war_desire=0
+  civ=6 name=Dragonhelm Empire regions=33 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=98 threshold=62 war_desire=90
+  civ=7 name=Silverthorn Dominion regions=26 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=50 threshold=63 war_desire=66
+  civ=8 name=Stormthorn Empire regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=57 threshold=63 war_desire=43
+  civ=9 name=Redcrown Dominion regions=21 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=47 threshold=76 war_desire=87
+  civ=10 name=Starhaven Dominion regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=90 threshold=62 war_desire=63
+  civ=12 name=Marches of Duskfall regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=49 threshold=75 war_desire=100
+  civ=13 name=Ravenspire Duchy regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=56 threshold=76 war_desire=53
+  civ=14 name=Wolfguard Kingdom regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=62 threshold=71 war_desire=67
+  civ=15 name=Silvercrown Kingdom regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=70 threshold=71 war_desire=100
+  civ=16 name=Blackmere Covenant regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=67 threshold=75 war_desire=100
+  civ=17 name=The Stormborn Realm regions=26 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=50 threshold=72 war_desire=54
+  civ=18 name=Eldergate Realm regions=25 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=78 threshold=62 war_desire=100
+  civ=19 name=The Nightfall Realm regions=34 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=53 threshold=75 war_desire=76
+  civ=20 name=Thornmere Dominion regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=71 threshold=75 war_desire=86
+  civ=21 name=Blackhold Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=44 threshold=71 war_desire=35
+  civ=22 name=Embercrown Empire regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=67 threshold=75 war_desire=85
+  civ=23 name=The Highborn Covenant regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=35 threshold=75 war_desire=0
+  total_reachable_unowned_sum=0
+year=100 active_owned_regions=410 owned_regions=410 land_regions=472 active_ownership=86% wars=131
+  civ=0 name=Crown of Emberlyn regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=68 threshold=64 war_desire=0
+  civ=1 name=Republic of Starhaven regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=82 threshold=58 war_desire=13
+  civ=2 name=Stonefall Kingdom regions=90 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=88 threshold=64 war_desire=84
+  civ=3 name=Scarlet Republic regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=40 threshold=68 war_desire=0
+  civ=4 name=Wolfmere Kingdom regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=62 threshold=58 war_desire=99
+  civ=5 name=Redwyvern Dominion regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=55 threshold=69 war_desire=0
+  civ=6 name=Dragonhelm Empire regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=90 threshold=58 war_desire=0
+  civ=7 name=Silverthorn Dominion regions=28 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=64 threshold=58 war_desire=0
+  civ=8 name=Stormthorn Empire regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=77 threshold=58 war_desire=43
+  civ=9 name=Redcrown Dominion regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=58 threshold=69 war_desire=0
+  civ=10 name=Starhaven Dominion regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=94 threshold=58 war_desire=0
+  civ=11 name=Moonhaven Realm regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=99 threshold=58 war_desire=82
+  civ=12 name=Marches of Duskfall regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=71 threshold=68 war_desire=0
+  civ=13 name=Ravenspire Duchy regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=84 threshold=65 war_desire=100
+  civ=14 name=Wolfguard Kingdom regions=27 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=67 threshold=60 war_desire=0
+  civ=15 name=Silvercrown Kingdom regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=105 threshold=58 war_desire=100
+  civ=16 name=Blackmere Covenant regions=40 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=83 threshold=58 war_desire=100
+  civ=17 name=The Stormborn Realm regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=67 threshold=61 war_desire=94
+  civ=18 name=Eldergate Realm regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=85 threshold=58 war_desire=100
+  civ=19 name=The Nightfall Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=105 threshold=64 war_desire=94
+  civ=20 name=Thornmere Dominion regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=93 threshold=60 war_desire=100
+  civ=21 name=Blackhold Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=67 threshold=64 war_desire=0
+  civ=22 name=Kingdom of Frostbarrow regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=74 threshold=58 war_desire=55
+  civ=23 name=Crownwatch Dominion regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=59 threshold=58 war_desire=21
+  civ=25 name=Stormcrown Dominion regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=48 threshold=60 war_desire=69
+  civ=29 name=Silvergate Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=68 threshold=58 war_desire=82
+  total_reachable_unowned_sum=0
+year=200 active_owned_regions=410 owned_regions=410 land_regions=472 active_ownership=86% wars=511
+  civ=0 name=Blackwater League regions=32 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=108 threshold=58 war_desire=100
+  civ=1 name=Republic of Starhaven regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=147 threshold=58 war_desire=49
+  civ=2 name=Stonefall Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=75 threshold=59 war_desire=36
+  civ=3 name=Scarlet Republic regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=78 threshold=58 war_desire=0
+  civ=4 name=Wolfmere Kingdom regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=68 threshold=58 war_desire=100
+  civ=5 name=Redwyvern Dominion regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=102 threshold=58 war_desire=0
+  civ=6 name=Dragonhelm Empire regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=108 threshold=58 war_desire=83
+  civ=7 name=Silverthorn Dominion regions=34 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=75 threshold=58 war_desire=0
+  civ=8 name=Stormthorn Empire regions=30 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=81 threshold=58 war_desire=50
+  civ=9 name=Caldrisian Republic regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=104 threshold=58 war_desire=74
+  civ=10 name=Starhaven Dominion regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=103 threshold=58 war_desire=0
+  civ=11 name=Stormwater Republic regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=114 threshold=58 war_desire=68
+  civ=12 name=Thornwatch Kingdom regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=91 threshold=58 war_desire=90
+  civ=13 name=Ravenspire Duchy regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=90 threshold=60 war_desire=0
+  civ=14 name=Wolfguard Kingdom regions=52 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=110 threshold=58 war_desire=100
+  civ=15 name=Silvercrown Kingdom regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=115 threshold=58 war_desire=100
+  civ=16 name=Blackmere Covenant regions=39 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=96 threshold=58 war_desire=100
+  civ=17 name=The Stormborn Realm regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=96 threshold=58 war_desire=100
+  civ=18 name=Crownhold Empire regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=105 threshold=58 war_desire=100
+  civ=19 name=The Nightfall Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=69 threshold=58 war_desire=29
+  civ=20 name=Thornmere Dominion regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=96 threshold=58 war_desire=66
+  civ=21 name=Crown of Emberlyn regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=100 threshold=58 war_desire=82
+  civ=22 name=Kingdom of Frostbarrow regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=171 threshold=58 war_desire=67
+  civ=23 name=Crownwatch Dominion regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=61 threshold=58 war_desire=80
+  civ=24 name=Redhaven Dominion regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=122 threshold=58 war_desire=100
+  civ=25 name=Stormcrown Dominion regions=25 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=85 threshold=58 war_desire=93
+  civ=26 name=Frostmarch Kingdom regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=91 threshold=58 war_desire=0
+  civ=27 name=Realm of Veyr regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=114 threshold=58 war_desire=100
+  civ=29 name=Empire of Goldwyn regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=74 threshold=58 war_desire=33
+  civ=30 name=Republic of Caldris regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=69 threshold=58 war_desire=98
+  civ=32 name=Dawnmere Republic regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=96 threshold=58 war_desire=100
+  civ=33 name=Highmere Union regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=52 threshold=58 war_desire=70
+  civ=34 name=Amberreach League regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=74 threshold=58 war_desire=100
+  civ=35 name=Emberstone Dominion regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=126 threshold=58 war_desire=0
+  civ=36 name=Whiteharbor League regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=63 threshold=59 war_desire=96
+  civ=37 name=Ironmere Confederacy regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=92 threshold=58 war_desire=0
+  civ=38 name=Brightspire Republic regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=94 threshold=58 war_desire=100
+  civ=39 name=Starspire Kingdom regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=134 threshold=58 war_desire=88
+  total_reachable_unowned_sum=0
+year=300 active_owned_regions=410 owned_regions=410 land_regions=472 active_ownership=86% wars=852
+  civ=0 name=Blackwater League regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=108 threshold=58 war_desire=0
+  civ=1 name=Republic of Starhaven regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=121 threshold=58 war_desire=99
+  civ=2 name=Stonefall Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=66 threshold=58 war_desire=100
+  civ=3 name=Scarlet Republic regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=110 threshold=58 war_desire=0
+  civ=4 name=Wolfmere Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=252 threshold=58 war_desire=70
+  civ=5 name=Redwyvern Dominion regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=163 threshold=58 war_desire=0
+  civ=7 name=Silverthorn Dominion regions=32 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=109 threshold=58 war_desire=100
+  civ=8 name=Stormthorn Empire regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=88 threshold=58 war_desire=14
+  civ=11 name=Stormwater Republic regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=114 threshold=58 war_desire=0
+  civ=12 name=Thornwatch Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=110 threshold=58 war_desire=100
+  civ=13 name=Ravenspire Duchy regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=153 threshold=58 war_desire=100
+  civ=14 name=Wolfguard Kingdom regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=96 threshold=58 war_desire=0
+  civ=16 name=Blackmere Covenant regions=32 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=86 threshold=58 war_desire=93
+  civ=17 name=The Stormborn Realm regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=124 threshold=58 war_desire=0
+  civ=19 name=The Nightfall Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=205 threshold=58 war_desire=100
+  civ=20 name=Thornmere Dominion regions=17 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=106 threshold=58 war_desire=100
+  civ=21 name=Crown of Emberlyn regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=87 threshold=58 war_desire=0
+  civ=22 name=Kingdom of Frostbarrow regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=220 threshold=58 war_desire=69
+  civ=23 name=Crownwatch Dominion regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=78 threshold=58 war_desire=100
+  civ=25 name=Stormcrown Dominion regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=87 threshold=58 war_desire=94
+  civ=26 name=Frostmarch Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=67 threshold=58 war_desire=100
+  civ=27 name=Realm of Veyr regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=103 threshold=58 war_desire=0
+  civ=28 name=Celestine Realm regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=93 threshold=58 war_desire=100
+  civ=29 name=Empire of Goldwyn regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=97 threshold=58 war_desire=35
+  civ=31 name=Ashenreach Realm regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=213 threshold=58 war_desire=0
+  civ=32 name=Dawnmere Republic regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=127 threshold=58 war_desire=69
+  civ=33 name=Highmere Union regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=93 threshold=58 war_desire=100
+  civ=34 name=Amberreach League regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=74 threshold=58 war_desire=0
+  civ=37 name=Stormborn Dominion regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=100 threshold=58 war_desire=100
+  civ=39 name=Starspire Kingdom regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=112 threshold=58 war_desire=0
+  civ=40 name=Crownmere Realm regions=72 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=68 threshold=58 war_desire=66
+  civ=41 name=Azure Compact regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=46 global=13% desire=93 threshold=58 war_desire=100
+  total_reachable_unowned_sum=0
+year=400 active_owned_regions=441 owned_regions=441 land_regions=472 active_ownership=93% wars=1215
+  civ=0 name=Blackwater League regions=32 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=103 threshold=58 war_desire=100
+  civ=1 name=Republic of Starhaven regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=193 threshold=58 war_desire=0
+  civ=2 name=Stonefall Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=66 threshold=58 war_desire=51
+  civ=3 name=Scarlet Republic regions=9 land_adj=0 land_near=0 shallow=0 route=26 deep=26 port_candidates=26 global=6% desire=288 threshold=58 war_desire=0
+  civ=4 name=Ashenford Kingdom regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=130 threshold=58 war_desire=100
+  civ=5 name=Redwyvern Dominion regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=212 threshold=58 war_desire=0
+  civ=6 name=Whitevale League regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=110 threshold=58 war_desire=0
+  civ=7 name=Silverthorn Dominion regions=26 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=64 threshold=58 war_desire=100
+  civ=8 name=Stormthorn Empire regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=160 threshold=58 war_desire=46
+  civ=10 name=Duskfall Marches regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=69 threshold=58 war_desire=100
+  civ=11 name=Stormwater Republic regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=166 threshold=58 war_desire=0
+  civ=13 name=Ravenspire Duchy regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=150 threshold=58 war_desire=75
+  civ=14 name=Solmere Crownlands regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=114 threshold=58 war_desire=100
+  civ=15 name=Whitewatch Dominion regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=81 threshold=58 war_desire=64
+  civ=16 name=Blackmere Covenant regions=51 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=64 threshold=58 war_desire=93
+  civ=17 name=The Sapphire Coast regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=100 threshold=58 war_desire=100
+  civ=18 name=The Thorned Dominion regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=64 threshold=58 war_desire=61
+  civ=19 name=The Nightfall Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=195 threshold=58 war_desire=100
+  civ=20 name=Thornmere Dominion regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=138 threshold=58 war_desire=0
+  civ=21 name=Emberfall Realm regions=17 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=93 threshold=58 war_desire=100
+  civ=22 name=Kingdom of Frostbarrow regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=223 threshold=58 war_desire=50
+  civ=23 name=Crownwatch Dominion regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=96 threshold=58 war_desire=100
+  civ=24 name=Redhaven Dominion regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=106 threshold=58 war_desire=100
+  civ=25 name=Stormcrown Dominion regions=28 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=84 threshold=58 war_desire=100
+  civ=28 name=Celestine Realm regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=144 threshold=58 war_desire=0
+  civ=29 name=Empire of Goldwyn regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=156 threshold=58 war_desire=99
+  civ=31 name=Ironvale Republic regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=159 threshold=58 war_desire=0
+  civ=34 name=Amberreach League regions=34 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=93 threshold=58 war_desire=85
+  civ=35 name=Covenant of Eryndor regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=82 threshold=58 war_desire=100
+  civ=39 name=Starspire Kingdom regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=136 threshold=58 war_desire=0
+  civ=40 name=Crownmere Realm regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=26 global=6% desire=103 threshold=58 war_desire=100
+  total_reachable_unowned_sum=0
+year=500 active_owned_regions=472 owned_regions=472 land_regions=472 active_ownership=100% wars=1390
+  civ=0 name=Blackwater League regions=33 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=103 threshold=58 war_desire=100
+  civ=1 name=Republic of Starhaven regions=17 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=175 threshold=58 war_desire=100
+  civ=2 name=Stonefall Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=66 threshold=58 war_desire=100
+  civ=3 name=Scarlet Republic regions=55 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=94 threshold=58 war_desire=49
+  civ=4 name=Ashenford Kingdom regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=205 threshold=58 war_desire=0
+  civ=5 name=Redwyvern Dominion regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=218 threshold=58 war_desire=0
+  civ=6 name=Whitevale League regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=110 threshold=58 war_desire=0
+  civ=7 name=Silverthorn Dominion regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=112 threshold=58 war_desire=100
+  civ=8 name=Stormthorn Empire regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=187 threshold=58 war_desire=0
+  civ=9 name=The Iron Dominion regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=110 threshold=58 war_desire=0
+  civ=11 name=Stormwater Republic regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=208 threshold=58 war_desire=33
+  civ=12 name=Goldenvale Kingdom regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=84 threshold=58 war_desire=100
+  civ=13 name=Ravenspire Duchy regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=163 threshold=58 war_desire=0
+  civ=14 name=Solmere Crownlands regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=120 threshold=58 war_desire=0
+  civ=15 name=Whitewatch Dominion regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=82 threshold=58 war_desire=100
+  civ=16 name=Blackmere Covenant regions=66 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=86 threshold=58 war_desire=0
+  civ=17 name=The Sapphire Coast regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=165 threshold=58 war_desire=100
+  civ=18 name=The Thorned Dominion regions=17 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=122 threshold=58 war_desire=0
+  civ=19 name=The Nightfall Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=200 threshold=58 war_desire=37
+  civ=20 name=Thornmere Dominion regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=105 threshold=58 war_desire=0
+  civ=21 name=Emberfall Realm regions=21 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=88 threshold=58 war_desire=0
+  civ=22 name=Kingdom of Frostbarrow regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=225 threshold=58 war_desire=37
+  civ=23 name=Crownwatch Dominion regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=99 threshold=58 war_desire=29
+  civ=25 name=Stormcrown Dominion regions=48 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=84 threshold=58 war_desire=100
+  civ=27 name=Dragonwatch Realm regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=127 threshold=58 war_desire=100
+  civ=28 name=Celestine Realm regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=219 threshold=58 war_desire=0
+  civ=29 name=Empire of Goldwyn regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=219 threshold=58 war_desire=0
+  civ=34 name=Amberreach League regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=112 threshold=58 war_desire=100
+  civ=35 name=Covenant of Eryndor regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=163 threshold=58 war_desire=0
+  civ=39 name=Starspire Kingdom regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=454 threshold=58 war_desire=0
+  civ=40 name=Crownmere Realm regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=0 global=0% desire=93 threshold=58 war_desire=0
+  total_reachable_unowned_sum=0

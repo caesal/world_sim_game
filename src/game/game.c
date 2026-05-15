@@ -44,6 +44,12 @@ void game_toggle_auto_run(void) {
     auto_run = !auto_run;
     game_loop_reset();
 }
+void game_request_pause(void) {
+    auto_run = 0;
+}
+void game_pause_for_modal_or_action(void) {
+    game_request_pause();
+}
 void game_request_regenerate_regions(void) {
     if (!world_generated || civ_count > 0) return;
     regions_generate(region_size_slider);
@@ -101,19 +107,52 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
     render_snapshot_publish_from_live_state();
     return 1;
 }
-void game_request_set_civilization_color(int civ_id, Color32 color) {
+static int color_seed_region_for_civ(int civ_id) {
     int seed_region = -1;
-    if (civ_id < 0 || civ_id >= civ_count) return;
-    state_write_lock();
-    if (civs[civ_id].capital_city >= 0 && civs[civ_id].capital_city < city_count) {
+    if (civ_id >= 0 && civ_id < civ_count &&
+        civs[civ_id].capital_city >= 0 && civs[civ_id].capital_city < city_count) {
         seed_region = regions_region_for_city(civs[civ_id].capital_city);
+    } else if (selected_x >= 0 && selected_y >= 0) {
+        int region_id = world[selected_y][selected_x].region_id;
+        if (region_id >= 0 && region_id < region_count) seed_region = region_id;
     }
-    civs[civ_id].color = civilization_pick_distinct_color(civ_id, color, -1, seed_region);
+    return seed_region;
+}
+
+static void mark_color_visuals_dirty(void) {
     dirty_mark_territory();
     dirty_mark_labels();
     world_visual_revision++;
+}
+
+void game_request_set_civilization_color_exact(int civ_id, Color32 color) {
+    if (civ_id < 0 || civ_id >= civ_count) return;
+    state_write_lock();
+    civs[civ_id].color = color;
+    mark_color_visuals_dirty();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
+}
+
+void game_request_set_civilization_color_auto_avoid(int civ_id, Color32 preferred_color) {
+    int seed_region;
+    if (civ_id < 0 || civ_id >= civ_count) return;
+    state_write_lock();
+    seed_region = color_seed_region_for_civ(civ_id);
+    civs[civ_id].color = civilization_pick_distinct_color(civ_id, preferred_color, -1, seed_region);
+    mark_color_visuals_dirty();
+    state_write_unlock();
+    render_snapshot_publish_from_live_state();
+}
+
+Color32 game_preview_civilization_color_auto_avoid(int civ_id, Color32 preferred_color) {
+    int effective_id = civ_id >= 0 ? civ_id : civ_count;
+    int seed_region = color_seed_region_for_civ(civ_id);
+    return civilization_preview_distinct_color(effective_id, preferred_color, -1, seed_region);
+}
+
+void game_request_set_civilization_color(int civ_id, Color32 color) {
+    game_request_set_civilization_color_exact(civ_id, color);
 }
 void game_request_after_load_map(void) {
     selected_x = -1;
@@ -137,6 +176,7 @@ void game_request_after_load_map(void) {
 }
 int game_request_trigger_civil_unrest(int civ_id) {
     int collapsed;
+    game_pause_for_modal_or_action();
     if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
         event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, -1, -1, 0, 0, "Civil unrest failed: invalid country.");
@@ -162,6 +202,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
 }
 int game_request_release_vassal(int vassal_id) {
     int overlord;
+    game_pause_for_modal_or_action();
     if (!world_generated || vassal_id < 0 || vassal_id >= civ_count || !civs[vassal_id].alive) return 0;
     state_write_lock();
     overlord = vassal_overlord(vassal_id);
@@ -186,7 +227,7 @@ int game_request_release_vassal(int vassal_id) {
     return 1;
 }
 int game_tick_auto_run(void) {
-    if (!world_generated) return 0;
+    if (!world_generated || !auto_run) return 0;
     return game_loop_tick_frame();
 }
 static void probe_write_checkpoint(FILE *file, int checkpoint_year) {

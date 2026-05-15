@@ -3,11 +3,19 @@
 #include "core/game_types.h"
 #include "world/terrain_query.h"
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
 #include <string.h>
 
 static RiverRenderPath render_paths[MAX_RIVER_PATHS];
 static int render_path_count;
 static HydrologyRenderStats stats;
+static int geometry_valid;
+static int last_geometry_revision;
+static int last_map_w;
+static int last_map_h;
+static int last_river_path_count;
 
 static unsigned char point_hits[MAX_MAP_H][MAX_MAP_W];
 
@@ -135,14 +143,17 @@ static void collect_stats_for_river(const RiverPath *river) {
     }
 }
 
-void river_geometry_rebuild(void) {
+static void river_geometry_rebuild_now(int hydrology_revision) {
     int i, x, y;
     int previous_count = stats.cache_rebuild_count;
     int previous_ms = stats.cache_rebuild_ms;
+    int previous_geometry_count = stats.geometry_rebuild_count;
+    DWORD start = GetTickCount();
 
     memset(&stats, 0, sizeof(stats));
     stats.cache_rebuild_count = previous_count;
     stats.cache_rebuild_ms = previous_ms;
+    stats.geometry_rebuild_count = previous_geometry_count + 1;
     render_path_count = 0;
     collect_point_hits();
     for (i = 0; i < river_path_count && render_path_count < MAX_RIVER_PATHS; i++) {
@@ -158,6 +169,27 @@ void river_geometry_rebuild(void) {
         }
     }
     if (stats.river_count > 0) stats.average_length /= stats.river_count;
+    stats.geometry_rebuild_ms = (int)(GetTickCount() - start);
+    last_geometry_revision = hydrology_revision;
+    last_map_w = MAP_W;
+    last_map_h = MAP_H;
+    last_river_path_count = river_path_count;
+    geometry_valid = 1;
+}
+
+void river_geometry_rebuild(void) {
+    geometry_valid = 0;
+    river_geometry_rebuild_now(last_geometry_revision);
+}
+
+int river_geometry_rebuild_if_needed(int hydrology_revision) {
+    if (geometry_valid && hydrology_revision == last_geometry_revision &&
+        last_map_w == MAP_W && last_map_h == MAP_H &&
+        last_river_path_count == river_path_count) {
+        return 0;
+    }
+    river_geometry_rebuild_now(hydrology_revision);
+    return 1;
 }
 
 const RiverRenderPath *river_geometry_paths(int *count) {
@@ -172,4 +204,9 @@ const HydrologyRenderStats *river_geometry_stats(void) {
 void river_geometry_note_cache_rebuild(int ms) {
     stats.cache_rebuild_count++;
     stats.cache_rebuild_ms = ms;
+}
+
+void river_geometry_note_lod_counts(int visible, int skipped) {
+    stats.visible_river_count_last_draw = visible;
+    stats.skipped_by_lod_last_draw = skipped;
 }

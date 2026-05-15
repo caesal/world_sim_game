@@ -3,15 +3,16 @@
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
-#include "core/state_lock.h"
 #include "render/cartography_layers.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/map_highlight.h"
 #include "render/pause_menu_render.h"
 #include "render/render_context.h"
 #include "render/river_render.h"
+#include "render/snapshot_map_layers.h"
 #include "render/worldgen_progress_overlay.h"
 #include "core/worldgen_progress.h"
+#include "ui/color_picker.h"
 
 typedef struct {
     HDC dc;
@@ -30,9 +31,9 @@ typedef struct {
 } LayerCache;
 
 #define MAP_LAYER_CACHE_SCALE 2
+#define MAP_TRANSPARENT_KEY RGB(255, 0, 255)
 
 static LayerCache terrain_cache;
-static LayerCache political_cache;
 static LayerCache coast_cache;
 static LayerCache hydrology_cache;
 static LayerCache border_cache;
@@ -43,6 +44,11 @@ static int combined_revision(int a, int b) {
     return (a * 1000003) ^ b;
 }
 
+static int base_map_revision(void) {
+    return combined_revision(combined_revision(dirty_revision_terrain(), dirty_revision_ownership()),
+                             dirty_revision_province());
+}
+
 static void release_layer_cache(LayerCache *cache) {
     if (cache->dc && cache->old_bitmap) SelectObject(cache->dc, cache->old_bitmap);
     if (cache->bitmap) DeleteObject(cache->bitmap);
@@ -50,24 +56,14 @@ static void release_layer_cache(LayerCache *cache) {
     memset(cache, 0, sizeof(*cache));
 }
 
-static int layer_cache_matches(const LayerCache *cache, RECT client, MapLayout layout) {
-    return cache->valid &&
-           cache->width == client.right - client.left &&
-           cache->height == client.bottom - client.top &&
-           cache->map_x == layout.map_x &&
-           cache->map_y == layout.map_y &&
-           cache->draw_w == layout.draw_w &&
-           cache->draw_h == layout.draw_h &&
-           cache->side_w == side_panel_w &&
-           cache->display == display_mode;
-}
-
 static int map_cache_width(void) {
-    return max(1, MAP_W * MAP_LAYER_CACHE_SCALE);
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    return max(1, (snapshot ? snapshot->map_w : DEFAULT_MAP_W) * MAP_LAYER_CACHE_SCALE);
 }
 
 static int map_cache_height(void) {
-    return max(1, MAP_H * MAP_LAYER_CACHE_SCALE);
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    return max(1, (snapshot ? snapshot->map_h : DEFAULT_MAP_H) * MAP_LAYER_CACHE_SCALE);
 }
 
 static MapLayout map_cache_layout(const LayerCache *cache) {
@@ -76,7 +72,7 @@ static MapLayout map_cache_layout(const LayerCache *cache) {
     layout.map_y = 0;
     layout.draw_w = cache->width;
     layout.draw_h = cache->height;
-    layout.tile_size = max(1, cache->width / max(1, MAP_W));
+    layout.tile_size = MAP_LAYER_CACHE_SCALE;
     return layout;
 }
 
@@ -152,27 +148,6 @@ static void draw_blank_map(HDC hdc, RECT client, MapLayout layout) {
     draw_map_grid_overlay(hdc, client, layout);
 }
 
-static void draw_terrain_layer(HDC hdc, RECT client, MapLayout layout) {
-    int min_x;
-    int max_x;
-    int min_y;
-    int max_y;
-    int y;
-    int x;
-
-    fill_rect(hdc, client, RGB(79, 160, 215));
-    if (!world_generated) {
-        draw_blank_map(hdc, client, layout);
-        return;
-    }
-    draw_zoom_aware_map_surface(hdc, client, layout);
-    if (layout.tile_size >= 12 && visible_tile_bounds(client, layout, &min_x, &max_x, &min_y, &max_y)) {
-        for (y = min_y; y <= max_y; y++) {
-            for (x = min_x; x <= max_x; x++) draw_land_texture(hdc, layout, x, y);
-        }
-    }
-}
-
 static int rebuild_cached_map_layer(HDC hdc, LayerCache *cache, HDC source_dc,
                                     void (*draw_extra)(HDC, RECT, MapLayout)) {
     RECT cache_rect;
@@ -186,31 +161,21 @@ static int rebuild_cached_map_layer(HDC hdc, LayerCache *cache, HDC source_dc,
     return 1;
 }
 
-static void draw_political_extra(HDC hdc, RECT client, MapLayout layout) {
-    if (world_generated) draw_cartography_political_fills(hdc, client, layout);
-}
-
-static void draw_coast_extra(HDC hdc, RECT client, MapLayout layout) {
-    if (world_generated) draw_cartography_coast_halo(hdc, client, layout);
-}
-
-static void draw_border_extra(HDC hdc, RECT client, MapLayout layout) {
-    if (world_generated && layout.tile_size >= 1) {
-        draw_cartography_region_borders(hdc, client, layout);
-        draw_cartography_province_borders(hdc, client, layout);
-        draw_cartography_country_borders(hdc, client, layout);
-        draw_cartography_coastline(hdc, client, layout);
-    }
-    draw_map_grid_overlay(hdc, client, layout);
-}
-
-static void draw_hydrology_extra(HDC hdc, RECT client, MapLayout layout) {
-    if (world_generated && layout.tile_size >= 1) river_render_draw_layer(hdc, client, layout);
+static int rebuild_cached_overlay_layer(HDC hdc, LayerCache *cache,
+                                        void (*draw_extra)(HDC, RECT, MapLayout)) {
+    RECT cache_rect;
+    MapLayout cache_layout;
+    if (!ensure_map_layer_cache(hdc, cache)) return 0;
+    cache_rect = (RECT){0, 0, cache->width, cache->height};
+    cache_layout = map_cache_layout(cache);
+    fill_rect(cache->dc, cache_rect, MAP_TRANSPARENT_KEY);
+    if (draw_extra) draw_extra(cache->dc, cache_rect, cache_layout);
+    return 1;
 }
 
 static int can_preview_map_cache(void) {
-    return map_interaction_preview && border_cache.valid &&
-           border_cache.display == display_mode &&
+    return map_interaction_preview && terrain_cache.valid &&
+           terrain_cache.display == display_mode &&
            !dirty_render_terrain() && !dirty_render_political() &&
            !dirty_render_coast() && !dirty_render_hydrology() &&
            !dirty_render_borders();
@@ -230,16 +195,32 @@ static void present_map_cache(HDC hdc, RECT client, MapLayout layout, const Laye
     RestoreDC(hdc, saved_dc);
 }
 
+static void present_map_overlay_cache(HDC hdc, RECT client, MapLayout layout, const LayerCache *cache) {
+    int saved_dc;
+    if (!cache->valid) return;
+    saved_dc = SaveDC(hdc);
+    IntersectClipRect(hdc, client.left, TOP_BAR_H, client.right - side_panel_w,
+                      client.bottom - BOTTOM_BAR_H);
+    SetStretchBltMode(hdc, layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);
+    SetBrushOrgEx(hdc, 0, 0, NULL);
+    TransparentBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
+                   cache->dc, 0, 0, cache->width, cache->height, MAP_TRANSPARENT_KEY);
+    RestoreDC(hdc, saved_dc);
+}
+
 static void draw_map_cache_preview(HDC hdc, RECT client, MapLayout layout) {
-    present_map_cache(hdc, client, layout, &border_cache);
+    present_map_cache(hdc, client, layout, &terrain_cache);
+    present_map_overlay_cache(hdc, client, layout, &coast_cache);
+    present_map_overlay_cache(hdc, client, layout, &hydrology_cache);
+    present_map_overlay_cache(hdc, client, layout, &border_cache);
 }
 
 static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
     int terrain_dirty;
-    int political_dirty;
     int coast_dirty;
     int hydrology_dirty;
     int border_dirty;
+    int terrain_revision;
     int hydrology_revision;
     int border_revision;
 
@@ -247,45 +228,37 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
         draw_map_cache_preview(hdc, client, layout);
         return;
     }
-    terrain_dirty = dirty_render_terrain() ||
-                    !map_layer_cache_matches(&terrain_cache, dirty_revision_terrain());
+    terrain_revision = base_map_revision();
+    terrain_dirty = dirty_render_terrain() || dirty_render_political() ||
+                    !map_layer_cache_matches(&terrain_cache, terrain_revision);
     if (terrain_dirty) {
         ProfilerCallTrace trace = profiler_call_begin();
-        if (rebuild_cached_map_layer(hdc, &terrain_cache, NULL, draw_terrain_layer)) {
-            terrain_cache.revision = dirty_revision_terrain();
+        if (rebuild_cached_map_layer(hdc, &terrain_cache, NULL, draw_snapshot_terrain_layer)) {
+            terrain_cache.revision = terrain_revision;
             profiler_add_render_rebuild(PROFILER_RENDER_TERRAIN);
         }
         profiler_call_end_quiet("render_rebuild_terrain", -1, -1, trace);
         dirty_clear_render_terrain();
+        dirty_clear_render_political();
     }
-    coast_dirty = terrain_dirty || dirty_render_coast() ||
+    coast_dirty = dirty_render_coast() ||
                   !map_layer_cache_matches(&coast_cache, dirty_revision_coast());
     if (coast_dirty) {
         ProfilerCallTrace trace = profiler_call_begin();
-        if (rebuild_cached_map_layer(hdc, &coast_cache, terrain_cache.dc, draw_coast_extra)) {
+        if (rebuild_cached_overlay_layer(hdc, &coast_cache, draw_snapshot_coast_layer)) {
             coast_cache.revision = dirty_revision_coast();
             profiler_add_render_rebuild(PROFILER_RENDER_COAST);
         }
         profiler_call_end_quiet("render_rebuild_coast", -1, -1, trace);
         dirty_clear_render_coast();
     }
-    political_dirty = coast_dirty || dirty_render_political() ||
-                      !map_layer_cache_matches(&political_cache, dirty_revision_ownership());
-    if (political_dirty) {
-        ProfilerCallTrace trace = profiler_call_begin();
-        if (rebuild_cached_map_layer(hdc, &political_cache, coast_cache.dc, draw_political_extra)) {
-            political_cache.revision = dirty_revision_ownership();
-            profiler_add_render_rebuild(PROFILER_RENDER_POLITICAL);
-        }
-        profiler_call_end_quiet("render_rebuild_political", -1, -1, trace);
-        dirty_clear_render_political();
-    }
     hydrology_revision = dirty_revision_hydrology();
-    hydrology_dirty = political_dirty || dirty_render_hydrology() ||
+    hydrology_dirty = dirty_render_hydrology() ||
                       !map_layer_cache_matches(&hydrology_cache, hydrology_revision);
     if (hydrology_dirty) {
         ProfilerCallTrace trace = profiler_call_begin();
-        if (rebuild_cached_map_layer(hdc, &hydrology_cache, political_cache.dc, draw_hydrology_extra)) {
+        river_render_set_lod_tile_size(16);
+        if (rebuild_cached_overlay_layer(hdc, &hydrology_cache, draw_snapshot_hydrology_layer)) {
             hydrology_cache.revision = hydrology_revision;
         }
         profiler_call_end_quiet("render_rebuild_hydrology", -1, -1, trace);
@@ -294,56 +267,38 @@ static void draw_cached_static_map(HDC hdc, RECT client, MapLayout layout) {
     border_revision = combined_revision(combined_revision(dirty_revision_ownership(),
                                                           dirty_revision_province()),
                                         dirty_revision_coast());
-    border_revision = combined_revision(border_revision, dirty_revision_hydrology());
-    border_dirty = political_dirty || dirty_render_borders() ||
-                   hydrology_dirty ||
+    border_dirty = dirty_render_borders() ||
                    !map_layer_cache_matches(&border_cache, border_revision);
     if (border_dirty) {
         ProfilerCallTrace trace = profiler_call_begin();
-        HDC border_source = hydrology_cache.valid ? hydrology_cache.dc : political_cache.dc;
-        if (rebuild_cached_map_layer(hdc, &border_cache, border_source, draw_border_extra)) {
+        if (rebuild_cached_overlay_layer(hdc, &border_cache, draw_snapshot_border_layer)) {
             border_cache.revision = border_revision;
             profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
         }
         profiler_call_end_quiet("render_rebuild_border", -1, -1, trace);
         dirty_clear_render_borders();
     }
-    if (border_cache.valid) present_map_cache(hdc, client, layout, &border_cache);
+    if (terrain_cache.valid) {
+        present_map_cache(hdc, client, layout, &terrain_cache);
+        present_map_overlay_cache(hdc, client, layout, &coast_cache);
+        present_map_overlay_cache(hdc, client, layout, &hydrology_cache);
+        present_map_overlay_cache(hdc, client, layout, &border_cache);
+    }
 }
 
 static void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) {
-    if (state_try_read_lock()) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    if (snapshot && snapshot->world_generated) {
         draw_cached_static_map(hdc, client, layout);
-        state_read_unlock();
-    } else if (border_cache.valid) {
-        present_map_cache(hdc, client, layout, &border_cache);
+    } else if (terrain_cache.valid) {
+        draw_map_cache_preview(hdc, client, layout);
     } else {
         draw_blank_map(hdc, client, layout);
     }
 }
 
 static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layout) {
-    if (!state_try_read_lock()) return;
     draw_country_highlight(hdc, client, layout);
-    state_read_unlock();
-}
-
-static void blit_cache_rect(HDC hdc, const LayerCache *cache, RECT rect) {
-    int w = rect.right - rect.left;
-    int h = rect.bottom - rect.top;
-    if (!cache->valid || w <= 0 || h <= 0) return;
-    BitBlt(hdc, rect.left, rect.top, w, h, cache->dc, rect.left, rect.top, SRCCOPY);
-}
-
-static void blit_cached_ui_regions(HDC hdc, RECT client) {
-    RECT top = {client.left, client.top, client.right, TOP_BAR_H};
-    RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
-    RECT panel = {client.right - side_panel_w, TOP_BAR_H, client.right, client.bottom};
-    RECT legend = get_map_legend_box_rect(client);
-    blit_cache_rect(hdc, &ui_cache, top);
-    blit_cache_rect(hdc, &ui_cache, bottom);
-    blit_cache_rect(hdc, &ui_cache, panel);
-    if (!IsRectEmpty(&legend)) blit_cache_rect(hdc, &ui_cache, legend);
 }
 
 static void draw_stale_ui_indicator(HDC hdc, RECT client) {
@@ -357,36 +312,22 @@ static void draw_stale_ui_indicator(HDC hdc, RECT client) {
 
 static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
-    if (state_try_read_lock()) {
-        if (ensure_layer_cache(hdc, &ui_cache, client, layout)) {
-            BitBlt(ui_cache.dc, 0, 0, ui_cache.width, ui_cache.height, hdc, 0, 0, SRCCOPY);
-            draw_top_bar(ui_cache.dc, client);
-            draw_bottom_bar(ui_cache.dc, client);
-            draw_map_legend(ui_cache.dc, client);
-            draw_side_panel(ui_cache.dc, client);
-            if (pause_menu_open) draw_pause_menu_overlay(ui_cache.dc, client);
-            BitBlt(hdc, 0, 0, ui_cache.width, ui_cache.height, ui_cache.dc, 0, 0, SRCCOPY);
-        } else {
-            draw_top_bar(hdc, client);
-            draw_bottom_bar(hdc, client);
-            draw_map_legend(hdc, client);
-            draw_side_panel(hdc, client);
-            if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
-        }
-        state_read_unlock();
-    } else if (layer_cache_matches(&ui_cache, client, layout)) {
-        blit_cached_ui_regions(hdc, client);
-        draw_stale_ui_indicator(hdc, client);
+    if (ensure_layer_cache(hdc, &ui_cache, client, layout)) {
+        BitBlt(ui_cache.dc, 0, 0, ui_cache.width, ui_cache.height, hdc, 0, 0, SRCCOPY);
+        draw_top_bar(ui_cache.dc, client);
+        draw_bottom_bar(ui_cache.dc, client);
+        draw_map_legend(ui_cache.dc, client);
+        draw_side_panel(ui_cache.dc, client);
+        if (pause_menu_open) draw_pause_menu_overlay(ui_cache.dc, client);
+        BitBlt(hdc, 0, 0, ui_cache.width, ui_cache.height, ui_cache.dc, 0, 0, SRCCOPY);
     } else {
-        RECT top = {client.left, client.top, client.right, TOP_BAR_H};
-        RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
-        RECT panel = {client.right - side_panel_w, TOP_BAR_H, client.right, client.bottom};
-        fill_rect(hdc, top, RGB(28, 34, 42));
-        fill_rect(hdc, bottom, RGB(28, 34, 42));
-        fill_rect(hdc, panel, RGB(34, 42, 50));
-        draw_text_line(hdc, panel.left + 18, panel.top + 24, tr("Preparing UI cache...", "正在准备界面缓存..."),
-                       RGB(218, 226, 232));
+        draw_top_bar(hdc, client);
+        draw_bottom_bar(hdc, client);
+        draw_map_legend(hdc, client);
+        draw_side_panel(hdc, client);
+        if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
     }
+    if (render_snapshot_age_ms() > 500) draw_stale_ui_indicator(hdc, client);
 }
 
 static void render_world(HDC hdc, RECT client) {
@@ -448,9 +389,11 @@ void paint_window(HWND hwnd) {
     render_context_begin(snapshot);
     if (ensure_layer_cache(hdc, &window_backbuffer, client, get_map_layout(client))) {
         render_world(window_backbuffer.dc, client);
+        color_picker_draw(window_backbuffer.dc, client);
         BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
     } else {
         render_world(hdc, client);
+        color_picker_draw(hdc, client);
     }
     render_context_end();
     render_snapshot_release(snapshot);

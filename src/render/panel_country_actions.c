@@ -1,10 +1,8 @@
 #include "render/panel_country_actions.h"
 
 #include "render/render_common.h"
-#include "sim/civilization_slots.h"
+#include "render/snapshot_ui.h"
 #include "sim/collapse.h"
-#include "sim/simulation.h"
-#include "sim/vassal.h"
 #include "ui/ui_theme.h"
 
 #include <stdio.h>
@@ -15,39 +13,75 @@ static RECT last_vassal_buttons[MAX_CIVS];
 static int last_vassal_ids[MAX_CIVS];
 static int last_vassal_count;
 
+static int actions_overlord(int civ_id) {
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    return civ ? civ->overlord : -1;
+}
+
+static int actions_direct_count(int civ_id) {
+    const RenderSnapshot *snapshot = snapshot_ui_current();
+    int i, count = 0;
+    if (!snapshot) return 0;
+    for (i = 0; i < snapshot->civ_count; i++) {
+        if (snapshot->civs[i].alive && snapshot->civs[i].overlord == civ_id) count++;
+    }
+    return count;
+}
+
+static int actions_collect_direct(int civ_id, int *out, int max_out) {
+    const RenderSnapshot *snapshot = snapshot_ui_current();
+    int i, count = 0;
+    if (!snapshot) return 0;
+    for (i = 0; i < snapshot->civ_count; i++) {
+        if (!snapshot->civs[i].alive || snapshot->civs[i].overlord != civ_id) continue;
+        if (count < max_out) out[count] = i;
+        count++;
+    }
+    return min(count, max_out);
+}
+
 static const char *collapse_block_reason_ui(int civ_id) {
     static char buffers[4][EVENT_LOG_LEN];
     static int index;
+    const RenderSnapshot *snapshot = snapshot_ui_current();
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     char *buffer = buffers[index++ % 4];
-    CollapseBlockReason reason = collapse_block_reason(civ_id);
+    int reason = civ ? civ->collapse_block_reason : COLLAPSE_BLOCK_NOT_ALIVE;
 
     switch (reason) {
         case COLLAPSE_BLOCK_NONE:
             snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Ready.", "就绪。"));
             break;
         case COLLAPSE_BLOCK_NOT_ALIVE:
-            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Country is invalid or has fallen.", "国家无效或已经灭亡。"));
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Country is invalid or has fallen.",
+                                                     "国家无效或已经灭亡。"));
             break;
         case COLLAPSE_BLOCK_MAX_CIVS:
             snprintf(buffer, EVENT_LOG_LEN, "%s %d/%d, %s %d, %s %d.",
-                     tr("No reusable or free country slots. Used", "没有可复用或空闲国家槽。已用"),
-                     civ_count, MAX_CIVS, tr("alive", "存活"), civilization_alive_count(),
-                     tr("reusable", "可复用"), civilization_reusable_slot_count());
+                     tr("No reusable or free country slots. Used",
+                        "没有可复用或空闲国家槽。已用"),
+                     snapshot ? snapshot->civ_count : 0, MAX_CIVS,
+                     tr("alive", "存活"), snapshot ? snapshot->civ_alive_count : 0,
+                     tr("reusable", "可复用"), snapshot ? snapshot->civ_reusable_slot_count : 0);
             break;
         case COLLAPSE_BLOCK_NO_CAPITAL_REGION:
-            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("No valid capital region.", "没有有效首都区域。"));
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("No valid capital region.",
+                                                     "没有有效首都区域。"));
             break;
         case COLLAPSE_BLOCK_NO_SPLITTABLE_REGION:
-            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("No splittable non-capital region.", "没有可拆分的非首都区域。"));
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("No splittable non-capital region.",
+                                                     "没有可拆分的非首都区域。"));
             break;
         case COLLAPSE_BLOCK_ONLY_CORE_LEFT:
-            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Only capital/core region remains.", "只剩首都/核心区域。"));
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Only capital/core region remains.",
+                                                     "只剩首都/核心区域。"));
             break;
         case COLLAPSE_BLOCK_CITY_CAP:
             snprintf(buffer, EVENT_LOG_LEN, "%s", tr("City limit reached.", "城市数量已达上限。"));
             break;
         default:
-            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Unknown collapse blocker.", "未知崩溃阻碍。"));
+            snprintf(buffer, EVENT_LOG_LEN, "%s", tr("Unknown collapse blocker.",
+                                                     "未知崩溃阻碍。"));
             break;
     }
     return buffer;
@@ -69,15 +103,15 @@ void country_overview_actions_reset_hit(void) {
 }
 
 int country_overview_actions_height(int civ_id) {
-    int direct = vassal_direct_count(civ_id);
-    int is_vassal = vassal_overlord(civ_id) >= 0;
+    int direct = actions_direct_count(civ_id);
+    int is_vassal = actions_overlord(civ_id) >= 0;
     int rows = is_vassal ? 1 : max(1, direct);
     return 40 + rows * 36 + 32;
 }
 
 int country_overview_vassal_actions_height(int civ_id) {
-    int direct = vassal_direct_count(civ_id);
-    int is_vassal = vassal_overlord(civ_id) >= 0;
+    int direct = actions_direct_count(civ_id);
+    int is_vassal = actions_overlord(civ_id) >= 0;
     return (is_vassal ? 1 : max(1, direct)) * 36;
 }
 
@@ -103,7 +137,8 @@ static void draw_button(HDC hdc, RECT button, const char *text, int enabled) {
 }
 
 static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
-    int can_trigger = collapse_can_trigger(civ_id);
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    int can_trigger = civ ? civ->collapse_can_trigger : 0;
     const char *reason = collapse_block_reason_ui(civ_id);
     RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 34};
 
@@ -117,10 +152,9 @@ static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
 }
 
 static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
-    int overlord = vassal_overlord(civ_id);
+    int overlord = actions_overlord(civ_id);
     int ids[MAX_CIVS];
-    int count;
-    int i;
+    int count, i;
     char text[160];
 
     reset_vassal_hits();
@@ -134,8 +168,7 @@ static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
         cursor->y += 36;
         return;
     }
-
-    count = vassal_collect_direct(civ_id, ids, MAX_CIVS);
+    count = actions_collect_direct(civ_id, ids, MAX_CIVS);
     if (count <= 0) {
         RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 32};
         draw_button(hdc, button, tr("No vassals", "无附庸"), 0);
@@ -144,7 +177,7 @@ static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
     }
     for (i = 0; i < count && i < MAX_CIVS; i++) {
         RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 32};
-        snprintf(text, sizeof(text), "%s %.96s", tr("Release", "释放"), civilization_display_name(ids[i]));
+        snprintf(text, sizeof(text), "%s %.96s", tr("Release", "释放"), snapshot_ui_civ_name(ids[i]));
         last_vassal_buttons[last_vassal_count] = button;
         last_vassal_ids[last_vassal_count++] = ids[i];
         draw_button(hdc, button, text, 1);

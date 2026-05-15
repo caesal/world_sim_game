@@ -479,6 +479,8 @@ void regions_generate(int region_size_value) {
     regions_validate_postprocess(target_size);
     rebuild_region_metadata();
     regions_shape_refine(target_size);
+    regions_shape_repair_ugly(target_size);
+    regions_validate_light_postprocess(target_size);
     rebuild_region_metadata();
     compute_direction_scores();
     province_names_assign_all();

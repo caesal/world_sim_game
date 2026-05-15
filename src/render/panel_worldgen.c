@@ -47,82 +47,29 @@ static void draw_random_button(HDC hdc, RECT rect) {
                    DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS);
 }
 
-#if 0
-static void draw_worldgen_progress_status(HDC hdc, const WorldgenLayout *layout) {
-    WorldGenProgress progress;
-    RECT card, title, stage, bar, fill;
-    HBRUSH border;
-    char percent[32];
-    worldgen_progress_get(&progress);
-    if (!progress.active) return;
-    card = (RECT){layout->viewport.left, layout->viewport.top + 6,
-                  layout->viewport.right, layout->viewport.top + 83};
-    if (!worldgen_rect_visible(layout->viewport, card)) return;
-    fill_rect_alpha(hdc, card, RGB(22, 28, 33), 238);
-    border = CreateSolidBrush(RGB(78, 96, 106));
-    FrameRect(hdc, &card, border);
-    DeleteObject(border);
-    title = (RECT){card.left + 10, card.top + 7, card.right - 10, card.top + 27};
-    stage = (RECT){card.left + 10, title.bottom + 3, card.right - 10, title.bottom + 23};
-    bar = (RECT){card.left + 10, card.bottom - 20, card.right - 10, card.bottom - 8};
-    fill = bar;
-    fill.right = fill.left + (bar.right - bar.left) * progress.percent / 100;
-    snprintf(percent, sizeof(percent), "%s: %d%%", tr("Progress", "进度"), progress.percent);
-    draw_text_rect(hdc, title, tr("Generating world", "正在生成世界"),
-                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, stage, progress.stage_total > 0 ?
-                   (ui_language == UI_LANG_ZH ? progress.message_zh : progress.message_en) :
-                   (ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) : worldgen_stage_name_en(progress.stage)),
-                   ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, bar, RGB(42, 50, 58));
-    if (fill.right > fill.left) fill_rect(hdc, fill, RGB(103, 164, 196));
-    draw_center_text(hdc, bar, percent, RGB(242, 246, 248));
+static void format_progress_percent(char *out, int out_size, int percent_x1000) {
+    percent_x1000 = clamp(percent_x1000, 0, 100000);
+    snprintf(out, out_size, "%d.%d%%", percent_x1000 / 1000, (percent_x1000 / 100) % 10);
 }
-#endif
 
 static void draw_worldgen_progress_status_v2(HDC hdc, const WorldgenLayout *layout) {
     WorldGenProgress progress;
-    RECT card, title, overall, overall_bar, stage, detail, stage_bar, fill;
-    HBRUSH border;
+    RECT row;
     char text[160];
+    char percent[32];
     const char *stage_name;
     worldgen_progress_get(&progress);
     if (!progress.active) return;
-    card = (RECT){layout->viewport.left, layout->viewport.top + 6,
-                  layout->viewport.right, layout->viewport.top + 132};
-    if (!worldgen_rect_visible(layout->viewport, card)) return;
-    fill_rect_alpha(hdc, card, RGB(22, 28, 33), 238);
-    border = CreateSolidBrush(RGB(78, 96, 106));
-    FrameRect(hdc, &card, border);
-    DeleteObject(border);
-    title = (RECT){card.left + 10, card.top + 7, card.right - 10, card.top + 27};
-    overall = (RECT){card.left + 10, title.bottom + 2, card.right - 10, title.bottom + 22};
-    overall_bar = (RECT){card.left + 10, overall.bottom + 3, card.right - 10, overall.bottom + 14};
-    stage = (RECT){card.left + 10, overall_bar.bottom + 8, card.right - 10, overall_bar.bottom + 28};
-    detail = (RECT){card.left + 10, stage.bottom + 1, card.right - 10, stage.bottom + 19};
-    stage_bar = (RECT){card.left + 10, card.bottom - 18, card.right - 10, card.bottom - 7};
+    row = (RECT){layout->viewport.left, layout->viewport.top + 4,
+                 layout->viewport.right, layout->viewport.top + 26};
+    if (!worldgen_rect_visible(layout->viewport, row)) return;
     stage_name = ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) :
                                              worldgen_stage_name_en(progress.stage);
-    draw_text_rect(hdc, title, tr("Generating world", "正在生成世界"),
-                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    snprintf(text, sizeof(text), "%s: %d%%", tr("Overall progress", "总体进度"), progress.percent);
-    draw_text_rect(hdc, overall, text, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER);
-    fill_rect(hdc, overall_bar, RGB(42, 50, 58));
-    fill = overall_bar;
-    fill.right = fill.left + (overall_bar.right - overall_bar.left) * progress.percent / 100;
-    if (fill.right > fill.left) fill_rect(hdc, fill, RGB(103, 164, 196));
-    snprintf(text, sizeof(text), "%s: %s %d%%", tr("Current stage", "当前阶段"),
-             stage_name, progress.stage_percent);
-    draw_text_rect(hdc, stage, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+    format_progress_percent(percent, sizeof(percent), progress.percent_x1000);
+    snprintf(text, sizeof(text), "%s... %s  %s",
+             tr("Generating world", "正在生成世界"), percent, stage_name);
+    draw_text_rect(hdc, row, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    if (progress.stage_total > 0) snprintf(text, sizeof(text), "%d / %d", progress.stage_current, progress.stage_total);
-    else snprintf(text, sizeof(text), "%s", stage_name);
-    draw_text_rect(hdc, detail, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
-                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, stage_bar, RGB(42, 50, 58));
-    fill = stage_bar;
-    fill.right = fill.left + (stage_bar.right - stage_bar.left) * progress.stage_percent / 100;
-    if (fill.right > fill.left) fill_rect(hdc, fill, RGB(154, 184, 112));
 }
 
 static void draw_section_rect_with_button(HDC hdc, RECT rect, RECT button, const char *title) {
@@ -150,7 +97,7 @@ static const char *worldgen_mode_label(void) {
 
 static void draw_viewer_controls_summary(HDC hdc, const WorldgenLayout *layout) {
     char text[160];
-    draw_section_rect(hdc, layout->viewer_section, tr("Viewer Controls", "查看器控制"));
+    draw_section_rect(hdc, layout->viewer_section, tr("Viewer Controls (display only)", "查看器控制（仅显示）"));
     snprintf(text, sizeof(text), "%s: %s    %s: %d%%",
              tr("Layer", "图层"), worldgen_mode_label(), tr("Zoom", "缩放"), map_zoom_percent);
     draw_text_rect(hdc, layout->viewer_row[0], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
@@ -161,8 +108,8 @@ static void draw_viewer_controls_summary(HDC hdc, const WorldgenLayout *layout) 
     draw_text_rect(hdc, layout->viewer_row[1], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_text_rect(hdc, layout->viewer_row[2],
-                   tr("Pan, zoom, layer, and legend controls do not change the generated world.",
-                      "平移、缩放、图层和图例只影响查看，不改变已生成世界。"),
+                   tr("Display controls update immediately and never change world generation settings.",
+                      "显示控制会立即生效，但不会改变世界生成设置。"),
                    ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
@@ -238,10 +185,10 @@ static void draw_region_size_estimate(HDC hdc, const WorldgenLayout *layout) {
                                                            ocean_slider, region_size_slider,
                                                            &cap_reached);
     if (worldgen_rect_visible(layout->viewport, layout->region_estimate)) {
-        snprintf(text, sizeof(text), "%s: %d    %s: %d / %d",
+        snprintf(text, sizeof(text), "%s: %d    %s: %d / %d    %s: %d",
                  tr("Target area", "目标面积"), target_area,
                  tr("Estimated regions", "估算区域数"), estimated_count,
-                 MAX_NATURAL_REGIONS);
+                 MAX_NATURAL_REGIONS, tr("Current", "当前"), world_generated ? region_count : 0);
         draw_text_rect_clipped(hdc, layout->region_estimate, text,
                                ui_theme_color(UI_COLOR_TEXT_DIM),
                                DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
@@ -249,7 +196,7 @@ static void draw_region_size_estimate(HDC hdc, const WorldgenLayout *layout) {
     if (cap_reached && worldgen_rect_visible(layout->viewport, layout->region_warning)) {
         draw_text_rect_clipped(hdc, layout->region_warning,
                                tr("Region cap reached; some regions may be larger than requested.",
-                                  "区域数量已达上限；部分区域可能大于请求值。"),
+                                  "区域数量已达到上限，部分区域可能比设定更大。"),
                                RGB(225, 178, 92), DT_WORDBREAK | DT_END_ELLIPSIS);
     }
 }
@@ -271,7 +218,7 @@ static COLORREF color32_to_colorref(Color32 color) {
     return RGB((int)(color & 0xff), (int)((color >> 8) & 0xff), (int)((color >> 16) & 0xff));
 }
 
-static void draw_civ_color_palette(HDC hdc, const WorldgenLayout *layout) {
+void draw_civ_color_palette(HDC hdc, const WorldgenLayout *layout) {
     draw_text_rect(hdc, layout->civ_color_label, tr("Civilization Color", "文明颜色"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     for (int i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
@@ -286,6 +233,24 @@ static void draw_civ_color_palette(HDC hdc, const WorldgenLayout *layout) {
         FrameRect(hdc, &swatch, outline);
         DeleteObject(outline);
     }
+}
+
+static void draw_civ_color_picker_preview(HDC hdc, const WorldgenLayout *layout) {
+    RECT preview = layout->civ_color_preview;
+    RECT swatch = {preview.left + 8, preview.top + 6, preview.left + 34, preview.bottom - 6};
+    RECT label = {swatch.right + 10, preview.top, preview.right - 10, preview.bottom};
+    HBRUSH outline;
+    draw_text_rect(hdc, layout->civ_color_label, tr("Civilization Color", "文明颜色"),
+                   ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    if (!worldgen_rect_visible(layout->viewport, preview)) return;
+    fill_rect(hdc, preview, RGB(35, 42, 46));
+    fill_rect(hdc, swatch, color32_to_colorref(selected_civ_color));
+    outline = CreateSolidBrush(RGB(122, 136, 144));
+    FrameRect(hdc, &preview, outline);
+    FrameRect(hdc, &swatch, outline);
+    DeleteObject(outline);
+    draw_text_rect(hdc, label, tr("Click to choose with HSV wheel", "点击打开 HSV 色轮"),
+                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
 static void draw_metric_inputs(HDC hdc, const WorldgenLayout *layout, const char **active_tooltip) {
@@ -310,7 +275,7 @@ static void draw_metric_inputs(HDC hdc, const WorldgenLayout *layout, const char
 
 static void draw_civilization_placement(HDC hdc, const WorldgenLayout *layout, const char **active_tooltip) {
     draw_section_rect_with_button(hdc, layout->civ_section, layout->civ_random_button,
-                                  tr("Civilization Setup", "文明设置"));
+                                  tr("Step 3 Civilizations", "步骤 3 文明"));
     draw_text_rect(hdc, layout->civ_hint,
                    tr("Select a natural region, then add; capital uses its best site.",
                       "选择自然区域后添加；首都使用区域最佳首府点。"),
@@ -325,27 +290,35 @@ static void draw_civilization_placement(HDC hdc, const WorldgenLayout *layout, c
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_input_frame(hdc, layout, layout->name_input_frame);
     draw_input_frame(hdc, layout, layout->symbol_input_frame);
-    draw_civ_color_palette(hdc, layout);
+    draw_civ_color_picker_preview(hdc, layout);
     draw_metric_inputs(hdc, layout, active_tooltip);
 }
 
 static void draw_setup_stages(HDC hdc, const WorldgenLayout *layout) {
     char text[192];
     draw_section_rect(hdc, layout->stage_section, tr("Setup Stages", "设置阶段"));
-    snprintf(text, sizeof(text), "%s: %s", tr("1 Physical World", "1 物理世界"),
-             world_generated ? tr("generated", "已生成") : tr("generate first", "请先生成"));
+    snprintf(text, sizeof(text), "%s: %s - %s", tr("1 Physical World", "1 物理世界"),
+             world_generated ? tr("generated", "已生成") : tr("not generated", "未生成"),
+             tr("F5 applies the generation controls below.", "F5 会应用下方生成设置。"));
     draw_text_rect(hdc, layout->stage_row[0], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    snprintf(text, sizeof(text), "%s: %d %s", tr("2 Natural Regions", "2 自然区域"), region_count,
-             tr("regions", "个区域"));
+    snprintf(text, sizeof(text), "%s: %s - %d %s", tr("2 Natural Regions", "2 自然区域"),
+             world_generated ? tr("ready", "已就绪") : tr("generate a physical world first", "请先生成物理世界"),
+             region_count, tr("regions", "个区域"));
     draw_text_rect(hdc, layout->stage_row[1], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    snprintf(text, sizeof(text), "%s: %d / %d", tr("3 Civilizations", "3 文明放置"), civ_count, initial_civ_count);
+    snprintf(text, sizeof(text), "%s: %d / %d - %s", tr("3 Civilizations", "3 文明放置"),
+             civ_count, initial_civ_count,
+             world_generated ? tr("select a country or owned region", "选择国家或已拥有区域") :
+                               tr("regions are needed before placement", "放置文明前需要自然区域"));
     draw_text_rect(hdc, layout->stage_row[2], text, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, layout->stage_row[3],
-                   tr("4 Start Simulation: Space controls month progression.",
-                      "4 开始模拟：空格控制月份推进。"),
+    snprintf(text, sizeof(text), "%s: %s - %s", tr("4 Simulation", "4 模拟"),
+             !world_generated ? tr("waiting for world", "等待世界") :
+             civ_count <= 0 ? tr("place civilizations first", "请先放置文明") :
+             auto_run ? tr("running", "运行中") : tr("paused", "已暂停"),
+             tr("Space controls month progression.", "空格控制月份推进。"));
+    draw_text_rect(hdc, layout->stage_row[3], text,
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
@@ -367,8 +340,8 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
     SelectObject(hdc, body_font);
     draw_setup_stages(hdc, &layout);
     draw_viewer_controls_summary(hdc, &layout);
-    draw_section_rect(hdc, layout.generation_section, tr("World Generation Controls", "世界生成控制"));
-    draw_section_rect(hdc, layout.map_size_section, tr("Map Size", "地图大小"));
+    draw_section_rect(hdc, layout.generation_section, tr("World Generation Controls (next F5)", "世界生成控制（下次 F5）"));
+    draw_section_rect(hdc, layout.map_size_section, tr("Step 1 Physical World", "步骤 1 物理世界"));
     draw_map_size_selector(hdc, &layout);
     draw_text_rect(hdc, layout.map_size_help,
                    tr("Affects the next generated world; it does not resize the current map.",
@@ -382,7 +355,7 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
                    tr("Applies when F5 generates and auto-places civilizations.", "F5 生成并自动放置文明时生效。"),
                    ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_section_rect_with_button(hdc, layout.physical_section, layout.physical_random_button,
-                                  tr("Physical World", "物理世界"));
+                                  tr("Physical Parameters", "物理参数"));
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_OCEAN, tr("Ocean Amount", "海洋比例"), ocean_slider, &tooltip_text);
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_CONTINENT, tr("Continent Fragmentation", "大陆破碎度"), continent_slider, &tooltip_text);
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_RELIEF, tr("Elevation Relief", "地势起伏"), relief_slider, &tooltip_text);
@@ -395,11 +368,11 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_BIAS_DESERT, tr("Desert Bias", "沙漠偏好"), bias_desert_slider, &tooltip_text);
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_BIAS_MOUNTAIN, tr("Mountain Bias", "山脉偏好"), bias_mountain_slider, &tooltip_text);
     draw_worldgen_slider(hdc, &layout, WORLD_SLIDER_BIAS_WETLAND, tr("Wetland Bias", "湿地偏好"), bias_wetland_slider, &tooltip_text);
-    draw_section_rect(hdc, layout.regions_section, tr("Natural Regions", "自然区域"));
+    draw_section_rect(hdc, layout.regions_section, tr("Step 2 Natural Regions", "步骤 2 自然区域"));
     draw_worldgen_slider(hdc, &layout, UI_SLIDER_REGION_SIZE, tr("Region Size", "区域大小"), region_size_slider, &tooltip_text);
     draw_region_size_estimate(hdc, &layout);
-    draw_text_rect(hdc, layout.generate_row, tr("Generate: F5 rebuilds world with these settings.",
-                   "生成：F5 使用这些设置重建世界。"),
+    draw_text_rect(hdc, layout.generate_row, tr("Step 4 Simulation: F5 rebuilds; Space starts or pauses time.",
+                   "步骤 4 模拟：F5 重建世界；空格开始或暂停时间。"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_civilization_placement(hdc, &layout, &tooltip_text);
     draw_worldgen_progress_status_v2(hdc, &layout);

@@ -1,5 +1,20 @@
 # Version Log
 
+## Ver0.2.6.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.6.b.
+2. Added Ver0.2.6.b official documentation and change-summary documents under `docs/official`.
+3. Added a Ver0.2.6.b side doc under `docs/unofficial`.
+4. Added the custom HSV color picker flow with exact manual color apply, cancel safety, auto-avoid preview, and modal pause behavior.
+5. Unified player-facing water rendering around shallow sea and deep sea snapshot data.
+6. Polished world-generation progress display so the central overlay owns the full progress bars and the side panel only shows concise status.
+7. Reduced river visual weight and added river geometry/cache LOD diagnostics.
+8. Improved natural-region validation and shape repair diagnostics for long strips and slivers.
+9. Added priority-based map label collision handling so country, capital, city, and province labels resolve by importance.
+10. Kept render/UI changes snapshot-oriented and avoided gameplay rule changes.
+
 ## Ver0.2.6.a
 
 Implemented fixes:

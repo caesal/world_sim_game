@@ -1,0 +1,43 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Change Summary Ver0.2.6.b</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 21pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 15pt; margin-top: 16pt; color: #24364a; }
+p { margin: 6pt 0; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Documentation Change Summary</h1>
+<p>Version: Ver0.2.6.b</p>
+<p>Baseline: Ver0.2.6.a.</p>
+<p>Status: patch release metadata and implementation summary.</p>
+<h2>Generated Official Files</h2>
+<ul>
+<li><code>docs/official/game_universal_documentation_ver0.2.6.b.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.6.b.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.6.b_change_summary.doc</code></li>
+</ul>
+<h2>Patch Delta</h2>
+<ul>
+<li>Updated the active version marker to <code>0.2.6.b</code>.</li>
+<li>Added the HSV color picker release flow: exact manual apply, cancel safety, auto-avoid preview, and modal pause behavior.</li>
+<li>Carried forward the unified shallow/deep water rendering and snapshot fields.</li>
+<li>Polished world-generation progress ownership so the central overlay contains the full progress bars and the side panel only shows concise status.</li>
+<li>Reduced river visual weight and kept river geometry/cache diagnostics available.</li>
+<li>Improved natural-region validation and shape repair diagnostics for strip/sliver regions.</li>
+<li>Added map label priority and collision avoidance for country, capital, city, and province labels.</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li><code>make check-text</code> required for release.</li>
+<li><code>git diff --check</code> required for release.</li>
+<li><code>make</code> required for release.</li>
+<li>Probe checks required where the executable is available and not locked.</li>
+</ul>
+</body>
+</html>

@@ -29,6 +29,7 @@ static RegionValidationStats last_stats;
 static RegionMeasure measure[MAX_NATURAL_REGIONS];
 static unsigned char seen[MAX_MAP_H][MAX_MAP_W];
 static int work_assign[MAX_MAP_W * MAX_MAP_H];
+static int work_cost[MAX_MAP_W * MAX_MAP_H];
 static int queue_cells[MAX_MAP_W * MAX_MAP_H];
 
 static int cell_index(int x, int y) { return y * MAX_MAP_W + x; }
@@ -330,7 +331,7 @@ static int split_huge_region(int id, int target_size) {
     int seed_x[MAX_SPLIT_PARTS], seed_y[MAX_SPLIT_PARTS];
     int part_count[MAX_SPLIT_PARTS] = {0};
     int part_region[MAX_SPLIT_PARTS];
-    int head = 0, tail = 0;
+    int head = 0, tail = 0, queued = 0;
     int x, y, p;
 
     if (available <= 0) {
@@ -341,28 +342,41 @@ static int split_huge_region(int id, int target_size) {
     if (pieces < 2 || !choose_center_seed(id, &seed_x[0], &seed_y[0])) return 0;
     for (p = 1; p < pieces; p++) choose_far_seed(id, p, seed_x, seed_y);
     for (y = measure[id].min_y; y <= measure[id].max_y; y++)
-        for (x = measure[id].min_x; x <= measure[id].max_x; x++)
+        for (x = measure[id].min_x; x <= measure[id].max_x; x++) {
             work_assign[cell_index(x, y)] = -1;
+            work_cost[cell_index(x, y)] = INT_MAX;
+            if (in_map(x, y)) seen[y][x] = 0;
+        }
     for (p = 0; p < pieces; p++) {
         int idx = cell_index(seed_x[p], seed_y[p]);
-        work_assign[idx] = p;
-        queue_cells[tail++] = idx;
-        part_count[p]++;
+        work_assign[idx] = p; work_cost[idx] = 0; queue_cells[tail] = idx;
+        tail = (tail + 1) % (MAX_MAP_W * MAX_MAP_H); queued++;
+        seen[seed_y[p]][seed_x[p]] = 1;
     }
-    while (head < tail) {
-        int cur = queue_cells[head++];
+    while (queued > 0) {
+        int cur = queue_cells[head];
         int cx = cur % MAX_MAP_W, cy = cur / MAX_MAP_W;
         int part = work_assign[cur], d;
+        head = (head + 1) % (MAX_MAP_W * MAX_MAP_H); queued--;
+        seen[cy][cx] = 0;
         for (d = 0; d < 4; d++) {
             int nx = cx + dirs[d][0], ny = cy + dirs[d][1], nidx;
+            int next_cost;
             if (!region_tile(nx, ny, id)) continue;
             nidx = cell_index(nx, ny);
-            if (work_assign[nidx] >= 0) continue;
-            work_assign[nidx] = part;
-            part_count[part]++;
-            queue_cells[tail++] = nidx;
+            next_cost = work_cost[cur] + region_boundary_crossing_cost(cx, cy, nx, ny);
+            if (next_cost >= work_cost[nidx]) continue;
+            work_assign[nidx] = part; work_cost[nidx] = next_cost;
+            if (!seen[ny][nx] && queued + 1 < MAX_MAP_W * MAX_MAP_H) {
+                queue_cells[tail] = nidx; tail = (tail + 1) % (MAX_MAP_W * MAX_MAP_H); queued++;
+                seen[ny][nx] = 1;
+            }
         }
     }
+    for (y = measure[id].min_y; y <= measure[id].max_y; y++)
+        for (x = measure[id].min_x; x <= measure[id].max_x; x++)
+            if (region_tile(x, y, id) && work_assign[cell_index(x, y)] >= 0)
+                part_count[work_assign[cell_index(x, y)]]++;
     part_region[0] = id;
     for (p = 1; p < pieces; p++) {
         part_region[p] = part_count[p] > 0 ? region_count++ : id;
@@ -435,6 +449,23 @@ static int smooth_slivers_pass(void) {
     return changed;
 }
 
+static void update_final_quality_stats(void) {
+    int i, total = 0, active = 0;
+    last_stats.smallest_region_size = INT_MAX; last_stats.largest_region_size = 0; last_stats.worst_elongation = 0;
+    for (i = 0; i < region_count; i++) {
+        RegionMeasure *m = &measure[i];
+        if (m->tile_count <= 0) continue;
+        active++;
+        total += m->tile_count;
+        if (m->tile_count < last_stats.smallest_region_size) last_stats.smallest_region_size = m->tile_count;
+        if (m->tile_count > last_stats.largest_region_size) last_stats.largest_region_size = m->tile_count;
+        if (m->elongation > last_stats.worst_elongation) last_stats.worst_elongation = m->elongation;
+    }
+    last_stats.final_region_count = active;
+    last_stats.average_region_size = active > 0 ? total / active : 0;
+    if (last_stats.smallest_region_size == INT_MAX) last_stats.smallest_region_size = 0;
+}
+
 void regions_validate_postprocess(int target_size) {
     char buffer[256];
     memset(&last_stats, 0, sizeof(last_stats));
@@ -445,6 +476,7 @@ void regions_validate_postprocess(int target_size) {
     smooth_slivers_pass();
     merge_tiny_regions_pass(target_size);
     measure_basic();
+    update_final_quality_stats();
     snprintf(buffer, sizeof(buffer),
              "World Sim: region_validation target=%d tiny=%d merged=%d huge=%d split=%d disconnected=%d reassigned=%d slivers=%d cap=%d\n",
              target_size, last_stats.tiny_regions, last_stats.tiny_merged,
@@ -452,6 +484,12 @@ void regions_validate_postprocess(int target_size) {
              last_stats.disconnected_regions, last_stats.disconnected_reassigned,
              last_stats.sliver_smoothed, last_stats.cap_reached);
     OutputDebugStringA(buffer);
+}
+
+void regions_validate_light_postprocess(int target_size) {
+    reassign_disconnected_components(); smooth_slivers_pass();
+    merge_tiny_regions_pass(max(24, target_size * 2 / 3));
+    reassign_disconnected_components(); measure_basic(); update_final_quality_stats();
 }
 
 const RegionValidationStats *regions_validate_last_stats(void) {

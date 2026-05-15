@@ -231,14 +231,14 @@ void draw_map_grid_overlay(HDC hdc, RECT client, MapLayout layout) {
     int i;
 
     (void)client;
-    for (i = 0; i <= MAP_W; i += step) {
+    for (i = step; i < MAP_W; i += step) {
         int sx = layout.map_x + i * layout.draw_w / MAP_W;
         RECT line = {sx, layout.map_y, sx + 1, layout.map_y + layout.draw_h};
-        fill_rect_alpha(hdc, line, RGB(222, 211, 150), 42);
+        fill_rect_alpha(hdc, line, RGB(210, 214, 196), layout.tile_size <= 2 ? 30 : 22);
     }
-    for (i = 0; i <= MAP_H; i += step) {
+    for (i = step; i < MAP_H; i += step) {
         int sy = layout.map_y + i * layout.draw_h / MAP_H;
         RECT line = {layout.map_x, sy, layout.map_x + layout.draw_w, sy + 1};
-        fill_rect_alpha(hdc, line, RGB(222, 211, 150), 38);
+        fill_rect_alpha(hdc, line, RGB(210, 214, 196), layout.tile_size <= 2 ? 28 : 20);
     }
 }

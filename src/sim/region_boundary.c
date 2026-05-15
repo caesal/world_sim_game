@@ -69,6 +69,8 @@ int region_boundary_compactness_penalty(int seed_x, int seed_y, int x, int y, in
 
     if (major > target_radius) penalty += (major - target_radius) * 9;
     if (major > minor * 2 + 8) penalty += (major - minor * 2 - 8) * 18;
+    if (major > minor * 3 + 10) penalty += (major - minor * 3 - 10) * 28;
+    if (minor <= 3 && major > target_radius) penalty += (major - target_radius) * 18;
     if (dx > target_radius * 2 || dy > target_radius * 2) penalty += 140;
     return penalty;
 }
@@ -78,7 +80,7 @@ void region_boundary_debug_summary(void) {
     int total = 0;
     int active = 0;
     int max_elongation = 0;
-    char buffer[160];
+    char buffer[320];
 
     for (i = 0; i < region_count; i++) {
         NaturalRegion *region = &natural_regions[i];
@@ -108,8 +110,10 @@ void region_boundary_debug_summary(void) {
         }
     }
     snprintf(buffer, sizeof(buffer),
-             "World Sim: mountain_chain_count=%d average_chain_length=%d regions=%d avg_area=%d max_elongation=%d%% sliver_merges=%d\n",
+             "World Sim: mountain_chain_count=%d average_chain_length=%d regions=%d avg_area=%d max_elongation=%d%% sliver_merges=%d ugly_regions=%d shape_repaired=%d aspect_before=%d%% aspect_after=%d%%\n",
              world_mountain_chain_count(), world_mountain_average_chain_length(),
-             active, active > 0 ? total / active : 0, max_elongation, regions_shape_last_merge_count());
+             active, active > 0 ? total / active : 0, max_elongation, regions_shape_last_merge_count(),
+             regions_shape_last_ugly_count(), regions_shape_last_repair_tiles(),
+             regions_shape_last_max_aspect_before(), regions_shape_last_max_aspect_after());
     OutputDebugStringA(buffer);
 }

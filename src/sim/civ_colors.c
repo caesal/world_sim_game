@@ -202,6 +202,14 @@ static int preferred_color_is_safe(Color32 color, int civ_id, int parent_civ_id,
     return 1;
 }
 
+static int auto_candidate_is_hard_safe(Color32 color, int civ_id, int parent_civ_id, int seed_region) {
+    return color_readable_on_background(color) &&
+           global_color_distance(color, civ_id) >= 165 &&
+           neighbor_color_distance(color, civ_id, seed_region) >= 210 &&
+           (parent_civ_id < 0 || parent_civ_id >= civ_count ||
+            !colors_too_similar(color, civs[parent_civ_id].color));
+}
+
 static Color32 fallback_color(int civ_id, int attempt) {
     int hue = (civ_id * 137 + attempt * 47) % 360;
     int segment = hue / 60;
@@ -222,11 +230,14 @@ static Color32 fallback_color(int civ_id, int attempt) {
     return COLOR32_RGB(clamp(r, 42, 238), clamp(g, 42, 238), clamp(b, 42, 238));
 }
 
-Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
-                                         int parent_civ_id, int seed_region) {
+static Color32 pick_distinct_color_internal(int civ_id, Color32 preferred_color,
+                                            int parent_civ_id, int seed_region,
+                                            int log_adjustment) {
     int i;
     int best_score = -100000000;
+    int best_safe_score = -100000000;
     Color32 best = POLITICAL_PALETTE[0];
+    Color32 best_safe = 0;
     int palette_count = (int)(sizeof(POLITICAL_PALETTE) / sizeof(POLITICAL_PALETTE[0]));
     int has_preferred = preferred_color != 0;
 
@@ -237,6 +248,11 @@ Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
         int index = (i + civ_id * 7) % palette_count;
         Color32 color = POLITICAL_PALETTE[index];
         int score = color_candidate_score(color, civ_id, parent_civ_id, seed_region);
+        if (auto_candidate_is_hard_safe(color, civ_id, parent_civ_id, seed_region) &&
+            score > best_safe_score) {
+            best_safe_score = score;
+            best_safe = color;
+        }
         if (score > best_score) {
             best_score = score;
             best = color;
@@ -245,6 +261,11 @@ Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
     for (i = 0; i < MAX_CIVS; i++) {
         Color32 color = CIV_COLORS[i];
         int score = color_candidate_score(color, civ_id, parent_civ_id, seed_region);
+        if (auto_candidate_is_hard_safe(color, civ_id, parent_civ_id, seed_region) &&
+            score > best_safe_score) {
+            best_safe_score = score;
+            best_safe = color;
+        }
         if (score > best_score) {
             best_score = score;
             best = color;
@@ -253,21 +274,37 @@ Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
     for (i = 0; i < 48; i++) {
         Color32 color = fallback_color(civ_id, i);
         int score = color_candidate_score(color, civ_id, parent_civ_id, seed_region);
+        if (auto_candidate_is_hard_safe(color, civ_id, parent_civ_id, seed_region) &&
+            score > best_safe_score) {
+            best_safe_score = score;
+            best_safe = color;
+        }
         if (score > best_score) {
             best_score = score;
             best = color;
         }
     }
-    if (has_preferred && best != preferred_color) {
+    if (best_safe) best = best_safe;
+    if (log_adjustment && has_preferred && best != preferred_color) {
         event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
                                   civ_id, -1, -1, -1, 0, 0,
                                   "[Debug] Adjusted requested country color to avoid a duplicate or low-contrast neighbor.");
-    } else if (best_score < 0) {
+    } else if (log_adjustment && best_score < 0) {
         event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
                                   civ_id, -1, -1, -1, 0, 0,
                                   "[Debug] Country color picker used a low-confidence fallback color.");
     }
     return best;
+}
+
+Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
+                                         int parent_civ_id, int seed_region) {
+    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id, seed_region, 1);
+}
+
+Color32 civilization_preview_distinct_color(int civ_id, Color32 preferred_color,
+                                            int parent_civ_id, int seed_region) {
+    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id, seed_region, 0);
 }
 
 Color32 civilization_pick_auto_color(int civ_id, int seed_region) {

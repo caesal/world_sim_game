@@ -63,6 +63,7 @@ typedef struct {
     RECT symbol_input_frame;
     RECT symbol_input;
     RECT civ_color_label;
+    RECT civ_color_preview;
     RECT civ_color_swatch[CIV_COLOR_PALETTE_COUNT];
     RECT metric_label[WORLDGEN_CORE_METRIC_COUNT];
     RECT metric_input_frame[WORLDGEN_CORE_METRIC_COUNT];

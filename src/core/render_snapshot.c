@@ -1,10 +1,13 @@
 #include "core/render_snapshot.h"
 
 #include "core/dirty_flags.h"
+#include "core/render_snapshot_keys.h"
 #include "core/state_lock.h"
 #include "data/province_names.h"
 #include "sim/collapse.h"
+#include "sim/civilization_slots.h"
 #include "sim/decision_snapshot.h"
+#include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
 #include "sim/population.h"
@@ -13,6 +16,8 @@
 #include "sim/technology.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
+#include "sim/war_front.h"
+#include "world/terrain_query.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -61,6 +66,8 @@ static void copy_tiles(RenderSnapshot *snapshot) {
             dst->resource = (unsigned char)src->resource;
             dst->river = (unsigned char)src->river;
             dst->elevation = (unsigned char)clamp(src->elevation, 0, 255);
+            dst->water_depth = (unsigned char)world_water_depth_at(x, y);
+            dst->water_deep_percent = (unsigned char)world_water_visual_deep_percent(x, y);
             dst->moisture = (short)src->moisture;
             dst->temperature = (short)src->temperature;
             dst->owner = (short)src->owner;
@@ -134,8 +141,11 @@ static void copy_civs(RenderSnapshot *snapshot) {
         dst->war_available_reserve = war_available_reserve_for_civ(i);
         dst->war_front_count = war_front_count_for_civ(i);
         dst->vassal_governance_disorder = vassal_governance_disorder(i);
+        dst->vassal_callable_soldiers = vassal_callable_soldiers(i);
+        dst->vassal_resource_tribute = vassal_estimated_resource_tribute_from(i);
         dst->collapse_can_trigger = collapse_can_trigger(i);
         dst->collapse_block_reason = collapse_block_reason(i);
+        snprintf(dst->collapse_last_reason, sizeof(dst->collapse_last_reason), "%s", collapse_last_reason(i));
         dst->capital_city = src->capital_city;
         dst->overlord = vassal_overlord(i);
         dst->vassal_count = vassal_direct_count(i);
@@ -145,19 +155,46 @@ static void copy_civs(RenderSnapshot *snapshot) {
         {
             DecisionSnapshot decision;
             decision_snapshot_for_civ(i, &decision);
-            dst->decision_expansion_weight = decision.expansion_weight;
-            dst->decision_war_weight = decision.war_weight;
+            dst->decision = decision;
+            dst->decision_expansion_weight = decision.expansion_weight; dst->decision_war_weight = decision.war_weight;
             dst->decision_stability_weight = decision.stability_weight;
             dst->decision_next_expansion_months = decision.next_expansion_months;
-            snprintf(dst->main_intent, sizeof(dst->main_intent), "%s",
-                     decision.main_intent ? decision.main_intent : "");
-            snprintf(dst->decision_expansion_reason, sizeof(dst->decision_expansion_reason),
-                     "%s", decision.expansion_reason ? decision.expansion_reason : "");
+            snprintf(dst->main_intent, sizeof(dst->main_intent), "%s", decision.main_intent ? decision.main_intent : "");
+            snprintf(dst->decision_expansion_reason, sizeof(dst->decision_expansion_reason), "%s", decision.expansion_reason ? decision.expansion_reason : "");
+            snprintf(dst->decision_war_reason, sizeof(dst->decision_war_reason), "%s", decision.war_reason ? decision.war_reason : "");
+            dst->decision.main_intent = dst->main_intent; dst->decision.expansion_reason = dst->decision_expansion_reason;
+            dst->decision.war_reason = dst->decision_war_reason;
         }
         snprintf(dst->name_en, sizeof(dst->name_en), "%s",
                  civilization_display_name_for_language(i, 0));
         snprintf(dst->name_zh, sizeof(dst->name_zh), "%s",
                  civilization_display_name_for_language(i, 1));
+    }
+}
+
+static void copy_diplomacy(RenderSnapshot *snapshot) {
+    int a, b;
+    for (a = 0; a < snapshot->civ_count; a++) {
+        for (b = 0; b < snapshot->civ_count; b++) {
+            DiplomacyRelation rel = diplomacy_relation(a, b);
+            ActiveWar war = war_state_between(a, b);
+            SnapshotDiplomacyRelation *dst = &snapshot->relations[a][b];
+            SnapshotWar *w = &snapshot->wars[a][b];
+            dst->state = rel.state; dst->relation_score = rel.relation_score;
+            dst->border_tension = rel.border_tension; dst->trade_fit = rel.trade_fit;
+            dst->resource_conflict = rel.resource_conflict; dst->truce_years_left = rel.truce_years_left;
+            dst->border_length = rel.border_length; dst->natural_barrier = rel.natural_barrier;
+            dst->years_known = rel.years_known; dst->vassal_years = rel.vassal_years;
+            dst->easing_years = rel.easing_years; dst->contact_kind = rel.contact_kind;
+            dst->years_distant_known = rel.years_distant_known; dst->overlord = rel.overlord; dst->vassal = rel.vassal;
+            w->active = war.active; w->attacker = war.attacker; w->defender = war.defender;
+            w->soldiers_a = war.soldiers_a; w->soldiers_b = war.soldiers_b;
+            w->casualties_a = war.casualties_a; w->casualties_b = war.casualties_b;
+            w->support_casualties_a = war.support_casualties_a; w->support_casualties_b = war.support_casualties_b;
+            w->wins_a = war.wins_a; w->wins_b = war.wins_b; w->years = war.years;
+            snapshot->war_front_flags[a][b] = war_front_flags(a, b);
+            snapshot->war_peace_pressure[a][b] = war_peace_pressure_between(a, b);
+        }
     }
 }
 
@@ -254,6 +291,11 @@ static void copy_plague(RenderSnapshot *snapshot) {
         snapshot->plague_city_severity[i] = severity;
         if (severity > 0) snapshot->plague_active = 1;
     }
+    for (i = 0; i < snapshot->lane_count; i++) {
+        int exposure = sea_lanes_exposure(i);
+        snapshot->plague_lane_exposure[i] = exposure;
+        snapshot->lanes[i].exposure = exposure;
+    }
 }
 
 static void copy_events(RenderSnapshot *snapshot) {
@@ -269,36 +311,6 @@ static void copy_events(RenderSnapshot *snapshot) {
         event_log_format_entry_data(&dst->entry, 0, dst->text_en, sizeof(dst->text_en));
         event_log_format_entry_data(&dst->entry, 1, dst->text_zh, sizeof(dst->text_zh));
     }
-}
-
-static int combined_key(int a, int b) {
-    return (a * 1000003) ^ b;
-}
-
-static int tile_revision_key(void) {
-    int key = combined_key(dirty_revision_terrain(), dirty_revision_coast());
-    key = combined_key(key, dirty_revision_ownership());
-    key = combined_key(key, dirty_revision_province());
-    key = combined_key(key, map_w * 4099 + map_h);
-    key = combined_key(key, world_generated);
-    return key;
-}
-
-static int lanes_revision_key(void) {
-    int key = combined_key(dirty_revision_route(), dirty_revision_ownership());
-    int i;
-    key = combined_key(key, dirty_revision_coast());
-    key = combined_key(key, maritime_route_revision());
-    key = combined_key(key, maritime_ownership_revision());
-    key = combined_key(key, city_count * 7 + civ_count);
-    for (i = 0; i < civ_count; i++) {
-        key = key * 33 + (civs[i].alive ? 1 : 0) + clamp(civs[i].tech_stage, 0, 10) * 3;
-    }
-    for (i = 0; i < city_count; i++) {
-        if (!cities[i].alive) continue;
-        key = key * 33 + cities[i].owner * 5 + cities[i].port_region + (cities[i].port ? 11 : 0);
-    }
-    return key;
 }
 
 void render_snapshot_init(void) {
@@ -323,6 +335,10 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     int back;
     int front;
     int tile_key;
+    int civ_key;
+    int city_key;
+    int region_key;
+    int diplomacy_key;
     int lane_key;
     int plague_key;
     int event_key;
@@ -351,31 +367,61 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     snapshot->year = year;
     snapshot->month = month;
     snapshot->world_generated = world_generated;
-    tile_key = tile_revision_key();
-    lane_key = lanes_revision_key();
-    plague_key = dirty_revision_plague();
+    snapshot->civ_alive_count = civilization_alive_count();
+    snapshot->civ_reusable_slot_count = civilization_reusable_slot_count();
+    tile_key = render_snapshot_tile_revision_key();
+    civ_key = render_snapshot_civs_revision_key();
+    city_key = render_snapshot_cities_revision_key();
+    region_key = render_snapshot_regions_revision_key();
+    diplomacy_key = render_snapshot_diplomacy_revision_key();
+    lane_key = render_snapshot_lanes_revision_key();
+    plague_key = render_snapshot_plague_revision_key(lane_key);
     event_key = event_log_total_entries;
+    snapshot->sections_copied_mask = 0;
+    snapshot->sections_skipped_mask = 0;
     if (snapshot->revision == 0 || snapshot->tiles_revision != tile_key) {
         copy_tiles(snapshot);
         snapshot->tiles_revision = tile_key;
-    }
-    copy_civs(snapshot);
-    copy_cities(snapshot);
-    copy_regions(snapshot);
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_TILES;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_TILES;
+    if (snapshot->revision == 0 || snapshot->civs_revision != civ_key) {
+        copy_civs(snapshot);
+        snapshot->civs_revision = civ_key;
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
+    if (snapshot->revision == 0 || snapshot->cities_revision != city_key) {
+        copy_cities(snapshot);
+        snapshot->cities_revision = city_key;
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
+    if (snapshot->revision == 0 || snapshot->regions_revision != region_key) {
+        copy_regions(snapshot);
+        snapshot->regions_revision = region_key;
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_REGIONS;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_REGIONS;
+    if (snapshot->revision == 0 || snapshot->diplomacy_revision != diplomacy_key) {
+        copy_diplomacy(snapshot);
+        snapshot->diplomacy_revision = diplomacy_key;
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
     if (world_generated && (snapshot->revision == 0 || snapshot->lanes_revision != lane_key)) {
         copy_lanes(snapshot);
         snapshot->lanes_revision = lane_key;
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_LANES;
     } else if (!world_generated) {
         snapshot->lane_count = 0;
-    }
-    if (snapshot->revision == 0 || snapshot->plague_revision != plague_key || snapshot->plague_active) {
+        snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES;
+    if (snapshot->revision == 0 || snapshot->plague_revision != plague_key) {
         copy_plague(snapshot);
         snapshot->plague_revision = plague_key;
-    }
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE;
     if (snapshot->revision == 0 || snapshot->events_revision != event_key) {
         copy_events(snapshot);
         snapshot->events_revision = event_key;
-    }
+        snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_EVENTS;
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_EVENTS;
     state_read_unlock();
     snapshot->revision = (unsigned int)InterlockedIncrement(&published_revision);
     last_publish_tick = (LONG)GetTickCount();

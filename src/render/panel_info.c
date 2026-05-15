@@ -20,6 +20,7 @@ void draw_top_bar(HDC hdc, RECT client) {
     RECT bar = {0, 0, client.right, TOP_BAR_H};
     RECT year_box = {client.right / 2 - 112, 9, client.right / 2 + 112, 50};
     RECT language_button = get_language_button_rect(client);
+    RECT reset_button = get_reset_view_button_rect(client);
     char text[80];
     HFONT title_font = CreateFontW(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
@@ -34,6 +35,9 @@ void draw_top_bar(HDC hdc, RECT client) {
     SelectObject(hdc, old_font);
     DeleteObject(title_font);
     draw_text_line(hdc, 18, 20, WORLD_SIM_VERSION_LABEL, RGB(245, 250, 255));
+    fill_rect(hdc, reset_button, point_in_rect_local(reset_button, hover_x, hover_y) ?
+              RGB(70, 80, 76) : RGB(48, 58, 55));
+    draw_center_text(hdc, reset_button, tr("Reset", "重置"), RGB(245, 250, 255));
     fill_rect(hdc, language_button, RGB(58, 68, 64));
     draw_center_text(hdc, language_button, ui_language == UI_LANG_ZH ? "中文" : "EN", RGB(245, 250, 255));
 }

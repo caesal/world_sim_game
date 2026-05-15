@@ -1,5 +1,6 @@
 #include "render_panel_internal.h"
 
+#include "render/snapshot_ui.h"
 #include "sim/population.h"
 
 static const char *age_band_label(int band) {
@@ -74,6 +75,8 @@ int draw_population_pyramid_summary(HDC hdc, RECT client, int x, int y, int widt
 }
 
 int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int civ_id, HFONT body_font) {
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    PopulationSummary empty = {0};
     return draw_population_pyramid_summary(hdc, client, x, y, width,
-                                           population_country_summary(civ_id), body_font);
+                                           civ ? civ->population_summary : empty, body_font);
 }

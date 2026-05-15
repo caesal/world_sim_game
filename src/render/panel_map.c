@@ -1,5 +1,6 @@
 ﻿#include "render_panel_internal.h"
 
+#include "core/profiler.h"
 #include "game/game_loop.h"
 #include "ui/ui_theme.h"
 
@@ -62,8 +63,20 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     const char *speed_name = ui_language == UI_LANG_ZH ? speed_name_zh[speed_index] : SPEED_NAMES[speed_index];
     int actual_ms = game_loop_actual_ms_per_month();
     int pending = game_loop_pending_months();
-    char speed_detail[64];
+    RuntimeProfilerSnapshot profiler;
+    const char *render_status;
+    const char *sim_status;
+    char actual_text[32];
+    RECT status_rect = {336, client.bottom - 40, client.right - side_panel_w - 12, client.bottom - 8};
     int i;
+
+    profiler_snapshot(&profiler);
+    render_status = profiler.render_avg_ms <= 18 ? tr("smooth", "流畅") :
+                    profiler.render_avg_ms <= 33 ? tr("busy", "繁忙") : tr("slow", "偏慢");
+    sim_status = !auto_run ? tr("paused", "已暂停") :
+                 game_loop_simulation_overloaded() ? tr("overloaded", "过载") : tr("stable", "稳定");
+    if (actual_ms > 0) snprintf(actual_text, sizeof(actual_text), "%.1fs/%s", actual_ms / 1000.0, tr("month", "月"));
+    else snprintf(actual_text, sizeof(actual_text), "--");
 
     fill_rect(hdc, bar, ui_theme_color(UI_COLOR_CHROME));
     fill_rect(hdc, play, auto_run ? RGB(87, 93, 78) : RGB(48, 56, 58));
@@ -75,20 +88,13 @@ void draw_bottom_bar(HDC hdc, RECT client) {
         draw_center_text(hdc, button, speed_button_icon(i), RGB(235, 240, 244));
     }
 
-    if (auto_run && actual_ms > 0) {
-        snprintf(speed_detail, sizeof(speed_detail), "%s/%s %s %.2fs/%s%s%d",
-                 speed_seconds_text(speed_index), tr("month", "月"), tr("actual", "实际"),
-                 actual_ms / 1000.0, tr("month", "月"),
-                 pending > 0 ? tr(" queue ", " 队列 ") : "", pending);
-    } else {
-        snprintf(speed_detail, sizeof(speed_detail), "%s/%s %s",
-                 speed_seconds_text(speed_index), tr("month", "月"), tr("target", "目标"));
-    }
-    snprintf(text, sizeof(text), "%s: %s (%s)    %s    F5 %s    F1/F2 %s",
-              tr("Speed", "速度"), speed_name, speed_detail,
-              tr("Space play/pause", "空格播放/暂停"),
-              tr("World", "世界"), tr("Country commands", "国家命令"));
-    draw_text_line(hdc, 336, client.bottom - 29, text, RGB(225, 230, 235));
+    snprintf(text, sizeof(text), "%s: %s %dms | %s: %s %s/%s | %s: %s | %s: %d | %s: %s",
+             tr("Render", "渲染"), render_status, profiler.render_avg_ms,
+             tr("Sim target", "模拟目标"), speed_name, speed_seconds_text(speed_index), tr("month", "月"),
+             tr("Actual", "实际"), actual_text, tr("Queue", "队列"), pending,
+             tr("Status", "状态"), sim_status);
+    draw_text_rect(hdc, status_rect, text, RGB(225, 230, 235),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
 static void draw_legend_item(HDC hdc, int x, int y, COLORREF color, const char *name) {

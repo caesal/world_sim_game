@@ -394,6 +394,9 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
         return COUNTRY_PANEL_HIT_VASSAL_ACTION;
     }
     if (layout.selected_detail) {
+        RECT color = {layout.selected_summary.left + 6, layout.selected_summary.top + 6,
+                      layout.selected_summary.left + 28, layout.selected_summary.top + 28};
+        if (point_in_rect_local(color, mouse_x, mouse_y)) { country_panel_snapshot_end(owned, snapshot); return COUNTRY_PANEL_HIT_COLOR; }
         RECT locate = {layout.selected_summary.right - 64, layout.selected_summary.top + 6,
                        layout.selected_summary.right - 8, layout.selected_summary.top + 26};
         if (point_in_rect_local(locate, mouse_x, mouse_y)) { country_panel_snapshot_end(owned, snapshot); return COUNTRY_PANEL_HIT_LOCATE; }

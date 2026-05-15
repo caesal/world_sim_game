@@ -14,6 +14,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\core\dirty_flags.c ^
   src\core\profiler.c ^
   src\core\render_snapshot.c ^
+  src\core\render_snapshot_keys.c ^
   src\core\state_lock.c ^
   src\core\worldgen_progress.c ^
   src\data\country_names.c ^
@@ -80,6 +81,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\map_highlight.c ^
   src\render\terrain_present.c ^
   src\render\region_render.c ^
+  src\render\snapshot_map_layers.c ^
   src\render\map_labels.c ^
   src\render\route_render.c ^
   src\render\river_geometry.c ^
@@ -112,11 +114,13 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\icons.c ^
   src\ui\ui_theme.c ^
   src\ui\ui_widgets.c ^
+  src\ui\color_picker.c ^
   src\ui\pause_menu.c ^
   src\ui\ui_actions.c ^
   src\ui\ui_worldgen_layout.c ^
   src\ui\ui_state.c ^
   src\ui\ui_layout.c ^
+  src\ui\ui_map_input.c ^
   src\ui\ui_sliders.c ^
   src\ui\ui_forms.c ^
   src\ui\ui_selection.c ^

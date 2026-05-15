@@ -105,15 +105,6 @@ static int selected_edit_civ_id(void) {
     return civ_id >= 0 && civ_id < civ_count ? civ_id : -1;
 }
 
-static int palette_index_for_color(Color32 color) {
-    int i;
-
-    for (i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
-        if (UI_CIV_COLOR_PALETTE[i] == color) return i;
-    }
-    return -1;
-}
-
 static int alive_symbol_used(char symbol) {
     int i;
     for (i = 0; i < civ_count; i++) {
@@ -146,7 +137,7 @@ static int random_range(int min_value, int max_value) {
 static void sync_color_from_civ(int civ_id) {
     if (civ_id < 0 || civ_id >= civ_count) return;
     selected_civ_color = civs[civ_id].color;
-    selected_civ_color_index = palette_index_for_color(civs[civ_id].color);
+    selected_civ_color_index = -1;
 }
 
 void ui_forms_write_civ(int civ_id) {
@@ -178,6 +169,8 @@ static void ui_randomize_civilization_form(HWND hwnd) {
     write_int_control(form.production_edit, random_metric_value());
     write_int_control(form.commerce_edit, random_metric_value());
     write_int_control(form.innovation_edit, random_metric_value());
+    selected_civ_color = game_preview_civilization_color_auto_avoid(-1, selected_civ_color);
+    selected_civ_color_index = 0;
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -257,9 +250,7 @@ void ui_forms_add_civ(HWND hwnd) {
         read_metric_control(form.commerce_edit, 5),
         read_metric_control(form.innovation_edit, 5));
     if (civ_id >= 0) {
-        if (selected_civ_color_index >= 0) {
-            game_request_set_civilization_color(civ_id, selected_civ_color);
-        }
+        if (selected_civ_color_index >= 0) game_request_set_civilization_color_exact(civ_id, selected_civ_color);
         ui_forms_write_civ(civ_id);
     } else {
         MessageBoxA(hwnd,
@@ -292,9 +283,7 @@ void ui_forms_apply_selected(HWND hwnd) {
             read_metric_control(form.production_edit, fallback_production),
             read_metric_control(form.commerce_edit, fallback_commerce),
             read_metric_control(form.innovation_edit, fallback_innovation))) {
-        if (selected_civ_color_index >= 0) {
-            game_request_set_civilization_color(selected_civ, selected_civ_color);
-        }
+        if (selected_civ_color_index >= 0) game_request_set_civilization_color_exact(selected_civ, selected_civ_color);
         ui_forms_write_civ(selected_civ);
         InvalidateRect(hwnd, NULL, FALSE);
     }

@@ -2,9 +2,21 @@
 #define WORLD_SIM_RENDER_SNAPSHOT_H
 
 #include "core/game_types.h"
+#include "sim/decision_snapshot.h"
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
+
+enum {
+    RENDER_SNAPSHOT_SECTION_TILES = 1 << 0,
+    RENDER_SNAPSHOT_SECTION_CIVS = 1 << 1,
+    RENDER_SNAPSHOT_SECTION_CITIES = 1 << 2,
+    RENDER_SNAPSHOT_SECTION_REGIONS = 1 << 3,
+    RENDER_SNAPSHOT_SECTION_LANES = 1 << 4,
+    RENDER_SNAPSHOT_SECTION_PLAGUE = 1 << 5,
+    RENDER_SNAPSHOT_SECTION_EVENTS = 1 << 6,
+    RENDER_SNAPSHOT_SECTION_DIPLOMACY = 1 << 7
+};
 
 typedef struct {
     unsigned char geography;
@@ -13,6 +25,8 @@ typedef struct {
     unsigned char resource;
     unsigned char river;
     unsigned char elevation;
+    unsigned char water_depth;
+    unsigned char water_deep_percent;
     short moisture;
     short temperature;
     short owner;
@@ -79,6 +93,8 @@ typedef struct {
     int war_available_reserve;
     int war_front_count;
     int vassal_governance_disorder;
+    int vassal_callable_soldiers;
+    int vassal_resource_tribute;
     int decision_expansion_weight;
     int decision_war_weight;
     int decision_stability_weight;
@@ -93,9 +109,45 @@ typedef struct {
     PopulationSummary population_summary;
     char main_intent[32];
     char decision_expansion_reason[128];
+    char decision_war_reason[128];
+    DecisionSnapshot decision;
+    char collapse_last_reason[EVENT_LOG_LEN];
     char name_en[NAME_LEN];
     char name_zh[NAME_LEN];
 } SnapshotCiv;
+
+typedef struct {
+    int state;
+    int relation_score;
+    int border_tension;
+    int trade_fit;
+    int resource_conflict;
+    int truce_years_left;
+    int border_length;
+    int natural_barrier;
+    int years_known;
+    int vassal_years;
+    int easing_years;
+    int contact_kind;
+    int years_distant_known;
+    int overlord;
+    int vassal;
+} SnapshotDiplomacyRelation;
+
+typedef struct {
+    int active;
+    int attacker;
+    int defender;
+    int soldiers_a;
+    int soldiers_b;
+    int casualties_a;
+    int casualties_b;
+    int support_casualties_a;
+    int support_casualties_b;
+    int wins_a;
+    int wins_b;
+    int years;
+} SnapshotWar;
 
 typedef struct {
     int alive;
@@ -174,21 +226,33 @@ typedef struct {
     int month;
     int world_generated;
     int civ_count;
+    int civ_alive_count;
+    int civ_reusable_slot_count;
     int city_count;
     int region_count;
     int lane_count;
     int event_count;
     int event_total_entries;
     int tiles_revision;
+    int civs_revision;
+    int cities_revision;
+    int regions_revision;
+    int diplomacy_revision;
     int lanes_revision;
     int plague_revision;
     int events_revision;
+    int sections_copied_mask;
+    int sections_skipped_mask;
     unsigned int revision;
     SnapshotTile tiles[MAX_MAP_W * MAX_MAP_H];
     SnapshotCiv civs[MAX_CIVS];
     SnapshotCity cities[MAX_CITIES];
     SnapshotRegion regions[MAX_NATURAL_REGIONS];
     SnapshotSeaLane lanes[MAX_SEA_LANES];
+    SnapshotDiplomacyRelation relations[MAX_CIVS][MAX_CIVS];
+    SnapshotWar wars[MAX_CIVS][MAX_CIVS];
+    int war_front_flags[MAX_CIVS][MAX_CIVS];
+    int war_peace_pressure[MAX_CIVS][MAX_CIVS];
     int plague_city_severity[MAX_CITIES];
     int plague_lane_exposure[MAX_SEA_LANES];
     int plague_active;

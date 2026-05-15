@@ -65,9 +65,11 @@ int side_panel_handle_hit_test(RECT client, int x, int y) {
 }
 
 void ui_map_view_reset(void) {
+    map_zoom_percent = 100;
     map_offset_x = 0;
     map_offset_y = 0;
     map_view_auto_centered = 1;
+    map_interaction_preview = 0;
 }
 
 void ui_map_view_clamp(RECT client) {
@@ -179,6 +181,20 @@ RECT get_language_button_rect(RECT client) {
     rect.bottom = 46;
     if (rect.left < client.left + 250) {
         rect.left = client.left + 250;
+        rect.right = rect.left + 74;
+    }
+    return rect;
+}
+
+RECT get_reset_view_button_rect(RECT client) {
+    RECT language = get_language_button_rect(client);
+    RECT rect;
+    rect.right = language.left - 8;
+    rect.left = rect.right - 74;
+    rect.top = language.top;
+    rect.bottom = language.bottom;
+    if (rect.left < client.left + 160) {
+        rect.left = client.left + 160;
         rect.right = rect.left + 74;
     }
     return rect;

@@ -85,8 +85,6 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     int command_w = (width - command_gap) / 2;
     int metric_gap = 12;
     int metric_col_w = (width - metric_gap) / 2;
-    int swatch_size = 24;
-    int swatch_gap = 8;
     int bottom_margin = 18;
     int i;
 
@@ -160,16 +158,11 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     y += 62;
     layout->civ_color_label = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 18), -scroll_offset);
     y += 22;
+    layout->civ_color_preview = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 34), -scroll_offset);
     for (i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
-        int col = i % 8;
-        int row = i / 8;
-        RECT swatch = make_rect(panel_x + col * (swatch_size + swatch_gap),
-                                y + row * (swatch_size + swatch_gap),
-                                panel_x + col * (swatch_size + swatch_gap) + swatch_size,
-                                y + row * (swatch_size + swatch_gap) + swatch_size);
-        layout->civ_color_swatch[i] = offset_rect_y(swatch, -scroll_offset);
+        layout->civ_color_swatch[i] = make_rect(0, 0, 0, 0);
     }
-    y += 2 * swatch_size + swatch_gap + 14;
+    y += 46;
     place_metric(layout, WORLDGEN_METRIC_MILITARY, panel_x, y, metric_col_w, scroll_offset);
     place_metric(layout, WORLDGEN_METRIC_LOGISTICS, panel_x + metric_col_w + metric_gap, y, metric_col_w, scroll_offset);
     y += 112;

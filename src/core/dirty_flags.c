@@ -23,6 +23,7 @@ static int province_revision = 1;
 static int route_revision = 1;
 static int label_revision = 1;
 static int plague_revision = 1;
+static int population_revision = 1;
 static int ui_revision = 1;
 static int hydrology_revision = 1;
 
@@ -57,6 +58,7 @@ void dirty_mark_world(void) {
     bump(&route_revision);
     bump(&label_revision);
     bump(&plague_revision);
+    bump(&population_revision);
     bump(&ui_revision);
     bump(&hydrology_revision);
 }
@@ -76,6 +78,7 @@ void dirty_mark_province(void) {
 
 void dirty_mark_population(void) {
     mark(DIRTY_RENDER_LABELS);
+    bump(&population_revision);
     bump(&label_revision);
 }
 
@@ -121,6 +124,7 @@ int dirty_revision_province(void) { return province_revision; }
 int dirty_revision_route(void) { return route_revision; }
 int dirty_revision_label(void) { return label_revision; }
 int dirty_revision_plague(void) { return plague_revision; }
+int dirty_revision_population(void) { return population_revision; }
 int dirty_revision_ui(void) { return ui_revision; }
 int dirty_revision_hydrology(void) { return hydrology_revision; }
 

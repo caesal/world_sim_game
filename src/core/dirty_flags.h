@@ -29,6 +29,7 @@ int dirty_revision_province(void);
 int dirty_revision_route(void);
 int dirty_revision_label(void);
 int dirty_revision_plague(void);
+int dirty_revision_population(void);
 int dirty_revision_ui(void);
 int dirty_revision_hydrology(void);
 

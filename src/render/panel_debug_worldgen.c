@@ -61,6 +61,13 @@ void draw_worldgen_debug_rows(HDC hdc, UiCursor *cursor) {
                  region_stats->disconnected_regions, region_stats->disconnected_reassigned,
                  region_stats->sliver_smoothed, region_stats->cap_reached ? "yes" : "no");
         ui_row_text(hdc, cursor, tr("Region fixes", "区域修正"), text);
+        snprintf(text, sizeof(text), "final %d / avg %d / min %d / max %d",
+                 region_stats->final_region_count, region_stats->average_region_size,
+                 region_stats->smallest_region_size, region_stats->largest_region_size);
+        ui_row_text(hdc, cursor, tr("Region quality", "区域质量"), text);
+        snprintf(text, sizeof(text), "worst elongation %d%% / cap %s",
+                 region_stats->worst_elongation, region_stats->cap_reached ? "yes" : "no");
+        ui_row_text(hdc, cursor, tr("Region shape", "区域形状"), text);
     }
     if (hydro_stats && hydro_stats->river_count > 0) {
         snprintf(text, sizeof(text), "rivers %d / avg %d / longest %d / main %d / trib %d",
@@ -73,5 +80,10 @@ void draw_worldgen_debug_rows(HDC hdc, UiCursor *cursor) {
                  hydro_stats->inland_dead_ends, hydro_stats->overly_short_rivers,
                  hydro_stats->cache_rebuild_ms);
         ui_row_text(hdc, cursor, tr("River cache", "河流缓存"), text);
+        snprintf(text, sizeof(text), "geom #%d %d ms / visible %d / LOD skipped %d",
+                 hydro_stats->geometry_rebuild_count, hydro_stats->geometry_rebuild_ms,
+                 hydro_stats->visible_river_count_last_draw,
+                 hydro_stats->skipped_by_lod_last_draw);
+        ui_row_text(hdc, cursor, tr("River geometry", "河流几何"), text);
     }
 }

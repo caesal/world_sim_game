@@ -32,20 +32,19 @@ static int event_country_hit_count = 0;
 static const RenderSnapshot *debug_snapshot(void) { return render_context_snapshot(); }
 static int debug_event_count(void) {
     const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? snapshot->event_count : event_log_count;
+    return snapshot ? snapshot->event_count : 0;
 }
 static int debug_event_total_entries(void) {
     const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? snapshot->event_total_entries : event_log_total_entries;
+    return snapshot ? snapshot->event_total_entries : 0;
 }
 static EventLogType debug_event_type(int index) {
     const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? render_snapshot_event_get_type(snapshot, index) : event_log_get_type(index);
+    return snapshot ? render_snapshot_event_get_type(snapshot, index) : EVENT_TYPE_GENERIC;
 }
 static int debug_event_entry(int index, EventLogEntry *out) {
     const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? render_snapshot_event_get_entry(snapshot, index, out) :
-                      event_log_get_entry(index, out);
+    return snapshot ? render_snapshot_event_get_entry(snapshot, index, out) : 0;
 }
 static void debug_event_text(int index, char *out, size_t out_size) {
     const RenderSnapshot *snapshot = debug_snapshot();
@@ -53,7 +52,7 @@ static void debug_event_text(int index, char *out, size_t out_size) {
     if (snapshot) {
         snprintf(out, out_size, "%s", render_snapshot_event_text(snapshot, index, ui_language));
     } else {
-        event_log_format_entry(index, ui_language, out, out_size);
+        out[0] = '\0';
     }
 }
 static const char *filter_label(int index) {
@@ -234,6 +233,11 @@ static void draw_performance_panel(HDC hdc, UiCursor *cursor) {
              render_snapshot_last_skip_reason());
     debug_row(hdc, cursor, tr("Publish", "发布"), text,
               render_snapshot_skipped_publish_count() > 0 ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    if (debug_snapshot()) {
+        snprintf(text, sizeof(text), "copied 0x%02X / skipped 0x%02X", debug_snapshot()->sections_copied_mask, debug_snapshot()->sections_skipped_mask);
+        debug_row(hdc, cursor, tr("Section copy mask", "快照分区复制"), text,
+                  ui_theme_color(UI_COLOR_TEXT_MUTED));
+    }
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
     snprintf(text, sizeof(text), "target 16 ms / avg %d / peak %d", perf.frame_avg_ms, perf.frame_peak_ms);
     debug_row(hdc, cursor, tr("Frame avg / peak", "帧均值 / 峰值"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
@@ -303,7 +307,8 @@ static int matching_event_count(void) {
     return count;
 }
 static void add_event_country_hit(RECT rect, int civ_id, int uid) {
-    if (civ_id < 0 || civ_id >= civ_count || event_country_hit_count >= 64) return;
+    const RenderSnapshot *snapshot = debug_snapshot();
+    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count || event_country_hit_count >= 64) return;
     event_country_hit_rects[event_country_hit_count] = rect;
     event_country_hit_civs[event_country_hit_count] = civ_id;
     event_country_hit_uids[event_country_hit_count] = uid;
@@ -411,11 +416,12 @@ static void draw_recent_events(HDC hdc, UiCursor *cursor) {
                  tr("Frozen", "已冻结"), unseen, tr("new events", "条新事件"));
         debug_row(hdc, cursor, tr("Scroll", "滚动"), status, RGB(218, 178, 78));
     }
-    if (map_highlight_civ >= 0 && map_highlight_civ < civ_count) {
+    if (map_highlight_civ >= 0 && debug_snapshot() && map_highlight_civ < debug_snapshot()->civ_count) {
         RECT row = ui_take_rect(cursor, 24);
         RECT clear = {row.right - 58, row.top, row.right, row.bottom};
+        const SnapshotCiv *highlight = &debug_snapshot()->civs[map_highlight_civ];
         snprintf(status, sizeof(status), "%s: %s", tr("Map highlight", "地图高亮"),
-                 civilization_display_name_for_language(map_highlight_civ, ui_language));
+                 ui_language == UI_LANG_ZH ? highlight->name_zh : highlight->name_en);
         draw_text_rect(hdc, (RECT){row.left, row.top, clear.left - 6, row.bottom}, status,
                        RGB(255, 238, 190), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
         fill_rect(hdc, clear, RGB(87, 93, 78));

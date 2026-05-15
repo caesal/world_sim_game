@@ -2,8 +2,6 @@
 
 #include "render/render_common.h"
 #include "render/render_context.h"
-#include "core/game_state.h"
-#include "sim/regions.h"
 #include "sim/route_potential.h"
 
 #include <stdlib.h>
@@ -205,11 +203,15 @@ static COLORREF color32_to_ref(Color32 color) {
     return RGB((int)(color & 0xff), (int)((color >> 8) & 0xff), (int)((color >> 16) & 0xff));
 }
 
-static COLORREF route_node_color(int region_id) {
+static COLORREF route_node_color(const RenderSnapshot *snapshot, int region_id) {
+    const SnapshotRegion *region;
     int owner;
-    if (region_id < 0 || region_id >= region_count) return RGB(130, 138, 144);
-    owner = natural_regions[region_id].owner_civ;
-    if (owner >= 0 && owner < civ_count && civs[owner].alive) return color32_to_ref(civs[owner].color);
+    if (!snapshot || region_id < 0 || region_id >= snapshot->region_count) return RGB(130, 138, 144);
+    region = &snapshot->regions[region_id];
+    owner = region->owner;
+    if (owner >= 0 && owner < snapshot->civ_count && snapshot->civs[owner].alive) {
+        return color32_to_ref(snapshot->civs[owner].color);
+    }
     return RGB(132, 140, 146);
 }
 
@@ -263,9 +265,9 @@ static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot
         POINT point = tile_point(snapshot, port, layout);
         int r = max(3, layout.tile_size / 3);
         RECT mark = {point.x - r, point.y - r, point.x + r, point.y + r};
-        int owner = potential_nodes[i].region_id >= 0 && potential_nodes[i].region_id < region_count ?
-                    natural_regions[potential_nodes[i].region_id].owner_civ : -1;
-        HBRUSH brush = CreateSolidBrush(route_node_color(potential_nodes[i].region_id));
+        int owner = potential_nodes[i].region_id >= 0 && potential_nodes[i].region_id < snapshot->region_count ?
+                    snapshot->regions[potential_nodes[i].region_id].owner : -1;
+        HBRUSH brush = CreateSolidBrush(route_node_color(snapshot, potential_nodes[i].region_id));
         HBRUSH old_brush = SelectObject(hdc, brush);
         HPEN pen = CreatePen(PS_SOLID, 1, owner == selected_civ ?
                              RGB(255, 244, 190) : RGB(28, 34, 38));

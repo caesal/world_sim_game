@@ -12,9 +12,15 @@ typedef struct {
     int disconnected_reassigned;
     int sliver_smoothed;
     int cap_reached;
+    int final_region_count;
+    int average_region_size;
+    int largest_region_size;
+    int smallest_region_size;
+    int worst_elongation;
 } RegionValidationStats;
 
 void regions_validate_postprocess(int target_size);
+void regions_validate_light_postprocess(int target_size);
 const RegionValidationStats *regions_validate_last_stats(void);
 
 #endif

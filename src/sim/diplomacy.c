@@ -6,6 +6,7 @@
 #include "war.h"
 #include "sim/war_front.h"
 #include "sim/simulation.h"
+#include "world/terrain_query.h"
 #include <stdio.h>
 #include <string.h>
 #ifndef DIPLOMACY_ENABLE_ADVANCED_STATES
@@ -66,7 +67,7 @@ static int is_natural_barrier_tile(int x, int y) {
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
     geography = world[y][x].geography;
     return world[y][x].river || geography == GEO_MOUNTAIN || geography == GEO_CANYON ||
-           geography == GEO_LAKE || geography == GEO_BAY || geography == GEO_COAST;
+           geography == GEO_COAST || world_water_depth_at(x, y) != WATER_DEPTH_NONE;
 }
 static void rebuild_border_contact_cache(void);
 static int pair_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier) {

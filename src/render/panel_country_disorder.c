@@ -1,14 +1,7 @@
 #include "render/panel_country_disorder.h"
 
-#include "core/game_state.h"
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
-#include "sim/collapse.h"
-#include "sim/disorder.h"
-#include "sim/plague.h"
-#include "sim/technology.h"
-#include "sim/vassal.h"
-#include "sim/war.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +26,29 @@ static const SnapshotCiv *disorder_snapshot_civ(int civ_id) {
 }
 
 #define CIV(civ_id) (disorder_snapshot_civ(civ_id))
+
+static int disorder_ui_effect_percent(int disorder) {
+    disorder = clamp(disorder, 0, 100);
+    if (disorder <= 25) return 100;
+    if (disorder >= 74) return 80;
+    return 95 - (disorder - 26) * 15 / 48;
+}
+
+static int disorder_ui_pressure_eta_months(int value, int monthly_decay) {
+    if (value <= 0) return 0;
+    if (monthly_decay <= 0) return -1;
+    return (value + monthly_decay - 1) / monthly_decay;
+}
+
+static int collapse_ui_chance_for_disorder(int disorder) {
+    if (disorder >= 100) return 0;
+    if (disorder >= 95) return 65;
+    if (disorder >= 90) return 45;
+    if (disorder >= 85) return 30;
+    if (disorder >= 80) return 20;
+    if (disorder >= 75) return 10;
+    return 0;
+}
 
 int country_disorder_tab_height(int civ_id) {
     (void)civ_id;
@@ -197,17 +213,17 @@ static void draw_pressure_cards(HDC hdc, UiCursor *cursor, int civ_id) {
                               tr("Current conditions", "当前条件决定"), RGB(204, 154, 68), 0};
     cards[1] = (PressureCard){tr("Plague pressure", "瘟疫压力"), ICON_DISORDER, CIV(civ_id)->disorder_plague,
                               CIV(civ_id)->disorder_plague * 10 / 24, plague_decay,
-                              plague_active ? -2 : disorder_pressure_eta_months(CIV(civ_id)->disorder_plague, plague_decay),
+                              plague_active ? -2 : disorder_ui_pressure_eta_months(CIV(civ_id)->disorder_plague, plague_decay),
                               plague_active ? tr("Plague active", "瘟疫活跃") : tr("Post-plague recovery", "瘟疫后恢复"),
                               RGB(44, 116, 82), 0};
     cards[2] = (PressureCard){tr("War / unrest", "战争/内乱"), ICON_BATTLE, CIV(civ_id)->disorder_stability,
                               CIV(civ_id)->disorder_stability * 10 / 28, war_decay,
-                              disorder_pressure_eta_months(CIV(civ_id)->disorder_stability, war_decay),
+                              disorder_ui_pressure_eta_months(CIV(civ_id)->disorder_stability, war_decay),
                               war_active ? tr("At war", "战争中") : tr("Post-war recovery", "战后恢复"),
                               RGB(188, 74, 66), 0};
     cards[3] = (PressureCard){tr("Migration / expansion", "迁徙/扩张"), ICON_MIGRATION, CIV(civ_id)->disorder_migration,
                               CIV(civ_id)->disorder_migration * 10 / 26, migration_decay,
-                              disorder_pressure_eta_months(CIV(civ_id)->disorder_migration, migration_decay),
+                              disorder_ui_pressure_eta_months(CIV(civ_id)->disorder_migration, migration_decay),
                               tr("Temporary friction", "临时摩擦"), RGB(72, 146, 176), 0};
     cards[4] = (PressureCard){tr("Vassal governance", "附庸治理"), ICON_GOVERNANCE,
                               CIV(civ_id)->vassal_governance_disorder, 0, 0, -3,
@@ -281,11 +297,11 @@ static void draw_effect_bar(HDC hdc, UiCursor *cursor, const char *label, int fi
 
 static void draw_effects(HDC hdc, UiCursor *cursor, int civ_id) {
     int disorder = CIV(civ_id)->disorder;
-    int resource_disorder = disorder_productivity_percent(disorder);
-    int tech_disorder = disorder_technology_percent(disorder);
-    int population_disorder = disorder_population_growth_percent(disorder);
-    int tech_resource = technology_resource_percent(civ_id);
-    int tech_progress = technology_progress_percent(civ_id);
+    int resource_disorder = disorder_ui_effect_percent(disorder);
+    int tech_disorder = disorder_ui_effect_percent(disorder);
+    int population_disorder = disorder_ui_effect_percent(disorder);
+    int tech_resource = CIV(civ_id)->tech_resource_percent;
+    int tech_progress = CIV(civ_id)->tech_progress_percent;
     ui_section(hdc, cursor, tr("Active Effects", "当前影响"));
     draw_effect_bar(hdc, cursor, tr("Resource output", "资源产出"),
                     tech_resource * resource_disorder / 100, tech_resource, resource_disorder, RGB(204, 154, 68));
@@ -299,7 +315,7 @@ static const char *collapse_risk_text(int civ_id) {
     static char text[96];
     int disorder = CIV(civ_id)->disorder;
     int grace = CIV(civ_id)->collapse_grace_months;
-    int chance = collapse_decade_chance_for_disorder(disorder);
+    int chance = collapse_ui_chance_for_disorder(disorder);
     if (disorder >= 100) snprintf(text, sizeof(text), "%s", tr("Immediate collapse attempt", "立即尝试崩溃"));
     else if (grace > 0) snprintf(text, sizeof(text), "%s", tr("Collapse grace active", "崩溃保护期"));
     else if (chance <= 0) snprintf(text, sizeof(text), "%s", tr("No scheduled collapse risk", "无定期崩溃风险"));
@@ -312,7 +328,7 @@ static void draw_collapse_risk(HDC hdc, UiCursor *cursor, int civ_id) {
     char span[48];
     int disorder = CIV(civ_id)->disorder;
     int grace = CIV(civ_id)->collapse_grace_months;
-    int chance = collapse_decade_chance_for_disorder(disorder);
+    int chance = collapse_ui_chance_for_disorder(disorder);
     COLORREF accent = disorder >= 100 ? RGB(136, 34, 44) :
                       chance > 0 ? RGB(196, 82, 68) : RGB(96, 150, 106);
     RECT card;
@@ -329,12 +345,17 @@ static void draw_collapse_risk(HDC hdc, UiCursor *cursor, int civ_id) {
     draw_text_rect(hdc, (RECT){card.left + 12, card.top + 32, card.right - 12, card.top + 54},
                    text, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     if (grace > 0) format_disorder_months(span, sizeof(span), grace);
-    else if (chance > 0) format_disorder_months(span, sizeof(span), max(1, (25 - (year % 25)) * 12 - month + 1));
+    else if (chance > 0) {
+        const RenderSnapshot *snapshot = snapshot_ui_current();
+        int y = snapshot ? snapshot->year : 0;
+        int m = snapshot ? snapshot->month : 1;
+        format_disorder_months(span, sizeof(span), max(1, (25 - (y % 25)) * 12 - m + 1));
+    }
     else snprintf(span, sizeof(span), "%s", tr("none", "无"));
     snprintf(text, sizeof(text), "%s: %s", tr("Next check", "下次判定"), span);
     draw_text_rect(hdc, (RECT){card.left + 12, card.top + 56, card.right - 12, card.top + 78},
                    text, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    snprintf(text, sizeof(text), "%s: %s", tr("Last result", "最近判定"), collapse_last_reason(civ_id));
+    snprintf(text, sizeof(text), "%s: %s", tr("Last result", "最近判定"), CIV(civ_id)->collapse_last_reason);
     draw_text_rect(hdc, (RECT){card.left + 12, card.top + 80, card.right - 12, card.bottom - 8},
                    text, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_WORDBREAK | DT_END_ELLIPSIS);
     cursor->y += 8;

@@ -15,10 +15,15 @@ static void draw_overlay_frame(HDC hdc, RECT rect, COLORREF color) {
     DeleteObject(pen);
 }
 
-static void draw_progress_bar(HDC hdc, RECT bar, int percent, COLORREF color) {
+static void format_percent(char *out, int out_size, int percent_x1000) {
+    percent_x1000 = clamp(percent_x1000, 0, 100000);
+    snprintf(out, out_size, "%d.%d%%", percent_x1000 / 1000, (percent_x1000 / 100) % 10);
+}
+
+static void draw_progress_bar(HDC hdc, RECT bar, int percent_x1000, COLORREF color) {
     RECT fill = bar;
-    percent = clamp(percent, 0, 100);
-    fill.right = fill.left + (bar.right - bar.left) * percent / 100;
+    percent_x1000 = clamp(percent_x1000, 0, 100000);
+    fill.right = fill.left + (bar.right - bar.left) * percent_x1000 / 100000;
     fill_rect(hdc, bar, RGB(42, 50, 58));
     if (fill.right > fill.left) fill_rect(hdc, fill, color);
     draw_overlay_frame(hdc, bar, RGB(84, 98, 108));
@@ -36,9 +41,10 @@ void draw_worldgen_progress_overlay(HDC hdc, RECT client) {
     RECT stage_bar;
     int width = 460;
     int height = 178;
-    const char *title_text;
     const char *stage_name;
     char text[160];
+    char pct[32];
+    char stage_pct[32];
 
     worldgen_progress_get(&progress);
     if (!progress.active) return;
@@ -59,20 +65,21 @@ void draw_worldgen_progress_overlay(HDC hdc, RECT client) {
     stage_count = (RECT){box.left + 18, stage_label.bottom + 2, box.right - 18, stage_label.bottom + 22};
     stage_bar = (RECT){box.left + 18, box.bottom - 34, box.right - 18, box.bottom - 18};
 
-    title_text = ui_language == UI_LANG_ZH ? "正在生成世界" : "Generating world";
     stage_name = ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) :
                                              worldgen_stage_name_en(progress.stage);
-    draw_text_rect(hdc, title, title_text, RGB(238, 244, 248), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    snprintf(text, sizeof(text), "%s %d%%", ui_language == UI_LANG_ZH ? "总体进度" : "Overall progress",
-             progress.percent);
+    format_percent(pct, sizeof(pct), progress.percent_x1000);
+    format_percent(stage_pct, sizeof(stage_pct), progress.stage_percent_x1000);
+    draw_text_rect(hdc, title, tr("Generating world", "正在生成世界"),
+                   RGB(238, 244, 248), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
+    snprintf(text, sizeof(text), "%s %s", tr("Overall progress", "总体进度"), pct);
     draw_text_rect(hdc, overall_label, text, RGB(210, 224, 232), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    draw_progress_bar(hdc, overall_bar, progress.percent, RGB(103, 164, 196));
-    snprintf(text, sizeof(text), "%s: %s %d%%", ui_language == UI_LANG_ZH ? "当前阶段" : "Current stage",
-             stage_name, progress.stage_percent);
-    draw_text_rect(hdc, stage_label, text, RGB(210, 224, 232), DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    draw_progress_bar(hdc, overall_bar, progress.percent_x1000, RGB(103, 164, 196));
+    snprintf(text, sizeof(text), "%s: %s %s", tr("Current stage", "当前阶段"), stage_name, stage_pct);
+    draw_text_rect(hdc, stage_label, text, RGB(210, 224, 232),
+                   DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
     if (progress.stage_total > 0) {
         snprintf(text, sizeof(text), "%d / %d", progress.stage_current, progress.stage_total);
         draw_text_rect(hdc, stage_count, text, RGB(176, 192, 204), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     }
-    draw_progress_bar(hdc, stage_bar, progress.stage_percent, RGB(154, 184, 112));
+    draw_progress_bar(hdc, stage_bar, progress.stage_percent_x1000, RGB(154, 184, 112));
 }

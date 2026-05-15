@@ -1,9 +1,8 @@
 #include "panel_country_decision.h"
 
-#include "core/game_state.h"
 #include "render/render_common.h"
+#include "render/snapshot_ui.h"
 #include "render/ui_format.h"
-#include "sim/decision_snapshot.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
@@ -156,7 +155,7 @@ static const char *current_state_text(const DecisionSnapshot *snap, int reachabl
     if (!desire_ready) return tr("Waiting for expansion desire", "等待扩张意愿");
     if (!cooldown_ready) return tr("Waiting for cooldown", "等待冷却");
     if (!budget_ready) return tr("No claim budget", "没有占领预算");
-    if (city_count >= MAX_CITIES) return tr("City limit reached", "城市数量已达上限");
+    if (snapshot_ui_city_count() >= MAX_CITIES) return tr("City limit reached", "城市数量已达上限");
     if (strcmp(intent, "War") == 0) return tr("War preferred", "战争优先");
     if (strcmp(intent, "Stability") == 0) return tr("Stability preferred", "稳定优先");
     return tr("Can expand now", "现在可以扩张");
@@ -168,7 +167,8 @@ int country_decision_tab_height(int civ_id) {
 }
 
 void draw_country_decision_tab(HDC hdc, UiCursor *cursor, int civ_id) {
-    DecisionSnapshot snap;
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    DecisionSnapshot snap = civ ? civ->decision : (DecisionSnapshot){0};
     char text[256];
     char span[48];
     char stability_text[192];
@@ -179,14 +179,13 @@ void draw_country_decision_tab(HDC hdc, UiCursor *cursor, int civ_id) {
     int capacity_ready;
     FunnelStatus outcome_status;
 
-    decision_snapshot_for_civ(civ_id, &snap);
     reachable = snap.expansion.land_adjacent_unowned_regions + snap.expansion.land_nearby_unowned_regions +
                 snap.expansion.shallow_sea_reachable_regions + snap.expansion.maritime_reachable_regions +
                 snap.expansion.deep_sea_reachable_regions;
     desire_ready = snap.expansion.expansion_desire >= snap.expansion.expansion_threshold;
     cooldown_ready = snap.expansion.months_until_next_claim <= 0;
     budget_ready = snap.expansion.claim_budget > 0;
-    capacity_ready = city_count < MAX_CITIES;
+    capacity_ready = snapshot_ui_city_count() < MAX_CITIES;
 
     ui_section(hdc, cursor, tr("Decision", "决策"));
     ui_row_text(hdc, cursor, tr("Current State", "当前状态"),
