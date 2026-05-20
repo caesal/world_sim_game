@@ -4,6 +4,7 @@
 #include "core/game_state.h"
 #include "render/render_common.h"
 #include "sim/diplomacy.h"
+#include "sim/war_front.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -92,8 +93,15 @@ static int anim_type(EventLogType type) {
 
 static int contact_required_anim(EventLogType type) {
     return type == EVENT_TYPE_DIPLOMACY_PEACE ||
-           type == EVENT_TYPE_DIPLOMACY_TENSE ||
-           type == EVENT_TYPE_WAR_STARTED;
+           type == EVENT_TYPE_DIPLOMACY_TENSE;
+}
+
+static int event_anim_contact_valid(EventLogType type, int from_id, int to_id) {
+    if (type == EVENT_TYPE_WAR_STARTED) return war_has_active_front(from_id, to_id);
+    if (contact_required_anim(type)) {
+        return diplomacy_direct_contact_kind(from_id, to_id) != DIP_CONTACT_NONE;
+    }
+    return 1;
 }
 
 static int identity_match(int a_id, int a_uid, int b_id, int b_uid) {
@@ -123,8 +131,7 @@ static void enqueue_event_anim(const EventLogEntry *entry) {
     int to_id, to_uid;
     if (!entry || !anim_type(entry->type)) return;
     event_target_identity(entry, &to_id, &to_uid);
-    if (contact_required_anim(entry->type) &&
-        diplomacy_current_contact_kind(entry->civ_id, to_id) == DIP_CONTACT_NONE) return;
+    if (!event_anim_contact_valid(entry->type, entry->civ_id, to_id)) return;
     if (!event_endpoint(entry, 0, &x1, &y1) || !event_endpoint(entry, 1, &x2, &y2)) return;
     anim = animation_slot_for(entry->civ_id, entry->civ_uid, to_id, to_uid);
     memset(anim, 0, sizeof(*anim));

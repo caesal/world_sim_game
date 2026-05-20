@@ -206,13 +206,17 @@ RECT get_map_legend_box_rect(RECT client) {
     int geo_count = 11;
     int climate_count = CLIMATE_COUNT;
     int line_h = 20;
-    int water_rows = 3;
-    int terrain_rows = geo_count + 1;
+    int geography_rows = 3 + geo_count + 1;
     int climate_rows = climate_count + 1;
-    int rows = display_mode == DISPLAY_CLIMATE ? climate_rows : water_rows + terrain_rows;
-    int box_w = display_mode == DISPLAY_ALL ? 390 : 210;
+    int route_rows = display_mode == DISPLAY_ROUTE_POTENTIAL ? 3 : 0;
+    int show_geography = display_mode != DISPLAY_CLIMATE;
+    int show_climate = display_mode == DISPLAY_POLITICAL || display_mode == DISPLAY_REGIONS ||
+                       display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL;
+    int rows = show_geography ? geography_rows : 0;
+    int box_w = show_geography && show_climate ? 390 : 210;
 
-    if (display_mode == DISPLAY_ALL && climate_rows > rows) rows = climate_rows;
+    if (show_climate && climate_rows + route_rows > rows) rows = climate_rows + route_rows;
+    if (rows <= 0) rows = climate_rows;
     box.right = panel_left - 14;
     box.left = box.right - box_w;
     box.bottom = client.bottom - BOTTOM_BAR_H - 12;

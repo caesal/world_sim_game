@@ -125,6 +125,11 @@ void draw_map_legend(HDC hdc, RECT client) {
     int x;
     int y;
     int i;
+    int show_geography = display_mode != DISPLAY_CLIMATE;
+    int show_climate = display_mode == DISPLAY_POLITICAL || display_mode == DISPLAY_REGIONS ||
+                       display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL ||
+                       display_mode == DISPLAY_CLIMATE;
+    int show_routes = display_mode == DISPLAY_ROUTE_POTENTIAL;
     RECT box = get_map_legend_box_rect(client);
     RECT toggle = get_map_legend_toggle_rect(client);
     HBRUSH border_brush;
@@ -149,32 +154,34 @@ void draw_map_legend(HDC hdc, RECT client) {
     x = box.left + 10;
     y = box.top + 30;
 
-    if (display_mode == DISPLAY_CLIMATE) {
+    if (show_geography) {
+        draw_legend_group(hdc, x, y, tr("Water", "水域"));
+        y += line_h;
+        draw_legend_item(hdc, x, y, RGB(92, 177, 214), tr("Shallow Sea", "浅海"));
+        draw_legend_item(hdc, x, y + line_h, RGB(38, 92, 154), tr("Deep Sea", "深海"));
+        y += line_h * 3;
+        draw_legend_group(hdc, x, y - line_h, tr("Terrain", "地形"));
+        for (i = 0; i < geo_count; i++) {
+            draw_legend_item(hdc, x, y + i * line_h, geography_color(geographies[i]), geography_name(geographies[i]));
+        }
+    }
+
+    if (show_climate) {
+        if (show_geography) {
+            x = box.left + 190;
+            y = box.top + 30;
+        }
         draw_legend_group(hdc, x, y, tr("Climate", "气候"));
         y += line_h;
         for (i = 0; i < climate_count; i++) {
             draw_legend_item(hdc, x, y + i * line_h, climate_color(climates[i]), climate_name(climates[i]));
         }
-        RestoreDC(hdc, saved_dc);
-        return;
-    }
-
-    draw_legend_group(hdc, x, y, tr("Water", "水域"));
-    y += line_h;
-    draw_legend_item(hdc, x, y, RGB(92, 177, 214), tr("Shallow Sea", "浅海"));
-    draw_legend_item(hdc, x, y + line_h, RGB(38, 92, 154), tr("Deep Sea", "深海"));
-    y += line_h * 3;
-    draw_legend_group(hdc, x, y - line_h, tr("Terrain", "地形"));
-    for (i = 0; i < geo_count; i++) {
-        draw_legend_item(hdc, x, y + i * line_h, geography_color(geographies[i]), geography_name(geographies[i]));
-    }
-    if (display_mode == DISPLAY_ALL) {
-        x = box.left + 190;
-        y = box.top + 30;
-        draw_legend_group(hdc, x, y, tr("Climate", "气候"));
-        y += line_h;
-        for (i = 0; i < climate_count; i++) {
-            draw_legend_item(hdc, x, y + i * line_h, climate_color(climates[i]), climate_name(climates[i]));
+        if (show_routes) {
+            y += climate_count * line_h + line_h;
+            draw_legend_group(hdc, x, y, tr("Routes", "航道"));
+            y += line_h;
+            draw_legend_item(hdc, x, y, RGB(240, 238, 218), tr("Shallow route", "浅海航道"));
+            draw_legend_item(hdc, x, y + line_h, RGB(70, 74, 78), tr("Deep route", "深海航道"));
         }
     }
     RestoreDC(hdc, saved_dc);

@@ -1,6 +1,5 @@
 #include "render_panel_internal.h"
 
-#include "core/worldgen_progress.h"
 #include "sim/regions.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
@@ -45,31 +44,6 @@ static void draw_random_button(HDC hdc, RECT rect) {
     draw_icon(hdc, ICON_ADAPTATION, icon, RGB(190, 206, 214));
     draw_text_rect(hdc, text, tr("Random", "随机"), RGB(232, 238, 244),
                    DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS);
-}
-
-static void format_progress_percent(char *out, int out_size, int percent_x1000) {
-    percent_x1000 = clamp(percent_x1000, 0, 100000);
-    snprintf(out, out_size, "%d.%d%%", percent_x1000 / 1000, (percent_x1000 / 100) % 10);
-}
-
-static void draw_worldgen_progress_status_v2(HDC hdc, const WorldgenLayout *layout) {
-    WorldGenProgress progress;
-    RECT row;
-    char text[160];
-    char percent[32];
-    const char *stage_name;
-    worldgen_progress_get(&progress);
-    if (!progress.active) return;
-    row = (RECT){layout->viewport.left, layout->viewport.top + 4,
-                 layout->viewport.right, layout->viewport.top + 26};
-    if (!worldgen_rect_visible(layout->viewport, row)) return;
-    stage_name = ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) :
-                                             worldgen_stage_name_en(progress.stage);
-    format_progress_percent(percent, sizeof(percent), progress.percent_x1000);
-    snprintf(text, sizeof(text), "%s... %s  %s",
-             tr("Generating world", "正在生成世界"), percent, stage_name);
-    draw_text_rect(hdc, row, text, ui_theme_color(UI_COLOR_TEXT_MUTED),
-                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
 static void draw_section_rect_with_button(HDC hdc, RECT rect, RECT button, const char *title) {
@@ -375,7 +349,6 @@ void draw_worldgen_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
                    "步骤 4 模拟：F5 重建世界；空格开始或暂停时间。"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_civilization_placement(hdc, &layout, &tooltip_text);
-    draw_worldgen_progress_status_v2(hdc, &layout);
     SelectClipRgn(hdc, NULL);
     DeleteObject(clip);
     draw_tooltip(hdc, client, tooltip_text);

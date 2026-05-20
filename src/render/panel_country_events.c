@@ -8,7 +8,9 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COUNTRY_EVENT_AREA_H 230
+#define COUNTRY_EVENT_VISIBLE_CARDS 5
+#define COUNTRY_EVENT_CARD_SLOT_H 64
+#define COUNTRY_EVENT_AREA_H (COUNTRY_EVENT_VISIBLE_CARDS * COUNTRY_EVENT_CARD_SLOT_H + 12)
 #define COUNTRY_EVENT_HIT_MAX 48
 
 static RECT recent_events_rect;
@@ -29,23 +31,19 @@ void country_recent_events_reset_hit(void) {
 
 static int source_event_count(void) {
     const RenderSnapshot *snapshot = render_context_snapshot();
-    return snapshot ? snapshot->event_count : event_log_count;
+    if (!snapshot || recent_last_civ < 0) return 0;
+    return render_snapshot_civ_recent_event_count(snapshot, recent_last_civ);
 }
 
 static int source_event_entry(int index, EventLogEntry *out) {
     const RenderSnapshot *snapshot = render_context_snapshot();
-    return snapshot ? render_snapshot_event_get_entry(snapshot, index, out) :
-                      event_log_get_entry(index, out);
+    if (!snapshot || recent_last_civ < 0) return 0;
+    return render_snapshot_civ_recent_event_get_entry(snapshot, recent_last_civ, index, out);
 }
 
 static int recent_event_count_for_civ(int civ_id) {
-    EventLogEntry entry;
-    int count = 0;
-    int i;
-    for (i = 0; i < source_event_count(); i++) {
-        if (source_event_entry(i, &entry) && event_log_entry_involves_civ(&entry, civ_id)) count++;
-    }
-    return count;
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    return snapshot ? render_snapshot_civ_recent_event_count(snapshot, civ_id) : 0;
 }
 
 static int text_height_utf8(HDC hdc, const char *text, int width) {
@@ -162,6 +160,7 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
     int skipped = 0;
     int shown = 0;
     int area_h = COUNTRY_EVENT_AREA_H;
+    int available_h;
 
     ui_section(hdc, cursor, tr("Recent Events", "近期事件"));
     if (recent_last_civ != civ_id) {
@@ -171,6 +170,9 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
     recent_hit_count = 0;
     recent_scroll_match_count = recent_event_count_for_civ(civ_id);
     recent_scroll_offset = clamp(recent_scroll_offset, 0, max(0, recent_scroll_match_count - 1));
+    available_h = max(0, cursor->bottom - cursor->y - 8);
+    if (available_h <= 0) return;
+    area_h = min(area_h, available_h);
     recent_events_rect = ui_take_rect(cursor, area_h);
     recent_events_rect_valid = 1;
     fill_rect_alpha(hdc, recent_events_rect, RGB(24, 29, 32), 96);
@@ -181,7 +183,7 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
                          recent_events_rect.right, recent_events_rect.bottom);
     SelectClipRgn(hdc, clip);
     for (i = 0; i < source_event_count() && list.y < list.bottom - 50; i++) {
-        if (!source_event_entry(i, &entry) || !event_log_entry_involves_civ(&entry, civ_id)) continue;
+        if (!source_event_entry(i, &entry)) continue;
         if (skipped < recent_scroll_offset) {
             skipped++;
             continue;
@@ -190,7 +192,9 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
         else break;
     }
     if (recent_scroll_match_count == 0) {
-        draw_text_rect(hdc, recent_events_rect, tr("No related events.", "暂无相关事件。"),
+        draw_text_rect(hdc, recent_events_rect,
+                       tr("No related events in the current history window.",
+                          "当前记录窗口内暂无相关事件。"),
                        ui_theme_color(UI_COLOR_TEXT_MUTED), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
     SelectClipRgn(hdc, NULL);

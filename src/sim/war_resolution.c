@@ -2,8 +2,11 @@
 
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
+
+#include <stdlib.h>
 
 static int is_valid_civ_id(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
@@ -47,24 +50,6 @@ static int province_value_for_winner(int province_id, int winner) {
     score += province.money * 3;
     if (cities[province_id].port) score += 18;
     return score + rnd(16);
-}
-
-static int pick_border_province(int loser, int winner, int used[MAX_CITIES]) {
-    int i;
-    int best = -1;
-    int best_score = -1000000;
-
-    for (i = 0; i < city_count; i++) {
-        int score;
-        if (!cities[i].alive || cities[i].owner != loser || used[i]) continue;
-        if (!province_borders_owner(i, winner)) continue;
-        score = province_value_for_winner(i, winner);
-        if (score > best_score) {
-            best_score = score;
-            best = i;
-        }
-    }
-    return best;
 }
 
 static int any_city_owned_by(int owner) {
@@ -112,8 +97,6 @@ static void choose_new_capital(int loser, int winner) {
 }
 
 static void handle_capital_loss(int loser, int winner) {
-    int extra_used[MAX_CITIES] = {0};
-
     disorder_add_war_pressure(loser, 18);
     civs[loser].cohesion = clamp(civs[loser].cohesion - 1, 0, 10);
     if (!any_city_owned_by(loser)) {
@@ -122,16 +105,6 @@ static void handle_capital_loss(int loser, int winner) {
         return;
     }
     choose_new_capital(loser, winner);
-    if (civs[loser].disorder >= 70) {
-        int province_id = pick_border_province(loser, winner, extra_used);
-        if (province_id >= 0) {
-            extra_used[province_id] = 1;
-            cities[province_id].capital = 0;
-            world_claim_city_region(province_id, winner);
-            disorder_add_war_pressure(loser, 8);
-        }
-        choose_new_capital(loser, winner);
-    }
 }
 
 static int owner_in_loser_side(int loser, int owner) {
@@ -152,38 +125,93 @@ static int owner_can_cede_province(int loser, int owner) {
     return 1;
 }
 
-static int pick_side_border_province(int loser, int winner, int used[MAX_CITIES]) {
+static int winner_capital_distance(int province_id, int winner) {
+    int capital = civs[winner].capital_city;
+    if (capital < 0 || capital >= city_count || !cities[capital].alive) return 1000000;
+    return abs(cities[province_id].x - cities[capital].x) +
+           abs(cities[province_id].y - cities[capital].y);
+}
+
+static int province_port_distance_to_winner(int province_id, int winner) {
+    int best = 1000000;
+    int px = cities[province_id].port_x >= 0 ? cities[province_id].port_x : cities[province_id].x;
+    int py = cities[province_id].port_y >= 0 ? cities[province_id].port_y : cities[province_id].y;
+    int i;
+    if (!cities[province_id].port) return best;
+    for (i = 0; i < city_count; i++) {
+        int wx, wy, distance;
+        if (!cities[i].alive || cities[i].owner != winner || !cities[i].port) continue;
+        if (!sea_lanes_network_connected(i, province_id)) continue;
+        wx = cities[i].port_x >= 0 ? cities[i].port_x : cities[i].x;
+        wy = cities[i].port_y >= 0 ? cities[i].port_y : cities[i].y;
+        distance = abs(px - wx) + abs(py - wy);
+        if (distance < best) best = distance;
+    }
+    return best;
+}
+
+static int pick_side_land_province(int loser, int winner) {
     int i;
     int best = -1;
-    int best_score = -1000000;
+    int best_distance = 1000000;
+    int best_value = -1000000;
 
     for (i = 0; i < city_count; i++) {
         int owner;
-        int score;
-        if (!cities[i].alive || used[i]) continue;
+        int distance;
+        int value;
+        if (!cities[i].alive) continue;
         owner = cities[i].owner;
         if (!owner_in_loser_side(loser, owner) || !owner_can_cede_province(loser, owner)) continue;
         if (!province_borders_owner(i, winner)) continue;
-        score = province_value_for_winner(i, winner);
-        if (owner != loser) score += 10;
-        if (score > best_score) {
-            best_score = score;
+        distance = winner_capital_distance(i, winner);
+        value = province_value_for_winner(i, winner);
+        if (distance < best_distance || (distance == best_distance && value > best_value)) {
+            best_distance = distance;
+            best_value = value;
             best = i;
         }
     }
     return best;
 }
 
+static int pick_side_port_province(int loser, int winner) {
+    int i;
+    int best = -1;
+    int best_distance = 1000000;
+    int best_value = -1000000;
+    for (i = 0; i < city_count; i++) {
+        int owner;
+        int distance;
+        int value;
+        if (!cities[i].alive || !cities[i].port) continue;
+        owner = cities[i].owner;
+        if (!owner_in_loser_side(loser, owner) || !owner_can_cede_province(loser, owner)) continue;
+        distance = province_port_distance_to_winner(i, winner);
+        if (distance >= 1000000) continue;
+        value = province_value_for_winner(i, winner);
+        if (distance < best_distance || (distance == best_distance && value > best_value)) {
+            best_distance = distance;
+            best_value = value;
+            best = i;
+        }
+    }
+    return best;
+}
+
+static int pick_side_cession_province(int loser, int winner) {
+    int province_id = pick_side_land_province(loser, winner);
+    return province_id >= 0 ? province_id : pick_side_port_province(loser, winner);
+}
+
 static int transfer_side_border_provinces(int loser, int winner, int count) {
-    int used[MAX_CITIES] = {0};
     int transferred = 0;
 
     while (transferred < count) {
-        int province_id = pick_side_border_province(loser, winner, used);
+        int province_id = pick_side_cession_province(loser, winner);
         int province_owner;
         int capital_lost;
         if (province_id < 0) break;
-        used[province_id] = 1;
         province_owner = cities[province_id].owner;
         capital_lost = province_id == civs[province_owner].capital_city || cities[province_id].capital;
         cities[province_id].capital = 0;
@@ -196,6 +224,26 @@ static int transfer_side_border_provinces(int loser, int winner, int count) {
     return transferred;
 }
 
+static int cession_count_from_loss(int loser, int winner, int casualties, int initial_soldiers) {
+    int side_count = side_owned_province_count(loser);
+    int war_loss_cap;
+    int winner_capacity_cap;
+    int loss_based;
+    if (side_count <= 0) return 0;
+    war_loss_cap = max(1, side_count / 5);
+    winner_capacity_cap = max(1, war_owned_province_count(winner) / 5);
+    if (initial_soldiers <= 0) {
+        loss_based = 1;
+    } else {
+        long long numerator = (long long)war_loss_cap * max(0, casualties) * 3;
+        long long denominator = (long long)initial_soldiers * 2;
+        if (denominator < 1) denominator = 1;
+        loss_based = (int)((numerator + denominator - 1) / denominator);
+        loss_based = clamp(loss_based, 1, war_loss_cap);
+    }
+    return min(loss_based, min(war_loss_cap, winner_capacity_cap));
+}
+
 int war_owned_province_count(int civ_id) {
     int i;
     int count = 0;
@@ -206,7 +254,8 @@ int war_owned_province_count(int civ_id) {
     return count;
 }
 
-void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margin) {
+void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margin,
+                       int loser_casualties, int loser_initial_soldiers) {
     int winner = -1;
     int loser = -1;
 
@@ -218,16 +267,18 @@ void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margi
         loser = attacker;
     }
     if (winner >= 0 && loser >= 0 && is_valid_civ_id(winner) && is_valid_civ_id(loser)) {
-        int side_count = side_owned_province_count(loser);
-        int transferred = transfer_side_border_provinces(loser, winner, max(1, side_count / 5));
+        int cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
+        int transferred;
+        diplomacy_record_war_result(winner, loser);
+        transferred = transfer_side_border_provinces(loser, winner, cession_count);
         if (transferred == 0) disorder_add_war_pressure(loser, 10);
         if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3)) {
             vassal_make(winner, loser, margin >= 3 ? 18 : 25);
         } else {
-            diplomacy_start_truce(winner, loser, 10, margin >= 3 ? 20 : 30);
+            diplomacy_start_truce(winner, loser, 55, margin >= 3 ? 20 : 30);
         }
     } else if (is_valid_civ_id(attacker) && is_valid_civ_id(defender)) {
-        diplomacy_start_truce(attacker, defender, 6, 45);
+        diplomacy_start_truce(attacker, defender, 25, 45);
     }
     world_recalculate_territory();
     world_invalidate_region_cache();

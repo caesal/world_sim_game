@@ -270,7 +270,16 @@ static void update_supply_state(ActiveWar *war) {
 }
 
 static void finish_war(ActiveWar *war, WarOutcome outcome, int margin) {
-    war_apply_outcome(war->attacker, war->defender, outcome, margin);
+    int loser_casualties = 0;
+    int loser_initial = 0;
+    if (outcome == WAR_OUTCOME_ATTACKER_WIN) {
+        loser_casualties = war->casualties_b + war->support_casualties_b;
+        loser_initial = war->initial_soldiers_b;
+    } else if (outcome == WAR_OUTCOME_DEFENDER_WIN) {
+        loser_casualties = war->casualties_a + war->support_casualties_a;
+        loser_initial = war->initial_soldiers_a;
+    }
+    war_apply_outcome(war->attacker, war->defender, outcome, margin, loser_casualties, loser_initial);
     memset(war, 0, sizeof(*war));
 }
 
@@ -279,7 +288,8 @@ static void end_war_severed_front(ActiveWar *war) {
     int defender = war->defender;
     event_log_push_structured(EVENT_TYPE_WAR_FRONT_SEVERED, EVENT_SEVERITY_INFO,
                               attacker, defender, -1, -1, 0, 0, "");
-    diplomacy_start_truce(attacker, defender, 5, 45);
+    diplomacy_record_war_interrupted(attacker, defender);
+    diplomacy_start_truce(attacker, defender, 25, 45);
     memset(war, 0, sizeof(*war));
 }
 
@@ -288,14 +298,23 @@ static int scaled_soldiers_for_battle(int civ_id, int soldiers, int defending) {
     return max(1, soldiers);
 }
 
-static int casualty_per_mille(int *soldiers, int per_mille) {
+static int casualty_from_initial(int current, int initial, int per_mille) {
     int casualties;
 
-    if (*soldiers <= 0 || per_mille <= 0) return 0;
-    casualties = *soldiers * per_mille / 1000;
+    if (current <= 0 || initial <= 0 || per_mille <= 0) return 0;
+    casualties = initial * per_mille / 1000;
     if (casualties <= 0) casualties = 1;
-    if (casualties > *soldiers) casualties = *soldiers;
-    *soldiers -= casualties;
+    if (casualties > current) casualties = current;
+    return casualties;
+}
+
+static int winner_casualties_from_loser_loss(int current, int loser_casualties) {
+    int casualties;
+
+    if (current <= 0 || loser_casualties <= 0) return 0;
+    casualties = loser_casualties / 2;
+    if (casualties <= 0) casualties = 1;
+    if (casualties > current) casualties = current;
     return casualties;
 }
 
@@ -310,17 +329,6 @@ static int side_support_soldiers(int overlord) {
     int i;
     for (i = 0; i < count; i++) total += support_share_for_front(overlord, ids[i]);
     return total;
-}
-
-static int side_support_count(int overlord) {
-    int ids[MAX_CIVS];
-    int count = vassal_collect_direct(overlord, ids, MAX_CIVS);
-    int used = 0;
-    int i;
-    for (i = 0; i < count; i++) {
-        if (support_share_for_front(overlord, ids[i]) > 0) used++;
-    }
-    return used;
 }
 
 static int apply_support_casualties(int overlord) {
@@ -436,19 +444,17 @@ static void run_war_year(ActiveWar *war) {
     attacker_won = roll < chance_a;
 
     if (attacker_won) {
-        casualties_a = casualty_per_mille(&war->soldiers_a,
-                                          max(0, 55 - side_support_count(war->attacker) * 15));
-        casualties_b = casualty_per_mille(&war->soldiers_b,
-                                          max(0, 80 - side_support_count(war->defender) * 15));
+        casualties_b = casualty_from_initial(war->soldiers_b, war->initial_soldiers_b, 80);
+        casualties_a = winner_casualties_from_loser_loss(war->soldiers_a, casualties_b);
         war->wins_a++;
     } else {
-        casualties_a = casualty_per_mille(&war->soldiers_a,
-                                          max(0, 80 - side_support_count(war->attacker) * 15));
-        casualties_b = casualty_per_mille(&war->soldiers_b,
-                                          max(0, 55 - side_support_count(war->defender) * 15));
+        casualties_a = casualty_from_initial(war->soldiers_a, war->initial_soldiers_a, 80);
+        casualties_b = winner_casualties_from_loser_loss(war->soldiers_b, casualties_a);
         war->wins_b++;
     }
 
+    war->soldiers_a -= casualties_a;
+    war->soldiers_b -= casualties_b;
     war->casualties_a += casualties_a;
     war->casualties_b += casualties_b;
     apply_population_casualties(war->attacker, casualties_a);

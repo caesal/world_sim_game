@@ -3,6 +3,7 @@
 #include "core/game_types.h"
 #include "sim/region_boundary.h"
 #include "sim/regions.h"
+#include "sim/regions_shape.h"
 #include "world/terrain_query.h"
 
 #include <limits.h>
@@ -464,6 +465,14 @@ static void update_final_quality_stats(void) {
     last_stats.final_region_count = active;
     last_stats.average_region_size = active > 0 ? total / active : 0;
     if (last_stats.smallest_region_size == INT_MAX) last_stats.smallest_region_size = 0;
+    last_stats.ribbon_regions = regions_shape_last_ribbon_count();
+    last_stats.low_fill_regions = regions_shape_last_low_fill_count();
+    last_stats.artificial_diagonal_regions = regions_shape_last_diagonal_count();
+    last_stats.regions_resplit = regions_shape_last_resplit_count();
+    last_stats.regions_merged_for_shape = regions_shape_last_shape_merge_count();
+    last_stats.regions_repaired_by_local_regrow = regions_shape_last_local_regrow_count();
+    last_stats.worst_fill_percent = regions_shape_last_worst_fill_percent();
+    last_stats.worst_perimeter_area = regions_shape_last_worst_perimeter_area();
 }
 
 void regions_validate_postprocess(int target_size) {
@@ -486,12 +495,5 @@ void regions_validate_postprocess(int target_size) {
     OutputDebugStringA(buffer);
 }
 
-void regions_validate_light_postprocess(int target_size) {
-    reassign_disconnected_components(); smooth_slivers_pass();
-    merge_tiny_regions_pass(max(24, target_size * 2 / 3));
-    reassign_disconnected_components(); measure_basic(); update_final_quality_stats();
-}
-
-const RegionValidationStats *regions_validate_last_stats(void) {
-    return &last_stats;
-}
+void regions_validate_light_postprocess(int target_size) { reassign_disconnected_components(); smooth_slivers_pass(); merge_tiny_regions_pass(max(24, target_size * 2 / 3)); reassign_disconnected_components(); measure_basic(); update_final_quality_stats(); }
+const RegionValidationStats *regions_validate_last_stats(void) { return &last_stats; }

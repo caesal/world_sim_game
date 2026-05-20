@@ -33,6 +33,7 @@ extern int map_h;
 #define BOTTOM_BAR_H 44
 #define TIMER_ID 1
 #define MAP_PREVIEW_TIMER_ID 2
+#define WHEEL_INPUT_TIMER_ID 3
 #define FRAME_TIMER_MS 16
 #define FORM_X_PAD 18
 #define CITY_MIN_DISTANCE 18
@@ -44,5 +45,6 @@ extern int map_h;
 #define POP_COHORT_COUNT 8
 #define EVENT_LOG_COUNT 256
 #define EVENT_LOG_LEN 160
+#define EVENT_LOG_CIV_HISTORY_COUNT 50
 
 #endif

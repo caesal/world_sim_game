@@ -65,9 +65,18 @@ void draw_worldgen_debug_rows(HDC hdc, UiCursor *cursor) {
                  region_stats->final_region_count, region_stats->average_region_size,
                  region_stats->smallest_region_size, region_stats->largest_region_size);
         ui_row_text(hdc, cursor, tr("Region quality", "区域质量"), text);
-        snprintf(text, sizeof(text), "worst elongation %d%% / cap %s",
-                 region_stats->worst_elongation, region_stats->cap_reached ? "yes" : "no");
+        snprintf(text, sizeof(text), "worst elongation %d%% / fill %d%% / p-area %d",
+                 region_stats->worst_elongation, region_stats->worst_fill_percent,
+                 region_stats->worst_perimeter_area);
         ui_row_text(hdc, cursor, tr("Region shape", "区域形状"), text);
+        snprintf(text, sizeof(text), "ribbon %d / low-fill %d / diagonal %d",
+                 region_stats->ribbon_regions, region_stats->low_fill_regions,
+                 region_stats->artificial_diagonal_regions);
+        ui_row_text(hdc, cursor, tr("Shape classes", "形状分类"), text);
+        snprintf(text, sizeof(text), "split %d / merged %d / local regrow %d",
+                 region_stats->regions_resplit, region_stats->regions_merged_for_shape,
+                 region_stats->regions_repaired_by_local_regrow);
+        ui_row_text(hdc, cursor, tr("Shape repair", "形状修复"), text);
     }
     if (hydro_stats && hydro_stats->river_count > 0) {
         snprintf(text, sizeof(text), "rivers %d / avg %d / longest %d / main %d / trib %d",

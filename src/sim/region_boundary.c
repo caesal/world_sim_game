@@ -65,13 +65,17 @@ int region_boundary_compactness_penalty(int seed_x, int seed_y, int x, int y, in
     int major = max(dx, dy);
     int minor = min(dx, dy);
     int target_radius = clamp(target_size / 26, 8, 48);
+    int far_over = max(0, major - target_radius);
     int penalty = 0;
 
-    if (major > target_radius) penalty += (major - target_radius) * 9;
-    if (major > minor * 2 + 8) penalty += (major - minor * 2 - 8) * 18;
-    if (major > minor * 3 + 10) penalty += (major - minor * 3 - 10) * 28;
-    if (minor <= 3 && major > target_radius) penalty += (major - target_radius) * 18;
-    if (dx > target_radius * 2 || dy > target_radius * 2) penalty += 140;
+    if (far_over > 0) penalty += far_over * 13;
+    if (major > minor * 2 + 6) penalty += (major - minor * 2 - 6) * 24;
+    if (major > minor * 3 + 8) penalty += (major - minor * 3 - 8) * 38;
+    if (minor <= 4 && major > target_radius) penalty += far_over * 28;
+    if (minor <= 2 && major > target_radius / 2) penalty += (major - target_radius / 2) * 18;
+    if (dx > target_radius * 2 || dy > target_radius * 2) penalty += 190;
+    if (dx > target_radius * 3 / 2 && dy <= target_radius / 4) penalty += (dx - target_radius) * 16;
+    if (dy > target_radius * 3 / 2 && dx <= target_radius / 4) penalty += (dy - target_radius) * 16;
     return penalty;
 }
 

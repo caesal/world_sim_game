@@ -2,6 +2,8 @@
 
 #include "core/game_types.h"
 #include "render/render.h"
+#include "game/game_loop.h"
+#include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_snapshot_read.h"
@@ -31,5 +33,5 @@ void ui_select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     owner = selected_tile_owner();
     if (ui_snapshot_civ_alive(owner)) ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
     else ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
-    InvalidateRect(hwnd, NULL, FALSE);
+    ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
 }

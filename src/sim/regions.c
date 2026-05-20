@@ -170,10 +170,7 @@ static void choose_region_seeds(int target_count, int *seed_x, int *seed_y) {
 }
 
 static void grow_regions_from_seeds(int target_count, int target_size, const int *seed_x, const int *seed_y) {
-    static const int dirs[8][2] = {
-        {1, 0}, {-1, 0}, {0, 1}, {0, -1},
-        {1, 1}, {-1, 1}, {1, -1}, {-1, -1}
-    };
+    static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int x, y, i;
     RegionNode node;
 
@@ -195,13 +192,13 @@ static void grow_regions_from_seeds(int target_count, int target_size, const int
         if (!is_land(world[node.y][node.x].geography)) continue;
         if (node.cost != grow_cost[node.y][node.x]) continue;
         world[node.y][node.x].region_id = node.region;
-        for (i = 0; i < 8; i++) {
+        for (i = 0; i < 4; i++) {
             int nx = node.x + dirs[i][0];
             int ny = node.y + dirs[i][1];
             int next_cost;
             if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
             if (!is_land(world[ny][nx].geography)) continue;
-            next_cost = node.cost + region_crossing_cost(node.x, node.y, nx, ny) + (i >= 4 ? 6 : 0) +
+            next_cost = node.cost + region_crossing_cost(node.x, node.y, nx, ny) +
                         region_boundary_compactness_penalty(seed_x[node.region], seed_y[node.region], nx, ny, target_size);
             if (next_cost >= grow_cost[ny][nx]) continue;
             grow_cost[ny][nx] = next_cost;

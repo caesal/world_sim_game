@@ -15,6 +15,7 @@
 #define ID_ADD_BUTTON 110
 #define ID_APPLY_BUTTON 111
 #define ID_INITIAL_CIVS_EDIT 112
+#define LOG_SCROLL_ITEMS_PER_WHEEL_NOTCH 1
 
 typedef enum {
     DISPLAY_OVERVIEW,
@@ -66,6 +67,12 @@ typedef enum {
     DEBUG_EVENT_FILTER_PERF_SYSTEM,
     DEBUG_EVENT_FILTER_COUNT
 } DebugEventFilter;
+
+typedef enum {
+    DEBUG_SUBTAB_MAP_LOG,
+    DEBUG_SUBTAB_PERFORMANCE_SYSTEM,
+    DEBUG_SUBTAB_COUNT
+} DebugSubtab;
 
 typedef enum {
     COUNTRY_SORT_POPULATION,

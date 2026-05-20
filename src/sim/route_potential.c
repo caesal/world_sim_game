@@ -443,49 +443,15 @@ static void build_deep_edges(void) {
     stats.disconnected_networks = node_count > 0 ? shallow_network_count() - largest : 0;
 }
 
-void route_potential_rebuild(void) {
-    reset_storage();
-    collect_nodes();
-    build_shallow_edges();
-    build_deep_edges();
-}
+void route_potential_rebuild(void) { reset_storage(); collect_nodes(); build_shallow_edges(); build_deep_edges(); }
+const RoutePortNode *route_potential_nodes(int *out_count) { if (out_count) *out_count = node_count; return nodes; }
+const RoutePortNode *route_potential_node_at(int node_index) { if (node_index < 0 || node_index >= node_count) return NULL; return &nodes[node_index]; }
+int route_potential_node_count(void) { return node_count; }
+const RoutePotentialEdge *route_potential_edges(int *out_count) { if (out_count) *out_count = edge_count; return edges; }
+void route_potential_stats(RoutePotentialStats *out) { if (out) *out = stats; }
+int route_potential_region_node(int region_id) { if (region_id < 0 || region_id >= MAX_NATURAL_REGIONS) return -1; return region_to_node[region_id]; }
 
-const RoutePortNode *route_potential_nodes(int *out_count) {
-    if (out_count) *out_count = node_count;
-    return nodes;
-}
-
-const RoutePortNode *route_potential_node_at(int node_index) {
-    if (node_index < 0 || node_index >= node_count) return NULL;
-    return &nodes[node_index];
-}
-
-int route_potential_node_count(void) {
-    return node_count;
-}
-
-const RoutePotentialEdge *route_potential_edges(int *out_count) {
-    if (out_count) *out_count = edge_count;
-    return edges;
-}
-
-void route_potential_stats(RoutePotentialStats *out) {
-    if (out) *out = stats;
-}
-
-int route_potential_region_node(int region_id) {
-    if (region_id < 0 || region_id >= MAX_NATURAL_REGIONS) return -1;
-    return region_to_node[region_id];
-}
-
-int route_potential_civ_port_count(int civ_id) {
-    int count = 0;
-    for (int i = 0; i < node_count; i++) {
-        int region = nodes[i].region_id;
-        if (region >= 0 && region < region_count && natural_regions[region].owner_civ == civ_id) count++;
-    }
-    return count;
-}
+int route_potential_civ_port_count(int civ_id) { int count = 0; for (int i = 0; i < node_count; i++) { int region = nodes[i].region_id; if (region >= 0 && region < region_count && natural_regions[region].owner_civ == civ_id) count++; } return count; }
 
 int route_potential_region_reachable(int civ_id, int region_id, int allow_deep,
                                      int *out_distance, int *out_type) {

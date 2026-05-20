@@ -191,6 +191,5 @@ void draw_snapshot_border_layer(HDC hdc, RECT client, MapLayout layout) {
     if (display_mode == DISPLAY_REGIONS) draw_edges(hdc, client, layout, 3, RGB(44, 54, 46), 1);
     draw_edges(hdc, client, layout, 2, RGB(70, 62, 50), 1);
     draw_edges(hdc, client, layout, 1, RGB(34, 30, 24), 2);
-    draw_edges(hdc, client, layout, 0, RGB(74, 88, 78), 1);
     draw_snapshot_grid_overlay(hdc, layout);
 }

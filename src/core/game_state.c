@@ -78,6 +78,8 @@ GameState g_game = {
     &country_show_fallen,
     &country_list_scroll_offset,
     &country_detail_scroll_offset,
+    &debug_subtab,
+    &debug_system_scroll_offset,
     &debug_event_filter,
     &pause_menu_open,
     &selected_civ_color_index,

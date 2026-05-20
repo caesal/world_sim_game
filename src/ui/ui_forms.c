@@ -3,6 +3,7 @@
 #include "data/country_names.h"
 #include "game/game.h"
 #include "sim/simulation.h"
+#include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -171,7 +172,7 @@ static void ui_randomize_civilization_form(HWND hwnd) {
     write_int_control(form.innovation_edit, random_metric_value());
     selected_civ_color = game_preview_civilization_color_auto_avoid(-1, selected_civ_color);
     selected_civ_color_index = 0;
-    InvalidateRect(hwnd, NULL, FALSE);
+    ui_invalidate_side_panel(hwnd);
 }
 
 static void ui_randomize_physical_world_sliders(HWND hwnd) {
@@ -181,7 +182,7 @@ static void ui_randomize_physical_world_sliders(HWND hwnd) {
     moisture_slider = random_range(15, 85);
     drought_slider = random_range(15, 85);
     vegetation_slider = random_range(15, 85);
-    InvalidateRect(hwnd, NULL, FALSE);
+    ui_invalidate_side_panel(hwnd);
 }
 
 static void ui_randomize_advanced_world_sliders(HWND hwnd) {
@@ -190,7 +191,7 @@ static void ui_randomize_advanced_world_sliders(HWND hwnd) {
     bias_mountain_slider = random_range(20, 80);
     bias_wetland_slider = random_range(20, 80);
     region_size_slider = random_range(15, 90);
-    InvalidateRect(hwnd, NULL, FALSE);
+    ui_invalidate_side_panel(hwnd);
 }
 
 static int worldgen_button_hit(RECT viewport, RECT rect, int mouse_x, int mouse_y) {
@@ -257,7 +258,7 @@ void ui_forms_add_civ(HWND hwnd) {
                     "Could not add civilization. The world may already be full, or there is no valid empty land. Select an empty land tile or rebuild with more land.",
                     "Add Civilization", MB_OK | MB_ICONINFORMATION);
     }
-    InvalidateRect(hwnd, NULL, FALSE);
+    ui_invalidate_side_panel(hwnd);
 }
 
 void ui_forms_apply_selected(HWND hwnd) {
@@ -285,7 +286,7 @@ void ui_forms_apply_selected(HWND hwnd) {
             read_metric_control(form.innovation_edit, fallback_innovation))) {
         if (selected_civ_color_index >= 0) game_request_set_civilization_color_exact(selected_civ, selected_civ_color);
         ui_forms_write_civ(selected_civ);
-        InvalidateRect(hwnd, NULL, FALSE);
+        ui_invalidate_side_panel(hwnd);
     }
 }
 

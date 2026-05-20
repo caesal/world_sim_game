@@ -1,3 +1,4 @@
+#include "core/event_log_history.h"
 #include "core/game_state.h"
 
 #include "sim/simulation.h"
@@ -161,6 +162,7 @@ void event_log_push_structured(EventLogType type, EventLogSeverity severity, int
     snprintf(entry->raw_message, sizeof(entry->raw_message), "%s", raw_message);
     snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", raw_message);
     last_entry = *entry;
+    event_log_history_store_related(entry);
     event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
     if (event_log_count < EVENT_LOG_COUNT) event_log_count++;
 }
@@ -175,6 +177,7 @@ void event_log_push(const char *text) {
 void event_log_clear(void) {
     memset(event_log, 0, sizeof(event_log));
     memset(event_log_entries, 0, sizeof(event_log_entries));
+    event_log_history_clear();
     event_log_count = 0;
     event_log_next = 0;
     event_log_total_entries = 0;

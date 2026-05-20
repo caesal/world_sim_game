@@ -182,11 +182,13 @@ static void copy_diplomacy(RenderSnapshot *snapshot) {
             SnapshotWar *w = &snapshot->wars[a][b];
             dst->state = rel.state; dst->relation_score = rel.relation_score;
             dst->border_tension = rel.border_tension; dst->trade_fit = rel.trade_fit;
-            dst->resource_conflict = rel.resource_conflict; dst->truce_years_left = rel.truce_years_left;
+            dst->resource_conflict = rel.resource_conflict; dst->truce_years_left = rel.truce_years_left; dst->truce_initial_years = rel.truce_initial_years;
             dst->border_length = rel.border_length; dst->natural_barrier = rel.natural_barrier;
             dst->years_known = rel.years_known; dst->vassal_years = rel.vassal_years;
             dst->easing_years = rel.easing_years; dst->contact_kind = rel.contact_kind;
             dst->years_distant_known = rel.years_distant_known; dst->overlord = rel.overlord; dst->vassal = rel.vassal;
+            dst->last_war_winner = rel.last_war_winner; dst->last_war_loser = rel.last_war_loser;
+            dst->last_war_result = rel.last_war_result;
             w->active = war.active; w->attacker = war.attacker; w->defender = war.defender;
             w->soldiers_a = war.soldiers_a; w->soldiers_b = war.soldiers_b;
             w->casualties_a = war.casualties_a; w->casualties_b = war.casualties_b;
@@ -304,26 +306,29 @@ static void copy_events(RenderSnapshot *snapshot) {
     snapshot->event_count = max_events;
     snapshot->event_total_entries = event_log_total_entries;
     for (i = 0; i < max_events; i++) {
-        SnapshotEvent *dst = &snapshot->events[i];
-        memset(dst, 0, sizeof(*dst));
-        event_log_get_entry(i, &dst->entry);
-        dst->type = dst->entry.type;
+        SnapshotEvent *dst = &snapshot->events[i]; memset(dst, 0, sizeof(*dst));
+        event_log_get_entry(i, &dst->entry); dst->type = dst->entry.type;
         event_log_format_entry_data(&dst->entry, 0, dst->text_en, sizeof(dst->text_en));
-        event_log_format_entry_data(&dst->entry, 1, dst->text_zh, sizeof(dst->text_zh));
+        event_log_format_entry_data(&dst->entry, 1, dst->text_zh, sizeof(dst->text_zh)); }
+    memset(snapshot->civ_recent_event_count, 0, sizeof(snapshot->civ_recent_event_count));
+    for (i = 0; i < snapshot->civ_count && i < MAX_CIVS; i++) {
+        int j;
+        int uid = snapshot->civs[i].uid;
+        int count = min(event_log_recent_count_for_civ_uid(i, uid), EVENT_LOG_CIV_HISTORY_COUNT);
+        snapshot->civ_recent_event_count[i] = count;
+        for (j = 0; j < count; j++) {
+            SnapshotEvent *dst = &snapshot->civ_recent_events[i][j]; memset(dst, 0, sizeof(*dst));
+            if (!event_log_recent_for_civ_uid(i, uid, j, &dst->entry)) continue;
+            dst->type = dst->entry.type;
+            event_log_format_entry_data(&dst->entry, 0, dst->text_en, sizeof(dst->text_en));
+            event_log_format_entry_data(&dst->entry, 1, dst->text_zh, sizeof(dst->text_zh)); }
     }
 }
 
 void render_snapshot_init(void) {
-    memset(buffers, 0, sizeof(buffers));
-    memset((void *)refs, 0, sizeof(refs));
-    front_index = 0;
-    published_revision = 0;
-    last_publish_tick = 0;
-    last_publish_ms = 0;
-    skipped_publish_count = 0;
-    throttled_publish_count = 0;
-    last_skip_reason = SNAPSHOT_SKIP_NONE;
-    initialized = 1;
+    memset(buffers, 0, sizeof(buffers)); memset((void *)refs, 0, sizeof(refs));
+    front_index = 0; published_revision = 0; last_publish_tick = 0; last_publish_ms = 0;
+    skipped_publish_count = 0; throttled_publish_count = 0; last_skip_reason = SNAPSHOT_SKIP_NONE; initialized = 1;
 }
 
 void render_snapshot_shutdown(void) {
@@ -333,7 +338,6 @@ void render_snapshot_shutdown(void) {
 int render_snapshot_publish_from_live_state_throttled(int force) {
     RenderSnapshot *snapshot;
     int back;
-    int front;
     int tile_key;
     int civ_key;
     int city_key;
@@ -357,10 +361,8 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         last_skip_reason = SNAPSHOT_SKIP_NO_BACK_BUFFER;
         return 0;
     }
-    front = (int)front_index;
     snapshot = &buffers[back];
-    if (published_revision > 0) memcpy(snapshot, &buffers[front], sizeof(*snapshot));
-    else memset(snapshot, 0, sizeof(*snapshot));
+    if (published_revision == 0 && snapshot->revision == 0) memset(snapshot, 0, sizeof(*snapshot));
     state_read_lock();
     snapshot->map_w = clamp(map_w, 1, MAX_MAP_W);
     snapshot->map_h = clamp(map_h, 1, MAX_MAP_H);
@@ -431,53 +433,31 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     return 1;
 }
 
-void render_snapshot_publish_from_live_state(void) {
-    render_snapshot_publish_from_live_state_throttled(1);
-}
+void render_snapshot_publish_from_live_state(void) { render_snapshot_publish_from_live_state_throttled(1); }
 
 const RenderSnapshot *render_snapshot_acquire(void) {
-    int idx;
-    if (!initialized) render_snapshot_init();
-    do {
-        idx = (int)front_index;
-        InterlockedIncrement(&refs[idx]);
+    int idx; if (!initialized) render_snapshot_init();
+    do { idx = (int)front_index; InterlockedIncrement(&refs[idx]);
         if (idx == (int)front_index) return &buffers[idx];
-        InterlockedDecrement(&refs[idx]);
-    } while (1);
+        InterlockedDecrement(&refs[idx]); } while (1);
 }
 
 void render_snapshot_release(const RenderSnapshot *snapshot) {
-    int i;
-    if (!snapshot) return;
-    for (i = 0; i < 3; i++) {
-        if (snapshot == &buffers[i]) {
-            InterlockedDecrement(&refs[i]);
-            return;
-        }
-    }
+    int i; if (!snapshot) return;
+    for (i = 0; i < 3; i++) if (snapshot == &buffers[i]) { InterlockedDecrement(&refs[i]); return; }
 }
 
-unsigned int render_snapshot_revision(void) {
-    return (unsigned int)published_revision;
-}
+unsigned int render_snapshot_revision(void) { return (unsigned int)published_revision; }
 
 int render_snapshot_age_ms(void) {
-    LONG tick = last_publish_tick;
-    if (tick <= 0) return 0;
-    return clamp((int)(GetTickCount() - (DWORD)tick), 0, 600000);
-}
+    LONG tick = last_publish_tick; if (tick <= 0) return 0;
+    return clamp((int)(GetTickCount() - (DWORD)tick), 0, 600000); }
 
-int render_snapshot_last_publish_ms(void) {
-    return (int)last_publish_ms;
-}
+int render_snapshot_last_publish_ms(void) { return (int)last_publish_ms; }
 
-int render_snapshot_skipped_publish_count(void) {
-    return (int)skipped_publish_count;
-}
+int render_snapshot_skipped_publish_count(void) { return (int)skipped_publish_count; }
 
-int render_snapshot_throttled_publish_count(void) {
-    return (int)throttled_publish_count;
-}
+int render_snapshot_throttled_publish_count(void) { return (int)throttled_publish_count; }
 
 const char *render_snapshot_last_skip_reason(void) {
     switch ((int)last_skip_reason) {
@@ -489,8 +469,7 @@ const char *render_snapshot_last_skip_reason(void) {
 
 const SnapshotTile *render_snapshot_tile_at(const RenderSnapshot *snapshot, int x, int y) {
     if (!snapshot || x < 0 || y < 0 || x >= snapshot->map_w || y >= snapshot->map_h) return NULL;
-    return &snapshot->tiles[y * snapshot->map_w + x];
-}
+    return &snapshot->tiles[y * snapshot->map_w + x]; }
 
 const char *render_snapshot_event_text(const RenderSnapshot *snapshot, int index, int language) {
     static const char empty[] = "";
@@ -508,3 +487,13 @@ EventLogType render_snapshot_event_get_type(const RenderSnapshot *snapshot, int 
     if (!snapshot || index < 0 || index >= snapshot->event_count) return EVENT_TYPE_GENERIC;
     return snapshot->events[index].type;
 }
+
+int render_snapshot_civ_recent_event_count(const RenderSnapshot *snapshot, int civ_id) {
+    if (!snapshot || civ_id < 0 || civ_id >= MAX_CIVS) return 0;
+    return clamp(snapshot->civ_recent_event_count[civ_id], 0, EVENT_LOG_CIV_HISTORY_COUNT); }
+
+int render_snapshot_civ_recent_event_get_entry(const RenderSnapshot *snapshot, int civ_id,
+                                               int index, EventLogEntry *out) {
+    if (!snapshot || !out || civ_id < 0 || civ_id >= MAX_CIVS ||
+        index < 0 || index >= render_snapshot_civ_recent_event_count(snapshot, civ_id)) return 0;
+    *out = snapshot->civ_recent_events[civ_id][index].entry; return 1; }

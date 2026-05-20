@@ -17,6 +17,14 @@ typedef struct {
     int largest_region_size;
     int smallest_region_size;
     int worst_elongation;
+    int ribbon_regions;
+    int low_fill_regions;
+    int artificial_diagonal_regions;
+    int regions_resplit;
+    int regions_merged_for_shape;
+    int regions_repaired_by_local_regrow;
+    int worst_fill_percent;
+    int worst_perimeter_area;
 } RegionValidationStats;
 
 void regions_validate_postprocess(int target_size);

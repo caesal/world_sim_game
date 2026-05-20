@@ -63,6 +63,20 @@ static int card_peace_pressure(int civ_id, int other_id) {
     return snapshot->war_peace_pressure[civ_id][other_id];
 }
 
+static const char *last_war_result_text(int civ_id, SnapshotDiplomacyRelation relation) {
+    if (relation.last_war_result == DIP_LAST_WAR_INTERRUPTED) return tr("Interrupted", "中断");
+    if (relation.last_war_result == DIP_LAST_WAR_DECISIVE) {
+        if (relation.last_war_winner == civ_id) return tr("Won", "胜利");
+        if (relation.last_war_loser == civ_id) return tr("Lost", "战败");
+    }
+    return tr("-", "-");
+}
+
+static const char *truce_after_text(SnapshotDiplomacyRelation relation) {
+    if (relation.contact_kind == DIP_CONTACT_NONE) return tr("No contact", "无联系");
+    return relation.border_tension >= 55 ? tr("Tense", "紧张") : tr("Peace", "和平");
+}
+
 static const char *level_label(int value) {
     if (value >= 67) return tr("High", "高");
     if (value >= 34) return tr("Medium", "中");
@@ -218,20 +232,18 @@ static int battle_progress_percent(int remaining_months) {
 
 static void draw_peace_tense(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                              SnapshotDiplomacyRelation relation) {
-    char num[32], border[32], gap[32];
-    int flags = card_front_flags(civ_id, other_id);
+    char num[32], border[32];
     int spark = clamp((relation.border_tension + relation.resource_conflict) / 2, 0, 100);
+    (void)other_id;
     if (relation.state == DIPLOMACY_TENSE) {
         snprintf(num, sizeof(num), "%d", relation.border_tension);
         bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, RGB(206, 126, 64));
         snprintf(num, sizeof(num), "%d", spark);
         bar_row(hdc, cursor, tr("War spark", "战争火花"), num, spark, RGB(188, 76, 66));
         snprintf(border, sizeof(border), "%d", relation.border_length);
-        snprintf(gap, sizeof(gap), "%s %d", tr("gap", "缺口"),
-                 max(0, relation.border_tension - 34) + max(0, 46 - relation.relation_score));
         chip_row3(hdc, cursor, ICON_TERRITORY, tr("Border", "边界"), border,
                   ICON_ATTACK, tr("Conflict", "冲突"), level_label(relation.resource_conflict),
-                  ICON_COHESION, tr("Peace", "回和平"), gap);
+                  ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
     } else {
         bar_row(hdc, cursor, tr("Relation temp", "关系温度"), level_label(relation.relation_score),
                 relation.relation_score, RGB(92, 156, 108));
@@ -240,7 +252,7 @@ static void draw_peace_tense(HDC hdc, UiCursor *cursor, int civ_id, int other_id
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_COMMERCE, tr("Trade", "贸易"), level_label(relation.trade_fit),
                   ICON_TERRITORY, tr("Border", "边界"), border,
-                  ICON_HARBOR, tr("Contact", "接触"), ui_language ? war_front_reason_zh(flags) : war_front_reason_en(flags));
+                  ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
     }
 }
 
@@ -279,12 +291,13 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                   ICON_ATTACK, tr("Wins", "胜场"), c,
                   ICON_HARBOR, tr("Front", "战线"), ui_language ? war_front_reason_zh(flags) : war_front_reason_en(flags));
     } else {
+        int truce_denom = relation.truce_initial_years > 0 ? relation.truce_initial_years : relation.truce_years_left;
         ui_format_months(span, sizeof(span), relation.truce_years_left * 12, UI_MONTH_ZERO_DONE);
         bar_row(hdc, cursor, tr("Truce left", "停战剩余"), span,
-                clamp(relation.truce_years_left * 100 / 45, 0, 100), RGB(196, 154, 72));
+                clamp(relation.truce_years_left * 100 / max(1, truce_denom), 0, 100), RGB(196, 154, 72));
         chip_row3(hdc, cursor, ICON_DISORDER, tr("Risk", "再战风险"), level_label(relation.border_tension),
-                  ICON_TERRITORY, tr("Border", "边界"), relation.border_length > 0 ? tr("Adjacent", "接壤") : tr("Separated", "隔绝"),
-                  ICON_GOVERNANCE, tr("Trend", "趋势"), relation.border_tension >= 55 ? tr("Tense", "回紧张") : tr("Peace", "回和平"));
+                  ICON_GOVERNANCE, tr("After truce", "停战结束后"), truce_after_text(relation),
+                  ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
     }
 }
 
@@ -301,21 +314,21 @@ static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id
         snprintf(b, sizeof(b), "%d / %d", other ? other->vassal_callable_soldiers : 0,
                  other ? other->current_soldiers : 0);
         snprintf(c, sizeof(c), "+%d", selected ? selected->vassal_governance_disorder : 0);
-        bar_row(hdc, cursor, tr("Resource extraction", "资源抽取"), "40%", 40, RGB(154, 105, 178));
-        bar_row(hdc, cursor, tr("Army call-up", "军队调用"), "70%", 70, RGB(188, 88, 154));
-        chip_row3(hdc, cursor, ICON_FOOD, tr("Tribute", "资源贡献"), a,
-                  ICON_MILITARY, tr("Callable", "可调用"), b,
-                  ICON_GOVERNANCE, tr("Burden", "治理负担"), c);
+    bar_row(hdc, cursor, tr("Resource extraction", "????"), "40%", 40, RGB(154, 105, 178));
+    bar_row(hdc, cursor, tr("Army call-up", "????"), "70%", 70, RGB(188, 88, 154));
+    chip_row3(hdc, cursor, ICON_FOOD, tr("Tribute", "????"), a,
+              ICON_MILITARY, tr("Callable", "???"), b,
+              ICON_GOVERNANCE, tr("Burden", "????"), c);
     } else if (card_is_direct_vassal(other_id, civ_id)) {
         int callable = selected ? selected->vassal_callable_soldiers : 0;
         int total = selected ? selected->current_soldiers : 0;
         format_tribute_total(selected ? selected->vassal_resource_tribute : 0, -1, a, sizeof(a));
         snprintf(b, sizeof(b), "%d / %d", callable, total);
         snprintf(c, sizeof(c), "%d", max(0, total - callable));
-        bar_row(hdc, cursor, tr("Resource extracted", "资源被抽取"), "40%", 40, RGB(154, 105, 178));
-        bar_row(hdc, cursor, tr("Army callable", "军队被调用"), "70%", 70, RGB(188, 88, 154));
-        chip_row3(hdc, cursor, ICON_FOOD, tr("Extracted", "被抽取"), a,
-                  ICON_MILITARY, tr("Called", "被调用"), b,
+        bar_row(hdc, cursor, tr("Resource extracted", "?????"), "40%", 40, RGB(154, 105, 178));
+        bar_row(hdc, cursor, tr("Army callable", "?????"), "70%", 70, RGB(188, 88, 154));
+        chip_row3(hdc, cursor, ICON_FOOD, tr("Extracted", "???"), a,
+                  ICON_MILITARY, tr("Called", "???"), b,
                   ICON_COUNTRY_DEFENSE, tr("Home guard", "留守"), c);
     } else {
         int over = card_overlord(other_id);

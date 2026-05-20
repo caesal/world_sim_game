@@ -12,31 +12,31 @@ static DWORD last_repaint_ms;
 static const char *stage_names_en[WORLDGEN_STAGE_COUNT] = {
     "Idle",
     "Terrain generation",
-    "Water depth calculation",
     "Natural regions",
     "Port sites",
+    "Civilization placement",
     "Shallow sea route network",
     "Deep sea route backbone",
-    "Civilization placement",
     "Finalizing",
-    "Done"
+    "Done",
+    "Water depth calculation"
 };
 
 static const char *stage_names_zh[WORLDGEN_STAGE_COUNT] = {
     "空闲",
     "地形生成",
-    "水深计算",
     "自然区域划分",
     "港口点生成",
+    "文明放置",
     "浅海航道网",
     "深海航道骨架",
-    "文明放置",
     "收尾",
-    "完成"
+    "完成",
+    "水深计算"
 };
 
 static const int stage_weights[WORLDGEN_STAGE_COUNT] = {
-    0, 10, 16, 14, 8, 18, 20, 8, 6, 0
+    0, 10, 18, 8, 8, 24, 30, 2, 0, 0
 };
 
 static int clamp_int(int value, int min_value, int max_value) {
@@ -53,6 +53,15 @@ static int stage_base_percent(WorldGenStage stage) {
     return base;
 }
 
+static int stage_base_units(WorldGenStage stage) {
+    return stage_base_percent(stage) * 1000;
+}
+
+static int stage_weight_units(WorldGenStage stage) {
+    if (stage < 0 || stage >= WORLDGEN_STAGE_COUNT) return 0;
+    return stage_weights[stage] * 1000;
+}
+
 static int stage_index_for(WorldGenStage stage) {
     int index = 0;
     int i;
@@ -66,9 +75,60 @@ static int stage_index_for(WorldGenStage stage) {
 static void maybe_repaint(void) {
     DWORD now = GetTickCount();
     if (!repaint_fn) return;
-    if (now - last_repaint_ms < 28 && progress_state.target_percent_x1000 < 100000) return;
+    if (now - last_repaint_ms < 28 && progress_state.overall_progress_units < 100000) return;
     last_repaint_ms = now;
     repaint_fn(repaint_user_data);
+}
+
+static void progress_warning(const char *message) {
+    char line[256];
+    snprintf(line, sizeof(line), "[WorldGenProgress] %s\r\n", message);
+    OutputDebugStringA(line);
+}
+
+static void validate_progress_consistency(void) {
+    int expected_stage_units;
+    int diff;
+    if (progress_state.stage_total <= 0) return;
+    expected_stage_units = (int)((long long)progress_state.stage_current * 100000 /
+                                 progress_state.stage_total);
+    if (progress_state.stage_current > 0 && progress_state.stage_progress_units == 0) {
+        progress_warning("stage_current is nonzero but stage_progress_units is zero");
+    }
+    diff = progress_state.stage_progress_units - expected_stage_units;
+    if (diff < 0) diff = -diff;
+    if (diff > 1000) {
+        progress_warning("displayed stage percent disagrees with current/total by more than 1%");
+    }
+}
+
+static void set_progress_from_counts(WorldGenStage stage, int current, int total) {
+    int stage_units;
+    int overall_units;
+    if (total <= 0) total = 1;
+    current = clamp_int(current, 0, total);
+    stage_units = (int)((long long)current * 100000 / total);
+    overall_units = stage_base_units(stage) +
+                    (int)((long long)stage_weight_units(stage) * stage_units / 100000);
+    progress_state.active = 1;
+    progress_state.stage = stage;
+    progress_state.stage_index = stage_index_for(stage);
+    progress_state.stage_current = current;
+    progress_state.stage_total = total;
+    progress_state.stage_progress_units = clamp_int(stage_units, 0, 100000);
+    progress_state.overall_progress_units = clamp_int(overall_units, 0, 100000);
+    if (total > 0) {
+        snprintf(progress_state.message_en, sizeof(progress_state.message_en),
+                 "%s: %d / %d", worldgen_stage_name_en(stage), current, total);
+        snprintf(progress_state.message_zh, sizeof(progress_state.message_zh),
+                 "%s：%d / %d", worldgen_stage_name_zh(stage), current, total);
+    } else {
+        snprintf(progress_state.message_en, sizeof(progress_state.message_en),
+                 "%s", worldgen_stage_name_en(stage));
+        snprintf(progress_state.message_zh, sizeof(progress_state.message_zh),
+                 "%s", worldgen_stage_name_zh(stage));
+    }
+    validate_progress_consistency();
 }
 
 const char *worldgen_stage_name_en(WorldGenStage stage) {
@@ -85,70 +145,25 @@ void worldgen_progress_begin(void) {
     memset(&progress_state, 0, sizeof(progress_state));
     progress_state.active = 1;
     progress_state.stage = WORLDGEN_IDLE;
-    progress_state.stage_count = 8;
+    progress_state.stage_count = 7;
+    progress_state.stage_total = 1;
     last_repaint_ms = 0;
     snprintf(progress_state.message_en, sizeof(progress_state.message_en), "%s", "Preparing world generation");
     snprintf(progress_state.message_zh, sizeof(progress_state.message_zh), "%s", "准备生成世界");
 }
 
 void worldgen_progress_update(WorldGenStage stage, int percent, int current, int total) {
-    int percent_units;
-    percent = clamp_int(percent, 0, 100);
-    percent_units = percent * 1000;
-    progress_state.active = 1;
-    progress_state.stage = stage;
-    progress_state.target_percent = percent;
-    progress_state.target_percent_x1000 = percent_units;
-    progress_state.percent = percent;
-    progress_state.percent_x1000 = percent_units;
-    progress_state.stage_index = stage_index_for(stage);
-    progress_state.stage_current = current;
-    progress_state.stage_total = total;
-    progress_state.stage_percent_x1000 = total > 0 ? current * 100000 / total : 0;
-    progress_state.stage_percent = clamp_int((progress_state.stage_percent_x1000 + 500) / 1000, 0, 100);
-    if (total > 0) {
-        snprintf(progress_state.message_en, sizeof(progress_state.message_en),
-                 "%s: %d / %d", worldgen_stage_name_en(stage), current, total);
-        snprintf(progress_state.message_zh, sizeof(progress_state.message_zh),
-                 "%s：%d / %d", worldgen_stage_name_zh(stage), current, total);
-    } else {
-        snprintf(progress_state.message_en, sizeof(progress_state.message_en),
-                 "%s", worldgen_stage_name_en(stage));
-        snprintf(progress_state.message_zh, sizeof(progress_state.message_zh),
-                 "%s", worldgen_stage_name_zh(stage));
+    if (total <= 0) {
+        percent = clamp_int(percent, 0, 100);
+        current = percent;
+        total = 100;
     }
+    set_progress_from_counts(stage, current, total);
     maybe_repaint();
 }
 
 void worldgen_progress_update_stage(WorldGenStage stage, int current, int total) {
-    int base_units = stage_base_percent(stage) * 1000;
-    int weight_units = stage >= 0 && stage < WORLDGEN_STAGE_COUNT ? stage_weights[stage] * 1000 : 0;
-    int percent_units;
-    if (total <= 0) total = 1;
-    current = clamp_int(current, 0, total);
-    percent_units = base_units + weight_units * current / total;
-    progress_state.percent_x1000 = clamp_int(percent_units, 0, 100000);
-    progress_state.target_percent_x1000 = progress_state.percent_x1000;
-    progress_state.percent = clamp_int((progress_state.percent_x1000 + 500) / 1000, 0, 100);
-    progress_state.target_percent = progress_state.percent;
-    progress_state.active = 1;
-    progress_state.stage = stage;
-    progress_state.stage_index = stage_index_for(stage);
-    progress_state.stage_current = current;
-    progress_state.stage_total = total;
-    progress_state.stage_percent_x1000 = current * 100000 / total;
-    progress_state.stage_percent = clamp_int((progress_state.stage_percent_x1000 + 500) / 1000, 0, 100);
-    if (total > 0) {
-        snprintf(progress_state.message_en, sizeof(progress_state.message_en),
-                 "%s: %d / %d", worldgen_stage_name_en(stage), current, total);
-        snprintf(progress_state.message_zh, sizeof(progress_state.message_zh),
-                 "%s：%d / %d", worldgen_stage_name_zh(stage), current, total);
-    } else {
-        snprintf(progress_state.message_en, sizeof(progress_state.message_en),
-                 "%s", worldgen_stage_name_en(stage));
-        snprintf(progress_state.message_zh, sizeof(progress_state.message_zh),
-                 "%s", worldgen_stage_name_zh(stage));
-    }
+    set_progress_from_counts(stage, current, total);
     maybe_repaint();
 }
 
@@ -174,12 +189,8 @@ void worldgen_progress_record_route_stats(int candidates, int shallow_edges, int
 
 void worldgen_progress_finish(void) {
     worldgen_progress_update(WORLDGEN_DONE, 100, 1, 1);
-    progress_state.percent = 100;
-    progress_state.percent_x1000 = 100000;
-    progress_state.target_percent = 100;
-    progress_state.target_percent_x1000 = 100000;
-    progress_state.stage_percent = 100;
-    progress_state.stage_percent_x1000 = 100000;
+    progress_state.overall_progress_units = 100000;
+    progress_state.stage_progress_units = 100000;
     progress_state.active = 0;
     maybe_repaint();
 }

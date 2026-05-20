@@ -5,6 +5,8 @@
 #include <windows.h>
 
 int debug_panel_event_filter_hit_test(RECT client, int mouse_x, int mouse_y);
+int debug_panel_subtab_hit_test(RECT client, int mouse_x, int mouse_y);
+int debug_panel_map_mode_hit_test(RECT client, int mouse_x, int mouse_y);
 int debug_panel_event_log_hit_test(RECT client, int mouse_x, int mouse_y);
 int debug_panel_event_top_hit_test(RECT client, int mouse_x, int mouse_y);
 int debug_panel_event_country_hit_test(RECT client, int mouse_x, int mouse_y);

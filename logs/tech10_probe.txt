@@ -1,12 +1,12 @@
-tech_stage=1 year=65 month=1 civ=4 name=The Moonlit Compact
-tech_stage=2 year=134 month=4 civ=2 name=The Dragon Throne
-tech_stage=3 year=203 month=5 civ=10 name=Blackhold Kingdom
-tech_stage=4 year=270 month=12 civ=10 name=Blackhold Kingdom
-tech_stage=5 year=344 month=6 civ=1 name=Emberfall Realm
-tech_stage=6 year=410 month=6 civ=1 name=Emberfall Realm
-tech_stage=7 year=468 month=7 civ=10 name=Empire of Goldwyn
-tech_stage=8 year=526 month=7 civ=10 name=Empire of Goldwyn
-tech_stage=9 year=584 month=7 civ=10 name=Empire of Goldwyn
-tech_stage=10 year=642 month=12 civ=10 name=Empire of Goldwyn
-result reached_stage10=yes elapsed_months=7715 elapsed_years=642 max_stage=10 civ=10 sim_ms=58625 avg_ms_per_month=7.600
+tech_stage=1 year=67 month=1 civ=3 name=Dragonhelm Empire
+tech_stage=2 year=134 month=1 civ=3 name=Dragonhelm Empire
+tech_stage=3 year=204 month=1 civ=3 name=Dragonhelm Empire
+tech_stage=4 year=274 month=3 civ=8 name=Ashenreach Realm
+tech_stage=5 year=335 month=3 civ=8 name=Ashenreach Realm
+tech_stage=6 year=396 month=3 civ=8 name=Ashenreach Realm
+tech_stage=7 year=457 month=3 civ=8 name=Ashenreach Realm
+tech_stage=8 year=518 month=3 civ=8 name=Ashenreach Realm
+tech_stage=9 year=576 month=3 civ=8 name=Ashenreach Realm
+tech_stage=10 year=634 month=3 civ=8 name=Ashenreach Realm
+result reached_stage10=yes elapsed_months=7610 elapsed_years=634 max_stage=10 civ=8 sim_ms=34812 avg_ms_per_month=4.575
 stage10_bonus expansion=120 resource=120 tech=110 deep_stability=99 deep_plague=0 defense=120 battle=15 annex=1

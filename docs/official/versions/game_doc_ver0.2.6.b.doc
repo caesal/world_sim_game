@@ -1235,7 +1235,7 @@ a { color: #1558a6; }
 <p>Vassal:</p>
 <ul>
 <li>Vassal relation stores overlord/vassal ids.</li>
-<li>Stage 10 overlords can annex long-held vassals after 100 vassal years.</li>
+<li>Stage 10 overlords can annex long-held vassals after 45 vassal years.</li>
 </ul>
 <h2>13. Vassal System</h2>
 <p>Source:</p>

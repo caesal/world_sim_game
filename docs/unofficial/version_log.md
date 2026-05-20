@@ -1,5 +1,26 @@
 # Version Log
 
+## Ver0.2.7
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.7.
+2. Added Ver0.2.7 official documentation and change-summary documents under `docs/official`.
+3. Added a Ver0.2.7 side doc under `docs/unofficial`.
+4. Added per-civilization gameplay event history keyed by stable civ identity.
+5. Moved country recent events to snapshot-backed per-civ event history.
+6. Made right-side panel partial repainting atomic through an offscreen buffer.
+7. Reduced simulation-driven side-panel invalidation and hover redraw churn.
+8. Aligned world-generation progress stages with the actual generation flow.
+9. Adjusted progress weights so deep-route completion leaves only finalize work.
+10. Updated map legend rules for political, geography, climate, region, and route-potential layers.
+11. Kept map water legend terminology limited to shallow sea and deep sea.
+12. Changed normal war outcome truces to 55 years.
+13. Changed severed-front and fallback war truces to 25 years.
+14. Preserved collapse split truces at 45 years.
+15. Added initial-truce duration data for correct diplomacy-card progress bars.
+16. Cleaned remaining diplomacy-card mojibake strings touched by this release.
+
 ## Ver0.2.6.b
 
 Implemented fixes:

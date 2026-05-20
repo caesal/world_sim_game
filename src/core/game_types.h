@@ -58,6 +58,8 @@ typedef struct {
     int *country_show_fallen;
     int *country_list_scroll_offset;
     int *country_detail_scroll_offset;
+    int *debug_subtab;
+    int *debug_system_scroll_offset;
     int *debug_event_filter;
     int *pause_menu_open;
     int *selected_civ_color_index;
@@ -125,6 +127,8 @@ extern int country_sort_descending;
 extern int country_detail_subtab;
 extern int country_detail_scroll_offsets[8];
 extern int country_diplomacy_view;
+extern int debug_subtab;
+extern int debug_system_scroll_offset;
 extern int debug_event_filter;
 extern int debug_event_log_scroll_offset;
 extern int debug_event_log_frozen;
@@ -237,6 +241,9 @@ void event_log_format_entry_data(const EventLogEntry *entry, int language, char 
 EventLogType event_log_get_type(int index);
 int event_log_get_entry(int index, EventLogEntry *out);
 int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id);
+int event_log_entry_involves_civ_uid(const EventLogEntry *entry, int civ_id, int civ_uid);
+int event_log_recent_for_civ_uid(int civ_id, int civ_uid, int index, EventLogEntry *out);
+int event_log_recent_count_for_civ_uid(int civ_id, int civ_uid);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
 int point_in_rect(RECT rect, int x, int y);
 void map_size_dimensions(int size, int *out_w, int *out_h);

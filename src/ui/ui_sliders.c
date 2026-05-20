@@ -2,6 +2,8 @@
 
 #include "core/dirty_flags.h"
 #include "game/game.h"
+#include "game/game_loop.h"
+#include "ui/ui_invalidation.h"
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -81,5 +83,9 @@ void update_setup_slider(HWND hwnd, int index, int mouse_x) {
         plague_fog_alpha = value;
         dirty_mark_plague();
     }
-    InvalidateRect(hwnd, NULL, FALSE);
+    if (index == UI_SLIDER_REGION_SIZE || index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+    } else {
+        ui_invalidate_side_panel(hwnd);
+    }
 }

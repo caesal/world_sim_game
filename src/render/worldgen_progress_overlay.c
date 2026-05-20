@@ -15,15 +15,15 @@ static void draw_overlay_frame(HDC hdc, RECT rect, COLORREF color) {
     DeleteObject(pen);
 }
 
-static void format_percent(char *out, int out_size, int percent_x1000) {
-    percent_x1000 = clamp(percent_x1000, 0, 100000);
-    snprintf(out, out_size, "%d.%d%%", percent_x1000 / 1000, (percent_x1000 / 100) % 10);
+static void format_percent(char *out, int out_size, int progress_units) {
+    progress_units = clamp(progress_units, 0, 100000);
+    snprintf(out, out_size, "%d.%d%%", progress_units / 1000, (progress_units / 100) % 10);
 }
 
-static void draw_progress_bar(HDC hdc, RECT bar, int percent_x1000, COLORREF color) {
+static void draw_progress_bar(HDC hdc, RECT bar, int progress_units, COLORREF color) {
     RECT fill = bar;
-    percent_x1000 = clamp(percent_x1000, 0, 100000);
-    fill.right = fill.left + (bar.right - bar.left) * percent_x1000 / 100000;
+    progress_units = clamp(progress_units, 0, 100000);
+    fill.right = fill.left + (bar.right - bar.left) * progress_units / 100000;
     fill_rect(hdc, bar, RGB(42, 50, 58));
     if (fill.right > fill.left) fill_rect(hdc, fill, color);
     draw_overlay_frame(hdc, bar, RGB(84, 98, 108));
@@ -67,13 +67,13 @@ void draw_worldgen_progress_overlay(HDC hdc, RECT client) {
 
     stage_name = ui_language == UI_LANG_ZH ? worldgen_stage_name_zh(progress.stage) :
                                              worldgen_stage_name_en(progress.stage);
-    format_percent(pct, sizeof(pct), progress.percent_x1000);
-    format_percent(stage_pct, sizeof(stage_pct), progress.stage_percent_x1000);
+    format_percent(pct, sizeof(pct), progress.overall_progress_units);
+    format_percent(stage_pct, sizeof(stage_pct), progress.stage_progress_units);
     draw_text_rect(hdc, title, tr("Generating world", "正在生成世界"),
                    RGB(238, 244, 248), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     snprintf(text, sizeof(text), "%s %s", tr("Overall progress", "总体进度"), pct);
     draw_text_rect(hdc, overall_label, text, RGB(210, 224, 232), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
-    draw_progress_bar(hdc, overall_bar, progress.percent_x1000, RGB(103, 164, 196));
+    draw_progress_bar(hdc, overall_bar, progress.overall_progress_units, RGB(103, 164, 196));
     snprintf(text, sizeof(text), "%s: %s %s", tr("Current stage", "当前阶段"), stage_name, stage_pct);
     draw_text_rect(hdc, stage_label, text, RGB(210, 224, 232),
                    DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -81,5 +81,5 @@ void draw_worldgen_progress_overlay(HDC hdc, RECT client) {
         snprintf(text, sizeof(text), "%d / %d", progress.stage_current, progress.stage_total);
         draw_text_rect(hdc, stage_count, text, RGB(176, 192, 204), DT_LEFT | DT_VCENTER | DT_SINGLELINE);
     }
-    draw_progress_bar(hdc, stage_bar, progress.stage_percent_x1000, RGB(154, 184, 112));
+    draw_progress_bar(hdc, stage_bar, progress.stage_progress_units, RGB(154, 184, 112));
 }

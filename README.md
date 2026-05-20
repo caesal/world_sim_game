@@ -7,14 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.6.b is a Windows graphical sandbox prototype written in C.
+Ver0.2.7 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.6.b is a patch over Ver0.2.6.a focused on UI/render stability and map
-readability. It keeps the Ver0.2.6 diplomacy contact, route readability,
-world-generation feedback, province-name localization, snapshot-backed panel
-reads, natural-region diagnostics, and hydrology layer work, while adding the
-HSV color picker flow, unified shallow/deep water rendering, worldgen progress
-polish, thinner river visuals, and priority-based map label collision handling.
+Ver0.2.7 is a stabilization release over Ver0.2.6.b focused on country-scoped
+event history, right-panel redraw stability, generation progress accuracy, map
+legend clarity, diplomacy/truce presentation, and release metadata consistency.
+It keeps the Ver0.2.6 shallow/deep water model, route-potential graph,
+snapshot-backed panels, natural-region diagnostics, hydrology layer, HSV color
+picker flow, and priority-based map label collision handling.
 
 You can:
 

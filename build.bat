@@ -9,6 +9,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\io\map_save.c ^
   src\io\map_save_regions.c ^
   src\core\event_log.c ^
+  src\core\event_log_history.c ^
   src\core\game_state.c ^
   src\core\country_focus.c ^
   src\core\dirty_flags.c ^
@@ -62,6 +63,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\spawn.c ^
   src\sim\expansion.c ^
   src\sim\diplomacy.c ^
+  src\sim\diplomacy_borders.c ^
   src\sim\diplomacy_contact.c ^
   src\sim\diplomacy_names.c ^
   src\sim\war.c ^
@@ -83,6 +85,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\region_render.c ^
   src\render\snapshot_map_layers.c ^
   src\render\map_labels.c ^
+  src\render\map_label_style.c ^
   src\render\route_render.c ^
   src\render\river_geometry.c ^
   src\render\river_render.c ^
@@ -107,6 +110,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\panel_plague_page.c ^
   src\render\panel_worldgen.c ^
   src\render\panel_debug_worldgen.c ^
+  src\render\panel_debug_perf.c ^
   src\render\panel_debug.c ^
   src\render\panel_population.c ^
   src\render\panel_info.c ^
@@ -117,6 +121,9 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\ui\color_picker.c ^
   src\ui\pause_menu.c ^
   src\ui\ui_actions.c ^
+  src\ui\ui_debug_input.c ^
+  src\ui\ui_invalidation.c ^
+  src\ui\ui_wheel.c ^
   src\ui\ui_worldgen_layout.c ^
   src\ui\ui_state.c ^
   src\ui\ui_layout.c ^

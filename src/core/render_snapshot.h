@@ -123,6 +123,7 @@ typedef struct {
     int trade_fit;
     int resource_conflict;
     int truce_years_left;
+    int truce_initial_years;
     int border_length;
     int natural_barrier;
     int years_known;
@@ -132,6 +133,9 @@ typedef struct {
     int years_distant_known;
     int overlord;
     int vassal;
+    int last_war_winner;
+    int last_war_loser;
+    int last_war_result;
 } SnapshotDiplomacyRelation;
 
 typedef struct {
@@ -257,6 +261,8 @@ typedef struct {
     int plague_lane_exposure[MAX_SEA_LANES];
     int plague_active;
     SnapshotEvent events[RENDER_SNAPSHOT_EVENT_COUNT];
+    SnapshotEvent civ_recent_events[MAX_CIVS][EVENT_LOG_CIV_HISTORY_COUNT];
+    int civ_recent_event_count[MAX_CIVS];
 } RenderSnapshot;
 
 void render_snapshot_init(void);
@@ -276,5 +282,8 @@ const SnapshotTile *render_snapshot_tile_at(const RenderSnapshot *snapshot, int 
 const char *render_snapshot_event_text(const RenderSnapshot *snapshot, int index, int language);
 int render_snapshot_event_get_entry(const RenderSnapshot *snapshot, int index, EventLogEntry *out);
 EventLogType render_snapshot_event_get_type(const RenderSnapshot *snapshot, int index);
+int render_snapshot_civ_recent_event_count(const RenderSnapshot *snapshot, int civ_id);
+int render_snapshot_civ_recent_event_get_entry(const RenderSnapshot *snapshot, int civ_id,
+                                               int index, EventLogEntry *out);
 
 #endif

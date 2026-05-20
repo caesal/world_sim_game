@@ -1,19 +1,18 @@
 ﻿#include "diplomacy.h"
-#include "core/profiler.h"
 #include "sim/expansion.h"
+#include "sim/diplomacy_borders.h"
 #include "sim/maritime.h"
 #include "sim/regions.h"
 #include "war.h"
 #include "sim/war_front.h"
 #include "sim/simulation.h"
-#include "world/terrain_query.h"
+#include "sim/vassal.h"
 #include <stdio.h>
 #include <string.h>
 #ifndef DIPLOMACY_ENABLE_ADVANCED_STATES
 #define DIPLOMACY_ENABLE_ADVANCED_STATES 1
 #endif
 static DiplomacyRelation diplomacy_matrix[MAX_CIVS][MAX_CIVS];
-static BorderContactCache border_contact_cache;
 static int diplomacy_contacts_dirty = 1;
 static int last_war_desires[MAX_CIVS];
 static char last_war_reasons[MAX_CIVS][96];
@@ -30,6 +29,9 @@ static DiplomacyRelation default_relation(DiplomacyStatus state, int score) {
     relation.years_known = state == DIPLOMACY_NONE ? 0 : 1;
     relation.overlord = -1;
     relation.vassal = -1;
+    relation.last_war_winner = -1;
+    relation.last_war_loser = -1;
+    relation.last_war_result = DIP_LAST_WAR_NONE;
     return relation;
 }
 static void apply_tension_easing(DiplomacyRelation *relation, int desire_a, int desire_b) {
@@ -45,10 +47,9 @@ static void apply_tension_easing(DiplomacyRelation *relation, int desire_a, int 
 void diplomacy_reset(void) {
     int a;
     int b;
-    memset(&border_contact_cache, 0, sizeof(border_contact_cache));
+    diplomacy_borders_reset();
     memset(last_war_desires, 0, sizeof(last_war_desires));
     memset(last_war_reasons, 0, sizeof(last_war_reasons));
-    border_contact_cache.dirty = 1;
     diplomacy_contacts_dirty = 1;
     for (a = 0; a < MAX_CIVS; a++) {
         for (b = 0; b < MAX_CIVS; b++) {
@@ -58,55 +59,14 @@ void diplomacy_reset(void) {
     }
 }
 void diplomacy_mark_contacts_dirty(void) {
-    border_contact_cache.dirty = 1;
+    diplomacy_borders_mark_dirty();
     diplomacy_contacts_dirty = 1;
 }
 static int is_valid_civ(int civ_id) { return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive; }
-static int is_natural_barrier_tile(int x, int y) {
-    Geography geography;
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    geography = world[y][x].geography;
-    return world[y][x].river || geography == GEO_MOUNTAIN || geography == GEO_CANYON ||
-           geography == GEO_COAST || world_water_depth_at(x, y) != WATER_DEPTH_NONE;
-}
-static void rebuild_border_contact_cache(void);
-static int pair_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier) {
-    if (border_contact_cache.dirty) rebuild_border_contact_cache();
-    if (border_length) *border_length = border_contact_cache.border_length[civ_a][civ_b];
-    if (natural_barrier) *natural_barrier = border_contact_cache.natural_barrier[civ_a][civ_b];
-    return border_contact_cache.border_length[civ_a][civ_b] > 0;
-}
+static int is_sovereign_actor(int civ_id) { return is_valid_civ(civ_id) && vassal_overlord(civ_id) < 0; }
 int diplomacy_land_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier) {
     return (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS) ? 0 :
-           pair_contact_stats(civ_a, civ_b, border_length, natural_barrier);
-}
-static void rebuild_border_contact_cache(void) {
-    static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    int x;
-    int y;
-    memset(&border_contact_cache, 0, sizeof(border_contact_cache));
-    profiler_add_scanned_tiles(MAP_W * MAP_H);
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int owner = world[y][x].owner;
-            int d;
-            if (owner < 0 || owner >= civ_count || world[y][x].province_id < 0 || !civs[owner].alive) continue;
-            for (d = 0; d < 4; d++) {
-                int nx = x + dirs[d][0];
-                int ny = y + dirs[d][1];
-                int other;
-                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                other = world[ny][nx].owner;
-                if (other < 0 || other >= civ_count || other == owner ||
-                    world[ny][nx].province_id < 0 || !civs[other].alive) continue;
-                border_contact_cache.border_length[owner][other]++;
-                if (is_natural_barrier_tile(x, y) || is_natural_barrier_tile(nx, ny)) {
-                    border_contact_cache.natural_barrier[owner][other]++;
-                }
-            }
-        }
-    }
-    border_contact_cache.dirty = 0;
+           diplomacy_pair_contact_stats(civ_a, civ_b, border_length, natural_barrier);
 }
 static int resource_deficit_value(int value, int target) { return clamp(target - value, 0, target); }
 static int resource_surplus_value(int value, int target) { return clamp(value - target, 0, 10); }
@@ -277,20 +237,20 @@ static void refresh_known_relation(int civ_a, int civ_b) {
     DiplomacyContactKind contact_kind;
     int relation_delta;
     if (relation.state == DIPLOMACY_NONE) return;
-    contact_kind = diplomacy_current_contact_kind(civ_a, civ_b);
+    if (relation.state != DIPLOMACY_VASSAL && (!is_sovereign_actor(civ_a) || !is_sovereign_actor(civ_b))) {
+        set_relation_pair(civ_a, civ_b, default_relation(DIPLOMACY_NONE, 50));
+        return;
+    }
+    contact_kind = diplomacy_direct_contact_kind(civ_a, civ_b);
     relation.contact_kind = contact_kind;
-    if (contact_kind == DIP_CONTACT_LAND_BORDER) pair_contact_stats(civ_a, civ_b, &relation.border_length, &relation.natural_barrier);
+    if (contact_kind == DIP_CONTACT_LAND_BORDER) {
+        diplomacy_pair_contact_stats(civ_a, civ_b, &relation.border_length, &relation.natural_barrier);
+    }
     else { relation.border_length = 0; relation.natural_barrier = 0; }
-    if (contact_kind == DIP_CONTACT_NONE &&
-        relation.state != DIPLOMACY_TRUCE && relation.state != DIPLOMACY_WAR &&
+    if (contact_kind == DIP_CONTACT_NONE && relation.state != DIPLOMACY_WAR &&
+        relation.state != DIPLOMACY_TRUCE &&
         relation.state != DIPLOMACY_VASSAL) {
-        relation.border_tension = clamp(relation.border_tension - 8, 0, 100);
-        relation.resource_conflict = clamp(relation.resource_conflict - 4, 0, 100);
-        relation.trade_fit = 0;
-        relation.relation_score += relation.relation_score > 50 ? -1 : (relation.relation_score < 50 ? 1 : 0);
-        relation.years_distant_known++;
-        relation.easing_years = 0;
-        if (relation.years_distant_known >= 10) relation = default_relation(DIPLOMACY_NONE, 50);
+        relation = default_relation(DIPLOMACY_NONE, 50);
         set_relation_pair(civ_a, civ_b, relation);
         return;
     }
@@ -308,8 +268,11 @@ static void refresh_known_relation(int civ_a, int civ_b) {
     if (relation.state == DIPLOMACY_TRUCE) {
         relation.truce_years_left = clamp(relation.truce_years_left - 1, 0, 100);
         if (relation.truce_years_left == 0) {
-            relation.state = contact_kind == DIP_CONTACT_NONE ? DIPLOMACY_NONE :
-                             (relation.border_tension >= 55 ? DIPLOMACY_TENSE : DIPLOMACY_PEACE);
+            if (contact_kind == DIP_CONTACT_NONE) relation = default_relation(DIPLOMACY_NONE, 50);
+            else {
+                relation.state = relation.border_tension >= 55 ? DIPLOMACY_TENSE : DIPLOMACY_PEACE;
+                relation.truce_initial_years = 0;
+            }
         }
     }
 #if DIPLOMACY_ENABLE_ADVANCED_STATES
@@ -317,7 +280,7 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         relation.vassal_years++;
         if (relation.overlord >= 0 && relation.overlord < civ_count &&
             civs[relation.overlord].alive && civs[relation.overlord].tech_stage >= 10 &&
-            relation.vassal_years >= 100) {
+            relation.vassal_years >= 45) {
             int i;
             int overlord = relation.overlord;
             int vassal = relation.vassal;
@@ -365,8 +328,8 @@ static void refresh_known_relation(int civ_a, int civ_b) {
 void diplomacy_update_contacts(void) {
     int a;
     int b;
-    if (!diplomacy_contacts_dirty && !border_contact_cache.dirty) return;
-    if (border_contact_cache.dirty) rebuild_border_contact_cache();
+    if (!diplomacy_contacts_dirty && !diplomacy_borders_dirty()) return;
+    diplomacy_borders_ensure();
     for (a = 0; a < civ_count; a++) {
         if (!is_valid_civ(a)) continue;
         for (b = a + 1; b < civ_count; b++) {
@@ -374,8 +337,8 @@ void diplomacy_update_contacts(void) {
             int border = 0;
             int barrier = 0;
             DiplomacyContactKind contact_kind;
-            if (!is_valid_civ(b)) continue;
-            contact_kind = diplomacy_current_contact_kind(a, b);
+            if (!is_sovereign_actor(a) || !is_sovereign_actor(b)) continue;
+            contact_kind = diplomacy_direct_contact_kind(a, b);
             if (contact_kind == DIP_CONTACT_NONE) continue;
             relation = diplomacy_matrix[a][b];
             if (relation.state == DIPLOMACY_NONE) {
@@ -385,7 +348,8 @@ void diplomacy_update_contacts(void) {
             }
             relation.contact_kind = contact_kind;
             relation.years_distant_known = 0;
-            if (contact_kind == DIP_CONTACT_LAND_BORDER) { pair_contact_stats(a, b, &border, &barrier);
+            if (contact_kind == DIP_CONTACT_LAND_BORDER) {
+                diplomacy_pair_contact_stats(a, b, &border, &barrier);
                 relation.border_length = border;
                 relation.natural_barrier = barrier;
             } else { relation.border_length = 0; relation.natural_barrier = 0; }
@@ -420,6 +384,26 @@ DiplomacyRelation diplomacy_relation(int civ_a, int civ_b) {
     }
     return diplomacy_matrix[civ_a][civ_b];
 }
+void diplomacy_record_war_result(int winner, int loser) {
+    DiplomacyRelation relation;
+    if (winner < 0 || winner >= MAX_CIVS || loser < 0 || loser >= MAX_CIVS || winner == loser) return;
+    relation = diplomacy_matrix[winner][loser];
+    if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
+    relation.last_war_winner = winner;
+    relation.last_war_loser = loser;
+    relation.last_war_result = DIP_LAST_WAR_DECISIVE;
+    set_relation_pair(winner, loser, relation);
+}
+void diplomacy_record_war_interrupted(int civ_a, int civ_b) {
+    DiplomacyRelation relation;
+    if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
+    relation = diplomacy_matrix[civ_a][civ_b];
+    if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
+    relation.last_war_winner = -1;
+    relation.last_war_loser = -1;
+    relation.last_war_result = DIP_LAST_WAR_INTERRUPTED;
+    set_relation_pair(civ_a, civ_b, relation);
+}
 int diplomacy_last_war_desire(int civ_id) { return (civ_id < 0 || civ_id >= MAX_CIVS) ? 0 : last_war_desires[civ_id]; }
 const char *diplomacy_last_war_reason(int civ_id) {
     if (civ_id < 0 || civ_id >= MAX_CIVS || !last_war_reasons[civ_id][0]) {
@@ -435,9 +419,8 @@ void diplomacy_clear_civ(int civ_id) {
             default_relation(civ_id == i ? DIPLOMACY_PEACE : DIPLOMACY_NONE, civ_id == i ? 100 : 50);
         diplomacy_matrix[civ_id][i] = relation;
         diplomacy_matrix[i][civ_id] = relation;
-        border_contact_cache.border_length[civ_id][i] = border_contact_cache.border_length[i][civ_id] = 0;
-        border_contact_cache.natural_barrier[civ_id][i] = border_contact_cache.natural_barrier[i][civ_id] = 0;
     }
+    diplomacy_borders_clear_civ(civ_id);
     last_war_desires[civ_id] = 0;
     last_war_reasons[civ_id][0] = '\0';
     diplomacy_mark_contacts_dirty();
@@ -445,11 +428,13 @@ void diplomacy_clear_civ(int civ_id) {
 void diplomacy_force_war(int civ_a, int civ_b) {
     DiplomacyRelation relation;
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
+    if (!is_sovereign_actor(civ_a) || !is_sovereign_actor(civ_b)) return;
     if (!war_has_active_front(civ_a, civ_b)) return;
     relation = diplomacy_matrix[civ_a][civ_b];
     if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
     relation.state = DIPLOMACY_WAR;
     relation.truce_years_left = 0;
+    relation.truce_initial_years = 0;
     relation.border_tension = clamp(relation.border_tension + 25, 0, 100);
     relation.easing_years = 0;
     relation.vassal_years = 0;
@@ -463,7 +448,9 @@ void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score) 
     relation = diplomacy_matrix[civ_a][civ_b];
     if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_TRUCE, relation_score);
     relation.state = DIPLOMACY_TRUCE;
+    relation.contact_kind = diplomacy_direct_contact_kind(civ_a, civ_b);
     relation.truce_years_left = clamp(years, 0, 100);
+    relation.truce_initial_years = clamp(years, 0, 100);
     relation.relation_score = clamp(relation_score, 0, 100);
     relation.border_tension = clamp(relation.border_tension / 2, 0, 100);
     relation.easing_years = 0;
@@ -484,6 +471,7 @@ void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
     if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_VASSAL, relation_score);
     relation.state = DIPLOMACY_VASSAL;
     relation.truce_years_left = 0;
+    relation.truce_initial_years = 0;
     relation.relation_score = clamp(relation_score, 0, 100);
     relation.border_tension = clamp(relation.border_tension / 3, 0, 100);
     relation.easing_years = 0;

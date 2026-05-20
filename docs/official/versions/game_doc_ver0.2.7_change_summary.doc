@@ -1,0 +1,45 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Documentation Change Summary Ver0.2.7</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 21pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 15pt; margin-top: 16pt; color: #24364a; }
+p { margin: 6pt 0; }
+li { margin: 2pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Documentation Change Summary</h1>
+<p>Version: Ver0.2.7</p>
+<p>Baseline: Ver0.2.6.b.</p>
+<p>Status: stabilization release metadata and implementation summary.</p>
+<h2>Generated Official Files</h2>
+<ul>
+<li><code>docs/official/game_universal_documentation_ver0.2.7.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.7.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.7_change_summary.doc</code></li>
+</ul>
+<h2>Patch Delta</h2>
+<ul>
+<li>Updated the active version marker to <code>0.2.7</code>.</li>
+<li>Added UID-backed per-civilization gameplay event history for country recent events.</li>
+<li>Made right-side panel partial repainting atomic through an offscreen panel buffer.</li>
+<li>Aligned world-generation progress stages and weights with the actual generation flow.</li>
+<li>Adjusted map legend content by layer while preserving shallow/deep water terminology.</li>
+<li>Changed normal-war truce duration to 55 years and severed/fallback truce duration to 25 years.</li>
+<li>Kept collapse split truces at 45 years.</li>
+<li>Added initial-truce duration data so diplomacy card bars scale correctly.</li>
+<li>Cleaned remaining diplomacy-card mojibake strings touched by this release.</li>
+</ul>
+<h2>Validation</h2>
+<ul>
+<li><code>make check-text</code> required for release.</li>
+<li><code>git diff --check</code> required for release.</li>
+<li><code>make</code> required for release.</li>
+<li>Executable smoke/probe checks required where available.</li>
+</ul>
+</body>
+</html>
