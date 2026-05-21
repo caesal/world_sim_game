@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_VECTOR_PATHS_H
 #define WORLD_SIM_VECTOR_PATHS_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #include "ui/ui_types.h"
 

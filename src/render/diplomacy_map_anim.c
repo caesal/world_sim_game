@@ -2,9 +2,12 @@
 
 #include "core/country_focus.h"
 #include "core/game_state.h"
-#include "render/render_common.h"
 #include "sim/diplomacy.h"
 #include "sim/war_front.h"
+
+#ifdef _WIN32
+#include "render/render_common.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -18,7 +21,11 @@ typedef struct {
     int x1, y1, x2, y2;
     DWORD start_ms;
     COLORREF color;
+#ifdef _WIN32
     IconId icon;
+#else
+    int icon;
+#endif
     int bidirectional;
     int from_id;
     int from_uid;
@@ -55,6 +62,7 @@ static void event_target_identity(const EventLogEntry *entry, int *id, int *uid)
     *uid = entry->target_uid;
 }
 
+#ifdef _WIN32
 static void anim_style(EventLogType type, COLORREF *color, IconId *icon, int *bidirectional) {
     *bidirectional = 1;
     *color = RGB(82, 190, 104);
@@ -78,6 +86,7 @@ static void anim_style(EventLogType type, COLORREF *color, IconId *icon, int *bi
         *bidirectional = 0;
     }
 }
+#endif
 
 static int anim_type(EventLogType type) {
     return type == EVENT_TYPE_DIPLOMACY_PEACE ||
@@ -142,7 +151,13 @@ static void enqueue_event_anim(const EventLogEntry *entry) {
     anim->x2 = x2;
     anim->y2 = y2;
     anim->start_ms = GetTickCount();
+#ifdef _WIN32
     anim_style(entry->type, &anim->color, &anim->icon, &anim->bidirectional);
+#else
+    anim->color = 0;
+    anim->icon = 0;
+    anim->bidirectional = 0;
+#endif
     anim->from_id = entry->civ_id;
     anim->from_uid = entry->civ_uid;
     anim->to_id = to_id;
@@ -168,6 +183,8 @@ void diplomacy_map_anim_consume_events(void) {
     }
     last_seen_total = total;
 }
+
+#ifdef _WIN32
 
 static POINT map_point(MapLayout layout, int x, int y) {
     POINT p;
@@ -301,6 +318,8 @@ void draw_diplomacy_map_animations(HDC hdc, RECT client, MapLayout layout) {
         draw_anim(hdc, layout, &animations[i], now);
     }
 }
+
+#endif
 
 int diplomacy_map_anim_active(void) {
     DWORD now = GetTickCount();

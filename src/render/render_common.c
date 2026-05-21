@@ -1,5 +1,9 @@
 ﻿#include "render_common.h"
 
+#include "ui/ui_l10n.h"
+
+#include <string.h>
+
 void fill_rect(HDC hdc, RECT rect, COLORREF color) {
     HBRUSH brush = CreateSolidBrush(color);
     FillRect(hdc, &rect, brush);
@@ -87,7 +91,7 @@ void measure_text_utf8(HDC hdc, const char *text, SIZE *out_size) {
 }
 
 const char *tr(const char *en, const char *zh) {
-    return ui_language == UI_LANG_ZH ? zh : en;
+    return ui_l10n(en, zh);
 }
 
 const char *geography_name(Geography geography) {

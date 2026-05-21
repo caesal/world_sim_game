@@ -6,6 +6,7 @@
 #include "world/mountain_gen.h"
 #include "world/terrain_query.h"
 
+#include <stdlib.h>
 #include <stdio.h>
 
 static int natural_barrier_bonus(Geography geography) {

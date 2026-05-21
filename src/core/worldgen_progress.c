@@ -1,6 +1,7 @@
 #include "worldgen_progress.h"
 
-#include <windows.h>
+#include "platform/platform_types.h"
+
 #include <stdio.h>
 #include <string.h>
 
@@ -83,7 +84,11 @@ static void maybe_repaint(void) {
 static void progress_warning(const char *message) {
     char line[256];
     snprintf(line, sizeof(line), "[WorldGenProgress] %s\r\n", message);
+#ifdef _WIN32
     OutputDebugStringA(line);
+#else
+    fputs(line, stderr);
+#endif
 }
 
 static void validate_progress_consistency(void) {

@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_RIVER_RENDER_H
 #define WORLD_SIM_RIVER_RENDER_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #include "render/river_geometry.h"
 #include "ui/ui_layout.h"

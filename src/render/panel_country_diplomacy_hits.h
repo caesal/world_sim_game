@@ -2,7 +2,7 @@
 #define WORLD_SIM_PANEL_COUNTRY_DIPLOMACY_HITS_H
 
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "platform/platform_types.h"
 
 void country_diplomacy_hit_reset(void);
 void country_diplomacy_hit_add(RECT rect, int civ_id);

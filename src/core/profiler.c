@@ -1,8 +1,12 @@
 #include "core/profiler.h"
 #include "core/game_state.h"
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <time.h>
+#endif
 
 #include <stdio.h>
 #include <string.h>
@@ -23,12 +27,19 @@ static RuntimeProfilerSnapshot snapshot_state;
 extern Civilization civs[MAX_CIVS];
 extern int civ_count;
 static long long profiler_now_us(void) {
+#ifdef _WIN32
     static LARGE_INTEGER frequency;
     LARGE_INTEGER now;
 
     if (frequency.QuadPart == 0) QueryPerformanceFrequency(&frequency);
     QueryPerformanceCounter(&now);
     return now.QuadPart * 1000000LL / frequency.QuadPart;
+#else
+    struct timespec now;
+
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (long long)now.tv_sec * 1000000LL + (long long)now.tv_nsec / 1000LL;
+#endif
 }
 
 static int history_average(const int *values) {

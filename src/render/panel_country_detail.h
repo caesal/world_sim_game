@@ -2,7 +2,7 @@
 #define WORLD_SIM_PANEL_COUNTRY_DETAIL_H
 
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #include "ui/ui_widgets.h"
 

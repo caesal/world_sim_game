@@ -18,6 +18,9 @@ mono_crash.*.json
 .idea/
 *.iml
 *.exe
+world_sim
+*.app/
+*.dSYM/
 *.o
 build/
 saves/

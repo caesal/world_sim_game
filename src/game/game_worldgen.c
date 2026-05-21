@@ -39,6 +39,19 @@ void game_clear_world_tiles(void) {
     route_potential_reset();
 }
 
+void game_start_blank_world(void) {
+    set_active_map_size(MAP_SIZE_MEDIUM);
+    simulation_reset_state();
+    game_clear_world_tiles();
+    selected_x = -1;
+    selected_y = -1;
+    selected_civ = -1;
+    auto_run = 0;
+    world_generated = 0;
+    dirty_mark_world();
+    render_snapshot_publish_from_live_state();
+}
+
 WorldGenConfig game_world_gen_config_from_globals(void) {
     WorldGenConfig config;
     config.ocean = ocean_slider;
@@ -56,36 +69,32 @@ WorldGenConfig game_world_gen_config_from_globals(void) {
     return config;
 }
 
-static void repaint_generation(HWND hwnd) {
-    if (!hwnd) return;
-    InvalidateRect(hwnd, NULL, FALSE);
-    UpdateWindow(hwnd);
+static void repaint_generation(WorldGenProgressRepaintFn repaint, void *user_data) {
+    if (repaint) repaint(user_data);
 }
 
-static void repaint_generation_callback(void *user_data) {
-    repaint_generation((HWND)user_data);
-}
-
-static DWORD begin_generation_stage(HWND hwnd, WorldGenStage stage, int current, int total) {
+static DWORD begin_generation_stage(WorldGenProgressRepaintFn repaint, void *user_data,
+                                    WorldGenStage stage, int current, int total) {
     worldgen_progress_update_stage(stage, current, total);
-    repaint_generation(hwnd);
+    repaint_generation(repaint, user_data);
     return GetTickCount();
 }
 
-static void end_generation_stage(HWND hwnd, WorldGenStage stage, DWORD start_ms) {
+static void end_generation_stage(WorldGenProgressRepaintFn repaint, void *user_data,
+                                 WorldGenStage stage, DWORD start_ms) {
     worldgen_progress_update_stage(stage, 1, 1);
-    repaint_generation(hwnd);
+    repaint_generation(repaint, user_data);
     worldgen_progress_record_stage_ms(stage, (int)(GetTickCount() - start_ms));
 }
 
-void game_request_new_world_with_progress(HWND hwnd) {
+void game_request_new_world_with_callbacks(WorldGenProgressRepaintFn repaint, void *user_data) {
     WorldGenConfig config = game_world_gen_config_from_globals();
     DWORD total_start;
     DWORD stage_start;
     RoutePotentialStats route_stats;
 
     worldgen_progress_begin();
-    worldgen_progress_set_repaint_callback(repaint_generation_callback, hwnd);
+    worldgen_progress_set_repaint_callback(repaint, user_data);
     total_start = GetTickCount();
     auto_run = 0;
     game_loop_reset();
@@ -105,37 +114,37 @@ void game_request_new_world_with_progress(HWND hwnd) {
     map_view_auto_centered = 1;
     display_mode = DISPLAY_POLITICAL;
 
-    stage_start = begin_generation_stage(hwnd, WORLDGEN_TERRAIN, 0, 1);
+    stage_start = begin_generation_stage(repaint, user_data, WORLDGEN_TERRAIN, 0, 1);
     generate_world_with_config(&config);
     world_generated = 1;
-    end_generation_stage(hwnd, WORLDGEN_TERRAIN, stage_start);
+    end_generation_stage(repaint, user_data, WORLDGEN_TERRAIN, stage_start);
 
-    stage_start = begin_generation_stage(hwnd, WORLDGEN_REGIONS, 0, 1);
+    stage_start = begin_generation_stage(repaint, user_data, WORLDGEN_REGIONS, 0, 1);
     ports_reset_regions();
     regions_generate(region_size_slider);
-    end_generation_stage(hwnd, WORLDGEN_REGIONS, stage_start);
+    end_generation_stage(repaint, user_data, WORLDGEN_REGIONS, stage_start);
 
-    stage_start = begin_generation_stage(hwnd, WORLDGEN_PORTS, 0, 1);
+    stage_start = begin_generation_stage(repaint, user_data, WORLDGEN_PORTS, 0, 1);
     ports_ensure_island_ports();
     province_names_assign_all();
     world_invalidate_region_cache();
-    end_generation_stage(hwnd, WORLDGEN_PORTS, stage_start);
+    end_generation_stage(repaint, user_data, WORLDGEN_PORTS, stage_start);
 
-    stage_start = begin_generation_stage(hwnd, WORLDGEN_CIV_PLACEMENT, 0, max(1, initial_civ_count));
+    stage_start = begin_generation_stage(repaint, user_data, WORLDGEN_CIV_PLACEMENT, 0, max(1, initial_civ_count));
     simulation_seed_default_civilizations();
     world_recalculate_territory();
     ports_ensure_island_ports();
     ports_refresh_city_regions();
-    end_generation_stage(hwnd, WORLDGEN_CIV_PLACEMENT, stage_start);
+    end_generation_stage(repaint, user_data, WORLDGEN_CIV_PLACEMENT, stage_start);
 
-    stage_start = begin_generation_stage(hwnd, WORLDGEN_ROUTE_POTENTIAL_SHALLOW, 0, 1);
+    stage_start = begin_generation_stage(repaint, user_data, WORLDGEN_ROUTE_POTENTIAL_SHALLOW, 0, 1);
     route_potential_rebuild();
     route_potential_stats(&route_stats);
     worldgen_progress_record_route_stats(route_stats.deep_bridge_candidates,
                                          route_stats.shallow_edges, route_stats.deep_edges);
     worldgen_progress_record_stage_ms(WORLDGEN_ROUTE_POTENTIAL_SHALLOW, (int)(GetTickCount() - stage_start));
 
-    stage_start = begin_generation_stage(hwnd, WORLDGEN_FINALIZE, 0, 1);
+    stage_start = begin_generation_stage(repaint, user_data, WORLDGEN_FINALIZE, 0, 1);
     maritime_rebuild_routes();
     diplomacy_update_contacts();
     civilization_repair_alive_colors();
@@ -143,13 +152,28 @@ void game_request_new_world_with_progress(HWND hwnd) {
     dirty_mark_world();
     auto_run = 0;
     render_snapshot_publish_from_live_state();
-    end_generation_stage(hwnd, WORLDGEN_FINALIZE, stage_start);
+    end_generation_stage(repaint, user_data, WORLDGEN_FINALIZE, stage_start);
     worldgen_progress_record_total_ms((int)(GetTickCount() - total_start));
     worldgen_progress_finish();
     worldgen_progress_set_repaint_callback(NULL, NULL);
-    repaint_generation(hwnd);
+    repaint_generation(repaint, user_data);
 }
 
+#ifdef _WIN32
+
+static void repaint_generation_hwnd(void *user_data) {
+    HWND hwnd = (HWND)user_data;
+    if (!hwnd) return;
+    InvalidateRect(hwnd, NULL, FALSE);
+    UpdateWindow(hwnd);
+}
+
+void game_request_new_world_with_progress(HWND hwnd) {
+    game_request_new_world_with_callbacks(repaint_generation_hwnd, hwnd);
+}
+
+#endif
+
 void game_request_new_world(void) {
-    game_request_new_world_with_progress(NULL);
+    game_request_new_world_with_callbacks(NULL, NULL);
 }

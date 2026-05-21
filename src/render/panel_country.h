@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_PANEL_COUNTRY_H
 #define WORLD_SIM_PANEL_COUNTRY_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #define COUNTRY_PANEL_HIT_NONE -1
 #define COUNTRY_PANEL_HIT_TOGGLE_FALLEN -2

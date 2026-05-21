@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_COLOR_PICKER_H
 #define WORLD_SIM_COLOR_PICKER_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #include "core/value_types.h"
 

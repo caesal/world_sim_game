@@ -1,5 +1,18 @@
 ﻿#include "icons.h"
 
+#ifndef _WIN32
+
+void draw_icon(HDC hdc, IconId icon, RECT rect, COLORREF fallback) {
+    RECT fallback_rect = {rect.left + 4, rect.top + 4, rect.right - 4, rect.bottom - 4};
+    HBRUSH brush;
+    (void)icon;
+    brush = CreateSolidBrush(fallback);
+    FillRect(hdc, &fallback_rect, brush);
+    DeleteObject(brush);
+}
+
+#else
+
 typedef struct {
     unsigned int GdiplusVersion;
     void *DebugEventCallback;
@@ -137,3 +150,5 @@ void draw_icon(HDC hdc, IconId icon, RECT rect, COLORREF fallback) {
     gdip_draw_image_rect_i(graphics, image, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
     gdip_delete_graphics(graphics);
 }
+
+#endif

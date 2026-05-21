@@ -1,9 +1,12 @@
 #include "plague_visual.h"
 
-#include "core/dirty_flags.h"
 #include "core/render_snapshot.h"
+
+#ifdef _WIN32
+#include "core/dirty_flags.h"
 #include "render_map_internal.h"
 #include "render/render_context.h"
+#endif
 
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +17,11 @@ static int city_visual[MAX_CITIES];
 static int route_visual[MAX_SEA_LANES];
 static int visual_active;
 static int fog_cache_dirty = 1;
+static int fog_rebuild_accum_ms;
+static int fog_rebuild_count;
+static int last_fog_rebuild_ms;
+
+#ifdef _WIN32
 static int fog_cache_w;
 static int fog_cache_h;
 static int fog_cache_alpha = -1;
@@ -21,9 +29,6 @@ static HDC fog_cache_dc;
 static HBITMAP fog_cache_bitmap;
 static HBITMAP fog_cache_old_bitmap;
 static unsigned int *fog_cache_pixels;
-static int fog_rebuild_accum_ms;
-static int fog_rebuild_count;
-static int last_fog_rebuild_ms;
 
 static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     unsigned int old = *dst;
@@ -34,6 +39,7 @@ static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     int a = alpha + (int)(old >> 24) * inv / 255;
     *dst = (unsigned int)b | ((unsigned int)g << 8) | ((unsigned int)r << 16) | ((unsigned int)a << 24);
 }
+#endif
 
 static int approach(int current, int target, int elapsed_ms) {
     int step = clamp(elapsed_ms, 16, 120);
@@ -106,6 +112,8 @@ int plague_visual_fog_rebuild_count(void) {
 int plague_visual_last_fog_rebuild_ms(void) {
     return last_fog_rebuild_ms;
 }
+
+#ifdef _WIN32
 
 static int blob_offset(int seed, int radius) {
     int value = (seed * 1103515245 + 12345) & 0x7fffffff;
@@ -220,3 +228,5 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
                fog_cache_dc, 0, 0, fog_cache_w, fog_cache_h, blend);
     RestoreDC(hdc, saved_dc);
 }
+
+#endif

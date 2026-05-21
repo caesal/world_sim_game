@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_PAUSE_MENU_H
 #define WORLD_SIM_PAUSE_MENU_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #define PAUSE_MENU_BUTTON_COUNT 5
 

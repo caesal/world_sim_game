@@ -17,10 +17,8 @@
 #include "sim/vassal.h"
 #include "sim/war.h"
 #include "sim/war_front.h"
+#include "platform/platform_atomic.h"
 #include "world/terrain_query.h"
-
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -350,14 +348,14 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     if (!initialized) render_snapshot_init();
     if (!force && last_publish_tick > 0 &&
         (int)(start - (DWORD)last_publish_tick) < SNAPSHOT_MIN_INTERVAL_MS) {
-        InterlockedIncrement(&skipped_publish_count);
-        InterlockedIncrement(&throttled_publish_count);
+        platform_atomic_increment(&skipped_publish_count);
+        platform_atomic_increment(&throttled_publish_count);
         last_skip_reason = SNAPSHOT_SKIP_THROTTLED;
         return 0;
     }
     back = choose_back_buffer();
     if (back < 0) {
-        InterlockedIncrement(&skipped_publish_count);
+        platform_atomic_increment(&skipped_publish_count);
         last_skip_reason = SNAPSHOT_SKIP_NO_BACK_BUFFER;
         return 0;
     }
@@ -425,11 +423,11 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_EVENTS;
     } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_EVENTS;
     state_read_unlock();
-    snapshot->revision = (unsigned int)InterlockedIncrement(&published_revision);
+    snapshot->revision = (unsigned int)platform_atomic_increment(&published_revision);
     last_publish_tick = (LONG)GetTickCount();
     last_publish_ms = (LONG)(last_publish_tick - start);
     last_skip_reason = SNAPSHOT_SKIP_NONE;
-    InterlockedExchange(&front_index, back);
+    platform_atomic_exchange(&front_index, back);
     return 1;
 }
 
@@ -437,14 +435,14 @@ void render_snapshot_publish_from_live_state(void) { render_snapshot_publish_fro
 
 const RenderSnapshot *render_snapshot_acquire(void) {
     int idx; if (!initialized) render_snapshot_init();
-    do { idx = (int)front_index; InterlockedIncrement(&refs[idx]);
+    do { idx = (int)front_index; platform_atomic_increment(&refs[idx]);
         if (idx == (int)front_index) return &buffers[idx];
-        InterlockedDecrement(&refs[idx]); } while (1);
+        platform_atomic_decrement(&refs[idx]); } while (1);
 }
 
 void render_snapshot_release(const RenderSnapshot *snapshot) {
     int i; if (!snapshot) return;
-    for (i = 0; i < 3; i++) if (snapshot == &buffers[i]) { InterlockedDecrement(&refs[i]); return; }
+    for (i = 0; i < 3; i++) if (snapshot == &buffers[i]) { platform_atomic_decrement(&refs[i]); return; }
 }
 
 unsigned int render_snapshot_revision(void) { return (unsigned int)published_revision; }

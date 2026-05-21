@@ -2,7 +2,7 @@
 #define WORLD_SIM_UI_SELECTION_H
 
 #define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+#include "platform/platform_types.h"
 
 typedef enum {
     UI_SELECT_SOURCE_COUNTRY_LIST,

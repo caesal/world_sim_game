@@ -4,7 +4,10 @@ setlocal
 gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\main.c ^
   src\game\game.c ^
+  src\game\game_color_actions.c ^
+  src\game\game_country_actions.c ^
   src\game\game_loop.c ^
+  src\game\game_setup_actions.c ^
   src\game\game_worldgen.c ^
   src\io\map_save.c ^
   src\io\map_save_regions.c ^

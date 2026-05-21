@@ -7,7 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.7 is a Windows graphical sandbox prototype written in C.
+Ver0.2.7 is a Windows graphical sandbox prototype written in C. The legacy
+frontend is still Win32/GDI, and this development branch also includes an SDL3
+frontend path for native macOS builds and future Windows SDL builds.
+The SDL frontend is still parity work in progress: it now uses the shared
+world-generation flow, simulation scheduler, render snapshots, and smoke tests,
+but its rendering and UI are not yet a full replacement for the Windows
+legacy GDI frontend.
 
 Ver0.2.7 is a stabilization release over Ver0.2.6.b focused on country-scoped
 event history, right-panel redraw stability, generation progress accuracy, map
@@ -155,21 +161,30 @@ You can:
 
 ## Build
 
-Install a C compiler such as MSYS2 MinGW GCC. If `make` is installed, run:
+### Windows Legacy GDI
+
+Install a C compiler such as MSYS2 MinGW GCC. On Windows, `make` defaults to the
+legacy GDI executable:
 
 ```bash
 make
 ./world_sim.exe
 ```
 
-On Windows, `build.bat` uses the same source list:
+You can also call the target explicitly:
+
+```bash
+make legacy
+./world_sim.exe
+```
+
+`build.bat` uses the same legacy source list:
 
 ```bat
 build.bat
 world_sim.exe
 ```
 
-The full source list changes as modules are split, so `Makefile` and `build.bat` are the canonical build commands.
 If you are using PowerShell, add the MSYS2 compiler folder for the current terminal session first:
 
 ```powershell
@@ -177,6 +192,57 @@ $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
 .\build.bat
 .\world_sim.exe
 ```
+
+### macOS SDL
+
+Install SDL3 and SDL_ttf through Homebrew:
+
+```bash
+brew install pkg-config sdl3 sdl3_ttf
+```
+
+On macOS, `make` defaults to the SDL frontend:
+
+```bash
+make
+./world_sim
+```
+
+This executable is the native SDL parity path, but it is still incomplete
+compared with the Windows legacy frontend. Use the smoke commands below for
+automated macOS checks while render/UI parity work continues.
+
+To create a local app bundle:
+
+```bash
+make mac-app
+open "World Sim.app"
+```
+
+The SDL frontend has a terminal smoke test that generates a world and advances
+one month without opening a window. It also has a longer technology progression
+smoke test:
+
+```bash
+./world_sim --smoke
+./world_sim --smoke-tech10
+```
+
+### Windows SDL
+
+Install SDL3 and SDL_ttf development packages for your Windows toolchain, then
+build the SDL target:
+
+```bash
+make sdl
+./world_sim_sdl.exe
+```
+
+From macOS, cross-compiling `world_sim_sdl.exe` additionally requires a MinGW
+Windows compiler and Windows SDL3/SDL_ttf import libraries; the Homebrew SDL
+libraries are macOS libraries and cannot be linked into a Windows executable.
+
+The full source list changes as modules are split, so `Makefile` and `build.bat` are the canonical build commands.
 
 ## Source Layout
 
@@ -193,7 +259,8 @@ $env:PATH = "C:\msys64\ucrt64\bin;$env:PATH"
 11. `src/world` contains support modules for generation, smoothing, noise, rivers, ports, and terrain queries
 12. `src/sim` contains civilization metrics, province logic, population, plague, ports, maritime, diplomacy, expansion, and war simulation submodules
 13. `assets/icons` contains the PNG icons used by the right-side information panel
-14. `Makefile` contains the canonical build command
-15. `build.bat` mirrors the same source list for Windows command prompts
-16. `docs/official` contains current universal documentation and versioned change summaries
-17. `docs/unofficial` contains historical side docs, review notes, design PDFs, and the version log used during development
+14. `src/platform` contains narrow platform compatibility and the SDL frontend
+15. `Makefile` contains the canonical build command
+16. `build.bat` mirrors the same legacy source list for Windows command prompts
+17. `docs/official` contains current universal documentation and versioned change summaries
+18. `docs/unofficial` contains historical side docs, review notes, design PDFs, and the version log used during development

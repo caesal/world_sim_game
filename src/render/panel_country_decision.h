@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_PANEL_COUNTRY_DECISION_H
 #define WORLD_SIM_PANEL_COUNTRY_DECISION_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #include "ui/ui_widgets.h"
 

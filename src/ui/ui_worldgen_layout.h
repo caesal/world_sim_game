@@ -1,8 +1,7 @@
 #ifndef WORLD_SIM_UI_WORLDGEN_LAYOUT_H
 #define WORLD_SIM_UI_WORLDGEN_LAYOUT_H
 
-#include <windows.h>
-
+#include "platform/platform_types.h"
 #include "ui/ui_types.h"
 
 #define WORLDGEN_CORE_METRIC_COUNT 7

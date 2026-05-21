@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_ROUTE_RENDER_H
 #define WORLD_SIM_ROUTE_RENDER_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 #include "ui/ui_types.h"
 

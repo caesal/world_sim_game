@@ -4,12 +4,26 @@
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
 #include "core/state_lock.h"
+#include "platform/platform_atomic.h"
+#include "platform/platform_thread.h"
 #include "sim/simulation_scheduler.h"
 
+#ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 
 static HANDLE worker_thread = NULL;
+#define WORKER_MAIN_RETURN DWORD WINAPI
+#define WORKER_MAIN_RESULT 0
+#else
+#include <pthread.h>
+
+static pthread_t worker_thread;
+static int worker_thread_started;
+#define WORKER_MAIN_RETURN void *
+#define WORKER_MAIN_RESULT NULL
+#endif
+
 static volatile LONG worker_stop = 0;
 static volatile LONG actual_ms_per_month = 0;
 static volatile LONG pending_months_snapshot = 0;
@@ -26,7 +40,7 @@ static int budget_for_speed(int speed) {
 }
 
 static void set_status(const char *status) {
-    lstrcpynA(worker_status, status ? status : "Idle", sizeof(worker_status));
+    platform_copy_string(worker_status, status ? status : "Idle", sizeof(worker_status));
 }
 
 static void record_completed_months(int completed, DWORD *last_tick) {
@@ -36,22 +50,22 @@ static void record_completed_months(int completed, DWORD *last_tick) {
     int current;
 
     if (completed <= 0) return;
-    InterlockedAdd(&visual_completed_months, completed);
+    platform_atomic_add(&visual_completed_months, completed);
     elapsed = clamp((int)(now - *last_tick), 1, 60000);
     *last_tick = now;
     sample = elapsed / completed;
-    current = (int)actual_ms_per_month;
-    actual_ms_per_month = current <= 0 ? sample : (current * 3 + sample) / 4;
-    last_completed_tick = (LONG)now;
+    current = (int)platform_atomic_read(&actual_ms_per_month);
+    platform_atomic_exchange(&actual_ms_per_month, current <= 0 ? sample : (current * 3 + sample) / 4);
+    platform_atomic_exchange(&last_completed_tick, (LONG)now);
 }
 
-static DWORD WINAPI worker_main(void *unused) {
+static WORKER_MAIN_RETURN worker_main(void *unused) {
     DWORD last_tick = GetTickCount();
     DWORD last_month_tick = last_tick;
     int accumulator_ms = 0;
     (void)unused;
 
-    while (!worker_stop) {
+    while (!platform_atomic_read(&worker_stop)) {
         DWORD now = GetTickCount();
         int elapsed = clamp((int)(now - last_tick), 0, 250);
         int speed = clamp(speed_index, 0, SPEED_COUNT - 1);
@@ -67,31 +81,31 @@ static DWORD WINAPI worker_main(void *unused) {
         if (!auto_run || !world_generated) {
             accumulator_ms = 0;
             set_status("Idle");
-            Sleep(4);
+            platform_sleep_ms(4);
             continue;
         }
 
         state_write_lock();
         pending = sim_scheduler_pending_months();
-        performance_limited = actual_ms_per_month > 0 &&
-                              actual_ms_per_month > target_ms * 3 / 2 &&
+        performance_limited = platform_atomic_read(&actual_ms_per_month) > 0 &&
+                              platform_atomic_read(&actual_ms_per_month) > target_ms * 3 / 2 &&
                               pending > 0;
         accumulator_ms = performance_limited ? 0 : min(accumulator_ms + elapsed, max(target_ms * 4, 120));
         if (pending >= sim_scheduler_pending_month_cap()) {
             sim_scheduler_trim_pending_months(2);
             pending = sim_scheduler_pending_months();
-            overloaded_flag = 1;
+            platform_atomic_exchange(&overloaded_flag, 1);
         }
         while (!performance_limited && accumulator_ms >= target_ms) {
             if (!sim_scheduler_can_accept_month()) {
-                overloaded_flag = 1;
+                platform_atomic_exchange(&overloaded_flag, 1);
                 accumulator_ms = target_ms - 1;
                 break;
             }
             sim_scheduler_request_month();
             accumulator_ms -= target_ms;
         }
-        pending_months_snapshot = sim_scheduler_pending_months();
+        platform_atomic_exchange(&pending_months_snapshot, sim_scheduler_pending_months());
         has_work = sim_scheduler_has_pending_work();
         state_write_unlock();
 
@@ -108,7 +122,7 @@ static DWORD WINAPI worker_main(void *unused) {
                 remaining = max(1, budget_ms - used_ms);
                 sim_scheduler_run_for_ms(remaining);
                 completed = sim_scheduler_take_completed_months();
-                pending_months_snapshot = sim_scheduler_pending_months();
+                platform_atomic_exchange(&pending_months_snapshot, sim_scheduler_pending_months());
                 state_write_unlock();
                 if (completed > 0) render_snapshot_publish_from_live_state_throttled(0);
                 record_completed_months(completed, &last_month_tick);
@@ -118,59 +132,75 @@ static DWORD WINAPI worker_main(void *unused) {
             state_write_lock();
             has_work = sim_scheduler_has_pending_work();
             state_write_unlock();
-            if (used_ms >= budget_ms && has_work) overloaded_flag = 1;
+            if (used_ms >= budget_ms && has_work) platform_atomic_exchange(&overloaded_flag, 1);
         } else {
             set_status("Waiting for next month");
         }
-        last_budget_ms = budget_ms;
-        last_used_ms = used_ms;
-        if (used_ms > budget_ms || pending_months_snapshot >= sim_scheduler_pending_month_cap()) {
-            overloaded_flag = 1;
-        } else if (pending_months_snapshot == 0) {
-            overloaded_flag = 0;
+        platform_atomic_exchange(&last_budget_ms, budget_ms);
+        platform_atomic_exchange(&last_used_ms, used_ms);
+        if (used_ms > budget_ms ||
+            platform_atomic_read(&pending_months_snapshot) >= sim_scheduler_pending_month_cap()) {
+            platform_atomic_exchange(&overloaded_flag, 1);
+        } else if (platform_atomic_read(&pending_months_snapshot) == 0) {
+            platform_atomic_exchange(&overloaded_flag, 0);
         }
-        Sleep(speed >= 3 ? 0 : 1);
+        platform_sleep_ms(speed >= 3 ? 0 : 1);
     }
-    return 0;
+    return WORKER_MAIN_RESULT;
 }
 
 void simulation_worker_start(void) {
+#ifdef _WIN32
     if (worker_thread) return;
-    worker_stop = 0;
+    platform_atomic_exchange(&worker_stop, 0);
     worker_thread = CreateThread(NULL, 0, worker_main, NULL, 0, NULL);
+#else
+    if (worker_thread_started) return;
+    platform_atomic_exchange(&worker_stop, 0);
+    if (pthread_create(&worker_thread, NULL, worker_main, NULL) == 0) {
+        worker_thread_started = 1;
+    }
+#endif
 }
 
 void simulation_worker_shutdown(void) {
+#ifdef _WIN32
     if (!worker_thread) return;
-    worker_stop = 1;
+    platform_atomic_exchange(&worker_stop, 1);
     WaitForSingleObject(worker_thread, 2000);
     CloseHandle(worker_thread);
     worker_thread = NULL;
+#else
+    if (!worker_thread_started) return;
+    platform_atomic_exchange(&worker_stop, 1);
+    pthread_join(worker_thread, NULL);
+    worker_thread_started = 0;
+#endif
 }
 
 void simulation_worker_reset_scheduler(void) {
     state_write_lock();
     sim_scheduler_reset();
     state_write_unlock();
-    actual_ms_per_month = 0;
-    pending_months_snapshot = 0;
-    last_budget_ms = 0;
-    last_used_ms = 0;
-    overloaded_flag = 0;
-    last_completed_tick = 0;
-    visual_completed_months = 0;
+    platform_atomic_exchange(&actual_ms_per_month, 0);
+    platform_atomic_exchange(&pending_months_snapshot, 0);
+    platform_atomic_exchange(&last_budget_ms, 0);
+    platform_atomic_exchange(&last_used_ms, 0);
+    platform_atomic_exchange(&overloaded_flag, 0);
+    platform_atomic_exchange(&last_completed_tick, 0);
+    platform_atomic_exchange(&visual_completed_months, 0);
     set_status("Idle");
 }
 
-int simulation_worker_actual_ms_per_month(void) { return (int)actual_ms_per_month; }
-int simulation_worker_pending_months(void) { return (int)pending_months_snapshot; }
-int simulation_worker_last_budget_ms(void) { return (int)last_budget_ms; }
-int simulation_worker_last_used_ms(void) { return (int)last_used_ms; }
-int simulation_worker_overloaded(void) { return (int)overloaded_flag; }
+int simulation_worker_actual_ms_per_month(void) { return (int)platform_atomic_read(&actual_ms_per_month); }
+int simulation_worker_pending_months(void) { return (int)platform_atomic_read(&pending_months_snapshot); }
+int simulation_worker_last_budget_ms(void) { return (int)platform_atomic_read(&last_budget_ms); }
+int simulation_worker_last_used_ms(void) { return (int)platform_atomic_read(&last_used_ms); }
+int simulation_worker_overloaded(void) { return (int)platform_atomic_read(&overloaded_flag); }
 int simulation_worker_snapshot_age_ms(void) {
-    LONG tick = last_completed_tick;
+    LONG tick = platform_atomic_read(&last_completed_tick);
     if (tick <= 0) return 0;
     return clamp((int)(GetTickCount() - (DWORD)tick), 0, 600000);
 }
-int simulation_worker_take_visual_tick(void) { return (int)InterlockedExchange(&visual_completed_months, 0); }
+int simulation_worker_take_visual_tick(void) { return (int)platform_atomic_exchange(&visual_completed_months, 0); }
 const char *simulation_worker_status(void) { return worker_status; }

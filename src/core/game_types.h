@@ -1,12 +1,10 @@
 #ifndef WORLD_SIM_GAME_TYPES_H
 #define WORLD_SIM_GAME_TYPES_H
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
 #include <stddef.h>
 
 #include "constants.h"
+#include "platform/platform_types.h"
 #include "world_types.h"
 #include "sim_types.h"
 

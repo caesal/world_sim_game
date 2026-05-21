@@ -6,6 +6,7 @@
 #include "world/terrain_query.h"
 
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define SHAPE_PASSES 3

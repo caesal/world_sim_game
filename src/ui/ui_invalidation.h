@@ -1,7 +1,7 @@
 #ifndef WORLD_SIM_UI_INVALIDATION_H
 #define WORLD_SIM_UI_INVALIDATION_H
 
-#include <windows.h>
+#include "platform/platform_types.h"
 
 void ui_invalidate_side_panel(HWND hwnd);
 void ui_invalidate_map_viewport(HWND hwnd);
