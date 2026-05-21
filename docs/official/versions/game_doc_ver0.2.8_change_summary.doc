@@ -1,0 +1,56 @@
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="utf-8">
+<title>World Sim Game Ver0.2.8 Documentation Change Summary</title>
+<style>
+body { font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.35; color: #1f1f1f; }
+h1 { font-size: 20pt; margin-top: 0; border-bottom: 1px solid #999; padding-bottom: 6pt; }
+h2 { font-size: 15pt; margin-top: 16pt; color: #24364a; }
+p { margin: 6pt 0; }
+li { margin: 3pt 0; }
+code { font-family: Consolas, monospace; background: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>World Sim Game Ver0.2.8 Documentation Change Summary</h1>
+<p>Freeze target: Ver0.2.8.</p>
+<p>Documentation source: current working tree, compared against the Ver0.2.7 official documentation baseline.</p>
+<p>Important metadata note: <code>src/core/version.h</code> still reports <code>WORLD_SIM_VERSION "0.2.7"</code>. This summary follows the user-declared Ver0.2.8 freeze label and records the mismatch without changing source code.</p>
+
+<h2>Generated Files</h2>
+<ul>
+<li><code>docs/official/game_universal_documentation_ver0.2.8.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.8.doc</code></li>
+<li><code>docs/official/versions/game_doc_ver0.2.8_change_summary.doc</code></li>
+</ul>
+
+<h2>Implemented Behavior Added To Documentation</h2>
+<ul>
+<li>Save/load advanced to <code>MAP_SAVE_VERSION 8</code>. Dynamic state persistence is now documented, including diplomacy, active wars, war support casualties, plague city state, plague route exposure, event log entries, and event total counters. Source: <code>src/io/map_save.c</code>, <code>src/io/map_save_state.c</code>.</li>
+<li>Map loading has structured progress stages and a render overlay. Source: <code>src/core/load_progress.c</code>, <code>src/render/load_progress_overlay.c</code>.</li>
+<li>Frame update now returns targeted redraw flags. Completed months trigger top bar, bottom bar, dynamic map, and side-panel invalidation. Source: <code>src/game/game_loop.c</code>, <code>src/game/game_loop.h</code>, <code>src/ui/ui_invalidation.c</code>.</li>
+<li>War/truce diplomacy cards can refresh the display-only next-battle countdown each month by using snapshot month plus <code>SnapshotWar.years</code>. Source: <code>src/render/panel_country_diplomacy_cards.c</code>.</li>
+<li>War balance is unchanged in the inspected code: <code>war_update_year()</code> still drives yearly war updates and battles still occur on the existing three-war-year cadence. Source: <code>src/sim/war.c</code>.</li>
+<li>Side-panel rendering has an offscreen view-model cache with UI/data keys, throttled rebuilds, invalidation hooks, and debug metrics. Source: <code>src/render/panel_view_model_cache.c</code>, <code>src/ui/ui_invalidation.c</code>, <code>src/render/panel_debug_perf.c</code>.</li>
+<li>Static map rendering has layered nonblocking caches, and non-plague map scenes have a render-scene cache. Source: <code>src/render/render_static_map_cache.c</code>, <code>src/render/render.c</code>.</li>
+<li>Sea-lane rendering has cached lane paths and performance counters. Source: <code>src/render/sea_lane_render.c</code>.</li>
+<li>Plague visual rendering now records data-update, fog-cache, draw-time, and infected-lane metrics. Source: <code>src/render/plague_visual.c</code>, <code>src/render/panel_debug_perf.c</code>.</li>
+<li>Water depth now uses score and shelf-width data instead of only simple coast-distance thresholds. Source: <code>src/world/terrain_query.c</code>, <code>src/render/panel_debug_worldgen.c</code>.</li>
+<li>Map frame and collapsible legend controls were documented. Source: <code>src/ui/ui_layout.c</code>, <code>src/render/panel_map.c</code>.</li>
+</ul>
+
+<h2>Pending Or Not Fully Implemented</h2>
+<ul>
+<li>The requested cover/fill map viewport behavior is not fully implemented. <code>get_map_layout()</code> still uses contain-fit scaling, <code>get_map_content_rect()</code> still returns the full viewport, and <code>ui_map_view_clamp()</code> still permits keep margins. Expected symptom: blue/background gaps can still appear for some viewport ratios.</li>
+<li>The map legend is collapsible and frame-aware, but the expanded legend still lives inside the frame area and can still overlap real map content. It has not been moved fully outside the map subject area.</li>
+<li>Source version and README/docs index metadata still identify the active build as Ver0.2.7. A code-authorized release task should update those if Ver0.2.8 is intended to be a source-visible release.</li>
+</ul>
+
+<h2>Validation Scope</h2>
+<ul>
+<li>This was a documentation-only freeze. No source files were intentionally modified.</li>
+<li>No build, smoke test, executable full-flow regression, or in-app Chinese rendering check was run for this documentation freeze.</li>
+<li>The documentation records source-inspected behavior and explicitly marks mismatches instead of treating the prior implementation request as completed when code did not show it.</li>
+</ul>
+</body>
+</html>
