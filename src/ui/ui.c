@@ -232,7 +232,8 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     was_panel = old_hover_x >= client.right - side_panel_w && old_hover_y >= TOP_BAR_H && old_hover_y <= client.bottom;
     is_panel = mouse_x >= client.right - side_panel_w && mouse_y >= TOP_BAR_H && mouse_y <= client.bottom;
     if ((panel_tab == PANEL_COUNTRY || panel_tab == PANEL_POPULATION ||
-         panel_tab == PANEL_PLAGUE || panel_tab == PANEL_DEBUG) &&
+         panel_tab == PANEL_PLAGUE || panel_tab == PANEL_WORLD ||
+         panel_tab == PANEL_DEBUG) &&
         (was_panel || is_panel) && panel_hover_target(client, mouse_x, mouse_y) != last_panel_hover_target) {
         last_panel_hover_target = panel_hover_target(client, mouse_x, mouse_y);
         invalidate_side_panel(hwnd);

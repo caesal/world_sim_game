@@ -6,6 +6,7 @@
 #include "render/river_render.h"
 #include "sim/regions_validate.h"
 #include "sim/route_potential.h"
+#include "world/terrain_query.h"
 
 #include <stdio.h>
 
@@ -16,16 +17,21 @@ void draw_worldgen_debug_rows(HDC hdc, UiCursor *cursor) {
     const RegionValidationStats *region_stats;
     char text[160];
     int route_ms;
+    int shallow_tiles;
+    int deep_tiles;
 
     worldgen_progress_get(&progress);
     route_potential_stats(&route_stats);
     hydro_stats = river_render_stats();
     region_stats = regions_validate_last_stats();
+    shallow_tiles = world_water_shallow_tile_count();
+    deep_tiles = world_water_deep_tile_count();
     route_ms = progress.stage_ms[WORLDGEN_ROUTE_POTENTIAL_SHALLOW] +
                progress.stage_ms[WORLDGEN_ROUTE_POTENTIAL_DEEP];
     if (progress.total_ms <= 0 && route_ms <= 0 && route_stats.node_count <= 0 &&
         (!region_stats || region_stats->target_size <= 0) &&
-        (!hydro_stats || hydro_stats->river_count <= 0) && !dirty_any_render()) return;
+        (!hydro_stats || hydro_stats->river_count <= 0) &&
+        shallow_tiles + deep_tiles <= 0 && !dirty_any_render()) return;
     snprintf(text, sizeof(text), "terrain %d / political %d / borders %d / coast %d / hydro %d / labels %d / plague %d / routes %d",
              dirty_render_terrain(), dirty_render_political(), dirty_render_borders(),
              dirty_render_coast(), dirty_render_hydrology(), dirty_render_labels(),
@@ -33,8 +39,15 @@ void draw_worldgen_debug_rows(HDC hdc, UiCursor *cursor) {
     ui_row_text(hdc, cursor, tr("Dirty layers", "脏图层"), text);
     if (progress.total_ms <= 0 && route_ms <= 0 && route_stats.node_count <= 0 &&
         (!region_stats || region_stats->target_size <= 0) &&
-        (!hydro_stats || hydro_stats->river_count <= 0)) return;
+        (!hydro_stats || hydro_stats->river_count <= 0) &&
+        shallow_tiles + deep_tiles <= 0) return;
     ui_section(hdc, cursor, tr("Worldgen Timing", "世界生成耗时"));
+    snprintf(text, sizeof(text), "shallow %d / deep %d / rebuild %d ms",
+             shallow_tiles, deep_tiles, world_water_depth_rebuild_ms());
+    ui_row_text(hdc, cursor, tr("Water depth", "水深"), text);
+    snprintf(text, sizeof(text), "avg %d / min %d / max %d",
+             world_water_shelf_avg(), world_water_shelf_min(), world_water_shelf_max());
+    ui_row_text(hdc, cursor, tr("Shelf width", "大陆架"), text);
     snprintf(text, sizeof(text), "total %d ms / terrain %d / regions %d / ports %d",
              progress.total_ms, progress.stage_ms[WORLDGEN_TERRAIN],
              progress.stage_ms[WORLDGEN_REGIONS], progress.stage_ms[WORLDGEN_PORTS]);

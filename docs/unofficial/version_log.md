@@ -1,5 +1,22 @@
 # Version Log
 
+## Ver0.2.8
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.8.
+2. Added dynamic save/load state blocks for diplomacy, war, plague, and event history while preserving compatibility with older saves.
+3. Added map-load progress state and the central load progress overlay.
+4. Preserved post-load diplomacy, war, vassal, truce, plague, and event state instead of resetting those systems after a new save loads.
+5. Added right-panel view-model caching and atomic panel redraw paths to reduce half-painted toolbar states.
+6. Split static map cache layers and added a non-plague scene cache so plague-only animation does not redraw routes, cities, and labels every frame.
+7. Lowered plague fog rebuild frequency, used an adaptive lower-resolution fog cache, and exposed real plague visual metrics.
+8. Added smoother sea-lane/plague visual diagnostics and scene-cache debug metrics.
+9. Softened political map colors with render-time saturation limiting and lower political fill alpha.
+10. Rebuilt shallow/deep water depth from a smooth coast-distance and shelf-width field instead of per-tile noisy shelf spikes.
+11. Added water-depth debug rows for shallow/deep counts, cache rebuild time, and shelf-width range.
+12. Kept water logic as shallow sea, deep sea, and land-only; no lake/bay/ocean gameplay categories were added.
+
 ## Ver0.2.7
 
 Implemented fixes:

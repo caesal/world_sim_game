@@ -49,6 +49,10 @@ static COLORREF snapshot_overview_color(const SnapshotTile *tile) {
     return blend_color(base, RGB(236, 230, 198), clamp((55 - elev) / 4, 0, 12));
 }
 
+static COLORREF snapshot_political_land_color(const SnapshotTile *tile, COLORREF civ_color) {
+    return political_color_with_texture(civ_color, snapshot_overview_color(tile));
+}
+
 static COLORREF snapshot_tile_color(const RenderSnapshot *snapshot, int x, int y) {
     const SnapshotTile *tile = snap_tile(snapshot, x, y);
     COLORREF base;
@@ -67,6 +71,11 @@ static COLORREF snapshot_tile_color(const RenderSnapshot *snapshot, int x, int y
             }
             return base;
         case DISPLAY_POLITICAL:
+            if (snap_land(tile) && tile->owner >= 0 && tile->owner < snapshot->civ_count &&
+                snapshot->civs[tile->owner].alive) {
+                return snapshot_political_land_color(tile, (COLORREF)snapshot->civs[tile->owner].color);
+            }
+            return snapshot_overview_color(tile);
         case DISPLAY_ALL:
             base = snapshot_overview_color(tile);
             if (snap_land(tile) && tile->owner >= 0 && tile->owner < snapshot->civ_count &&
@@ -149,7 +158,7 @@ void draw_snapshot_terrain_layer(HDC hdc, RECT client, MapLayout layout) {
 }
 
 void draw_snapshot_coast_layer(HDC hdc, RECT client, MapLayout layout) {
-    draw_edges(hdc, client, layout, 0, RGB(244, 232, 190), 2);
+    draw_edges(hdc, client, layout, 0, RGB(196, 202, 184), 1);
 }
 
 void draw_snapshot_political_layer(HDC hdc, RECT client, MapLayout layout) {

@@ -97,6 +97,27 @@ void draw_bottom_bar(HDC hdc, RECT client) {
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
+void draw_map_frame_overlay(HDC hdc, RECT client) {
+    RECT viewport = get_map_viewport_rect(client);
+    MapLayout layout = get_map_layout(client);
+    RECT frame = {layout.map_x, layout.map_y, layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
+    HBRUSH outer = CreateSolidBrush(RGB(24, 28, 32));
+    HBRUSH inner = CreateSolidBrush(RGB(132, 116, 82));
+    HBRUSH line = CreateSolidBrush(RGB(215, 196, 142));
+    RECT shade = {frame.left + 4, frame.top + 4, frame.right + 4, frame.bottom + 4};
+    int saved = SaveDC(hdc);
+
+    IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
+    FrameRect(hdc, &shade, outer);
+    FrameRect(hdc, &frame, inner);
+    InflateRect(&frame, -2, -2);
+    FrameRect(hdc, &frame, line);
+    RestoreDC(hdc, saved);
+    DeleteObject(outer);
+    DeleteObject(inner);
+    DeleteObject(line);
+}
+
 static void draw_legend_item(HDC hdc, int x, int y, COLORREF color, const char *name) {
     RECT swatch = {x, y + 3, x + 16, y + 15};
     fill_rect(hdc, swatch, color);
@@ -134,19 +155,21 @@ void draw_map_legend(HDC hdc, RECT client) {
     RECT toggle = get_map_legend_toggle_rect(client);
     HBRUSH border_brush;
     int saved_dc;
+    int collapsed;
 
     if (IsRectEmpty(&box)) return;
+    collapsed = map_legend_collapsed || (box.bottom - box.top <= 40);
 
-    fill_rect_alpha(hdc, box, RGB(31, 37, 43), 218);
+    fill_rect_alpha(hdc, box, RGB(31, 37, 43), 188);
     border_brush = CreateSolidBrush(RGB(76, 92, 104));
     FrameRect(hdc, &box, border_brush);
     DeleteObject(border_brush);
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, box.left, box.top, box.right, box.bottom);
     fill_rect_alpha(hdc, toggle, RGB(47, 58, 68), 236);
-    draw_center_text(hdc, toggle, map_legend_collapsed ? "^" : "v", RGB(236, 242, 246));
+    draw_center_text(hdc, toggle, collapsed ? "^" : "v", RGB(236, 242, 246));
     draw_text_line(hdc, box.left + 10, box.top + 8, tr("Map Legend", "地图图例"), RGB(245, 245, 245));
-    if (map_legend_collapsed) {
+    if (collapsed) {
         RestoreDC(hdc, saved_dc);
         return;
     }

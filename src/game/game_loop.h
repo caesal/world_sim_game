@@ -10,7 +10,8 @@ enum {
     GAME_REDRAW_MAP_STATIC = 1 << 2,
     GAME_REDRAW_SIDE_PANEL = 1 << 3,
     GAME_REDRAW_BOTTOM_BAR = 1 << 4,
-    GAME_REDRAW_FULL = 1 << 5
+    GAME_REDRAW_FULL = 1 << 5,
+    GAME_REDRAW_PLAGUE_OVERLAY = 1 << 6
 };
 
 int game_loop_tick_frame(void);

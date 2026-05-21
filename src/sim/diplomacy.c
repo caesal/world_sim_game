@@ -483,3 +483,15 @@ void diplomacy_start_vassal(int overlord, int vassal, int relation_score) {
     diplomacy_start_truce(overlord, vassal, 10, relation_score);
 #endif
 }
+void diplomacy_restore_relation(int civ_a, int civ_b, DiplomacyRelation relation) {
+    if (civ_a < 0 || civ_b < 0 || civ_a >= MAX_CIVS || civ_b >= MAX_CIVS) return;
+    diplomacy_matrix[civ_a][civ_b] = relation;
+}
+void diplomacy_sanitize_loaded(void) {
+    int a, b;
+    for (a = 0; a < MAX_CIVS; a++) for (b = 0; b < MAX_CIVS; b++) {
+        if (a == b || a >= civ_count || b >= civ_count || !civs[a].alive || !civs[b].alive)
+            diplomacy_matrix[a][b] = default_relation(a == b ? DIPLOMACY_PEACE : DIPLOMACY_NONE, 50);
+    }
+    diplomacy_mark_contacts_dirty();
+}

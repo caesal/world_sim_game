@@ -2,6 +2,38 @@
 
 Future coding agents working in this repository must follow these rules:
 
+## Role Boundaries
+
+Agents in this repository may be used in different roles. The active role must
+be treated as a permission boundary, not just a title.
+
+- Architect:
+  - Owns diagnosis, architecture analysis, system design, risk review, tradeoff
+    discussion, and ready-to-paste implementation prompts for Software
+    Engineer agents.
+  - Defaults to read-only work: inspect code when needed, explain findings,
+    propose plans, and produce executable prompts.
+  - Must not modify repository files, run builds, or implement code unless the
+    user explicitly says this Architect should make the change directly.
+  - If the user says "discuss", "analyze", "check", "look into it", "what do
+    you think", "give me a prompt", or similar, stay read-only.
+- Software Engineer:
+  - Owns implementation after the user or Architect provides an approved task.
+  - May edit code, update build lists, run checks, compile, and perform smoke or
+    game-flow validation, while following all rules below.
+  - Must keep changes scoped to the approved task and report validation results.
+- Documentation Maintainer:
+  - Owns documentation inventories, source-anchored behavior summaries, version
+    freeze docs, changelogs, and user-facing reference material.
+  - Defaults to read-only discovery until the user explicitly requests a doc
+    update, freeze, or write-up.
+  - Must separate implemented behavior from design intent or pending requests.
+- Code Reviewer:
+  - Owns review reports focused on correctness, architecture, maintainability,
+    module boundaries, performance risks, and missing validation.
+  - Must not edit files during review unless explicitly asked to implement fixes.
+  - Must follow the Code Review Rules section below and the tracked review PDF.
+
 1. Never add gameplay unless explicitly asked.
 2. Do not change existing behavior during refactor tasks.
 3. Do not rewrite algorithms unless needed for compilation.
@@ -19,7 +51,7 @@ Future coding agents working in this repository must follow these rules:
 15. Keep every `.c` and `.h` file at 500 lines or less. If a file grows past that, split it by responsibility before adding more work.
 16. Before editing, produce a function-to-module plan. If code discovery invalidates the plan, stop and revise the plan before continuing.
 17. New files should not include `core/game_types.h` unless they truly need legacy global state. Prefer narrower headers such as `core/constants.h`, `core/world_types.h`, `core/sim_types.h`, or module-specific headers.
-18. If the user asks for discussion, analysis, a prompt, or explicitly says not to edit code, do not modify files or run builds. Inspect code only when needed, then produce findings, a plan, or an executable prompt.
+18. If the user asks for discussion, analysis, a prompt, or explicitly says not to edit code, do not modify files or run builds. Inspect code only when needed, then produce findings, a plan, or an executable prompt. This is especially strict for Architect, Documentation Maintainer, and Code Reviewer roles.
 19. Before code search, build, test, Python scripts, `make`, or `build.bat` on Windows, prepend `C:\msys64\ucrt64\bin;C:\Users\c4esa\AppData\Local\Programs\Python\Python313` to `PATH`, then verify `gcc` and `python` resolve to the expected local tools.
 20. Player-visible logs must use structured event log entries with localization and stable civilization identity snapshots. Do not add new raw English `event_log_push` messages for gameplay, performance, diplomacy, expansion, collapse, plague, or debug events.
 21. UI and rendering paths should prefer `RenderSnapshot` or cached read models over live simulation globals. Do not hold simulation/state locks during expensive rendering, text layout, event formatting, map cache rebuilds, or other UI-only work.

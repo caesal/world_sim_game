@@ -2,6 +2,10 @@
 #include "render/contour_paths.h"
 #include "render/panel_debug_worldgen.h"
 #include "render/plague_visual.h"
+#include "render/panel_view_model_cache.h"
+#include "render/map_labels.h"
+#include "render/render.h"
+#include "render/sea_lane_render.h"
 #include "render/render_context.h"
 #include "render_panel_internal.h"
 #include "core/profiler.h"
@@ -92,10 +96,33 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              perf.border_rebuild_count, perf.label_rebuild_count,
              perf.gdi_bitmap_recreate_count);
     perf_row(hdc, cursor, tr("Layer rebuilds", "图层重建"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "hit %d / miss %d / %d ms",
+             render_scene_cache_hits(), render_scene_cache_misses(),
+             render_scene_cache_last_build_ms());
+    perf_row(hdc, cursor, tr("Scene cache", "场景缓存"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "build %d ms / age %d ms / refresh %d",
+             panel_view_model_cache_last_build_ms(), panel_view_model_cache_age_ms(),
+             panel_view_model_cache_refresh_count());
+    perf_row(hdc, cursor, tr("Side panel cache", "侧栏缓存"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "labels %d/%d / last %d ms / rebuild %d",
+             map_label_cache_drawn_count(), map_label_cache_candidate_count(),
+             map_label_cache_last_rebuild_ms(), map_label_cache_rebuild_count());
+    perf_row(hdc, cursor, tr("Label layout", "标签布局"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "hit %d / miss %d / %d ms / dash %d",
+             sea_lane_render_cache_hits(), sea_lane_render_cache_misses(),
+             sea_lane_render_last_ms(), sea_lane_render_dash_segments());
+    perf_row(hdc, cursor, tr("Sea lane render", "航道渲染"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "fog %d builds / last %d ms / gate %d ms",
              plague_visual_fog_rebuild_count(), plague_visual_last_fog_rebuild_ms(),
              plague_visual_fog_rebuild_interval_ms());
     perf_row(hdc, cursor, tr("Plague fog", "瘟疫雾"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%dx%d / %s / lanes %d",
+             plague_visual_fog_cache_width(), plague_visual_fog_cache_height(),
+             plague_visual_mode_text(), plague_visual_infected_lane_count());
+    perf_row(hdc, cursor, tr("Plague visual", "瘟疫视觉"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "data %d ms / draw %d ms",
+             plague_visual_data_update_ms(), plague_visual_last_draw_ms());
+    perf_row(hdc, cursor, tr("Plague split", "瘟疫分层"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "contours %d paths / %d ms",
              perf.contour_path_count, perf.contour_rebuild_ms);
     perf_row(hdc, cursor, tr("Contours", "轮廓线"), text,

@@ -31,6 +31,8 @@ typedef struct {
     int supply_fail_b;
 } ActiveWar;
 
+#define WAR_SAVE_SLOT_COUNT (MAX_CIVS * MAX_CIVS / 2)
+
 void war_reset(void);
 int war_start(int attacker, int defender);
 void war_update_year(void);
@@ -48,6 +50,8 @@ int war_peace_pressure_between(int civ_id, int other_id);
 int war_total_started_count(void);
 void war_end_direct_for_civ(int civ_id);
 int war_start_independence(int attacker, int defender);
+void war_copy_save_state(ActiveWar *wars, int war_count, int *support, int support_count, int *total_started);
+void war_restore_save_state(const ActiveWar *wars, int war_count, const int *support, int support_count, int total_started);
 const char *war_outcome_name(WarOutcome outcome);
 
 #endif

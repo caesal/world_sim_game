@@ -10,11 +10,13 @@ SOURCES := \
 	src/game/game_worldgen.c \
 	src/io/map_save.c \
 	src/io/map_save_regions.c \
+	src/io/map_save_state.c \
 	src/core/event_log.c \
 	src/core/event_log_history.c \
 	src/core/game_state.c \
 	src/core/country_focus.c \
 	src/core/dirty_flags.c \
+	src/core/load_progress.c \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
 	src/core/render_snapshot_keys.c \
@@ -72,6 +74,7 @@ SOURCES := \
 	src/sim/war_front.c \
 	src/sim/war_resolution.c \
 	src/render/render.c \
+	src/render/render_static_map_cache.c \
 	src/render/render_context.c \
 	src/render/snapshot_ui.c \
 	src/render/render_common.c \
@@ -79,6 +82,8 @@ SOURCES := \
 	src/render/cartography_layers.c \
 	src/render/contour_paths.c \
 	src/render/vector_paths.c \
+	src/render/load_progress_overlay.c \
+	src/render/panel_view_model_cache.c \
 	src/render/worldgen_progress_overlay.c \
 	src/render/diplomacy_map_anim.c \
 	src/render/map_render.c \

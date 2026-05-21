@@ -148,6 +148,7 @@ static void copy_civs(RenderSnapshot *snapshot) {
         snprintf(dst->collapse_last_reason, sizeof(dst->collapse_last_reason), "%s", collapse_last_reason(i));
         dst->capital_city = src->capital_city;
         dst->overlord = vassal_overlord(i);
+        dst->vassal_support_used = dst->overlord >= 0 ? vassal_support_used_by_overlord(dst->overlord, i) : 0; dst->vassal_support_casualties = vassal_support_casualties(i);
         dst->vassal_count = vassal_direct_count(i);
         dst->name_id = src->name_id;
         dst->summary = summarize_country(i);

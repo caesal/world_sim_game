@@ -171,6 +171,63 @@ COLORREF overview_color(int x, int y) {
     return blend_color(color, RGB(236, 230, 198), clamp((55 - elev) / 4, 0, 12));
 }
 
+static double hue_component(double p, double q, double t) {
+    if (t < 0.0) t += 1.0;
+    if (t > 1.0) t -= 1.0;
+    if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+    if (t < 1.0 / 2.0) return q;
+    if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+    return p;
+}
+
+static int color_byte(double value) {
+    return clamp((int)(value * 255.0 + 0.5), 0, 255);
+}
+
+COLORREF soften_political_color(COLORREF color) {
+    double r = GetRValue(color) / 255.0;
+    double g = GetGValue(color) / 255.0;
+    double b = GetBValue(color) / 255.0;
+    double max_v = r;
+    double min_v = r;
+    double h = 0.0;
+    double s = 0.0;
+    double l;
+
+    if (g > max_v) max_v = g;
+    if (b > max_v) max_v = b;
+    if (g < min_v) min_v = g;
+    if (b < min_v) min_v = b;
+    l = (max_v + min_v) * 0.5;
+
+    if (max_v != min_v) {
+        double d = max_v - min_v;
+        s = l > 0.5 ? d / (2.0 - max_v - min_v) : d / (max_v + min_v);
+        if (max_v == r) h = (g - b) / d + (g < b ? 6.0 : 0.0);
+        else if (max_v == g) h = (b - r) / d + 2.0;
+        else h = (r - g) / d + 4.0;
+        h /= 6.0;
+    }
+
+    if (s > POLITICAL_SATURATION_CAP) s = POLITICAL_SATURATION_CAP;
+    if (s > 0.0) {
+        double q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
+        double p = 2.0 * l - q;
+        r = hue_component(p, q, h + 1.0 / 3.0);
+        g = hue_component(p, q, h);
+        b = hue_component(p, q, h - 1.0 / 3.0);
+    } else {
+        r = l;
+        g = l;
+        b = l;
+    }
+    return RGB(color_byte(r), color_byte(g), color_byte(b));
+}
+
+COLORREF political_color_with_texture(COLORREF civ_color, COLORREF texture) {
+    return blend_color(soften_political_color(civ_color), texture, POLITICAL_TEXTURE_BLEND);
+}
+
 int point_in_rect_local(RECT rect, int x, int y) {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }

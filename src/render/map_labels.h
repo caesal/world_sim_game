@@ -5,5 +5,9 @@
 #include "ui/ui_layout.h"
 
 void draw_map_labels(HDC hdc, RECT client, MapLayout layout);
+int map_label_cache_rebuild_count(void);
+int map_label_cache_last_rebuild_ms(void);
+int map_label_cache_candidate_count(void);
+int map_label_cache_drawn_count(void);
 
 #endif

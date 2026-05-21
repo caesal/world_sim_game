@@ -244,6 +244,8 @@ int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id);
 int event_log_entry_involves_civ_uid(const EventLogEntry *entry, int civ_id, int civ_uid);
 int event_log_recent_for_civ_uid(int civ_id, int civ_uid, int index, EventLogEntry *out);
 int event_log_recent_count_for_civ_uid(int civ_id, int civ_uid);
+void event_log_copy_save_state(EventLogEntry *entries, int max_entries, int *count, int *next, int *total);
+void event_log_restore_save_state(const EventLogEntry *entries, int count, int next, int total);
 COLORREF blend_color(COLORREF base, COLORREF overlay, int percent);
 int point_in_rect(RECT rect, int x, int y);
 void map_size_dimensions(int size, int *out_w, int *out_h);

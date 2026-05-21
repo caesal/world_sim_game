@@ -70,6 +70,8 @@ void diplomacy_record_war_result(int winner, int loser);
 void diplomacy_record_war_interrupted(int civ_a, int civ_b);
 void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score);
 void diplomacy_start_vassal(int overlord, int vassal, int relation_score);
+void diplomacy_restore_relation(int civ_a, int civ_b, DiplomacyRelation relation);
+void diplomacy_sanitize_loaded(void);
 const char *diplomacy_status_name(DiplomacyStatus status);
 int diplomacy_last_war_desire(int civ_id);
 const char *diplomacy_last_war_reason(int civ_id);

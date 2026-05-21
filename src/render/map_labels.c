@@ -28,6 +28,19 @@ typedef struct {
     RECT rect;
 } MapLabelCandidate;
 
+static unsigned int country_anchor_key;
+static int country_anchor_map_w;
+static int country_anchor_map_h;
+static int country_anchor_x[MAX_CIVS];
+static int country_anchor_y[MAX_CIVS];
+static int country_anchor_weight[MAX_CIVS];
+static MapLabelCandidate cached_labels[MAX_RENDER_LABELS];
+static unsigned int label_layout_key;
+static int cached_label_count;
+static int label_rebuild_count;
+static int label_last_rebuild_ms;
+static int label_last_candidate_count;
+
 static int rects_overlap(RECT a, RECT b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
@@ -123,6 +136,61 @@ static int selected_region_id(const RenderSnapshot *snapshot) {
     return tile ? tile->region_id : -1;
 }
 
+static unsigned int label_anchor_key_for(const RenderSnapshot *snapshot) {
+    unsigned int key = snapshot ? snapshot->tiles_revision : 0;
+    if (!snapshot) return 0;
+    key = key * 1000003u ^ snapshot->cities_revision;
+    key = key * 1000003u ^ snapshot->civs_revision;
+    key = key * 1000003u ^ (unsigned int)(snapshot->map_w * 4099 + snapshot->map_h);
+    return key;
+}
+
+static void rebuild_country_anchor_cache(const RenderSnapshot *snapshot) {
+    long sx[MAX_CIVS];
+    long sy[MAX_CIVS];
+    int x, y, i;
+    memset(sx, 0, sizeof(sx));
+    memset(sy, 0, sizeof(sy));
+    memset(country_anchor_weight, 0, sizeof(country_anchor_weight));
+    for (y = 2; y < snapshot->map_h; y += 7) {
+        for (x = 2; x < snapshot->map_w; x += 7) {
+            const SnapshotTile *tile = render_snapshot_tile_at(snapshot, x, y);
+            int owner = tile ? tile->owner : -1;
+            if (owner < 0 || owner >= snapshot->civ_count) continue;
+            sx[owner] += x;
+            sy[owner] += y;
+            country_anchor_weight[owner]++;
+        }
+    }
+    for (i = 0; i < snapshot->city_count; i++) {
+        const SnapshotCity *city = &snapshot->cities[i];
+        int owner = city->owner;
+        int city_weight;
+        if (!city->alive || owner < 0 || owner >= snapshot->civ_count) continue;
+        city_weight = city->capital ? 36 : 8;
+        sx[owner] += (long)city->x * city_weight;
+        sy[owner] += (long)city->y * city_weight;
+        country_anchor_weight[owner] += city_weight;
+    }
+    for (i = 0; i < MAX_CIVS; i++) {
+        country_anchor_x[i] = country_anchor_weight[i] > 0 ? (int)(sx[i] / country_anchor_weight[i]) : 0;
+        country_anchor_y[i] = country_anchor_weight[i] > 0 ? (int)(sy[i] / country_anchor_weight[i]) : 0;
+    }
+    country_anchor_key = label_anchor_key_for(snapshot);
+    country_anchor_map_w = snapshot->map_w;
+    country_anchor_map_h = snapshot->map_h;
+}
+
+static void ensure_country_anchor_cache(const RenderSnapshot *snapshot) {
+    unsigned int key;
+    if (!snapshot) return;
+    key = label_anchor_key_for(snapshot);
+    if (country_anchor_key != key || country_anchor_map_w != snapshot->map_w ||
+        country_anchor_map_h != snapshot->map_h) {
+        rebuild_country_anchor_cache(snapshot);
+    }
+}
+
 static int add_label_candidate(HDC hdc, MapLayout layout, MapLabelCandidate *labels, int *count,
                                MapLabelKind kind, int anchor_x, int anchor_y, const char *text,
                                int large, int selected) {
@@ -199,36 +267,17 @@ static void collect_country_labels(HDC hdc, MapLayout layout, MapLabelCandidate 
     const RenderSnapshot *snapshot = render_context_snapshot();
     int civ_id;
     if (!snapshot || !snapshot->world_generated) return;
+    ensure_country_anchor_cache(snapshot);
     for (civ_id = 0; civ_id < snapshot->civ_count; civ_id++) {
-        long sx = 0, sy = 0, weight = 0;
-        int x, y, i;
         const SnapshotCiv *civ = &snapshot->civs[civ_id];
         const char *name;
         int selected = selected_civ == civ_id;
         if (!civ->alive) continue;
-        for (y = 2; y < snapshot->map_h; y += 7) {
-            for (x = 2; x < snapshot->map_w; x += 7) {
-                const SnapshotTile *tile = render_snapshot_tile_at(snapshot, x, y);
-                if (!tile || tile->owner != civ_id) continue;
-                sx += tile_center_x(layout, snapshot, x);
-                sy += tile_center_y(layout, snapshot, y);
-                weight++;
-            }
-        }
-        for (i = 0; i < snapshot->city_count; i++) {
-            const SnapshotCity *city = &snapshot->cities[i];
-            int city_weight;
-            if (!city->alive || city->owner != civ_id) continue;
-            city_weight = city->capital ? 36 : 8;
-            sx += (long)tile_center_x(layout, snapshot, city->x) * city_weight;
-            sy += (long)tile_center_y(layout, snapshot, city->y) * city_weight;
-            weight += city_weight;
-        }
-        if (!selected && weight < (layout.tile_size < 4 ? 18 : 7)) continue;
+        if (!selected && country_anchor_weight[civ_id] < (layout.tile_size < 4 ? 18 : 7)) continue;
         name = ui_language == UI_LANG_ZH ? civ->name_zh : civ->name_en;
         add_label_candidate(hdc, layout, labels, count, LABEL_COUNTRY,
-                            weight > 0 ? (int)(sx / weight) : layout.map_x,
-                            weight > 0 ? (int)(sy / weight) : layout.map_y,
+                            country_anchor_weight[civ_id] > 0 ? tile_center_x(layout, snapshot, country_anchor_x[civ_id]) : layout.map_x,
+                            country_anchor_weight[civ_id] > 0 ? tile_center_y(layout, snapshot, country_anchor_y[civ_id]) : layout.map_y,
                             name, civ->summary.territory > 420, selected);
     }
 }
@@ -316,6 +365,33 @@ static int draw_rank(MapLabelKind kind) {
     }
 }
 
+static unsigned int mix_label_key(unsigned int key, int value) {
+    return key * 1000003u ^ (unsigned int)value;
+}
+
+static unsigned int label_layout_key_for(const RenderSnapshot *snapshot, RECT viewport, MapLayout layout) {
+    unsigned int key = snapshot ? snapshot->revision : 0;
+    if (!snapshot) return 0;
+    key = mix_label_key(key, snapshot->tiles_revision);
+    key = mix_label_key(key, snapshot->cities_revision);
+    key = mix_label_key(key, snapshot->civs_revision);
+    key = mix_label_key(key, snapshot->regions_revision);
+    key = mix_label_key(key, ui_language);
+    key = mix_label_key(key, display_mode);
+    key = mix_label_key(key, map_zoom_percent / 5);
+    key = mix_label_key(key, layout.tile_size);
+    key = mix_label_key(key, layout.map_x / 24);
+    key = mix_label_key(key, layout.map_y / 24);
+    key = mix_label_key(key, layout.draw_w / 24);
+    key = mix_label_key(key, layout.draw_h / 24);
+    key = mix_label_key(key, selected_civ);
+    key = mix_label_key(key, selected_x);
+    key = mix_label_key(key, selected_y);
+    key = mix_label_key(key, viewport.right - viewport.left);
+    key = mix_label_key(key, viewport.bottom - viewport.top);
+    return key;
+}
+
 static void draw_accepted_labels(HDC hdc, const MapLabelCandidate *labels, int count) {
     int rank, i;
     for (rank = 0; rank <= 6; rank++) {
@@ -331,10 +407,9 @@ static void draw_accepted_labels(HDC hdc, const MapLabelCandidate *labels, int c
 void draw_map_labels(HDC hdc, RECT client, MapLayout layout) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     MapLabelCandidate candidates[MAX_LABEL_CANDIDATES];
-    MapLabelCandidate accepted[MAX_RENDER_LABELS];
-    RECT viewport = get_map_viewport_rect(client);
+    RECT viewport = get_map_content_rect(client);
     int candidate_count = 0;
-    int accepted_count;
+    unsigned int key;
     int saved_dc = SaveDC(hdc);
     if (!snapshot || !snapshot->world_generated) {
         RestoreDC(hdc, saved_dc);
@@ -342,10 +417,28 @@ void draw_map_labels(HDC hdc, RECT client, MapLayout layout) {
     }
     IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
     SetBkMode(hdc, TRANSPARENT);
+    key = label_layout_key_for(snapshot, viewport, layout);
+    if (key == label_layout_key && cached_label_count > 0) {
+        draw_accepted_labels(hdc, cached_labels, cached_label_count);
+        RestoreDC(hdc, saved_dc);
+        return;
+    }
+    {
+        DWORD start = GetTickCount();
     collect_country_labels(hdc, layout, candidates, &candidate_count);
     collect_city_and_port_labels(hdc, layout, candidates, &candidate_count);
     collect_province_labels(hdc, layout, candidates, &candidate_count);
-    accepted_count = place_labels(candidates, candidate_count, viewport, accepted, MAX_RENDER_LABELS);
-    draw_accepted_labels(hdc, accepted, accepted_count);
+        cached_label_count = place_labels(candidates, candidate_count, viewport, cached_labels, MAX_RENDER_LABELS);
+        label_last_candidate_count = candidate_count;
+        label_layout_key = key;
+        label_rebuild_count++;
+        label_last_rebuild_ms = (int)(GetTickCount() - start);
+    }
+    draw_accepted_labels(hdc, cached_labels, cached_label_count);
     RestoreDC(hdc, saved_dc);
 }
+
+int map_label_cache_rebuild_count(void) { return label_rebuild_count; }
+int map_label_cache_last_rebuild_ms(void) { return label_last_rebuild_ms; }
+int map_label_cache_candidate_count(void) { return label_last_candidate_count; }
+int map_label_cache_drawn_count(void) { return cached_label_count; }

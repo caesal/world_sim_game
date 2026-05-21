@@ -426,7 +426,7 @@ static void draw_layer(HDC hdc, RECT client, MapLayout layout, ContourKind kind,
 
 void contour_paths_draw_coastline(HDC hdc, RECT client, MapLayout layout) {
     ensure_contour_cache(CONTOUR_COAST, dirty_revision_coast(), 0);
-    draw_layer(hdc, client, layout, CONTOUR_COAST, RGB(18, 42, 39), 2, RGB(86, 132, 104), 1, 0);
+    draw_layer(hdc, client, layout, CONTOUR_COAST, RGB(196, 202, 184), 1, RGB(196, 202, 184), 0, 0);
 }
 
 void contour_paths_draw_country_borders(HDC hdc, RECT client, MapLayout layout) {

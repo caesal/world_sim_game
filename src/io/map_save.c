@@ -1,9 +1,11 @@
 #include "map_save.h"
 
 #include "core/game_types.h"
+#include "core/load_progress.h"
 #include "game/game.h"
 #include "io/map_save_legacy.h"
 #include "io/map_save_regions.h"
+#include "io/map_save_state.h"
 #include "sim/civilization_uid.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
@@ -13,7 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAP_SAVE_VERSION 7
+#define MAP_SAVE_VERSION 8
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {
@@ -53,7 +55,6 @@ static int path_exists(const char *path) {
     DWORD attributes = GetFileAttributesA(path);
     return attributes != INVALID_FILE_ATTRIBUTES;
 }
-
 static int join_path(char *out, size_t out_size, const char *folder, const char *name) {
     size_t folder_len = strlen(folder);
     size_t name_len = strlen(name);
@@ -67,7 +68,6 @@ static int join_path(char *out, size_t out_size, const char *folder, const char 
     out[total] = '\0';
     return 1;
 }
-
 static int build_save_folder_path(char *path, size_t path_size) {
     char module_path[MAP_SAVE_PATH_MAX];
     char *last_slash;
@@ -79,7 +79,6 @@ static int build_save_folder_path(char *path, size_t path_size) {
     if (!join_path(path, path_size, module_path, "saves")) return 0;
     return join_path(path, path_size, path, "maps");
 }
-
 static int ensure_parent_folder(const char *folder) {
     char parent[MAP_SAVE_PATH_MAX];
     char *last_slash;
@@ -91,7 +90,6 @@ static int ensure_parent_folder(const char *folder) {
     if (!path_exists(parent) && !CreateDirectoryA(parent, NULL)) return 0;
     return 1;
 }
-
 static void migrate_legacy_nested_saves(void) {
     char nested_folder[MAP_SAVE_PATH_MAX];
     char pattern[MAP_SAVE_PATH_MAX];
@@ -114,7 +112,6 @@ static void migrate_legacy_nested_saves(void) {
     } while (FindNextFileA(find, &find_data));
     FindClose(find);
 }
-
 int ensure_map_save_folder(void) {
     if (!build_save_folder_path(save_folder, sizeof(save_folder))) return 0;
     if (!ensure_parent_folder(save_folder)) return 0;
@@ -122,7 +119,6 @@ int ensure_map_save_folder(void) {
     migrate_legacy_nested_saves();
     return 1;
 }
-
 static void show_utf8_message(HWND hwnd, const char *text, const char *title, UINT flags) {
     WCHAR wide_text[1024];
     WCHAR wide_title[128];
@@ -131,15 +127,16 @@ static void show_utf8_message(HWND hwnd, const char *text, const char *title, UI
     MultiByteToWideChar(CP_UTF8, 0, title, -1, wide_title, (int)(sizeof(wide_title) / sizeof(wide_title[0])));
     MessageBoxW(hwnd, wide_text, wide_title, flags);
 }
+static void load_repaint(void *user_data) {
+    HWND hwnd = (HWND)user_data; if (hwnd) { InvalidateRect(hwnd, NULL, FALSE); UpdateWindow(hwnd); }
+}
 
 static int write_block(FILE *file, const void *data, size_t size, size_t count) {
     return fwrite(data, size, count, file) == count;
 }
-
 static int read_block(FILE *file, void *data, size_t size, size_t count) {
     return fread(data, size, count, file) == count;
 }
-
 static void fill_header(MapSaveHeader *header) {
     memset(header, 0, sizeof(*header));
     memcpy(header->magic, MAP_SAVE_MAGIC, sizeof(header->magic));
@@ -170,7 +167,6 @@ static void fill_header(MapSaveHeader *header) {
     header->region_size_slider = region_size_slider;
     header->plague_fog_alpha = plague_fog_alpha;
 }
-
 static int validate_header(const MapSaveHeader *header) {
     return memcmp(header->magic, MAP_SAVE_MAGIC, sizeof(header->magic)) == 0 &&
            (header->version >= 1 && header->version <= MAP_SAVE_VERSION) &&
@@ -182,7 +178,6 @@ static int validate_header(const MapSaveHeader *header) {
            header->maritime_route_count >= 0 && header->maritime_route_count <= MAX_MARITIME_ROUTES &&
            header->region_count >= 0 && header->region_count <= MAX_NATURAL_REGIONS;
 }
-
 static void make_save_filename(char *path, size_t path_size) {
     SYSTEMTIME time_now;
     char file_name[80];
@@ -193,7 +188,6 @@ static void make_save_filename(char *path, size_t path_size) {
              time_now.wHour, time_now.wMinute, time_now.wSecond);
     if (!join_path(path, path_size, save_folder, file_name)) path[0] = '\0';
 }
-
 static int pick_save_destination(HWND hwnd, char *path, DWORD path_size) {
     OPENFILENAMEA save_file;
 
@@ -213,13 +207,11 @@ static int pick_save_destination(HWND hwnd, char *path, DWORD path_size) {
 
 static int write_world_rows(FILE *file) {
     int y;
-
     for (y = 0; y < map_h; y++) {
         if (!write_block(file, world[y], sizeof(Tile), (size_t)map_w)) return 0;
     }
     return 1;
 }
-
 static void clear_loaded_storage(void) {
     int x;
     int y;
@@ -240,16 +232,14 @@ static void clear_loaded_storage(void) {
     memset(civs, 0, sizeof(civs));
     memset(cities, 0, sizeof(cities));
 }
-
 static int read_world_rows(FILE *file) {
     int y;
-
     for (y = 0; y < map_h; y++) {
         if (!read_block(file, world[y], sizeof(Tile), (size_t)map_w)) return 0;
+        if ((y & 7) == 0 || y + 1 == map_h) load_progress_update(LOAD_STAGE_WORLD_TILES, y + 1, map_h);
     }
     return 1;
 }
-
 static int read_civilizations(FILE *file, int save_version) {
     if (save_version >= 6) {
         return read_block(file, civs, sizeof(Civilization), (size_t)civ_count);
@@ -273,7 +263,6 @@ static int read_civilizations(FILE *file, int save_version) {
     if (save_version == 3) {
         LegacyCivilizationV3 legacy[MAX_CIVS];
         int i;
-
         if (!read_block(file, legacy, sizeof(LegacyCivilizationV3), (size_t)civ_count)) return 0;
         for (i = 0; i < civ_count; i++) {
             memset(&civs[i], 0, sizeof(civs[i]));
@@ -284,7 +273,6 @@ static int read_civilizations(FILE *file, int save_version) {
     if (save_version == 2) {
         LegacyCivilizationV2 legacy[MAX_CIVS];
         int i;
-
         if (!read_block(file, legacy, sizeof(LegacyCivilizationV2), (size_t)civ_count)) return 0;
         for (i = 0; i < civ_count; i++) {
             memset(&civs[i], 0, sizeof(civs[i]));
@@ -297,7 +285,6 @@ static int read_civilizations(FILE *file, int save_version) {
     {
         LegacyCivilizationV1 legacy[MAX_CIVS];
         int i;
-
         if (!read_block(file, legacy, sizeof(LegacyCivilizationV1), (size_t)civ_count)) return 0;
         for (i = 0; i < civ_count; i++) {
             memset(&civs[i], 0, sizeof(civs[i]));
@@ -379,7 +366,8 @@ int save_current_map(HWND hwnd) {
         !write_block(file, maritime_routes, sizeof(MaritimeRoute), (size_t)maritime_route_count) ||
         !map_save_write_natural_regions(file) ||
         !write_block(file, civs, sizeof(Civilization), (size_t)civ_count) ||
-        !write_block(file, cities, sizeof(City), (size_t)city_count)) {
+        !write_block(file, cities, sizeof(City), (size_t)city_count) ||
+        !map_save_write_dynamic_state(file)) {
         fclose(file);
         show_utf8_message(hwnd, "Could not write the full map save.", "Save Map", MB_OK | MB_ICONERROR);
         return 0;
@@ -422,6 +410,9 @@ int load_map_from_file(HWND hwnd) {
     MapSaveHeader header;
     FILE *file;
     char path[MAP_SAVE_PATH_MAX];
+#define LOAD_FAIL(message) do { fclose(file); load_progress_fail(); \
+    load_progress_set_repaint_callback(NULL, NULL); \
+    show_utf8_message(hwnd, message, "Load Map", MB_OK | MB_ICONERROR); return 0; } while (0)
 
     if (!ensure_map_save_folder() || !any_save_files()) {
         show_utf8_message(hwnd, "No saved maps found.", "Load Map", MB_OK | MB_ICONINFORMATION);
@@ -433,12 +424,16 @@ int load_map_from_file(HWND hwnd) {
         show_utf8_message(hwnd, "Could not open selected map save.", "Load Map", MB_OK | MB_ICONERROR);
         return 0;
     }
+    load_progress_set_repaint_callback(load_repaint, hwnd);
+    load_progress_begin();
+    load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 0, 1);
     if (!read_block(file, &header, sizeof(header), 1) || !validate_header(&header)) {
-        fclose(file);
-        show_utf8_message(hwnd, "The selected file is not a compatible map save.", "Load Map", MB_OK | MB_ICONERROR);
-        return 0;
+        LOAD_FAIL("The selected file is not a compatible map save.");
     }
+    load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 1, 1);
+    load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 0, 1);
     clear_loaded_storage();
+    load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 1, 1);
     map_w = header.map_w;
     map_h = header.map_h;
     map_size_index = clamp(header.map_size_index, 0, MAP_SIZE_COUNT - 1);
@@ -464,21 +459,41 @@ int load_map_from_file(HWND hwnd) {
     initial_civ_count = header.initial_civ_count;
     region_size_slider = header.region_size_slider;
     plague_fog_alpha = header.plague_fog_alpha;
-    if (!read_world_rows(file) ||
-        !read_block(file, river_paths, sizeof(RiverPath), (size_t)river_path_count) ||
-        !read_block(file, maritime_routes, sizeof(MaritimeRoute), (size_t)maritime_route_count) ||
-        !map_save_read_natural_regions(file, header.version) ||
-        !read_civilizations(file, header.version) ||
-        !read_block(file, cities, sizeof(City), (size_t)city_count)) {
-        fclose(file);
-        show_utf8_message(hwnd, "Could not read the full map save.", "Load Map", MB_OK | MB_ICONERROR);
-        return 0;
+    load_progress_update(LOAD_STAGE_WORLD_TILES, 0, max(1, map_h));
+    if (!read_world_rows(file)) LOAD_FAIL("Could not read the full map save.");
+    load_progress_update(LOAD_STAGE_RIVERS, 0, 1);
+    if (!read_block(file, river_paths, sizeof(RiverPath), (size_t)river_path_count)) LOAD_FAIL("Could not read the full map save.");
+    load_progress_update(LOAD_STAGE_RIVERS, 1, 1);
+    load_progress_update(LOAD_STAGE_MARITIME, 0, 1);
+    if (!read_block(file, maritime_routes, sizeof(MaritimeRoute), (size_t)maritime_route_count)) LOAD_FAIL("Could not read the full map save.");
+    load_progress_update(LOAD_STAGE_MARITIME, 1, 1);
+    load_progress_update(LOAD_STAGE_REGIONS, 0, 1);
+    if (!map_save_read_natural_regions(file, header.version)) LOAD_FAIL("Could not read the full map save.");
+    load_progress_update(LOAD_STAGE_REGIONS, 1, 1);
+    load_progress_update(LOAD_STAGE_CIVS, 0, 1);
+    if (!read_civilizations(file, header.version)) LOAD_FAIL("Could not read the full map save.");
+    load_progress_update(LOAD_STAGE_CIVS, 1, 1);
+    load_progress_update(LOAD_STAGE_CITIES, 0, 1);
+    if (!read_block(file, cities, sizeof(City), (size_t)city_count)) LOAD_FAIL("Could not read the full map save.");
+    load_progress_update(LOAD_STAGE_CITIES, 1, 1);
+    {
+        int dynamic_result;
+        load_progress_update(LOAD_STAGE_DYNAMIC_STATE, 0, 1);
+        dynamic_result = map_save_read_dynamic_state(file, header.version);
+        if (dynamic_result < 0) {
+            LOAD_FAIL("Could not read dynamic world state.");
+        }
+        load_progress_update(LOAD_STAGE_DYNAMIC_STATE, 1, 1);
+        header.version = dynamic_result > 0 ? header.version : 7;
     }
     fclose(file);
     normalize_loaded_technology();
     civilization_migrate_loaded_names();
     civilization_repair_loaded_uids();
-    game_request_after_load_map();
+    game_request_after_load_map(header.version >= 8);
+    load_progress_finish();
+    load_progress_set_repaint_callback(NULL, NULL);
     show_utf8_message(hwnd, "Loaded map save successfully.", "Load Map", MB_OK | MB_ICONINFORMATION);
+#undef LOAD_FAIL
     return 1;
 }

@@ -1,6 +1,7 @@
 ﻿#include "game.h"
 #include "core/game_types.h"
 #include "core/dirty_flags.h"
+#include "core/load_progress.h"
 #include "core/render_snapshot.h"
 #include "core/state_lock.h"
 #include "game/game_loop.h"
@@ -154,25 +155,29 @@ Color32 game_preview_civilization_color_auto_avoid(int civ_id, Color32 preferred
 void game_request_set_civilization_color(int civ_id, Color32 color) {
     game_request_set_civilization_color_exact(civ_id, color);
 }
-void game_request_after_load_map(void) {
+void game_request_after_load_map(int restored_dynamic_state) {
+    load_progress_update(LOAD_STAGE_POST_LOAD, 0, 6);
     selected_x = -1;
     selected_y = -1;
     selected_civ = -1;
     auto_run = 0;
     game_loop_reset();
-    diplomacy_reset();
-    war_reset();
-    plague_reset();
+    if (!restored_dynamic_state) { diplomacy_reset(); war_reset(); plague_reset(); }
+    load_progress_update(LOAD_STAGE_POST_LOAD, 1, 6);
     regions_claim_cache_reset();
     world_invalidate_region_cache();
     ports_refresh_city_regions();
+    load_progress_update(LOAD_STAGE_POST_LOAD, 2, 6);
     route_potential_rebuild();
+    load_progress_update(LOAD_STAGE_POST_LOAD, 3, 6);
     territory_integrity_repair_capitals();
-    diplomacy_update_contacts();
+    if (restored_dynamic_state) diplomacy_mark_contacts_dirty(); else diplomacy_update_contacts();
+    load_progress_update(LOAD_STAGE_POST_LOAD, 4, 6);
     civilization_colors_debug_check();
     dirty_mark_world();
     world_visual_revision++;
     render_snapshot_publish_from_live_state();
+    load_progress_update(LOAD_STAGE_POST_LOAD, 6, 6);
 }
 int game_request_trigger_civil_unrest(int civ_id) {
     int collapsed;

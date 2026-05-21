@@ -10,6 +10,10 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#define POLITICAL_FILL_ALPHA 176
+#define POLITICAL_SATURATION_CAP 0.62
+#define POLITICAL_TEXTURE_BLEND 26
+
 void fill_rect(HDC hdc, RECT rect, COLORREF color);
 void fill_rect_alpha(HDC hdc, RECT rect, COLORREF color, BYTE alpha);
 void draw_text_line(HDC hdc, int x, int y, const char *text, COLORREF color);
@@ -24,6 +28,8 @@ const char *resource_name(ResourceFeature resource);
 COLORREF geography_color(Geography geography);
 COLORREF climate_color(Climate climate);
 COLORREF overview_color(int x, int y);
+COLORREF soften_political_color(COLORREF color);
+COLORREF political_color_with_texture(COLORREF civ_color, COLORREF texture);
 int point_in_rect_local(RECT rect, int x, int y);
 void draw_icon_text_line(HDC hdc, int x, int y, IconId icon, const char *text, COLORREF color);
 void format_metric_value(int value, char *buffer, size_t buffer_size);

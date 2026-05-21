@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "统一浅海/深海显示，并加入水域视觉渐变。\n"
-                 "航道潜力网与普通航道共用同一套港口节点。\n"
-                 "占领带港口点的行省后会确定性激活港口与可见航道。\n"
-                 "修复 World 页随机按钮、输入框重绘、地图居中和侧栏折叠显示。\n",
+                 "读取地图时显示中央进度条，并恢复外交、战争、附庸、停战、瘟疫和日志状态。\n"
+                 "右侧面板、地图静态层、标签、航道和瘟疫视觉缓存进一步拆分，降低运行时卡顿。\n"
+                 "政治图层颜色更柔和，保留轻微地形纹理。\n"
+                 "浅海/深海水深由平滑大陆架场生成，海洋过渡更自然。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Unified shallow/deep water display with visual depth blending.\n"
-                 "Route potential and ordinary sea lanes now share the same port-node identity.\n"
-                 "Occupied port-site regions deterministically activate ports and visible sea lanes.\n"
-                 "World-tab random buttons, edit repainting, map centering, and sidebar collapse behavior were tightened.",
+                 "Map loading now shows a central progress overlay and restores diplomacy, war, vassal, truce, plague, and event state.\n"
+                 "Right-panel, static-map, label, route, and plague visual caches were split further to reduce runtime stutter.\n"
+                 "Political colors are softer while retaining subtle terrain texture.\n"
+                 "Shallow/deep water now comes from a smooth continental-shelf field for more natural ocean transitions.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

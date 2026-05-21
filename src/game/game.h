@@ -23,7 +23,7 @@ void game_request_set_civilization_color(int civ_id, Color32 color);
 void game_request_set_civilization_color_exact(int civ_id, Color32 color);
 void game_request_set_civilization_color_auto_avoid(int civ_id, Color32 preferred_color);
 Color32 game_preview_civilization_color_auto_avoid(int civ_id, Color32 preferred_color);
-void game_request_after_load_map(void);
+void game_request_after_load_map(int restored_dynamic_state);
 int game_request_trigger_civil_unrest(int civ_id);
 int game_request_release_vassal(int vassal_id);
 int game_tick_auto_run(void);

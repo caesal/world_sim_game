@@ -40,7 +40,6 @@ int render_snapshot_civs_revision_key(void) {
     key = combined_key(key, dirty_revision_province());
     key = combined_key(key, dirty_revision_label());
     key = combined_key(key, dirty_revision_route());
-    key = combined_key(key, year * 17 + month);
     key = combined_key(key, civ_count * 31 + city_count);
     return combined_key(key, world_generated);
 }
@@ -51,7 +50,6 @@ int render_snapshot_cities_revision_key(void) {
     key = combined_key(key, dirty_revision_province());
     key = combined_key(key, dirty_revision_route());
     key = combined_key(key, dirty_revision_label());
-    key = combined_key(key, year * 17 + month);
     key = combined_key(key, city_count * 31 + civ_count);
     return combined_key(key, world_generated);
 }
@@ -70,7 +68,6 @@ int render_snapshot_diplomacy_revision_key(void) {
     key = combined_key(key, dirty_revision_route());
     key = combined_key(key, dirty_revision_population());
     key = combined_key(key, dirty_revision_label());
-    key = combined_key(key, year * 17 + month);
     key = combined_key(key, civ_count * 31 + city_count);
     return combined_key(key, world_generated);
 }

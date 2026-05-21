@@ -9,5 +9,7 @@ void ui_invalidate_top_bar(HWND hwnd);
 void ui_invalidate_bottom_bar(HWND hwnd);
 void ui_invalidate_full(HWND hwnd);
 void ui_invalidate_game_redraw(HWND hwnd, int redraw_flags);
+void ui_request_panel_state_changed(HWND hwnd);
+void ui_request_map_static_state_changed(HWND hwnd);
 
 #endif

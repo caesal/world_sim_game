@@ -9,9 +9,8 @@ typedef enum {
     WATER_DEPTH_DEEP
 } WaterDepth;
 
-#define SHALLOW_WATER_LOGIC_MAX_DIST 7
-#define WATER_VISUAL_BLEND_START_DIST 5
-#define WATER_VISUAL_BLEND_END_DIST 9
+#define WATER_DEPTH_SHALLOW_MAX_SCORE 55
+#define WATER_DEPTH_DEEP_MIN_SCORE 56
 
 TerrainStats tile_stats(int x, int y);
 void terrain_stats_invalidate_cache(void);
@@ -22,6 +21,13 @@ int world_is_shallow_water(int x, int y);
 int world_is_deep_water(int x, int y);
 int world_water_distance_to_land(int x, int y);
 int world_water_visual_deep_percent(int x, int y);
+int world_water_shelf_width_at(int x, int y);
+int world_water_depth_rebuild_ms(void);
+int world_water_shallow_tile_count(void);
+int world_water_deep_tile_count(void);
+int world_water_shelf_min(void);
+int world_water_shelf_max(void);
+int world_water_shelf_avg(void);
 int world_tile_cost(int x, int y);
 int world_terrain_resource_value(TerrainStats stats);
 int world_is_coastal_land_tile(int x, int y);

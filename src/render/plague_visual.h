@@ -10,6 +10,12 @@ int plague_visual_route_intensity(int route_id);
 int plague_visual_fog_rebuild_interval_ms(void);
 int plague_visual_fog_rebuild_count(void);
 int plague_visual_last_fog_rebuild_ms(void);
+int plague_visual_last_draw_ms(void);
+int plague_visual_data_update_ms(void);
+int plague_visual_fog_cache_width(void);
+int plague_visual_fog_cache_height(void);
+int plague_visual_infected_lane_count(void);
+const char *plague_visual_mode_text(void);
 void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout);
 
 #endif

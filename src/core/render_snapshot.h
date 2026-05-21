@@ -95,6 +95,7 @@ typedef struct {
     int vassal_governance_disorder;
     int vassal_callable_soldiers;
     int vassal_resource_tribute;
+    int vassal_support_used, vassal_support_casualties;
     int decision_expansion_weight;
     int decision_war_weight;
     int decision_stability_weight;

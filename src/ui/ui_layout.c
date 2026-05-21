@@ -17,9 +17,21 @@ RECT get_map_viewport_rect(RECT client) {
     return viewport;
 }
 
+RECT get_map_frame_rect(RECT client) {
+    RECT frame = get_map_viewport_rect(client);
+    InflateRect(&frame, -12, -12);
+    if (frame.right < frame.left + 120) frame.right = frame.left + 120;
+    if (frame.bottom < frame.top + 120) frame.bottom = frame.top + 120;
+    return frame;
+}
+
+RECT get_map_content_rect(RECT client) {
+    return get_map_viewport_rect(client);
+}
+
 MapLayout get_map_layout(RECT client) {
     MapLayout layout;
-    RECT viewport = get_map_viewport_rect(client);
+    RECT viewport = get_map_content_rect(client);
     int available_w = viewport.right - viewport.left;
     int available_h = viewport.bottom - viewport.top;
     int fit_w = available_w;
@@ -73,7 +85,7 @@ void ui_map_view_reset(void) {
 }
 
 void ui_map_view_clamp(RECT client) {
-    RECT viewport = get_map_viewport_rect(client);
+    RECT viewport = get_map_content_rect(client);
     MapLayout layout;
     int viewport_w = viewport.right - viewport.left;
     int viewport_h = viewport.bottom - viewport.top;
@@ -202,7 +214,7 @@ RECT get_reset_view_button_rect(RECT client) {
 
 RECT get_map_legend_box_rect(RECT client) {
     RECT box;
-    int panel_left = client.right - side_panel_w;
+    RECT frame = get_map_frame_rect(client);
     int geo_count = 11;
     int climate_count = CLIMATE_COUNT;
     int line_h = 20;
@@ -214,14 +226,23 @@ RECT get_map_legend_box_rect(RECT client) {
                        display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL;
     int rows = show_geography ? geography_rows : 0;
     int box_w = show_geography && show_climate ? 390 : 210;
+    int full_h;
 
     if (show_climate && climate_rows + route_rows > rows) rows = climate_rows + route_rows;
     if (rows <= 0) rows = climate_rows;
-    box.right = panel_left - 14;
+    full_h = rows * line_h + 38;
+    if (!map_legend_collapsed && full_h + 180 > frame.bottom - frame.top) {
+        box.right = frame.right - 8;
+        box.left = box.right - 150;
+        box.bottom = frame.bottom - 8;
+        box.top = box.bottom - 34;
+        return box;
+    }
+    box.right = frame.right - 8;
     box.left = box.right - box_w;
-    box.bottom = client.bottom - BOTTOM_BAR_H - 12;
-    box.top = map_legend_collapsed ? box.bottom - 34 : box.bottom - (rows * line_h + 38);
-    if (box.left < 20 || box.top < TOP_BAR_H + 12) {
+    box.bottom = frame.bottom - 8;
+    box.top = map_legend_collapsed ? box.bottom - 34 : box.bottom - full_h;
+    if (box.left < frame.left + 8 || box.top < frame.top + 8) {
         SetRectEmpty(&box);
     }
     return box;

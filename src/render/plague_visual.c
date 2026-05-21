@@ -6,9 +6,12 @@
 #include "render/render_context.h"
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
-#define FOG_REBUILD_INTERVAL_MS 50
+#define FOG_REBUILD_INTERVAL_MS 125
+#define DATA_UPDATE_INTERVAL_MS 111
+#define FOG_CACHE_MIN_SCALE 2
 
 static int city_visual[MAX_CITIES];
 static int route_visual[MAX_SEA_LANES];
@@ -24,6 +27,10 @@ static unsigned int *fog_cache_pixels;
 static int fog_rebuild_accum_ms;
 static int fog_rebuild_count;
 static int last_fog_rebuild_ms;
+static int last_fog_draw_ms;
+static int last_data_update_ms;
+static int data_update_accum_ms;
+static int infected_lane_count;
 
 static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     unsigned int old = *dst;
@@ -52,30 +59,41 @@ int plague_visual_tick(int elapsed_ms) {
     int i;
     int changed = 0;
     int any = 0;
+    int lanes = 0;
     int was_active = visual_active;
+    int update_elapsed;
 
     elapsed_ms = clamp(elapsed_ms, 0, 250);
     if (elapsed_ms <= 0) return 0;
+    data_update_accum_ms += elapsed_ms;
+    if (data_update_accum_ms < DATA_UPDATE_INTERVAL_MS) return visual_active;
+    update_elapsed = data_update_accum_ms;
+    data_update_accum_ms = 0;
+    {
+        DWORD data_start = GetTickCount();
     snapshot = render_snapshot_acquire();
 
     for (i = 0; i < MAX_CITIES; i++) {
         int target = snapshot && i < snapshot->city_count ? snapshot->plague_city_severity[i] * 100 : 0;
-        int next = approach(city_visual[i], target, elapsed_ms);
+        int next = approach(city_visual[i], target, update_elapsed);
         if (next != city_visual[i]) changed = 1;
         city_visual[i] = next;
         if (next > 4) any = 1;
     }
     for (i = 0; i < MAX_SEA_LANES; i++) {
         int target = snapshot && i < snapshot->lane_count ? snapshot->plague_lane_exposure[i] * 100 : 0;
-        int next = approach(route_visual[i], target, elapsed_ms);
+        int next = approach(route_visual[i], target, update_elapsed);
         if (next != route_visual[i]) changed = 1;
         route_visual[i] = next;
-        if (next > 4) any = 1;
+        if (next > 4) { any = 1; lanes++; }
     }
     render_snapshot_release(snapshot);
+        last_data_update_ms = (int)(GetTickCount() - data_start);
+    }
     visual_active = any;
+    infected_lane_count = lanes;
     if (changed) {
-        fog_rebuild_accum_ms += elapsed_ms;
+        fog_rebuild_accum_ms += update_elapsed;
         if (!was_active || fog_rebuild_accum_ms >= FOG_REBUILD_INTERVAL_MS) {
             fog_cache_dirty = 1;
             fog_rebuild_accum_ms = 0;
@@ -83,7 +101,7 @@ int plague_visual_tick(int elapsed_ms) {
     } else if (!any) {
         fog_rebuild_accum_ms = 0;
     }
-    return changed;
+    return changed || any;
 }
 
 int plague_visual_active(void) {
@@ -105,6 +123,33 @@ int plague_visual_fog_rebuild_count(void) {
 
 int plague_visual_last_fog_rebuild_ms(void) {
     return last_fog_rebuild_ms;
+}
+
+int plague_visual_last_draw_ms(void) {
+    return last_fog_draw_ms;
+}
+
+int plague_visual_data_update_ms(void) {
+    return last_data_update_ms;
+}
+
+int plague_visual_fog_cache_width(void) {
+    return fog_cache_w;
+}
+
+int plague_visual_fog_cache_height(void) {
+    return fog_cache_h;
+}
+
+int plague_visual_infected_lane_count(void) {
+    return infected_lane_count;
+}
+
+const char *plague_visual_mode_text(void) {
+    static char text[64];
+    snprintf(text, sizeof(text), "pulse on / data %d / rebuild %d",
+             DATA_UPDATE_INTERVAL_MS, FOG_REBUILD_INTERVAL_MS);
+    return text;
 }
 
 static int blob_offset(int seed, int radius) {
@@ -135,18 +180,35 @@ static void draw_blob(unsigned int *pixels, int cx, int cy, int radius, int inte
     }
 }
 
+static int map_to_fog_x(const RenderSnapshot *snapshot, int x) {
+    return clamp(x * fog_cache_w / max(1, snapshot->map_w), 0, fog_cache_w - 1);
+}
+
+static int map_to_fog_y(const RenderSnapshot *snapshot, int y) {
+    return clamp(y * fog_cache_h / max(1, snapshot->map_h), 0, fog_cache_h - 1);
+}
+
+static int map_radius_to_fog(const RenderSnapshot *snapshot, int radius) {
+    int scaled_x = radius * fog_cache_w / max(1, snapshot->map_w);
+    int scaled_y = radius * fog_cache_h / max(1, snapshot->map_h);
+    return max(3, max(scaled_x, scaled_y));
+}
+
 static void add_city_cloud(unsigned int *pixels, const RenderSnapshot *snapshot, int city_id) {
     int intensity = city_visual[city_id];
     const SnapshotCity *city = &snapshot->cities[city_id];
-    int radius = clamp(9 + intensity / 28 + city->radius, 8, 58);
+    int map_radius = clamp(9 + intensity / 28 + city->radius, 8, 58);
+    int radius = map_radius_to_fog(snapshot, map_radius);
+    int cx = map_to_fog_x(snapshot, city->x);
+    int cy = map_to_fog_y(snapshot, city->y);
     int blobs = clamp(4 + intensity / 180, 4, 10);
     int i;
 
     if (intensity <= 4 || !city->alive) return;
     for (i = 0; i < blobs; i++) {
         int seed = city_id * 97 + i * 37;
-        int bx = city->x + blob_offset(seed, radius / 2);
-        int by = city->y + blob_offset(seed + 19, radius / 2);
+        int bx = cx + blob_offset(seed, radius / 2);
+        int by = cy + blob_offset(seed + 19, radius / 2);
         int br = clamp(radius / 2 + abs(blob_offset(seed + 41, radius / 2)), 5, radius);
         draw_blob(pixels, clamp(bx, 0, fog_cache_w - 1), clamp(by, 0, fog_cache_h - 1), br, intensity);
     }
@@ -166,16 +228,26 @@ static void release_fog_cache(void) {
     fog_cache_dirty = 1;
 }
 
+static int fog_cache_scale_for_snapshot(const RenderSnapshot *snapshot) {
+    int area = snapshot ? snapshot->map_w * snapshot->map_h : 0;
+    if (area > 700000) return 4;
+    if (area > 300000) return 3;
+    return FOG_CACHE_MIN_SCALE;
+}
+
 static int ensure_fog_cache(HDC hdc, const RenderSnapshot *snapshot) {
     BITMAPINFO info;
+    int scale = fog_cache_scale_for_snapshot(snapshot);
+    int target_w = max(1, (snapshot->map_w + scale - 1) / scale);
+    int target_h = max(1, (snapshot->map_h + scale - 1) / scale);
 
     if (fog_cache_dc && fog_cache_bitmap &&
-        fog_cache_w == snapshot->map_w && fog_cache_h == snapshot->map_h) return 1;
+        fog_cache_w == target_w && fog_cache_h == target_h) return 1;
     release_fog_cache();
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
-    info.bmiHeader.biWidth = snapshot->map_w;
-    info.bmiHeader.biHeight = -snapshot->map_h;
+    info.bmiHeader.biWidth = target_w;
+    info.bmiHeader.biHeight = -target_h;
     info.bmiHeader.biPlanes = 1;
     info.bmiHeader.biBitCount = 32;
     info.bmiHeader.biCompression = BI_RGB;
@@ -186,9 +258,16 @@ static int ensure_fog_cache(HDC hdc, const RenderSnapshot *snapshot) {
         return 0;
     }
     fog_cache_old_bitmap = SelectObject(fog_cache_dc, fog_cache_bitmap);
-    fog_cache_w = snapshot->map_w;
-    fog_cache_h = snapshot->map_h;
+    fog_cache_w = target_w;
+    fog_cache_h = target_h;
     return 1;
+}
+
+static int fog_pulse_alpha(void) {
+    DWORD now = GetTickCount();
+    int phase = (int)(now % 2400);
+    int ramp = phase < 1200 ? phase : 2400 - phase;
+    return clamp(230 + ramp * 22 / 1200, 0, 255);
 }
 
 static void rebuild_fog_cache(const RenderSnapshot *snapshot) {
@@ -206,6 +285,7 @@ static void rebuild_fog_cache(const RenderSnapshot *snapshot) {
 
 void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     const RenderSnapshot *snapshot = render_context_snapshot();
+    DWORD draw_start = GetTickCount();
     int saved_dc;
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
 
@@ -213,10 +293,12 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     if (!visual_active || plague_fog_alpha <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
     if (!ensure_fog_cache(hdc, snapshot)) return;
     if (fog_cache_dirty || fog_cache_alpha != plague_fog_alpha || dirty_render_plague()) rebuild_fog_cache(snapshot);
+    blend.SourceConstantAlpha = (BYTE)fog_pulse_alpha();
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, client.left, TOP_BAR_H, client.right - side_panel_w, client.bottom - BOTTOM_BAR_H);
-    SetStretchBltMode(hdc, HALFTONE);
+    SetStretchBltMode(hdc, COLORONCOLOR);
     AlphaBlend(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
                fog_cache_dc, 0, 0, fog_cache_w, fog_cache_h, blend);
     RestoreDC(hdc, saved_dc);
+    last_fog_draw_ms = (int)(GetTickCount() - draw_start);
 }

@@ -466,3 +466,19 @@ int event_log_get_entry(int index, EventLogEntry *out) {
     *out = event_log_entries[pos % EVENT_LOG_COUNT];
     return 1;
 }
+
+void event_log_copy_save_state(EventLogEntry *entries, int max_entries, int *count, int *next, int *total) {
+    int n = min(max_entries, EVENT_LOG_COUNT);
+    if (entries && n > 0) memcpy(entries, event_log_entries, sizeof(EventLogEntry) * n);
+    if (count) *count = event_log_count;
+    if (next) *next = event_log_next;
+    if (total) *total = event_log_total_entries;
+}
+
+void event_log_restore_save_state(const EventLogEntry *entries, int count, int next, int total) {
+    int i;
+    event_log_clear();
+    event_log_count = clamp(count, 0, EVENT_LOG_COUNT); event_log_next = clamp(next, 0, EVENT_LOG_COUNT - 1); event_log_total_entries = max(0, total);
+    if (entries) memcpy(event_log_entries, entries, sizeof(EventLogEntry) * EVENT_LOG_COUNT);
+    for (i = 0; i < EVENT_LOG_COUNT; i++) { snprintf(event_log[i], EVENT_LOG_LEN, "%s", event_log_entries[i].raw_message); event_log_history_store_related(&event_log_entries[i]); }
+}

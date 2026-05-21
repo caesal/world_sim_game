@@ -47,5 +47,7 @@ int plague_civ_months_left(int civ_id);
 int plague_random_immunity_months(int civ_id);
 int plague_random_immunity_civ_count(void);
 int plague_route_exposure(int route_id);
+void plague_copy_save_state(PlagueState *cities_out, int city_cap, int *routes_out, int route_cap, int *last_city);
+void plague_restore_save_state(const PlagueState *cities_in, int city_cap, const int *routes_in, int route_cap, int last_city);
 
 #endif

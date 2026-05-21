@@ -2,6 +2,7 @@
 
 #include "core/constants.h"
 #include "game/game_loop.h"
+#include "render/panel_view_model_cache.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
 
@@ -16,6 +17,7 @@ static void invalidate_clipped(HWND hwnd, RECT rect) {
 }
 
 void ui_invalidate_side_panel(HWND hwnd) {
+    panel_view_model_cache_invalidate();
     RECT client;
     RECT panel;
     GetClientRect(hwnd, &client);
@@ -48,6 +50,7 @@ void ui_invalidate_bottom_bar(HWND hwnd) {
 }
 
 void ui_invalidate_full(HWND hwnd) {
+    panel_view_model_cache_invalidate();
     InvalidateRect(hwnd, NULL, FALSE);
 }
 
@@ -56,8 +59,18 @@ void ui_invalidate_game_redraw(HWND hwnd, int redraw_flags) {
         ui_invalidate_full(hwnd);
         return;
     }
-    if (redraw_flags & (GAME_REDRAW_MAP_STATIC | GAME_REDRAW_MAP_DYNAMIC)) ui_invalidate_map_viewport(hwnd);
+    if (redraw_flags & (GAME_REDRAW_MAP_STATIC | GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_PLAGUE_OVERLAY)) {
+        ui_invalidate_map_viewport(hwnd);
+    }
     if (redraw_flags & GAME_REDRAW_TOP_BAR) ui_invalidate_top_bar(hwnd);
     if (redraw_flags & GAME_REDRAW_BOTTOM_BAR) ui_invalidate_bottom_bar(hwnd);
     if (redraw_flags & GAME_REDRAW_SIDE_PANEL) ui_invalidate_side_panel(hwnd);
+}
+
+void ui_request_panel_state_changed(HWND hwnd) {
+    ui_invalidate_side_panel(hwnd);
+}
+
+void ui_request_map_static_state_changed(HWND hwnd) {
+    ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_STATIC | GAME_REDRAW_SIDE_PANEL);
 }

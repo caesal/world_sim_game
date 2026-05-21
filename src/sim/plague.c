@@ -470,3 +470,14 @@ int plague_route_exposure(int route_id) {
     exposure = clamp(exposure + plague_city_severity(route->to_city) / 2, 0, 10);
     return exposure;
 }
+void plague_copy_save_state(PlagueState *cities_out, int city_cap, int *routes_out, int route_cap, int *last_city) {
+    if (cities_out && city_cap > 0) memcpy(cities_out, city_plagues, sizeof(PlagueState) * min(city_cap, MAX_CITIES));
+    if (routes_out && route_cap > 0) memcpy(routes_out, route_exposure, sizeof(int) * min(route_cap, MAX_MARITIME_ROUTES));
+    if (last_city) *last_city = last_random_seed_city;
+}
+void plague_restore_save_state(const PlagueState *cities_in, int city_cap, const int *routes_in, int route_cap, int last_city) {
+    plague_reset();
+    if (cities_in && city_cap > 0) memcpy(city_plagues, cities_in, sizeof(PlagueState) * min(city_cap, MAX_CITIES));
+    if (routes_in && route_cap > 0) memcpy(route_exposure, routes_in, sizeof(int) * min(route_cap, MAX_MARITIME_ROUTES));
+    last_random_seed_city = last_city >= 0 && last_city < MAX_CITIES ? last_city : -1;
+}

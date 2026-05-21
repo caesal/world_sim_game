@@ -183,6 +183,7 @@ static void draw_strength_compare(HDC hdc, UiCursor *cursor, int own, int enemy,
     fill_rect(hdc, bar, RGB(45, 50, 52));
     fill_rect(hdc, (RECT){bar.left, bar.top, split, bar.bottom}, own_color);
     fill_rect(hdc, (RECT){split, bar.top, bar.right, bar.bottom}, enemy_color);
+    draw_center_text(hdc, bar, tr("Front troops", "本战线"), RGB(238, 242, 232));
 }
 
 static void draw_peace_compare(HDC hdc, UiCursor *cursor, int own, int enemy) {
@@ -301,59 +302,88 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
     }
 }
 
-static void format_tribute_total(int total, int sign, char *out, size_t size) {
-    snprintf(out, size, "%c%d", sign < 0 ? '-' : '+', total);
+static void format_signed_metric(int total, int sign, char *out, size_t size) {
+    char compact[32];
+    format_metric_value(total, compact, sizeof(compact));
+    snprintf(out, size, "%c%s", sign < 0 ? '-' : '+', compact);
+}
+
+static void format_metric_pair(int a, int b, char *out, size_t size) {
+    char left[32], right[32];
+    format_metric_value(a, left, sizeof(left));
+    format_metric_value(b, right, sizeof(right));
+    snprintf(out, size, "%s/%s", left, right);
 }
 
 static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id) {
     const SnapshotCiv *selected = card_civ(civ_id);
     const SnapshotCiv *other = card_civ(other_id);
-    char a[48], b[48], c[48];
+    char a[96], b[96], c[96];
     if (card_is_direct_vassal(civ_id, other_id)) {
-        format_tribute_total(other ? other->vassal_resource_tribute : 0, 1, a, sizeof(a));
-        snprintf(b, sizeof(b), "%d / %d", other ? other->vassal_callable_soldiers : 0,
-                 other ? other->current_soldiers : 0);
+        int tribute = other ? other->vassal_resource_tribute : 0;
+        int callable = other ? other->vassal_callable_soldiers : 0;
+        int called = other ? other->vassal_support_used : 0;
+        int total = other ? other->current_soldiers : 0;
+        int home = max(0, total - callable - called);
+        format_signed_metric(tribute, 1, a, sizeof(a));
+        format_signed_metric(tribute, -1, b, sizeof(b));
         snprintf(c, sizeof(c), "+%d", selected ? selected->vassal_governance_disorder : 0);
-    bar_row(hdc, cursor, tr("Resource extraction", "????"), "40%", 40, RGB(154, 105, 178));
-    bar_row(hdc, cursor, tr("Army call-up", "????"), "70%", 70, RGB(188, 88, 154));
-    chip_row3(hdc, cursor, ICON_FOOD, tr("Tribute", "????"), a,
-              ICON_MILITARY, tr("Callable", "???"), b,
-              ICON_GOVERNANCE, tr("Burden", "????"), c);
+        bar_row(hdc, cursor, tr("Tribute", "贡赋"), "40%", 40, RGB(154, 105, 178));
+        chip_row3(hdc, cursor, ICON_FOOD, tr("Gain", "实得"), a,
+                  ICON_COMMERCE, tr("Vassal", "附庸"), b,
+                  ICON_GOVERNANCE, tr("Burden", "负担"), c);
+        format_metric_pair(callable, total, a, sizeof(a));
+        format_metric_value(called, b, sizeof(b));
+        format_metric_value(home, c, sizeof(c));
+        bar_row(hdc, cursor, tr("Call-up", "军调"), "70%", 70, RGB(188, 88, 154));
+        chip_row3(hdc, cursor, ICON_MILITARY, tr("Callable", "可调"), a,
+                  ICON_ATTACK, tr("Called", "已调"), b,
+                  ICON_COUNTRY_DEFENSE, tr("Guard", "留守"), c);
     } else if (card_is_direct_vassal(other_id, civ_id)) {
         int callable = selected ? selected->vassal_callable_soldiers : 0;
+        int called = selected ? selected->vassal_support_used : 0;
         int total = selected ? selected->current_soldiers : 0;
-        format_tribute_total(selected ? selected->vassal_resource_tribute : 0, -1, a, sizeof(a));
-        snprintf(b, sizeof(b), "%d / %d", callable, total);
-        snprintf(c, sizeof(c), "%d", max(0, total - callable));
-        bar_row(hdc, cursor, tr("Resource extracted", "?????"), "40%", 40, RGB(154, 105, 178));
-        bar_row(hdc, cursor, tr("Army callable", "?????"), "70%", 70, RGB(188, 88, 154));
-        chip_row3(hdc, cursor, ICON_FOOD, tr("Extracted", "???"), a,
-                  ICON_MILITARY, tr("Called", "???"), b,
-                  ICON_COUNTRY_DEFENSE, tr("Home guard", "留守"), c);
+        int home = max(0, total - callable - called);
+        int tribute = selected ? selected->vassal_resource_tribute : 0;
+        format_signed_metric(tribute, -1, a, sizeof(a));
+        format_signed_metric(tribute, 1, b, sizeof(b));
+        bar_row(hdc, cursor, tr("Tribute", "上缴"), "40%", 40, RGB(154, 105, 178));
+        chip_row3(hdc, cursor, ICON_FOOD, tr("Paid", "上缴"), a,
+                  ICON_COMMERCE, tr("Overlord", "宗主"), b,
+                  ICON_GOVERNANCE, tr("Autonomy", "自主"), tr("None", "无"));
+        format_metric_pair(callable, total, a, sizeof(a));
+        format_metric_value(called, b, sizeof(b));
+        format_metric_value(home, c, sizeof(c));
+        bar_row(hdc, cursor, tr("Call-up", "军调"), "70%", 70, RGB(188, 88, 154));
+        chip_row3(hdc, cursor, ICON_MILITARY, tr("Callable", "可调"), a,
+                  ICON_ATTACK, tr("Called", "已调"), b,
+                  ICON_COUNTRY_DEFENSE, tr("Guard", "留守"), c);
     } else {
-        int over = card_overlord(other_id);
+        int shown_vassal = card_overlord(other_id) >= 0 ? other_id : civ_id;
+        int over = card_overlord(shown_vassal);
         snprintf(a, sizeof(a), "%.24s", over >= 0 ? snapshot_ui_civ_name(over) : tr("None", "无"));
-        chip_row3(hdc, cursor, ICON_GOVERNANCE, tr("Autonomy", "自主权"), tr("None", "无"),
-                  ICON_COUNTRY_DEFENSE, tr("Represented", "外交代表"), a,
-                  ICON_TERRITORY, tr("Status", "状态"), tr("Subordinate", "从属"));
+        chip_row3(hdc, cursor, ICON_GOVERNANCE, tr("Autonomy", "自主"), tr("None", "无"),
+                  ICON_COUNTRY_DEFENSE, tr("Overlord", "宗主"), a,
+                  ICON_TERRITORY, tr("Status", "状态"), tr("Vassal", "附庸"));
     }
 }
 
 void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
                                   int other_id, DiplomacyView view) {
     SnapshotDiplomacyRelation relation = card_relation(civ_id, other_id);
-    RECT card = {cursor->x, cursor->y, cursor->x + cursor->width, cursor->y + 184};
+    int vassal_like = view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
+                      card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
+                      card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
+    RECT card = {cursor->x, cursor->y, cursor->x + cursor->width, cursor->y + (vassal_like ? 150 : 184)};
     UiCursor inner = ui_cursor(card.left + 10, card.top + 8, card.right - card.left - 20, card.bottom - 8);
     fill_rect(hdc, card, RGB(34, 39, 42));
     draw_header(hdc, &inner, civ_id, other_id, relation);
     if (view == DIPLOMACY_VIEW_WAR_TRUCE || relation.state == DIPLOMACY_WAR || relation.state == DIPLOMACY_TRUCE) {
         draw_war_truce(hdc, &inner, civ_id, other_id, relation);
-    } else if (view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
-               card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
-               card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0) {
+    } else if (vassal_like) {
         draw_vassal_card(hdc, &inner, civ_id, other_id);
     } else {
         draw_peace_tense(hdc, &inner, civ_id, other_id, relation);
     }
-    cursor->y = card.bottom + 8;
+    cursor->y = card.bottom + (vassal_like ? 5 : 8);
 }

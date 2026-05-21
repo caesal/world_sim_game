@@ -3,6 +3,7 @@
 #include "core/game_types.h"
 #include "game/game_loop.h"
 #include "render/panel_debug.h"
+#include "render/panel_view_model_cache.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_types.h"
@@ -57,7 +58,8 @@ int ui_handle_debug_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y
     }
     if (mode >= 0) {
         display_mode = MAP_DISPLAY_MODES[mode];
-        ui_invalidate_map_viewport(hwnd);
+        panel_view_model_cache_invalidate();
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_STATIC | GAME_REDRAW_SIDE_PANEL);
         return 1;
     }
     return 0;

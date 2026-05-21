@@ -5,6 +5,8 @@
 
 MapLayout get_map_layout(RECT client);
 RECT get_map_viewport_rect(RECT client);
+RECT get_map_frame_rect(RECT client);
+RECT get_map_content_rect(RECT client);
 RECT get_side_panel_handle_rect(RECT client);
 int side_panel_handle_hit_test(RECT client, int x, int y);
 void ui_map_view_reset(void);

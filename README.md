@@ -7,14 +7,15 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.7 is a Windows graphical sandbox prototype written in C.
+Ver0.2.8 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.7 is a stabilization release over Ver0.2.6.b focused on country-scoped
-event history, right-panel redraw stability, generation progress accuracy, map
-legend clarity, diplomacy/truce presentation, and release metadata consistency.
-It keeps the Ver0.2.6 shallow/deep water model, route-potential graph,
-snapshot-backed panels, natural-region diagnostics, hydrology layer, HSV color
-picker flow, and priority-based map label collision handling.
+Ver0.2.8 is a stabilization release over Ver0.2.7 focused on complete
+save/load restoration, load progress feedback, right-panel and map render
+responsiveness, smoother plague visuals, softer political colors, and more
+natural shallow/deep water-depth presentation. It keeps the Ver0.2.6/0.2.7
+two-depth water model, route-potential graph, snapshot-backed panels,
+natural-region diagnostics, hydrology layer, HSV color picker flow, and
+priority-based map label collision handling.
 
 You can:
 

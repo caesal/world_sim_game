@@ -38,14 +38,16 @@ int game_loop_tick_frame(void) {
                           game_loop_pending_months(), game_loop_simulation_overloaded());
     completed_months = simulation_worker_take_visual_tick();
     if (completed_months > 0) redraw |= GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
-                                        GAME_REDRAW_MAP_DYNAMIC;
-    if (did_visual || diplomacy_map_anim_active()) redraw |= GAME_REDRAW_MAP_DYNAMIC;
+                                        GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL;
+    if (did_visual) redraw |= GAME_REDRAW_PLAGUE_OVERLAY;
+    if (diplomacy_map_anim_active()) redraw |= GAME_REDRAW_MAP_DYNAMIC;
     if (map_interaction_preview) redraw |= GAME_REDRAW_MAP_DYNAMIC;
     if (dirty_render_terrain() || dirty_render_political() || dirty_render_coast() ||
         dirty_render_hydrology() || dirty_render_borders()) {
         redraw |= GAME_REDRAW_MAP_STATIC;
     }
-    if (dirty_render_maritime() || dirty_render_plague() || dirty_render_labels()) {
+    if (dirty_render_plague()) redraw |= GAME_REDRAW_PLAGUE_OVERLAY;
+    if (dirty_render_maritime() || dirty_render_labels()) {
         redraw |= GAME_REDRAW_MAP_DYNAMIC;
     }
     return redraw;

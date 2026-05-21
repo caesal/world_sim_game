@@ -1,12 +1,12 @@
 tech_stage=1 year=67 month=1 civ=3 name=Dragonhelm Empire
 tech_stage=2 year=134 month=1 civ=3 name=Dragonhelm Empire
-tech_stage=3 year=204 month=1 civ=3 name=Dragonhelm Empire
-tech_stage=4 year=274 month=3 civ=8 name=Ashenreach Realm
-tech_stage=5 year=335 month=3 civ=8 name=Ashenreach Realm
-tech_stage=6 year=396 month=3 civ=8 name=Ashenreach Realm
-tech_stage=7 year=457 month=3 civ=8 name=Ashenreach Realm
-tech_stage=8 year=518 month=3 civ=8 name=Ashenreach Realm
-tech_stage=9 year=576 month=3 civ=8 name=Ashenreach Realm
-tech_stage=10 year=634 month=3 civ=8 name=Ashenreach Realm
-result reached_stage10=yes elapsed_months=7610 elapsed_years=634 max_stage=10 civ=8 sim_ms=34812 avg_ms_per_month=4.575
+tech_stage=3 year=208 month=1 civ=3 name=Dragonhelm Empire
+tech_stage=4 year=284 month=1 civ=1 name=Ivory Covenant
+tech_stage=5 year=355 month=1 civ=1 name=Ivory Covenant
+tech_stage=6 year=433 month=1 civ=1 name=Ivory Covenant
+tech_stage=7 year=499 month=3 civ=10 name=The Ivory Realm
+tech_stage=8 year=581 month=1 civ=1 name=Ivory Covenant
+tech_stage=9 year=649 month=1 civ=1 name=Ivory Covenant
+tech_stage=10 year=717 month=1 civ=1 name=Ivory Covenant
+result reached_stage10=yes elapsed_months=8604 elapsed_years=717 max_stage=10 civ=1 sim_ms=42766 avg_ms_per_month=4.971
 stage10_bonus expansion=120 resource=120 tech=110 deep_stability=99 deep_plague=0 defense=120 battle=15 annex=1

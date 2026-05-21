@@ -163,14 +163,18 @@ static void filter_mask(int passes, int fill_threshold, int keep_threshold) {
 static void rebuild_political(HDC hdc) {
     int x;
     int y;
-    int alpha = display_mode == DISPLAY_POLITICAL ? 144 : 88;
+    int alpha = display_mode == DISPLAY_POLITICAL ? POLITICAL_FILL_ALPHA : 88;
     if (!ensure_cache(hdc, &political_cache, 1)) return;
     clear_cache(&political_cache, dirty_revision_ownership());
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             int owner = world[y][x].owner;
             if (alive_owner(owner)) {
-                blend_pixel(&political_cache.pixels[y * MAP_W + x], civs[owner].color, alpha);
+                COLORREF color = display_mode == DISPLAY_POLITICAL ?
+                    soften_political_color(civs[owner].color) :
+                    political_color_with_texture(civs[owner].color, overview_color(x, y));
+                blend_pixel(&political_cache.pixels[y * MAP_W + x],
+                            color, alpha);
             }
         }
     }

@@ -27,6 +27,7 @@ int draw_population_pyramid_summary(HDC hdc, RECT client, int x, int y, int widt
                                     PopulationSummary summary, HFONT body_font);
 void draw_side_panel(HDC hdc, RECT client);
 void draw_bottom_bar(HDC hdc, RECT client);
+void draw_map_frame_overlay(HDC hdc, RECT client);
 void draw_map_legend(HDC hdc, RECT client);
 
 #endif
