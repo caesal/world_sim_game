@@ -17,6 +17,7 @@
 #define COUNTRY_PANEL_HIT_SORT_DISORDER -14
 #define COUNTRY_PANEL_HIT_SUBTAB_BASE -30
 #define COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE -60
+#define COUNTRY_PANEL_HIT_DECISION_VIEW_BASE -80
 
 int country_panel_hit_test(RECT client, int mouse_x, int mouse_y);
 int country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y);

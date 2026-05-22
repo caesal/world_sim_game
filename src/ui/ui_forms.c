@@ -2,6 +2,7 @@
 
 #include "data/country_names.h"
 #include "game/game.h"
+#include "game/game_loop.h"
 #include "sim/simulation.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
@@ -135,6 +136,24 @@ static int random_range(int min_value, int max_value) {
     return min_value + rnd(max_value - min_value + 1);
 }
 
+static Color32 random_preview_civ_color(void) {
+    Color32 old_color = selected_civ_color;
+    Color32 color = old_color;
+    int i;
+
+    for (i = 0; i < 8; i++) {
+        Color32 preferred = COLOR32_RGB(random_range(42, 238), random_range(42, 238),
+                                        random_range(42, 238));
+        color = game_preview_civilization_color_auto_avoid(-1, preferred);
+        if (color != old_color) return color;
+    }
+    color = game_preview_civilization_color_auto_avoid(-1, 0);
+    if (color != old_color) return color;
+    return COLOR32_RGB((int)((old_color & 0xff) + 73) & 0xff,
+                       (int)(((old_color >> 8) & 0xff) + 127) & 0xff,
+                       (int)(((old_color >> 16) & 0xff) + 191) & 0xff);
+}
+
 static void sync_color_from_civ(int civ_id) {
     if (civ_id < 0 || civ_id >= civ_count) return;
     selected_civ_color = civs[civ_id].color;
@@ -159,9 +178,10 @@ void ui_forms_write_civ(int civ_id) {
 }
 
 static void ui_randomize_civilization_form(HWND hwnd) {
-    int name_id = civilization_pick_unused_name_id();
+    int heritage = rnd(2) == 0 ? CIV_HERITAGE_WESTERN : CIV_HERITAGE_EASTERN;
+    int name_id = civilization_pick_unused_name_id_for_heritage(heritage);
     char symbol_text[2] = {random_unused_symbol(), '\0'};
-    set_window_text_utf8(form.name_edit, country_name_localized(name_id, ui_language));
+    set_window_text_utf8(form.name_edit, country_name_localized_for_heritage(heritage, name_id, ui_language));
     set_window_text_utf8(form.symbol_edit, symbol_text);
     write_int_control(form.military_edit, random_metric_value());
     write_int_control(form.logistics_edit, random_metric_value());
@@ -170,8 +190,8 @@ static void ui_randomize_civilization_form(HWND hwnd) {
     write_int_control(form.production_edit, random_metric_value());
     write_int_control(form.commerce_edit, random_metric_value());
     write_int_control(form.innovation_edit, random_metric_value());
-    selected_civ_color = game_preview_civilization_color_auto_avoid(-1, selected_civ_color);
-    selected_civ_color_index = 0;
+    selected_civ_color = random_preview_civ_color();
+    selected_civ_color_index = -1;
     ui_invalidate_side_panel(hwnd);
 }
 
@@ -219,12 +239,14 @@ int ui_forms_handle_worldgen_random_click(HWND hwnd, RECT client, int mouse_x, i
 
 void ui_forms_translate_name_input(void) {
     char name[NAME_LEN];
+    int heritage;
     int name_id;
 
     if (!form.name_edit) return;
     get_window_text_utf8(form.name_edit, name, sizeof(name));
-    name_id = country_name_find_by_text(name);
-    if (name_id >= 0) set_window_text_utf8(form.name_edit, country_name_localized(name_id, ui_language));
+    if (country_name_find_by_text_any(name, &heritage, &name_id)) {
+        set_window_text_utf8(form.name_edit, country_name_localized_for_heritage(heritage, name_id, ui_language));
+    }
 }
 
 void ui_forms_refresh_language(HWND hwnd) {
@@ -241,7 +263,7 @@ void ui_forms_add_civ(HWND hwnd) {
     get_window_text_utf8(form.name_edit, name, sizeof(name));
     GetWindowTextA(form.symbol_edit, symbol_text, sizeof(symbol_text));
     symbol = symbol_text[0] ? symbol_text[0] : (char)('A' + civ_count);
-    civ_id = game_request_add_civilization_from_selection(
+    civ_id = game_request_add_civilization_from_selection_with_color(
         name, symbol,
         read_metric_control(form.military_edit, 5),
         read_metric_control(form.logistics_edit, 5),
@@ -249,16 +271,18 @@ void ui_forms_add_civ(HWND hwnd) {
         read_metric_control(form.cohesion_edit, 5),
         read_metric_control(form.production_edit, 5),
         read_metric_control(form.commerce_edit, 5),
-        read_metric_control(form.innovation_edit, 5));
+        read_metric_control(form.innovation_edit, 5),
+        selected_civ_color);
     if (civ_id >= 0) {
-        if (selected_civ_color_index >= 0) game_request_set_civilization_color_exact(civ_id, selected_civ_color);
         ui_forms_write_civ(civ_id);
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_STATIC | GAME_REDRAW_MAP_DYNAMIC |
+                                  GAME_REDRAW_SIDE_PANEL);
     } else {
         MessageBoxA(hwnd,
                     "Could not add civilization. The world may already be full, or there is no valid empty land. Select an empty land tile or rebuild with more land.",
                     "Add Civilization", MB_OK | MB_ICONINFORMATION);
+        ui_invalidate_side_panel(hwnd);
     }
-    ui_invalidate_side_panel(hwnd);
 }
 
 void ui_forms_apply_selected(HWND hwnd) {
@@ -284,9 +308,10 @@ void ui_forms_apply_selected(HWND hwnd) {
             read_metric_control(form.production_edit, fallback_production),
             read_metric_control(form.commerce_edit, fallback_commerce),
             read_metric_control(form.innovation_edit, fallback_innovation))) {
-        if (selected_civ_color_index >= 0) game_request_set_civilization_color_exact(selected_civ, selected_civ_color);
+        game_request_set_civilization_color_exact(selected_civ, selected_civ_color);
         ui_forms_write_civ(selected_civ);
-        ui_invalidate_side_panel(hwnd);
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_STATIC | GAME_REDRAW_MAP_DYNAMIC |
+                                  GAME_REDRAW_SIDE_PANEL);
     }
 }
 

@@ -25,11 +25,16 @@ typedef enum {
 #define PROVINCE_NAME_TAG_LOWLAND  (1u << 12)
 
 int province_name_count(void);
+int province_name_count_for_heritage(int heritage);
 int province_name_lint_warnings(void);
 int province_name_valid_id(int name_id);
+int province_name_valid_id_for_heritage(int heritage, int name_id);
 const char *province_name_localized(int name_id, int language);
+const char *province_name_localized_for_heritage(int heritage, int name_id, int language);
 const char *province_display_name(int region_id, int language);
 void province_names_assign_all(void);
 void province_names_assign_missing(void);
+int province_names_assign_region_for_heritage(int region_id, int heritage);
+void province_names_assign_missing_for_owned_regions(void);
 
 #endif

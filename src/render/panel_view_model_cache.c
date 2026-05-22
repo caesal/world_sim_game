@@ -4,8 +4,10 @@
 #include "core/render_snapshot.h"
 #include "render/render_context.h"
 #include "render/render_panel_internal.h"
+#include "ui/ui_layout.h"
 #include "ui/ui_theme.h"
 
+#include <stdio.h>
 #include <string.h>
 
 typedef struct {
@@ -24,13 +26,19 @@ typedef struct {
 
 static PanelViewCache panel_cache;
 static int force_refresh = 1;
+static int panel_reason_counts[4];
+static int panel_last_reason;
+static const char *panel_reason_names[4] = {"force", "invalid", "ui", "data"};
 
 static RECT panel_rect_for(RECT client) {
     RECT panel;
+    RECT handle;
     panel.left = side_panel_collapsed ? client.right - SIDE_PANEL_COLLAPSED_W : client.right - side_panel_w;
     panel.top = TOP_BAR_H;
     panel.right = client.right;
     panel.bottom = client.bottom;
+    handle = get_side_panel_handle_rect(client);
+    if (handle.left < panel.left) panel.left = handle.left;
     return panel;
 }
 
@@ -47,6 +55,7 @@ static unsigned int panel_ui_key(RECT client) {
     key = mix_key(key, side_panel_w);
     key = mix_key(key, side_panel_collapsed);
     key = mix_key(key, country_detail_subtab);
+    key = mix_key(key, country_decision_subtab);
     key = mix_key(key, country_diplomacy_view);
     key = mix_key(key, country_show_fallen);
     key = mix_key(key, country_list_scroll_offset);
@@ -114,9 +123,13 @@ static int ensure_panel_cache(HDC hdc, RECT client) {
 
 static int should_rebuild(unsigned int ui_key, unsigned int data_key) {
     DWORD now = GetTickCount();
-    if (force_refresh || !panel_cache.valid || panel_cache.ui_key != ui_key) return 1;
+    DWORD interval = panel_tab == PANEL_DEBUG ? 1000u : 125u;
+    if (force_refresh) { panel_last_reason = 0; return 1; }
+    if (!panel_cache.valid) { panel_last_reason = 1; return 1; }
+    if (panel_cache.ui_key != ui_key) { panel_last_reason = 2; return 1; }
     if (panel_cache.data_key == data_key) return 0;
-    return now - panel_cache.built_tick >= 125;
+    if (now - panel_cache.built_tick >= interval) { panel_last_reason = 3; return 1; }
+    return 0;
 }
 
 static void rebuild_panel_cache(HDC hdc, RECT client, RECT panel,
@@ -130,6 +143,7 @@ static void rebuild_panel_cache(HDC hdc, RECT client, RECT panel,
     panel_cache.built_tick = GetTickCount();
     panel_cache.build_ms = (int)(panel_cache.built_tick - start);
     panel_cache.refresh_count++;
+    panel_reason_counts[panel_last_reason]++;
     panel_cache.valid = 1;
     force_refresh = 0;
 }
@@ -163,3 +177,6 @@ int panel_view_model_cache_age_ms(void) {
 int panel_view_model_cache_refresh_count(void) {
     return panel_cache.refresh_count;
 }
+
+const char *panel_view_model_cache_last_reason(void) { return panel_reason_names[panel_last_reason]; }
+const char *panel_view_model_cache_reason_summary(void) { static char text[96]; snprintf(text, sizeof(text), "force %d / ui %d / data %d", panel_reason_counts[0], panel_reason_counts[2], panel_reason_counts[3]); return text; }

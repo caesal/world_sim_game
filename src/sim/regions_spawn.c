@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "data/province_names.h"
 #include "core/profiler.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
@@ -302,6 +303,7 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
         profiler_call_end("regions_claim_for_civ", owner, region_id, trace);
         return 0;
     }
+    if (region->name_id < 0) province_names_assign_region_for_heritage(region_id, civs[owner].heritage);
 
     if (admin_city >= 0 && admin_city < city_count) {
         cities[admin_city].owner = owner;

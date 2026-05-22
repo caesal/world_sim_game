@@ -68,6 +68,7 @@ typedef struct {
     int disorder_plague;
     int disorder_migration;
     int disorder_stability;
+    int disorder_wartime;
     int disorder_last_pressure;
     int disorder_last_recovery;
     int disorder_last_net;
@@ -82,6 +83,8 @@ typedef struct {
     int disorder_last_plague_decay;
     int disorder_last_war_decay;
     int disorder_last_migration_decay;
+    int disorder_last_wartime_pressure_x10;
+    int disorder_last_wartime_decay_x10;
     int collapse_grace_months;
     int plague_random_immunity_months;
     int plague_active_count;
@@ -95,6 +98,8 @@ typedef struct {
     int vassal_governance_disorder;
     int vassal_callable_soldiers;
     int vassal_resource_tribute;
+    int vassal_annex_threshold_years;
+    int vassal_annex_remaining_years;
     int vassal_support_used, vassal_support_casualties;
     int decision_expansion_weight;
     int decision_war_weight;
@@ -106,6 +111,7 @@ typedef struct {
     int overlord;
     int vassal_count;
     int name_id;
+    int heritage;
     CountrySummary summary;
     PopulationSummary population_summary;
     char main_intent[32];
@@ -195,6 +201,7 @@ typedef struct {
     Ecology dominant_ecology;
     TerrainStats average_stats;
     int name_id;
+    int name_heritage;
     char name_en[96];
     char name_zh[96];
 } SnapshotRegion;
@@ -232,6 +239,7 @@ typedef struct {
     int world_generated;
     int civ_count;
     int civ_alive_count;
+    int civ_independent_alive_count;
     int civ_reusable_slot_count;
     int city_count;
     int region_count;

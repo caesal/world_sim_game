@@ -16,6 +16,8 @@ int plague_visual_fog_cache_width(void);
 int plague_visual_fog_cache_height(void);
 int plague_visual_infected_lane_count(void);
 const char *plague_visual_mode_text(void);
+const char *plague_visual_last_reason(void);
+const char *plague_visual_reason_summary(void);
 void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout);
 
 #endif

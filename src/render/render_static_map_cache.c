@@ -8,6 +8,8 @@
 #include "render/snapshot_map_layers.h"
 #include "world/terrain_query.h"
 
+#include <stdio.h>
+
 #define MAP_LAYER_CACHE_SCALE 2
 #define MAP_TRANSPARENT_KEY RGB(255, 0, 255)
 
@@ -30,6 +32,9 @@ static MapLayerCache hydrology_cache;
 static MapLayerCache border_cache;
 static MapLayerCache static_map_cache;
 static int cache_needs_work;
+static int static_reason_counts[6];
+static int static_last_reason;
+static const char *static_reason_names[6] = {"none", "physical", "fill", "coast", "hydro", "border"};
 
 static int combined_revision(int a, int b) {
     return (a * 1000003) ^ b;
@@ -339,6 +344,7 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
 
     if (physical_needs) {
         ProfilerCallTrace trace = profiler_call_begin();
+        static_last_reason = 1; static_reason_counts[1]++;
         if (ensure_cache(hdc, &physical_cache)) {
             build_physical_pixels(&physical_cache, snapshot);
             physical_cache.revision = physical_key; physical_cache.display = display_mode; physical_cache.valid = 1;
@@ -347,6 +353,7 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
         profiler_call_end_quiet("render_rebuild_physical_base", -1, -1, trace);
         dirty_clear_render_terrain();
     } else if (fill_needs) {
+        static_last_reason = 2; static_reason_counts[2]++;
         if (ensure_cache(hdc, &fill_cache)) {
             build_fill_pixels(&fill_cache, snapshot);
             fill_cache.revision = fill_key; fill_cache.display = display_mode; fill_cache.valid = 1;
@@ -354,15 +361,18 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
         }
         dirty_clear_render_political();
     } else if (coast_needs) {
+        static_last_reason = 3; static_reason_counts[3]++;
         if (rebuild_overlay_layer(hdc, &coast_cache, draw_snapshot_coast_layer)) {
             coast_cache.revision = coast_key; profiler_add_render_rebuild(PROFILER_RENDER_COAST);
         }
         dirty_clear_render_coast();
     } else if (hydro_needs) {
+        static_last_reason = 4; static_reason_counts[4]++;
         river_render_set_lod_tile_size(16);
         if (rebuild_overlay_layer(hdc, &hydrology_cache, draw_snapshot_hydrology_layer)) hydrology_cache.revision = hydro_key;
         dirty_clear_render_hydrology();
     } else if (border_needs) {
+        static_last_reason = 5; static_reason_counts[5]++;
         if (rebuild_overlay_layer(hdc, &border_cache, draw_snapshot_border_layer)) {
             border_cache.revision = border_key; profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
         }
@@ -381,3 +391,6 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
 int render_static_map_cache_needs_work(void) {
     return cache_needs_work;
 }
+
+const char *render_static_map_cache_last_reason(void) { return static_reason_names[static_last_reason]; }
+const char *render_static_map_cache_reason_summary(void) { static char text[128]; snprintf(text, sizeof(text), "phys %d / fill %d / coast %d / hydro %d / border %d", static_reason_counts[1], static_reason_counts[2], static_reason_counts[3], static_reason_counts[4], static_reason_counts[5]); return text; }

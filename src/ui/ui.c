@@ -141,8 +141,10 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             }
             ui_invalidate_full(hwnd); return; }
         if (hit == COUNTRY_PANEL_HIT_LOCATE) {
-            if (selected_civ >= 0) ui_locate_civ(hwnd, selected_civ);
-            ui_invalidate_map_viewport(hwnd);
+            if (selected_civ < 0 || !ui_locate_civ(hwnd, selected_civ)) {
+                MessageBeep(MB_ICONWARNING);
+            }
+            ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_SUBTAB_BASE &&
@@ -156,6 +158,14 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             hit >= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - DIPLOMACY_VIEW_OTHER) {
             country_diplomacy_view = COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - hit;
             country_detail_scroll_offsets[COUNTRY_DETAIL_DIPLOMACY] = 0;
+            ui_invalidate_side_panel(hwnd);
+            return;
+        }
+        if (hit <= COUNTRY_PANEL_HIT_DECISION_VIEW_BASE &&
+            hit > COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - COUNTRY_DECISION_SUBTAB_COUNT) {
+            country_decision_subtab = COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - hit;
+            country_decision_subtab = clamp(country_decision_subtab, 0, COUNTRY_DECISION_SUBTAB_COUNT - 1);
+            country_detail_scroll_offsets[COUNTRY_DETAIL_DECISION] = 0;
             ui_invalidate_side_panel(hwnd);
             return;
         }

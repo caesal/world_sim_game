@@ -35,29 +35,20 @@ static int event_clear_highlight_valid = 0;
 static int event_country_hit_count = 0;
 static const RenderSnapshot *debug_snapshot(void) { return render_context_snapshot(); }
 static int debug_event_count(void) {
-    const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? snapshot->event_count : 0;
+    return event_log_count;
 }
 static int debug_event_total_entries(void) {
-    const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? snapshot->event_total_entries : 0;
+    return event_log_total_entries;
 }
 static EventLogType debug_event_type(int index) {
-    const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? render_snapshot_event_get_type(snapshot, index) : EVENT_TYPE_GENERIC;
+    return event_log_get_type(index);
 }
 static int debug_event_entry(int index, EventLogEntry *out) {
-    const RenderSnapshot *snapshot = debug_snapshot();
-    return snapshot ? render_snapshot_event_get_entry(snapshot, index, out) : 0;
+    return event_log_get_entry(index, out);
 }
 static void debug_event_text(int index, char *out, size_t out_size) {
-    const RenderSnapshot *snapshot = debug_snapshot();
     if (!out || out_size == 0) return;
-    if (snapshot) {
-        snprintf(out, out_size, "%s", render_snapshot_event_text(snapshot, index, ui_language));
-    } else {
-        out[0] = '\0';
-    }
+    event_log_format_entry(index, ui_language, out, out_size);
 }
 static const char *filter_label(int index) {
     static const char *labels_en[DEBUG_EVENT_FILTER_COUNT] = {

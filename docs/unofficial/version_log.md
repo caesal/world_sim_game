@@ -1,5 +1,26 @@
 # Version Log
 
+## Ver0.2.9
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.9.
+2. Made the global structured Event Log the canonical event source and changed country recent events to resolve through global event ids.
+3. Added compact country and independent-country count cards to the country panel header area.
+4. Added East/West civilization heritage data, bilingual name pools, and heritage-aware generated country/province naming.
+5. Improved manual civilization randomization and custom color application.
+6. Replaced UI icon assets/mapping with the new transparent strategy icon pack.
+7. Added stability-decision gate display and reorganized the Decision tab into overview, expansion, war, and stability views.
+8. Tightened UI presentation for disorder, decision countdowns, recent events, vassal cards, and single-province collapse outcomes.
+9. Continued render/cache diagnostics and route/label/plague/side-panel cache-boundary work to reduce avoidable UI stalls.
+
+Validation notes:
+
+- Ver0.2.9 uses `WORLD_SIM_VERSION "0.2.9"`.
+- `docs/official` was not regenerated for this release.
+- `make check-text`, `git diff --check`, and `make` are required before the release commit.
+- Probe and manual validation results are recorded in the release response.
+
 ## Ver0.2.8
 
 Implemented fixes:

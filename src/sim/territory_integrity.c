@@ -265,7 +265,8 @@ static int create_independent_component(int owner, const int *regions, int count
                                   owner, -1, seed_region, -1, months, count, "country limit reached");
         return 0;
     }
-    civilization_assign_generated_name(&civs[child_id], civilization_pick_unused_name_id());
+    civilization_assign_generated_name_for_heritage(&civs[child_id], parent.heritage,
+                                                    civilization_pick_unused_name_id_for_heritage(parent.heritage));
     civs[child_id].symbol = (char)('a' + (child_id % 26));
     civs[child_id].color = civilization_pick_distinct_color(child_id, 0, owner, seed_region);
     civs[child_id].alive = 1;

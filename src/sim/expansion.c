@@ -5,6 +5,7 @@
 #include "sim/population.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/stability_decision.h"
 #include "sim/territory_integrity.h"
 #include "sim/technology.h"
 
@@ -125,13 +126,17 @@ static void finalize_expansion_ai(int civ_id, ExpansionAIDiagnostics *ai) {
     ai->adjacent_unowned_regions = ai->land_adjacent_unowned_regions;
     ai->nearby_unowned_regions = ai->land_adjacent_unowned_regions + ai->land_nearby_unowned_regions;
     ai->port_unowned_regions = ai->port_candidate_regions;
-    ai->expansion_desire = ai->expansion_need + clamp(ai->land_adjacent_unowned_regions * 12 +
+    ai->raw_expansion_desire = ai->expansion_need + clamp(ai->land_adjacent_unowned_regions * 12 +
                            ai->land_nearby_unowned_regions * 5 +
                            ai->shallow_sea_reachable_regions * 8 +
                            ai->maritime_reachable_regions * 5 +
                            ai->deep_sea_reachable_regions * 3, 0, 90) +
                            civs[civ_id].expansion * 3 + civs[civ_id].logistics * 2;
-    ai->expansion_desire = ai->expansion_desire * ai->tech_expansion_percent / 100;
+    ai->raw_expansion_desire = ai->raw_expansion_desire * ai->tech_expansion_percent / 100;
+    ai->expansion_desire = stability_apply_expansion_desire_gate(civ_id, ai->raw_expansion_desire,
+                                                                 &ai->stability_expansion_penalty,
+                                                                 &ai->stability_blocked);
+    ai->stability_gate_mode = stability_mode_for_civ(civ_id);
     ai->claim_cooldown_months = expansion_cooldown_months(civ_id, *ai);
     ai->months_until_next_claim = max(0, next_expansion_month[civ_id] - simulation_month_index());
     ai->claim_budget = ai->months_until_next_claim > 0 ? 0 : 1;
@@ -199,6 +204,8 @@ static int expansion_attempts_for_civ(int civ_id, int resource_score, ExpansionA
     int sea_targets = ai.shallow_sea_reachable_regions + ai.maritime_reachable_regions +
                       ai.deep_sea_reachable_regions;
 
+    if (!stability_allows_expansion_attempt(civ_id)) return 0;
+    if (ai.stability_gate_mode >= STABILITY_MODE_REORGANIZING) return 1;
     if (ai.expansion_desire < ai.expansion_threshold) {
         if (ai.land_adjacent_unowned_regions <= 0 && sea_targets <= 0) return 0;
         frontier_chance = clamp(14 + civs[civ_id].expansion * 2 + civs[civ_id].logistics +
@@ -278,6 +285,7 @@ static int region_expansion_score(int civ_id, int region_id, int resource_pressu
 
     if (!region_claimable_by_alive_civ(region)) return -1000000;
     if (!regions_region_has_owner_neighbor(region_id, civ_id)) return -1000000;
+    if (!stability_allows_expansion_region(civ_id, region_id)) return -1000000;
     if (region->capital_x < 0 || region->tile_count < 8) return -1000000;
 
     score = region->development_score + region->cradle_score / 2;
@@ -421,7 +429,10 @@ int expansion_work_step(ExpansionWorkState *work, char *log, size_t log_size) {
         int nearshore_window = ai.shallow_sea_reachable_regions > 0 &&
             (ai.land_adjacent_unowned_regions <= 2 ||
              ai.expansion_need >= ai.expansion_threshold + 8 || rnd(100) < 12);
-        if (ai.land_adjacent_unowned_regions <= 0 ||
+        if (!stability_allows_overseas_expansion(work->civ_id)) {
+            snprintf(expansion_reasons[work->civ_id], sizeof(expansion_reasons[work->civ_id]),
+                     "Stability gate blocks overseas expansion.");
+        } else if (ai.land_adjacent_unowned_regions <= 0 ||
             ai.expansion_need >= ai.expansion_threshold + 22 || nearshore_window) {
             int before = owned_region_count_for_civ(work->civ_id);
             profiler_add_expansion_claim_attempt(1);

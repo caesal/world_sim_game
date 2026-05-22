@@ -1,6 +1,8 @@
 #ifndef WORLD_SIM_VASSAL_H
 #define WORLD_SIM_VASSAL_H
 
+#include "sim/diplomacy.h"
+
 typedef struct {
     int food;
     int livestock;
@@ -27,6 +29,9 @@ VassalTributeBreakdown vassal_resource_tribute_breakdown_from(int vassal);
 VassalTributeBreakdown vassal_resource_tribute_breakdown_total(int overlord);
 int vassal_estimated_resource_tribute_from(int vassal);
 int vassal_estimated_resource_tribute_total(int overlord);
+int vassal_annex_threshold_years(int overlord);
+int vassal_annex_remaining_years(int overlord, int vassal_years);
+int vassal_try_auto_annex(DiplomacyRelation *relation);
 int vassal_make(int overlord, int vassal, int relation_score);
 void vassal_release(int vassal);
 void vassal_release_all(int overlord);

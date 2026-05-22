@@ -2,6 +2,7 @@
 
 #include "core/game_state.h"
 #include "sim/diplomacy.h"
+#include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
 
@@ -147,6 +148,38 @@ int vassal_estimated_resource_tribute_from(int vassal) {
 
 int vassal_estimated_resource_tribute_total(int overlord) {
     return vassal_resource_tribute_breakdown_total(overlord).total;
+}
+
+int vassal_annex_threshold_years(int overlord) {
+    if (!valid_alive_civ(overlord)) return 130;
+    return civs[overlord].tech_stage >= 10 ? 45 : 130;
+}
+
+int vassal_annex_remaining_years(int overlord, int vassal_years) {
+    return max(0, vassal_annex_threshold_years(overlord) - max(0, vassal_years));
+}
+
+int vassal_try_auto_annex(DiplomacyRelation *relation) {
+    int i;
+    int overlord;
+    int vassal;
+    if (!relation || relation->state != DIPLOMACY_VASSAL) return 0;
+    overlord = relation->overlord;
+    vassal = relation->vassal;
+    if (!valid_alive_civ(overlord) || !valid_alive_civ(vassal)) return 0;
+    if (relation->vassal_years < vassal_annex_threshold_years(overlord)) return 0;
+    for (i = 0; i < region_count; i++) {
+        if (natural_regions[i].owner_civ == vassal) regions_claim_for_civ(i, overlord, -1, 0);
+    }
+    event_log_push_structured(EVENT_TYPE_VASSAL_ANNEXED, EVENT_SEVERITY_DANGER,
+                              vassal, overlord, -1, -1, relation->vassal_years, 0, "");
+    civs[vassal].alive = 0;
+    civs[vassal].capital_city = -1;
+    relation->state = DIPLOMACY_PEACE;
+    relation->overlord = -1;
+    relation->vassal = -1;
+    world_invalidate_country_summary_cache();
+    return 1;
 }
 
 void vassal_release(int vassal) {

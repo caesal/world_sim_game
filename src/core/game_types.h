@@ -125,6 +125,7 @@ extern int country_detail_scroll_offset;
 extern int country_sort_column;
 extern int country_sort_descending;
 extern int country_detail_subtab;
+extern int country_decision_subtab;
 extern int country_detail_scroll_offsets[8];
 extern int country_diplomacy_view;
 extern int debug_subtab;

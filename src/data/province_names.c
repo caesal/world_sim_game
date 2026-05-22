@@ -1,5 +1,7 @@
 #include "data/province_names.h"
 
+#include "core/game_types.h"
+#include "core/sim_types.h"
 #include "sim/regions.h"
 
 #include <ctype.h>
@@ -18,10 +20,14 @@ typedef struct {
     char zh[96];
 } ProvinceNameEntry;
 
-static ProvinceNameEntry entries[PROVINCE_NAME_MAX];
-static int entry_count;
+static ProvinceNameEntry entries[CIV_HERITAGE_COUNT][PROVINCE_NAME_MAX];
+static int entry_counts[CIV_HERITAGE_COUNT];
 static int loaded;
 static int lint_warnings;
+
+static int normalize_heritage(int heritage) {
+    return heritage == CIV_HERITAGE_EASTERN ? CIV_HERITAGE_EASTERN : CIV_HERITAGE_WESTERN;
+}
 
 static int contains_text(const char *text, const char *needle) {
     return text && needle && strstr(text, needle) != NULL;
@@ -85,10 +91,16 @@ static void infer_entry_tags(ProvinceNameEntry *entry) {
     entry->tags = tags;
 }
 
-static FILE *open_name_file(void) {
-    FILE *file = fopen("data/province_names_1000_bilingual_v2.tsv", "rb");
-    if (!file) file = fopen("../data/province_names_1000_bilingual_v2.tsv", "rb");
-    return file;
+static FILE *open_name_file(int heritage) {
+    const char *name = normalize_heritage(heritage) == CIV_HERITAGE_EASTERN ?
+        "province_names_eastern_1000_bilingual.tsv" : "province_names_western_1000_bilingual.tsv";
+    char path[160];
+    FILE *file;
+    snprintf(path, sizeof(path), "data/%s", name);
+    file = fopen(path, "rb");
+    if (file) return file;
+    snprintf(path, sizeof(path), "../data/%s", name);
+    return fopen(path, "rb");
 }
 
 static void copy_field(char *out, size_t out_size, const char *field) {
@@ -100,14 +112,16 @@ static void copy_field(char *out, size_t out_size, const char *field) {
     if (len == 0) lint_warnings++;
 }
 
-static void load_names(void) {
+static void load_pool(int heritage) {
     char line[320];
-    FILE *file;
-    if (loaded) return;
-    loaded = 1;
-    file = open_name_file();
+    FILE *file = open_name_file(heritage);
+    ProvinceNameEntry *pool;
+    int *count;
+    heritage = normalize_heritage(heritage);
     if (!file) return;
-    while (entry_count < PROVINCE_NAME_MAX && fgets(line, sizeof(line), file)) {
+    pool = entries[heritage];
+    count = &entry_counts[heritage];
+    while (*count < PROVINCE_NAME_MAX && fgets(line, sizeof(line), file)) {
         char *id = strtok(line, "\t");
         char *type = strtok(NULL, "\t");
         char *tags = strtok(NULL, "\t");
@@ -116,27 +130,38 @@ static void load_names(void) {
         ProvinceNameEntry *entry;
         (void)type;
         if (!id || !tags || !en || !zh) { lint_warnings++; continue; }
-        entry = &entries[entry_count];
+        entry = &pool[*count];
         memset(entry, 0, sizeof(*entry));
         entry->id = atoi(id);
         entry->tags = (unsigned int)strtoul(tags, NULL, 0);
         copy_field(entry->en, sizeof(entry->en), en);
         copy_field(entry->zh, sizeof(entry->zh), zh);
         infer_entry_tags(entry);
-        entry_count++;
+        (*count)++;
     }
     fclose(file);
-    for (int i = 0; i < entry_count; i++) {
-        for (int j = i + 1; j < entry_count; j++) {
-            if (strcmp(entries[i].en, entries[j].en) == 0 ||
-                strcmp(entries[i].zh, entries[j].zh) == 0) lint_warnings++;
+    for (int i = 0; i < *count; i++) {
+        for (int j = i + 1; j < *count; j++) {
+            if (strcmp(pool[i].en, pool[j].en) == 0 ||
+                strcmp(pool[i].zh, pool[j].zh) == 0) lint_warnings++;
         }
     }
 }
 
+static void load_names(void) {
+    if (loaded) return;
+    loaded = 1;
+    load_pool(CIV_HERITAGE_WESTERN);
+    load_pool(CIV_HERITAGE_EASTERN);
+}
+
 int province_name_count(void) {
+    return province_name_count_for_heritage(CIV_HERITAGE_WESTERN);
+}
+
+int province_name_count_for_heritage(int heritage) {
     load_names();
-    return entry_count;
+    return entry_counts[normalize_heritage(heritage)];
 }
 
 int province_name_lint_warnings(void) {
@@ -145,14 +170,24 @@ int province_name_lint_warnings(void) {
 }
 
 int province_name_valid_id(int name_id) {
+    return province_name_valid_id_for_heritage(CIV_HERITAGE_WESTERN, name_id);
+}
+
+int province_name_valid_id_for_heritage(int heritage, int name_id) {
     load_names();
-    return name_id >= 0 && name_id < entry_count;
+    heritage = normalize_heritage(heritage);
+    return name_id >= 0 && name_id < entry_counts[heritage];
 }
 
 const char *province_name_localized(int name_id, int language) {
+    return province_name_localized_for_heritage(CIV_HERITAGE_WESTERN, name_id, language);
+}
+
+const char *province_name_localized_for_heritage(int heritage, int name_id, int language) {
     load_names();
-    if (!province_name_valid_id(name_id)) return "";
-    return language == 1 ? entries[name_id].zh : entries[name_id].en;
+    heritage = normalize_heritage(heritage);
+    if (!province_name_valid_id_for_heritage(heritage, name_id)) return "";
+    return language == 1 ? entries[heritage][name_id].zh : entries[heritage][name_id].en;
 }
 
 static unsigned int region_context_tags(const NaturalRegion *region) {
@@ -204,16 +239,21 @@ static void remember_top(int *ids, int *scores, int *count, int id, int score) {
     scores[pos] = score;
 }
 
-static int choose_name_id(const NaturalRegion *region, int region_id, unsigned char *used) {
+static int choose_name_id(int heritage, const NaturalRegion *region, int region_id, unsigned char *used) {
     int ids[PROVINCE_NAME_TOP_CHOICES];
     int scores[PROVINCE_NAME_TOP_CHOICES];
     int count = 0;
     int fallback = -1;
+    ProvinceNameEntry *pool;
+    int pool_count;
+    heritage = normalize_heritage(heritage);
     load_names();
-    for (int i = 0; i < entry_count; i++) {
+    pool = entries[heritage];
+    pool_count = entry_counts[heritage];
+    for (int i = 0; i < pool_count; i++) {
         int score;
         if (used && used[i]) continue;
-        score = entry_score(&entries[i], region, region_id);
+        score = entry_score(&pool[i], region, region_id);
         remember_top(ids, scores, &count, i, score);
         if (fallback < 0) fallback = i;
     }
@@ -221,25 +261,38 @@ static int choose_name_id(const NaturalRegion *region, int region_id, unsigned c
         unsigned int pick = (unsigned int)(region_id * 977 + region->tile_count * 37 + region->development_score);
         return ids[pick % (unsigned int)count];
     }
-    return fallback >= 0 ? fallback : (entry_count > 0 ? region_id % entry_count : -1);
+    return fallback >= 0 ? fallback : (pool_count > 0 ? region_id % pool_count : -1);
+}
+
+static void collect_used(int heritage, unsigned char *used) {
+    memset(used, 0, PROVINCE_NAME_MAX);
+    for (int i = 0; i < region_count; i++) {
+        int id = natural_regions[i].name_id;
+        if (natural_regions[i].name_heritage != heritage) continue;
+        if (province_name_valid_id_for_heritage(heritage, id)) used[id] = 1;
+    }
 }
 
 static void assign_names(int overwrite_all) {
     static unsigned char used[PROVINCE_NAME_MAX];
     load_names();
-    memset(used, 0, sizeof(used));
-    for (int i = 0; i < region_count; i++) {
-        int id = natural_regions[i].name_id;
-        if (overwrite_all || !province_name_valid_id(id) || used[id]) natural_regions[i].name_id = -1;
-        else used[id] = 1;
-    }
-    for (int i = 0; i < region_count; i++) {
-        NaturalRegion *region = &natural_regions[i];
-        int id;
-        if (!region->alive || region->tile_count <= 0 || region->name_id >= 0) continue;
-        id = choose_name_id(region, i, used);
-        region->name_id = id;
-        if (province_name_valid_id(id)) used[id] = 1;
+    for (int h = 0; h < CIV_HERITAGE_COUNT; h++) {
+        memset(used, 0, sizeof(used));
+        for (int i = 0; i < region_count; i++) {
+            int id = natural_regions[i].name_id;
+            if (natural_regions[i].name_heritage != h) continue;
+            if (overwrite_all || !province_name_valid_id_for_heritage(h, id) || used[id]) natural_regions[i].name_id = -1;
+            else used[id] = 1;
+        }
+        for (int i = 0; i < region_count; i++) {
+            NaturalRegion *region = &natural_regions[i];
+            int id;
+            if (!region->alive || region->tile_count <= 0 || region->name_id >= 0 ||
+                region->name_heritage != h) continue;
+            id = choose_name_id(h, region, i, used);
+            region->name_id = id;
+            if (province_name_valid_id_for_heritage(h, id)) used[id] = 1;
+        }
     }
 }
 
@@ -251,10 +304,39 @@ void province_names_assign_missing(void) {
     assign_names(0);
 }
 
+int province_names_assign_region_for_heritage(int region_id, int heritage) {
+    static unsigned char used[PROVINCE_NAME_MAX];
+    NaturalRegion *region;
+    int id;
+    heritage = normalize_heritage(heritage);
+    if (region_id < 0 || region_id >= region_count) return 0;
+    region = &natural_regions[region_id];
+    if (!region->alive || region->tile_count <= 0) return 0;
+    if (province_name_valid_id_for_heritage(region->name_heritage, region->name_id)) return 1;
+    load_names();
+    collect_used(heritage, used);
+    id = choose_name_id(heritage, region, region_id, used);
+    if (!province_name_valid_id_for_heritage(heritage, id)) return 0;
+    region->name_heritage = heritage;
+    region->name_id = id;
+    return 1;
+}
+
+void province_names_assign_missing_for_owned_regions(void) {
+    for (int i = 0; i < region_count; i++) {
+        NaturalRegion *region = &natural_regions[i];
+        int owner = region->owner_civ;
+        if (!region->alive || region->tile_count <= 0 || region->name_id >= 0) continue;
+        if (owner >= 0 && owner < MAX_CIVS) province_names_assign_region_for_heritage(i, civs[owner].heritage);
+    }
+}
+
 const char *province_display_name(int region_id, int language) {
     static char fallback[64];
     const NaturalRegion *region = regions_get(region_id);
-    if (region && province_name_valid_id(region->name_id)) return province_name_localized(region->name_id, language);
+    if (region && province_name_valid_id_for_heritage(region->name_heritage, region->name_id)) {
+        return province_name_localized_for_heritage(region->name_heritage, region->name_id, language);
+    }
     if (language == 1) {
         snprintf(fallback, sizeof(fallback), "自然区域 %d", region_id + 1);
         return fallback;

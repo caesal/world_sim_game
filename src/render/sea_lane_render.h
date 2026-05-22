@@ -10,5 +10,15 @@ int sea_lane_render_cache_hits(void);
 int sea_lane_render_cache_misses(void);
 int sea_lane_render_last_ms(void);
 int sea_lane_render_dash_segments(void);
+const char *sea_lane_render_last_reason(void);
+const char *sea_lane_render_reason_summary(void);
+int sea_lane_render_dash_cache_hits(void);
+int sea_lane_render_dash_cache_misses(void);
+int sea_lane_render_dash_rebuild_ms(void);
+const char *sea_lane_render_dash_reason(void);
+const char *sea_lane_render_dash_reason_summary(void);
+int sea_lane_render_visible_routes(void);
+int sea_lane_render_infected_routes(void);
+int sea_lane_render_infected_draw_ms(void);
 
 #endif

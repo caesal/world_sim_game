@@ -5,6 +5,7 @@
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/population.h"
+#include "sim/stability_decision.h"
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
@@ -31,8 +32,39 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     resource_score = expansion_resource_score_for_civ(civ_id);
     out->expansion = expansion_ai_diagnostics(civ_id, resource_score);
     out->war_desire = diplomacy_last_war_desire(civ_id);
+    {
+        const WarDesireBreakdown *war_breakdown = war_desire_last_breakdown(civ_id);
+        out->war_pre_stability_desire = war_breakdown->pre_stability_desire;
+        out->war_raw_desire = war_breakdown->raw_desire;
+        out->war_threshold = war_breakdown->threshold;
+        out->war_readiness_percent = war_breakdown->readiness_percent;
+        out->war_readiness_cap = war_breakdown->readiness_cap;
+        out->war_readiness_cap_applied = war_breakdown->readiness_cap_applied;
+        out->war_aggression_score = war_breakdown->aggression_score;
+        out->war_border_score = war_breakdown->border_score;
+        out->war_resource_score = war_breakdown->resource_score;
+        out->war_strength_score = war_breakdown->strength_score;
+        out->war_trade_penalty = war_breakdown->trade_penalty;
+        out->war_truce_penalty = war_breakdown->truce_penalty;
+        out->war_disorder_penalty = war_breakdown->disorder_penalty;
+        out->war_frontier_penalty = war_breakdown->frontier_penalty;
+        out->war_heritage_affinity_penalty = war_breakdown->heritage_affinity_penalty;
+        out->war_stability_penalty = war_breakdown->stability_penalty;
+        out->war_stability_blocked = war_breakdown->stability_blocked;
+        out->war_own_soldiers = war_breakdown->own_soldiers;
+        out->war_enemy_soldiers = war_breakdown->enemy_soldiers;
+        out->war_result = war_breakdown->result;
+    }
     territory_integrity_get_stats(civ_id, &integrity);
     out->stability_pressure = max(civs[civ_id].disorder, population_pressure_for_civ(civ_id));
+    out->stability_mode = stability_mode_for_civ(civ_id);
+    out->stability_mode_months = stability_mode_months_for_civ(civ_id);
+    out->stability_recovery_months = stability_recovery_months_remaining(civ_id);
+    out->stability_expansion_penalty = out->expansion.stability_expansion_penalty;
+    out->stability_expansion_blocked = out->expansion.stability_blocked;
+    out->stability_peace_bonus = stability_peace_pressure_bonus(civ_id);
+    out->stability_allows_war = stability_allows_new_war(civ_id, -1);
+    out->stability_allows_expansion = stability_allows_expansion_attempt(civ_id);
     out->capital_region = integrity.capital_region;
     out->capital_connected_regions = integrity.capital_connected_regions;
     out->owned_regions = integrity.owned_regions;
@@ -44,6 +76,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     out->disconnected_has_port = integrity.disconnected_has_port;
     out->disconnected_has_network = integrity.disconnected_has_network;
     out->disconnected_network_matches_capital = integrity.disconnected_network_matches_capital;
+    out->collapse_single_result = collapse_single_province_preview(civ_id, &out->collapse_single_candidate);
     out->next_expansion_months = out->expansion.months_until_next_claim;
     out->next_diplomacy_months = 12 - ((month - 1) % 12);
     out->next_battle_months = 36 - (((year * 12 + month) - 1) % 36);

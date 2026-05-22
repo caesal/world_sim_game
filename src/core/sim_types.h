@@ -16,6 +16,12 @@ typedef enum {
     CIV_METRIC_COUNT
 } CivilizationMetric;
 
+typedef enum {
+    CIV_HERITAGE_WESTERN = 0,
+    CIV_HERITAGE_EASTERN = 1,
+    CIV_HERITAGE_COUNT
+} CivilizationHeritage;
+
 typedef struct {
     int active;
     int from_city;
@@ -107,6 +113,7 @@ typedef struct {
     int disorder_last_plague_decay;
     int disorder_last_war_decay;
     int disorder_last_migration_decay;
+    int heritage;
 } Civilization;
 
 typedef struct {

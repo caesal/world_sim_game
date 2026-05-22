@@ -40,6 +40,7 @@ int country_detail_scroll_offset = 0;
 int country_sort_column = COUNTRY_SORT_POPULATION;
 int country_sort_descending = 1;
 int country_detail_subtab = COUNTRY_DETAIL_OVERVIEW;
+int country_decision_subtab = COUNTRY_DECISION_OVERVIEW;
 int country_detail_scroll_offsets[8] = {0};
 int country_diplomacy_view = DIPLOMACY_VIEW_PEACE_TENSE;
 int previous_selected_civ = -1;

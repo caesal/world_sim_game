@@ -15,15 +15,15 @@ typedef int (WINAPI *GdipDeleteGraphicsProc)(void *);
 typedef int (WINAPI *GdipDisposeImageProc)(void *);
 
 static const char *ICON_PATHS[ICON_COUNT] = {
-    "assets\\icons\\metric_military.png",
-    "assets\\icons\\metric_territory.png",
+    "assets\\icons\\metric_battle.png",
+    "assets\\icons\\metric_expansion.png",
     "assets\\icons\\resource_population.png",
     "assets\\icons\\metric_defense.png",
-    "assets\\icons\\metric_cohesion.png",
+    "assets\\icons\\metric_culture.png",
     "assets\\icons\\resource_water.png",
     "assets\\icons\\map_geography.png",
     "assets\\icons\\map_climate.png",
-    "assets\\icons\\resource_population.png",
+    "assets\\icons\\metric_habitability.png",
     "assets\\icons\\metric_defense.png",
     "assets\\icons\\metric_attack.png",
     "assets\\icons\\resource_food.png",
@@ -34,7 +34,7 @@ static const char *ICON_PATHS[ICON_COUNT] = {
     "assets\\icons\\city_capital.png",
     "assets\\icons\\metric_disorder.png",
     "assets\\icons\\metric_territory.png",
-    "assets\\icons\\metric_logistics.png",
+    "assets\\icons\\metric_expansion.png",
     "assets\\icons\\metric_economy.png",
     "assets\\icons\\metric_production.png",
     "assets\\icons\\metric_innovation.png",

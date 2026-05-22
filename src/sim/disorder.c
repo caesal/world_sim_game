@@ -1,5 +1,6 @@
 #include "disorder.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "sim/collapse.h"
 #include "sim/plague.h"
@@ -9,8 +10,13 @@
 #include "sim/war.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static int last_debuff_percent[MAX_CIVS];
+static int wartime_pressure[MAX_CIVS];
+static int wartime_pressure_carry_x10[MAX_CIVS];
+static int wartime_last_gain_x10[MAX_CIVS];
+static int wartime_last_decay_x10[MAX_CIVS];
 
 static int disorder_soft_effect_percent(int disorder) {
     disorder = clamp(disorder, 0, 100);
@@ -72,16 +78,68 @@ static int war_decay_for_civ(Civilization *civ, int civ_id) {
     if (civ->disorder_stability <= 0) return 0;
     if (war_active_for_civ(civ_id)) {
         civ->war_recovery_months = 0;
-        return 1;
+        return 2;
     }
     if (civ->war_recovery_months < 0) civ->war_recovery_months = 0;
     civ->war_recovery_months++;
     return civ->war_recovery_months <= 24 ? 3 : 2;
 }
 
-static int pressure_contribution_x10(Civilization *civ) {
+static int pressure_contribution_x10(Civilization *civ, int civ_id) {
     return civ->disorder_resource * 10 / 18 + civ->disorder_plague * 10 / 24 +
-           civ->disorder_migration * 10 / 26 + civ->disorder_stability * 10 / 28;
+           civ->disorder_migration * 10 / 26 + civ->disorder_stability * 10 / 28 +
+           wartime_pressure[civ_id] * 10 / 24;
+}
+
+static int max_war_years_for_civ(int civ_id) {
+    int other;
+    int years_max = 0;
+    for (other = 0; other < civ_count; other++) {
+        ActiveWar war;
+        if (other == civ_id || !civs[other].alive) continue;
+        war = war_state_between(civ_id, other);
+        if (war.active && war.years > years_max) years_max = war.years;
+    }
+    return years_max;
+}
+
+static int wartime_pressure_gain_x10(int civ_id) {
+    int years;
+    int fronts;
+    int deployed;
+    int national;
+    int gain;
+    if (!war_active_for_civ(civ_id)) return 0;
+    years = max_war_years_for_civ(civ_id);
+    if (years < 2) gain = 6;
+    else if (years < 5) gain = 10;
+    else if (years < 10) gain = 15;
+    else gain = 20;
+    fronts = max(1, war_front_count_for_civ(civ_id));
+    gain += max(0, fronts - 1) * 4;
+    deployed = war_deployed_soldiers_for_civ(civ_id);
+    national = max(1, war_current_soldiers_for_civ(civ_id));
+    if (deployed * 100 > national * 60) gain += 3;
+    return clamp(gain, 0, 40);
+}
+
+static void update_wartime_pressure(int civ_id, int has_war) {
+    int total_x10;
+    int next;
+    int old = wartime_pressure[civ_id];
+    int old_gain = wartime_last_gain_x10[civ_id];
+    int old_decay = wartime_last_decay_x10[civ_id];
+    wartime_last_gain_x10[civ_id] = has_war ? wartime_pressure_gain_x10(civ_id) : 0;
+    wartime_last_decay_x10[civ_id] = has_war ? 0 : 14;
+    total_x10 = wartime_pressure[civ_id] * 10 + wartime_pressure_carry_x10[civ_id] +
+                wartime_last_gain_x10[civ_id] - wartime_last_decay_x10[civ_id];
+    if (total_x10 < 0) total_x10 = 0;
+    next = clamp(total_x10 / 10, 0, 100);
+    wartime_pressure[civ_id] = next;
+    wartime_pressure_carry_x10[civ_id] = total_x10 - next * 10;
+    if (next == 0 || next == 100) wartime_pressure_carry_x10[civ_id] = 0;
+    if (next != old || old_gain != wartime_last_gain_x10[civ_id] ||
+        old_decay != wartime_last_decay_x10[civ_id]) dirty_mark_civ();
 }
 
 static void record_recovery_components(Civilization *civ, int civ_id, int pressure, int resource_score, int has_war) {
@@ -123,12 +181,13 @@ void disorder_update_month(int civ_id, int resource_score) {
     civ->disorder_migration = clamp(civ->disorder_migration - migration_decay, 0, 100);
     civ->disorder_stability = clamp(civ->disorder_stability - war_decay, 0, 100);
     has_war = war_active_for_civ(civ_id);
+    update_wartime_pressure(civ_id, has_war);
     record_recovery_components(civ, civ_id, pressure, resource_score, has_war);
     recovery_x10 = civ->disorder_last_base_recovery_x10 + civ->disorder_last_governance_recovery_x10 +
                    civ->disorder_last_peace_recovery_x10 + civ->disorder_last_cohesion_recovery_x10 +
                    civ->disorder_last_condition_recovery_x10;
-    delta_x10 = pressure_contribution_x10(civ) - recovery_x10;
-    civ->disorder_last_pressure_x10 = pressure_contribution_x10(civ);
+    delta_x10 = pressure_contribution_x10(civ, civ_id) - recovery_x10;
+    civ->disorder_last_pressure_x10 = pressure_contribution_x10(civ, civ_id);
     civ->disorder_last_recovery_x10 = recovery_x10;
     civ->disorder_last_net_x10 = delta_x10;
     civ->disorder_last_pressure = civ->disorder_last_pressure_x10 / 10;
@@ -149,6 +208,14 @@ void disorder_update_month(int civ_id, int resource_score) {
         civ->disorder_carry_x10 = 0;
     }
     finish_disorder_change(civ_id, old_disorder, 1);
+}
+
+void disorder_reset_runtime(void) {
+    memset(last_debuff_percent, 0, sizeof(last_debuff_percent));
+    memset(wartime_pressure, 0, sizeof(wartime_pressure));
+    memset(wartime_pressure_carry_x10, 0, sizeof(wartime_pressure_carry_x10));
+    memset(wartime_last_gain_x10, 0, sizeof(wartime_last_gain_x10));
+    memset(wartime_last_decay_x10, 0, sizeof(wartime_last_decay_x10));
 }
 
 void disorder_set(int civ_id, int value) {
@@ -172,6 +239,7 @@ void disorder_relieve(int civ_id, int amount) {
     civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague - amount, 0, 100);
     civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration - amount, 0, 100);
     civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability - amount, 0, 100);
+    wartime_pressure[civ_id] = clamp(wartime_pressure[civ_id] - amount, 0, 100);
     civs[civ_id].disorder = max(vassal_governance_disorder(civ_id), clamp(civs[civ_id].disorder - amount, 0, 100));
     finish_disorder_change(civ_id, old_disorder, 0);
 }
@@ -253,6 +321,18 @@ int disorder_last_war_decay(int civ_id) {
 
 int disorder_last_migration_decay(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].disorder_last_migration_decay : 0;
+}
+
+int disorder_wartime_pressure(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? wartime_pressure[civ_id] : 0;
+}
+
+int disorder_last_wartime_pressure_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? wartime_last_gain_x10[civ_id] : 0;
+}
+
+int disorder_last_wartime_decay_x10(int civ_id) {
+    return civ_id >= 0 && civ_id < civ_count ? wartime_last_decay_x10[civ_id] : 0;
 }
 
 int disorder_pressure_eta_months(int value, int monthly_decay) {

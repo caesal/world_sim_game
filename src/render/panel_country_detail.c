@@ -117,6 +117,37 @@ static void draw_metric_row(HDC hdc, UiCursor *cursor, int a, int b, int c,
     cursor->y += 36;
 }
 
+static void draw_text_chip(HDC hdc, RECT rect, IconId icon, const char *label,
+                           const char *value, COLORREF accent) {
+    RECT stripe = rect;
+    RECT icon_rect = {rect.left + 6, rect.top + 5, rect.left + 24, rect.top + 23};
+    RECT label_rect = {rect.left + 29, rect.top + 3, rect.right - 8, rect.top + 15};
+    RECT value_rect = {rect.left + 29, rect.top + 14, rect.right - 8, rect.bottom - 2};
+
+    fill_rect(hdc, rect, ui_theme_color(UI_COLOR_PANEL_SOFT));
+    stripe.right = stripe.left + 3;
+    fill_rect(hdc, stripe, accent);
+    draw_icon(hdc, icon, icon_rect, accent);
+    draw_text_rect(hdc, label_rect, label, ui_theme_color(UI_COLOR_TEXT_DIM),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, value_rect, value, ui_theme_color(UI_COLOR_TEXT),
+                   DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS);
+}
+
+static void draw_overview_text_row(HDC hdc, UiCursor *cursor,
+                                   const char *a_label, const char *a_value, IconId a_icon,
+                                   const char *b_label, const char *b_value, IconId b_icon,
+                                   const char *c_label, const char *c_value, IconId c_icon) {
+    int w = (cursor->width - 16) / 3;
+    RECT r = {cursor->x, cursor->y, cursor->x + w, cursor->y + 30};
+    draw_text_chip(hdc, r, a_icon, a_label, a_value, RGB(118, 143, 95));
+    r.left += w + 8; r.right += w + 8;
+    draw_text_chip(hdc, r, b_icon, b_label, b_value, RGB(83, 123, 166));
+    r.left += w + 8; r.right += w + 8;
+    draw_text_chip(hdc, r, c_icon, c_label, c_value, RGB(188, 154, 88));
+    cursor->y += 38;
+}
+
 static __attribute__((unused)) void draw_metric_pair(HDC hdc, UiCursor *cursor, int a, int b,
                                                      IconId ia, IconId ib, const char *la, const char *lb) {
     int w = (cursor->width - 8) / 2;
@@ -288,6 +319,10 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     draw_country_recent_events(hdc, cursor, civ_id);
 }
 
+static const char *heritage_label(int heritage) {
+    return heritage == CIV_HERITAGE_EASTERN ? tr("Eastern", "东方") : tr("Western", "西方");
+}
+
 static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     int can_trigger = civ ? civ->collapse_can_trigger : 0;
@@ -309,17 +344,15 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
                                  HFONT title_font, HFONT body_font) {
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     CountrySummary country = civ ? civ->summary : (CountrySummary){0};
-    char army_text[160];
-    char army_total[32];
     char army_deployed[32];
     char army_reserve[32];
+    char army_deployment[96];
+    char front_text[24];
 
-    format_metric_value(civ ? civ->current_soldiers : 0, army_total, sizeof(army_total));
     format_metric_value(civ ? civ->war_deployed_soldiers : 0, army_deployed, sizeof(army_deployed));
     format_metric_value(civ ? civ->war_available_reserve : 0, army_reserve, sizeof(army_reserve));
-    snprintf(army_text, sizeof(army_text), "%s %s   %s %s   %s %s   %s %d",
-             tr("Total", "总量"), army_total, tr("Deployed", "已部署"), army_deployed,
-             tr("Reserve", "预备队"), army_reserve, tr("Fronts", "战线"), civ ? civ->war_front_count : 0);
+    snprintf(army_deployment, sizeof(army_deployment), "%s / %s", army_deployed, army_reserve);
+    snprintf(front_text, sizeof(front_text), "%d", civ ? civ->war_front_count : 0);
 
     switch (clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)) {
         case COUNTRY_DETAIL_TECHNOLOGY:
@@ -348,7 +381,12 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
             draw_metric_row(hdc, cursor, civ ? civ->current_soldiers : 0, country.ports, civ ? civ->disorder : 0,
                             ICON_MILITARY, ICON_HARBOR, ICON_DISORDER,
                             metric_label("Army", "军队"), metric_label("Ports", "港口"), metric_label("Disorder", "混乱"));
-            ui_row_text(hdc, cursor, tr("Army Pool", "军队池"), army_text);
+            draw_overview_text_row(hdc, cursor,
+                                   tr("Heritage", "文明圈"),
+                                   heritage_label(civ ? civ->heritage : CIV_HERITAGE_WESTERN),
+                                   ICON_TERRITORY,
+                                   tr("Deployment", "军队部署"), army_deployment, ICON_MILITARY,
+                                   tr("Fronts", "战线"), front_text, ICON_BATTLE);
             draw_overview_mini_blocks(hdc, cursor, civ_id);
             if ((civ ? civ->plague_active_count : 0) > 0) {
                 ui_section(hdc, cursor, tr("Plague", "瘟疫"));

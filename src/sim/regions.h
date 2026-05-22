@@ -34,6 +34,7 @@ typedef struct {
     int disconnected_months;
     int disconnected_component_id;
     int name_id;
+    int name_heritage;
 } NaturalRegion;
 
 extern NaturalRegion natural_regions[MAX_NATURAL_REGIONS];

@@ -10,9 +10,13 @@ CountrySummary summarize_country(int civ_id);
 const char *civilization_display_name_for_language(int civ_id, int language);
 const char *civilization_display_name(int civ_id);
 int civilization_pick_unused_name_id(void);
+int civilization_pick_unused_name_id_for_heritage(int heritage);
 void civilization_assign_generated_name(Civilization *civ, int name_id);
+void civilization_assign_generated_name_for_heritage(Civilization *civ, int heritage, int name_id);
 void civilization_set_custom_name(Civilization *civ, const char *name);
 void civilization_migrate_loaded_names(void);
+int civilization_heritage_or_default(int heritage);
+void civilization_apply_input_name(Civilization *civ, const char *name, int pick_default, int heritage);
 int world_city_site_has_room(int x, int y, int owner, int radius);
 int world_nearby_enemy_border(int owner, int x, int y, int radius);
 int world_city_radius_for_tile(int x, int y, int population);
@@ -28,6 +32,10 @@ void world_invalidate_population_cache(void);
 int add_civilization_at(const char *name, char symbol, int military, int logistics,
                         int governance, int cohesion, int production, int commerce,
                         int innovation, int preferred_x, int preferred_y);
+int add_civilization_at_with_heritage(const char *name, char symbol, int heritage,
+                                      int military, int logistics, int governance,
+                                      int cohesion, int production, int commerce,
+                                      int innovation, int preferred_x, int preferred_y);
 int simulation_last_created_civ_id(void);
 void simulation_reset_state(void);
 void simulation_seed_default_civilizations(void);

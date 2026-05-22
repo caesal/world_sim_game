@@ -7,6 +7,7 @@
 #include "io/map_save_regions.h"
 #include "io/map_save_state.h"
 #include "sim/civilization_uid.h"
+#include "sim/disorder.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
 
@@ -14,8 +15,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-
-#define MAP_SAVE_VERSION 8
+#define MAP_SAVE_VERSION 9
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {
@@ -230,7 +230,7 @@ static void clear_loaded_storage(void) {
     memset(maritime_routes, 0, sizeof(maritime_routes));
     memset(natural_regions, 0, sizeof(natural_regions));
     memset(civs, 0, sizeof(civs));
-    memset(cities, 0, sizeof(cities));
+    memset(cities, 0, sizeof(cities)); disorder_reset_runtime();
 }
 static int read_world_rows(FILE *file) {
     int y;
@@ -241,9 +241,10 @@ static int read_world_rows(FILE *file) {
     return 1;
 }
 static int read_civilizations(FILE *file, int save_version) {
-    if (save_version >= 6) {
-        return read_block(file, civs, sizeof(Civilization), (size_t)civ_count);
-    }
+    if (save_version >= 9) return read_block(file, civs, sizeof(Civilization), (size_t)civ_count);
+    if (save_version >= 6) { size_t old_size = sizeof(Civilization) - sizeof(int); int i; for (i = 0; i < civ_count; i++) {
+            memset(&civs[i], 0, sizeof(civs[i])); if (!read_block(file, &civs[i], old_size, 1)) return 0;
+            civs[i].heritage = CIV_HERITAGE_WESTERN; } return 1; }
     if (save_version >= 4) {
         LegacyCivilizationV5 legacy[MAX_CIVS];
         int i;

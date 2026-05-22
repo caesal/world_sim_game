@@ -1,13 +1,16 @@
 #include "core/render_snapshot.h"
-
 #include "core/dirty_flags.h"
+#include "core/render_snapshot_events.h"
 #include "core/render_snapshot_keys.h"
+#include "core/render_snapshot_profile.h"
+#include "core/render_snapshot_sections.h"
 #include "core/state_lock.h"
 #include "data/province_names.h"
 #include "sim/collapse.h"
 #include "sim/civilization_slots.h"
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
+#include "sim/disorder.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
 #include "sim/population.h"
@@ -18,13 +21,10 @@
 #include "sim/war.h"
 #include "sim/war_front.h"
 #include "world/terrain_query.h"
-
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-
 #include <stdio.h>
 #include <string.h>
-
 static RenderSnapshot buffers[3];
 static volatile LONG front_index;
 static volatile LONG refs[3];
@@ -35,15 +35,11 @@ static volatile LONG skipped_publish_count;
 static volatile LONG throttled_publish_count;
 static volatile LONG last_skip_reason;
 static int initialized;
-
-enum {
-    SNAPSHOT_SKIP_NONE = 0,
-    SNAPSHOT_SKIP_THROTTLED = 1,
-    SNAPSHOT_SKIP_NO_BACK_BUFFER = 2
-};
-
-#define SNAPSHOT_MIN_INTERVAL_MS 50
-
+enum { SNAPSHOT_SKIP_NONE = 0, SNAPSHOT_SKIP_THROTTLED = 1, SNAPSHOT_SKIP_NO_BACK_BUFFER = 2, SNAPSHOT_SKIP_LOCK_BUSY = 3 };
+#define SNAPSHOT_MIN_INTERVAL_MS 125
+#define PROFILE_SECTION(section, code) do { DWORD _s = GetTickCount(); code; \
+    render_snapshot_profile_record_section(section, (int)(GetTickCount() - _s), 1); } while (0)
+#define PROFILE_SKIP(section) render_snapshot_profile_record_section(section, 0, 0)
 static int choose_back_buffer(void) {
     int front = (int)front_index;
     int i;
@@ -52,7 +48,6 @@ static int choose_back_buffer(void) {
     }
     return -1;
 }
-
 static void copy_tiles(RenderSnapshot *snapshot) {
     int x;
     int y;
@@ -79,7 +74,7 @@ static void copy_tiles(RenderSnapshot *snapshot) {
 
 static void copy_civs(RenderSnapshot *snapshot) {
     int i;
-    snapshot->civ_count = clamp(civ_count, 0, MAX_CIVS);
+    snapshot->civ_count = clamp(civ_count, 0, MAX_CIVS); snapshot->civ_independent_alive_count = 0;
     for (i = 0; i < snapshot->civ_count; i++) {
         SnapshotCiv *dst = &snapshot->civs[i];
         Civilization *src = &civs[i];
@@ -115,7 +110,7 @@ static void copy_civs(RenderSnapshot *snapshot) {
         dst->disorder_resource = src->disorder_resource;
         dst->disorder_plague = src->disorder_plague;
         dst->disorder_migration = src->disorder_migration;
-        dst->disorder_stability = src->disorder_stability;
+        dst->disorder_stability = src->disorder_stability; dst->disorder_wartime = disorder_wartime_pressure(i);
         dst->disorder_last_pressure = src->disorder_last_pressure;
         dst->disorder_last_recovery = src->disorder_last_recovery;
         dst->disorder_last_net = src->disorder_last_net;
@@ -129,13 +124,10 @@ static void copy_civs(RenderSnapshot *snapshot) {
         dst->disorder_last_condition_recovery_x10 = src->disorder_last_condition_recovery_x10;
         dst->disorder_last_plague_decay = src->disorder_last_plague_decay;
         dst->disorder_last_war_decay = src->disorder_last_war_decay;
-        dst->disorder_last_migration_decay = src->disorder_last_migration_decay;
+        dst->disorder_last_migration_decay = src->disorder_last_migration_decay; dst->disorder_last_wartime_pressure_x10 = disorder_last_wartime_pressure_x10(i);
+        dst->disorder_last_wartime_decay_x10 = disorder_last_wartime_decay_x10(i);
         dst->collapse_grace_months = src->collapse_grace_months;
         dst->plague_random_immunity_months = src->plague_random_immunity_months;
-        dst->plague_active_count = plague_civ_active_count(i);
-        dst->plague_months_left = plague_civ_months_left(i);
-        dst->plague_peak_severity = plague_civ_peak_severity(i);
-        dst->plague_deaths_total = plague_civ_deaths_total(i);
         dst->war_active = war_active_for_civ(i);
         dst->war_deployed_soldiers = war_deployed_soldiers_for_civ(i);
         dst->war_available_reserve = war_available_reserve_for_civ(i);
@@ -147,10 +139,13 @@ static void copy_civs(RenderSnapshot *snapshot) {
         dst->collapse_block_reason = collapse_block_reason(i);
         snprintf(dst->collapse_last_reason, sizeof(dst->collapse_last_reason), "%s", collapse_last_reason(i));
         dst->capital_city = src->capital_city;
-        dst->overlord = vassal_overlord(i);
+        dst->overlord = vassal_overlord(i); if (src->alive && dst->overlord < 0) snapshot->civ_independent_alive_count++;
+        dst->vassal_annex_threshold_years = dst->overlord >= 0 ? vassal_annex_threshold_years(dst->overlord) : 0;
+        dst->vassal_annex_remaining_years = dst->overlord >= 0 ? vassal_annex_remaining_years(dst->overlord, diplomacy_relation(dst->overlord, i).vassal_years) : 0;
         dst->vassal_support_used = dst->overlord >= 0 ? vassal_support_used_by_overlord(dst->overlord, i) : 0; dst->vassal_support_casualties = vassal_support_casualties(i);
         dst->vassal_count = vassal_direct_count(i);
         dst->name_id = src->name_id;
+        dst->heritage = src->heritage;
         dst->summary = summarize_country(i);
         dst->population_summary = population_country_summary(i);
         {
@@ -218,10 +213,6 @@ static void copy_cities(RenderSnapshot *snapshot) {
         dst->port_x = src->port_x;
         dst->port_y = src->port_y;
         dst->port_region = src->port_region;
-        dst->plague_active = plague_city_active(i);
-        dst->plague_severity = plague_city_severity(i);
-        dst->plague_months_left = plague_city_months_left(i);
-        dst->plague_deaths_total = plague_city_deaths_total(i);
         dst->region_summary = summarize_city_region(i);
         dst->population_summary = population_city_summary(i);
         snprintf(dst->name, sizeof(dst->name), "%s", src->name);
@@ -253,6 +244,7 @@ static void copy_regions(RenderSnapshot *snapshot) {
         dst->dominant_ecology = src->dominant_ecology;
         dst->average_stats = src->average_stats;
         dst->name_id = src->name_id;
+        dst->name_heritage = src->name_heritage;
         snprintf(dst->name_en, sizeof(dst->name_en), "%s", province_display_name(i, 0));
         snprintf(dst->name_zh, sizeof(dst->name_zh), "%s", province_display_name(i, 1));
     }
@@ -289,8 +281,20 @@ static void copy_lanes(RenderSnapshot *snapshot) {
 static void copy_plague(RenderSnapshot *snapshot) {
     int i;
     snapshot->plague_active = 0;
+    for (i = 0; i < snapshot->civ_count; i++) {
+        SnapshotCiv *civ = &snapshot->civs[i];
+        civ->plague_active_count = plague_civ_active_count(i);
+        civ->plague_months_left = plague_civ_months_left(i);
+        civ->plague_peak_severity = plague_civ_peak_severity(i);
+        civ->plague_deaths_total = plague_civ_deaths_total(i);
+    }
     for (i = 0; i < snapshot->city_count; i++) {
+        SnapshotCity *city = &snapshot->cities[i];
         int severity = plague_city_severity(i);
+        city->plague_active = plague_city_active(i);
+        city->plague_severity = severity;
+        city->plague_months_left = plague_city_months_left(i);
+        city->plague_deaths_total = plague_city_deaths_total(i);
         snapshot->plague_city_severity[i] = severity;
         if (severity > 0) snapshot->plague_active = 1;
     }
@@ -298,31 +302,6 @@ static void copy_plague(RenderSnapshot *snapshot) {
         int exposure = sea_lanes_exposure(i);
         snapshot->plague_lane_exposure[i] = exposure;
         snapshot->lanes[i].exposure = exposure;
-    }
-}
-
-static void copy_events(RenderSnapshot *snapshot) {
-    int max_events = min(event_log_count, RENDER_SNAPSHOT_EVENT_COUNT);
-    int i;
-    snapshot->event_count = max_events;
-    snapshot->event_total_entries = event_log_total_entries;
-    for (i = 0; i < max_events; i++) {
-        SnapshotEvent *dst = &snapshot->events[i]; memset(dst, 0, sizeof(*dst));
-        event_log_get_entry(i, &dst->entry); dst->type = dst->entry.type;
-        event_log_format_entry_data(&dst->entry, 0, dst->text_en, sizeof(dst->text_en));
-        event_log_format_entry_data(&dst->entry, 1, dst->text_zh, sizeof(dst->text_zh)); }
-    memset(snapshot->civ_recent_event_count, 0, sizeof(snapshot->civ_recent_event_count));
-    for (i = 0; i < snapshot->civ_count && i < MAX_CIVS; i++) {
-        int j;
-        int uid = snapshot->civs[i].uid;
-        int count = min(event_log_recent_count_for_civ_uid(i, uid), EVENT_LOG_CIV_HISTORY_COUNT);
-        snapshot->civ_recent_event_count[i] = count;
-        for (j = 0; j < count; j++) {
-            SnapshotEvent *dst = &snapshot->civ_recent_events[i][j]; memset(dst, 0, sizeof(*dst));
-            if (!event_log_recent_for_civ_uid(i, uid, j, &dst->entry)) continue;
-            dst->type = dst->entry.type;
-            event_log_format_entry_data(&dst->entry, 0, dst->text_en, sizeof(dst->text_en));
-            event_log_format_entry_data(&dst->entry, 1, dst->text_zh, sizeof(dst->text_zh)); }
     }
 }
 
@@ -347,6 +326,10 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     int lane_key;
     int plague_key;
     int event_key;
+    const RenderSnapshot *base_snapshot = NULL;
+    DWORD wait_start;
+    DWORD lock_start;
+    DWORD lock_end;
     DWORD start = GetTickCount();
     if (!initialized) render_snapshot_init();
     if (!force && last_publish_tick > 0 &&
@@ -356,15 +339,27 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         last_skip_reason = SNAPSHOT_SKIP_THROTTLED;
         return 0;
     }
+    if (published_revision > 0) base_snapshot = render_snapshot_acquire();
     back = choose_back_buffer();
     if (back < 0) {
+        if (base_snapshot) render_snapshot_release(base_snapshot);
         InterlockedIncrement(&skipped_publish_count);
         last_skip_reason = SNAPSHOT_SKIP_NO_BACK_BUFFER;
         return 0;
     }
     snapshot = &buffers[back];
-    if (published_revision == 0 && snapshot->revision == 0) memset(snapshot, 0, sizeof(*snapshot));
-    state_read_lock();
+    if (base_snapshot) render_snapshot_seed_from_front(snapshot, base_snapshot);
+    else if (published_revision == 0 && snapshot->revision == 0) memset(snapshot, 0, sizeof(*snapshot));
+    render_snapshot_profile_reset_sections();
+    wait_start = GetTickCount();
+    if (!force && !state_try_read_lock()) {
+        if (base_snapshot) render_snapshot_release(base_snapshot);
+        InterlockedIncrement(&skipped_publish_count);
+        last_skip_reason = SNAPSHOT_SKIP_LOCK_BUSY;
+        return 0;
+    }
+    if (force) state_read_lock();
+    lock_start = GetTickCount();
     snapshot->map_w = clamp(map_w, 1, MAX_MAP_W);
     snapshot->map_h = clamp(map_h, 1, MAX_MAP_H);
     snapshot->year = year;
@@ -383,54 +378,61 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     snapshot->sections_copied_mask = 0;
     snapshot->sections_skipped_mask = 0;
     if (snapshot->revision == 0 || snapshot->tiles_revision != tile_key) {
-        copy_tiles(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_TILES, copy_tiles(snapshot));
         snapshot->tiles_revision = tile_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_TILES;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_TILES;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_TILES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_TILES; }
     if (snapshot->revision == 0 || snapshot->civs_revision != civ_key) {
-        copy_civs(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_CIVS, copy_civs(snapshot));
         snapshot->civs_revision = civ_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_CIVS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS; }
     if (snapshot->revision == 0 || snapshot->cities_revision != city_key) {
-        copy_cities(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_CITIES, copy_cities(snapshot));
         snapshot->cities_revision = city_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_CITIES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CITIES; }
     if (snapshot->revision == 0 || snapshot->regions_revision != region_key) {
-        copy_regions(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_REGIONS, copy_regions(snapshot));
         snapshot->regions_revision = region_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_REGIONS;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_REGIONS;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_REGIONS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_REGIONS; }
     if (snapshot->revision == 0 || snapshot->diplomacy_revision != diplomacy_key) {
-        copy_diplomacy(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_DIPLOMACY, copy_diplomacy(snapshot));
         snapshot->diplomacy_revision = diplomacy_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_DIPLOMACY); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY; }
     if (world_generated && (snapshot->revision == 0 || snapshot->lanes_revision != lane_key)) {
-        copy_lanes(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_LANES, copy_lanes(snapshot));
         snapshot->lanes_revision = lane_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_LANES;
     } else if (!world_generated) {
         snapshot->lane_count = 0;
+        PROFILE_SKIP(SNAPSHOT_PROFILE_LANES);
         snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_LANES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES; }
     if (snapshot->revision == 0 || snapshot->plague_revision != plague_key) {
-        copy_plague(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_PLAGUE, copy_plague(snapshot));
         snapshot->plague_revision = plague_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_PLAGUE); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE; }
     if (snapshot->revision == 0 || snapshot->events_revision != event_key) {
-        copy_events(snapshot);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_EVENTS, render_snapshot_copy_events_locked(snapshot));
         snapshot->events_revision = event_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_EVENTS;
-    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_EVENTS;
+    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_EVENTS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_EVENTS; }
+    lock_end = GetTickCount();
     state_read_unlock();
+    if (snapshot->sections_copied_mask & RENDER_SNAPSHOT_SECTION_EVENTS) render_snapshot_format_events(snapshot);
     snapshot->revision = (unsigned int)InterlockedIncrement(&published_revision);
     last_publish_tick = (LONG)GetTickCount();
     last_publish_ms = (LONG)(last_publish_tick - start);
+    render_snapshot_profile_record_publish((int)last_publish_ms, (int)(lock_start - wait_start),
+                                           (int)(lock_end - lock_start),
+                                           snapshot->sections_copied_mask, snapshot->sections_skipped_mask);
     last_skip_reason = SNAPSHOT_SKIP_NONE;
     InterlockedExchange(&front_index, back);
+    if (base_snapshot) render_snapshot_release(base_snapshot);
     return 1;
 }
 
@@ -455,15 +457,13 @@ int render_snapshot_age_ms(void) {
     return clamp((int)(GetTickCount() - (DWORD)tick), 0, 600000); }
 
 int render_snapshot_last_publish_ms(void) { return (int)last_publish_ms; }
-
 int render_snapshot_skipped_publish_count(void) { return (int)skipped_publish_count; }
-
 int render_snapshot_throttled_publish_count(void) { return (int)throttled_publish_count; }
-
 const char *render_snapshot_last_skip_reason(void) {
     switch ((int)last_skip_reason) {
         case SNAPSHOT_SKIP_THROTTLED: return "throttled";
         case SNAPSHOT_SKIP_NO_BACK_BUFFER: return "no free back buffer";
+        case SNAPSHOT_SKIP_LOCK_BUSY: return "lock busy";
         default: return "none";
     }
 }

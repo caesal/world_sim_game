@@ -1,10 +1,12 @@
 ﻿#include "diplomacy.h"
 #include "sim/expansion.h"
+#include "core/dirty_flags.h"
 #include "sim/diplomacy_borders.h"
 #include "sim/maritime.h"
 #include "sim/regions.h"
 #include "war.h"
 #include "sim/war_front.h"
+#include "sim/war_desire.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
 #include <stdio.h>
@@ -14,12 +16,11 @@
 #endif
 static DiplomacyRelation diplomacy_matrix[MAX_CIVS][MAX_CIVS];
 static int diplomacy_contacts_dirty = 1;
-static int last_war_desires[MAX_CIVS];
-static char last_war_reasons[MAX_CIVS][96];
 static void set_relation_pair(int civ_a, int civ_b, DiplomacyRelation relation) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
     diplomacy_matrix[civ_a][civ_b] = relation;
     diplomacy_matrix[civ_b][civ_a] = relation;
+    dirty_mark_diplomacy();
 }
 static DiplomacyRelation default_relation(DiplomacyStatus state, int score) {
     DiplomacyRelation relation;
@@ -48,8 +49,7 @@ void diplomacy_reset(void) {
     int a;
     int b;
     diplomacy_borders_reset();
-    memset(last_war_desires, 0, sizeof(last_war_desires));
-    memset(last_war_reasons, 0, sizeof(last_war_reasons));
+    war_desire_reset_all();
     diplomacy_contacts_dirty = 1;
     for (a = 0; a < MAX_CIVS; a++) {
         for (b = 0; b < MAX_CIVS; b++) {
@@ -61,9 +61,11 @@ void diplomacy_reset(void) {
 void diplomacy_mark_contacts_dirty(void) {
     diplomacy_borders_mark_dirty();
     diplomacy_contacts_dirty = 1;
+    dirty_mark_diplomacy();
 }
 static int is_valid_civ(int civ_id) { return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive; }
 static int is_sovereign_actor(int civ_id) { return is_valid_civ(civ_id) && vassal_overlord(civ_id) < 0; }
+static int same_heritage(int civ_a, int civ_b) { return civs[civ_a].heritage == civs[civ_b].heritage; }
 int diplomacy_land_contact_stats(int civ_a, int civ_b, int *border_length, int *natural_barrier) {
     return (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS) ? 0 :
            diplomacy_pair_contact_stats(civ_a, civ_b, border_length, natural_barrier);
@@ -118,6 +120,7 @@ static int compute_trade_fit(int civ_a, int civ_b) {
     fit += compute_prosperity_trade(a, b);
     fit += compute_diversity_exchange(a, b);
     fit += maritime_trade_bonus(civ_a, civ_b);
+    if (same_heritage(civ_a, civ_b)) fit += 10;
     return clamp(fit - militarism, 0, 100);
 }
 static int compute_resource_conflict(int civ_a, int civ_b) {
@@ -146,78 +149,12 @@ static int compute_border_tension(int civ_a, int civ_b, DiplomacyRelation relati
     }
     tension = relation.resource_conflict + border_pressure + militarism + blocked -
               (relation.trade_fit * 3) / 5 - barrier_relief;
+    if (same_heritage(civ_a, civ_b)) tension -= 8;
     if (relation.border_length <= 0) tension = tension * 2 / 5;
     return clamp(tension, 0, 100);
 }
-static int strength_score(int civ_id) {
-    CountrySummary summary = summarize_country(civ_id);
-    Civilization *civ = &civs[civ_id];
-    return summary.population / 800 + summary.food * 2 + summary.water * 2 + summary.money * 2 +
-           summary.minerals * 2 + civ->military * 7 + civ->production * 4 +
-           civ->logistics * 4 + civ->cohesion * 3 - civ->disorder / 2;
-}
-static int resource_need_score(int civ_id) {
-    CountrySummary summary = summarize_country(civ_id);
-    int score = 0;
-    score += resource_deficit_value(summary.food, 5) * 3;
-    score += resource_deficit_value(summary.water, 5) * 3;
-    score += resource_deficit_value(summary.minerals, 5) * 2;
-    score += resource_deficit_value(summary.wood, 5) * 2;
-    score += resource_deficit_value(summary.money, 5) * 2;
-    return clamp(score, 0, 30);
-}
-static int war_desire(int civ_a, int civ_b, DiplomacyRelation relation) {
-    int resource_need = resource_need_score(civ_a);
-    ExpansionAIDiagnostics expansion_ai =
-        expansion_ai_diagnostics(civ_a, expansion_resource_score_for_civ(civ_a));
-    int desire = civs[civ_a].aggression * 4 + relation.border_tension / 2 + resource_need;
-    int strength_delta = strength_score(civ_a) - strength_score(civ_b);
-    int frontier_suppression = 0;
-    int sea_targets = expansion_ai.shallow_sea_reachable_regions + expansion_ai.maritime_reachable_regions +
-                      expansion_ai.deep_sea_reachable_regions;
-    int open_targets = expansion_ai.nearby_unowned_regions + sea_targets;
-    if (!war_has_active_front(civ_a, civ_b)) {
-        last_war_desires[civ_a] = 0;
-        snprintf(last_war_reasons[civ_a], sizeof(last_war_reasons[civ_a]),
-                 "No active front.");
-        return 0;
-    }
-    if (strength_delta > 0) desire += clamp(strength_delta / 8, 0, 25);
-    desire -= (relation.trade_fit * 3) / 5;
-    desire -= relation.truce_years_left > 0 ? 50 : 0;
-    desire -= civs[civ_a].disorder / 2;
-    if (expansion_ai.global_unowned_percent >= 35 && open_targets > 0) {
-        desire = 0;
-        frontier_suppression = 100;
-    } else if ((open_targets > 0 || expansion_ai.global_unowned_percent >= 20) &&
-               relation.border_tension < 95 && resource_need < 28) {
-        frontier_suppression = clamp(expansion_ai.land_adjacent_unowned_regions * 18 +
-                                     expansion_ai.land_nearby_unowned_regions * 7 +
-                                     expansion_ai.shallow_sea_reachable_regions * 10 +
-                                     expansion_ai.maritime_reachable_regions * 8 +
-                                     expansion_ai.deep_sea_reachable_regions * 4 +
-                                     expansion_ai.global_unowned_percent * 2, 0, 100);
-        desire -= frontier_suppression;
-    }
-    desire = clamp(desire, 0, 100);
-    last_war_desires[civ_a] = desire;
-    if (frontier_suppression > 0) {
-        snprintf(last_war_reasons[civ_a], sizeof(last_war_reasons[civ_a]),
-                 "War suppressed by open land/sea: land %d, shallow %d, route %d, global %d%%.",
-                 expansion_ai.nearby_unowned_regions, expansion_ai.shallow_sea_reachable_regions,
-                 expansion_ai.maritime_reachable_regions,
-                 expansion_ai.global_unowned_percent);
-    } else if (resource_need >= 24) {
-        snprintf(last_war_reasons[civ_a], sizeof(last_war_reasons[civ_a]),
-                 "Severe resource shortage keeps war viable.");
-    } else if (relation.border_tension >= 82) {
-        snprintf(last_war_reasons[civ_a], sizeof(last_war_reasons[civ_a]),
-                 "Extreme border tension can override frontier expansion.");
-    } else {
-        snprintf(last_war_reasons[civ_a], sizeof(last_war_reasons[civ_a]),
-                 "War desire from aggression, border tension, and strength.");
-    }
-    return desire;
+static int war_desire_for_pair(int civ_a, int civ_b, DiplomacyRelation relation) {
+    return war_desire_calculate(civ_a, civ_b, relation).final_desire;
 }
 
 static void log_relation_transition(int civ_a, int civ_b, DiplomacyStatus old_state, DiplomacyStatus new_state) {
@@ -278,20 +215,7 @@ static void refresh_known_relation(int civ_a, int civ_b) {
 #if DIPLOMACY_ENABLE_ADVANCED_STATES
     else if (relation.state == DIPLOMACY_VASSAL) {
         relation.vassal_years++;
-        if (relation.overlord >= 0 && relation.overlord < civ_count &&
-            civs[relation.overlord].alive && civs[relation.overlord].tech_stage >= 10 &&
-            relation.vassal_years >= 45) {
-            int i;
-            int overlord = relation.overlord;
-            int vassal = relation.vassal;
-            for (i = 0; i < region_count; i++) {
-                if (natural_regions[i].owner_civ == vassal) regions_claim_for_civ(i, overlord, -1, 0);
-            }
-            event_log_push_structured(EVENT_TYPE_VASSAL_ANNEXED, EVENT_SEVERITY_DANGER,
-                                      vassal, overlord, -1, -1, relation.vassal_years, 0, "");
-            civs[vassal].alive = 0;
-            relation.state = DIPLOMACY_PEACE;
-        }
+        vassal_try_auto_annex(&relation);
         relation.border_tension = clamp(relation.border_tension - 4, 0, 100);
         relation.relation_score = clamp(relation.relation_score + relation.trade_fit / 25 -
                                         relation.resource_conflict / 30, 0, 100);
@@ -310,8 +234,8 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         }
 #endif
     } else if (relation.state == DIPLOMACY_TENSE) {
-        int desire_a = war_desire(civ_a, civ_b, relation);
-        int desire_b = war_desire(civ_b, civ_a, relation);
+        int desire_a = war_desire_for_pair(civ_a, civ_b, relation);
+        int desire_b = war_desire_for_pair(civ_b, civ_a, relation);
         if (desire_a >= 70 || desire_b >= 70) {
             int started = desire_a >= desire_b ? war_start(civ_a, civ_b) : war_start(civ_b, civ_a);
             if (started) relation = diplomacy_matrix[civ_a][civ_b];
@@ -342,7 +266,7 @@ void diplomacy_update_contacts(void) {
             if (contact_kind == DIP_CONTACT_NONE) continue;
             relation = diplomacy_matrix[a][b];
             if (relation.state == DIPLOMACY_NONE) {
-                relation = default_relation(DIPLOMACY_PEACE, 50);
+                relation = default_relation(DIPLOMACY_PEACE, same_heritage(a, b) ? 58 : 50);
                 event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
                                           a, b, -1, -1, 0, 0, "");
             }
@@ -362,6 +286,7 @@ void diplomacy_update_year(void) {
     int a;
     int b;
     diplomacy_update_contacts();
+    war_desire_reset_all();
     for (a = 0; a < civ_count; a++) {
         if (!is_valid_civ(a)) continue;
         for (b = a + 1; b < civ_count; b++) {
@@ -404,12 +329,9 @@ void diplomacy_record_war_interrupted(int civ_a, int civ_b) {
     relation.last_war_result = DIP_LAST_WAR_INTERRUPTED;
     set_relation_pair(civ_a, civ_b, relation);
 }
-int diplomacy_last_war_desire(int civ_id) { return (civ_id < 0 || civ_id >= MAX_CIVS) ? 0 : last_war_desires[civ_id]; }
+int diplomacy_last_war_desire(int civ_id) { return war_desire_last_final(civ_id); }
 const char *diplomacy_last_war_reason(int civ_id) {
-    if (civ_id < 0 || civ_id >= MAX_CIVS || !last_war_reasons[civ_id][0]) {
-        return "No war decision yet.";
-    }
-    return last_war_reasons[civ_id];
+    return war_desire_last_reason(civ_id);
 }
 void diplomacy_clear_civ(int civ_id) {
     int i;
@@ -421,8 +343,7 @@ void diplomacy_clear_civ(int civ_id) {
         diplomacy_matrix[i][civ_id] = relation;
     }
     diplomacy_borders_clear_civ(civ_id);
-    last_war_desires[civ_id] = 0;
-    last_war_reasons[civ_id][0] = '\0';
+    war_desire_clear_civ(civ_id);
     diplomacy_mark_contacts_dirty();
 }
 void diplomacy_force_war(int civ_a, int civ_b) {

@@ -1,17 +1,19 @@
 #include "core/event_log_history.h"
+#include "core/event_log_store.h"
 #include "core/game_state.h"
 
+#include "sim/collapse.h"
 #include "sim/simulation.h"
 
 #include <stdio.h>
 #include <string.h>
-
 char event_log[EVENT_LOG_COUNT][EVENT_LOG_LEN];
 static EventLogEntry event_log_entries[EVENT_LOG_COUNT];
 int event_log_count = 0;
 int event_log_next = 0;
 int event_log_total_entries = 0;
-
+static int event_log_last_event_id = 0;
+static EventLogEntry event_log_last_entry;
 static EventLogType event_type_from_text(const char *text) {
     if (!text) return EVENT_TYPE_GENERIC;
     if (strstr(text, "[Performance]")) return EVENT_TYPE_PERFORMANCE_THROTTLED;
@@ -38,7 +40,6 @@ static EventLogType event_type_from_text(const char *text) {
     if (strstr(text, "created country")) return EVENT_TYPE_CIV_CREATED;
     return EVENT_TYPE_GENERIC;
 }
-
 static EventLogSeverity event_severity_from_type(EventLogType type) {
     switch (type) {
         case EVENT_TYPE_WAR_STARTED:
@@ -60,7 +61,6 @@ static EventLogSeverity event_severity_from_type(EventLogType type) {
             return EVENT_SEVERITY_INFO;
     }
 }
-
 static const char *event_type_label(EventLogType type, int language) {
     int zh = language != 0;
     switch (type) {
@@ -100,11 +100,9 @@ static const char *event_type_label(EventLogType type, int language) {
         default: return zh ? "事件" : "Event";
     }
 }
-
 static int event_param_a_is_civ(EventLogType type) {
     return type == EVENT_TYPE_VASSAL_TRANSFERRED;
 }
-
 static void event_snapshot_civ(EventCivSnapshot *snapshot, int civ_id) {
     if (!snapshot) return;
     memset(snapshot, 0, sizeof(*snapshot));
@@ -117,11 +115,9 @@ static void event_snapshot_civ(EventCivSnapshot *snapshot, int civ_id) {
     snprintf(snapshot->name_zh, sizeof(snapshot->name_zh), "%s",
              civilization_display_name_for_language(civ_id, 1));
 }
-
 void event_log_push_structured(EventLogType type, EventLogSeverity severity, int civ_id,
                                int target_id, int region_id, int city_id,
                                int param_a, int param_b, const char *raw_message) {
-    static EventLogEntry last_entry;
     EventLogEntry *entry;
     int previous;
     int civ_uid = civ_id >= 0 && civ_id < civ_count ? civs[civ_id].uid : 0;
@@ -130,14 +126,15 @@ void event_log_push_structured(EventLogType type, EventLogSeverity severity, int
 
     if (!raw_message) raw_message = "";
     event_log_total_entries++;
-    if (last_entry.type == type && last_entry.civ_id == civ_id && last_entry.target_id == target_id &&
-        last_entry.civ_uid == civ_uid && last_entry.target_uid == target_uid && last_entry.param_a_uid == param_a_uid &&
-        last_entry.region_id == region_id && last_entry.city_id == city_id &&
-        last_entry.param_a == param_a && last_entry.param_b == param_b &&
-        strcmp(last_entry.raw_message, raw_message) == 0 && event_log_count > 0) {
+    if (event_log_last_entry.type == type && event_log_last_entry.civ_id == civ_id && event_log_last_entry.target_id == target_id &&
+        event_log_last_entry.civ_uid == civ_uid && event_log_last_entry.target_uid == target_uid && event_log_last_entry.param_a_uid == param_a_uid &&
+        event_log_last_entry.region_id == region_id && event_log_last_entry.city_id == city_id &&
+        event_log_last_entry.param_a == param_a && event_log_last_entry.param_b == param_b &&
+        strcmp(event_log_last_entry.raw_message, raw_message) == 0 && event_log_last_event_id > 0) {
         previous = event_log_next - 1;
         while (previous < 0) previous += EVENT_LOG_COUNT;
         event_log_entries[previous % EVENT_LOG_COUNT].repeat_count++;
+        event_log_store_increment_repeat(event_log_last_event_id);
         return;
     }
     entry = &event_log_entries[event_log_next];
@@ -161,34 +158,34 @@ void event_log_push_structured(EventLogType type, EventLogSeverity severity, int
     if (event_param_a_is_civ(type)) event_snapshot_civ(&entry->param_a_snapshot, param_a);
     snprintf(entry->raw_message, sizeof(entry->raw_message), "%s", raw_message);
     snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", raw_message);
-    last_entry = *entry;
-    event_log_history_store_related(entry);
+    event_log_last_entry = *entry;
+    event_log_last_event_id = event_log_store_append(entry);
+    event_log_history_store_related_id(entry, event_log_last_event_id);
     event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
-    if (event_log_count < EVENT_LOG_COUNT) event_log_count++;
+    event_log_count = event_log_store_count();
 }
-
 void event_log_push(const char *text) {
     EventLogType type;
     if (!text || !text[0]) return;
     type = event_type_from_text(text);
     event_log_push_structured(type, event_severity_from_type(type), -1, -1, -1, -1, 0, 0, text);
 }
-
 void event_log_clear(void) {
     memset(event_log, 0, sizeof(event_log));
     memset(event_log_entries, 0, sizeof(event_log_entries));
+    event_log_store_clear();
     event_log_history_clear();
     event_log_count = 0;
     event_log_next = 0;
     event_log_total_entries = 0;
+    event_log_last_event_id = 0;
+    memset(&event_log_last_entry, 0, sizeof(event_log_last_entry));
 }
-
 static const char *event_civ_name(int civ_id, const EventCivSnapshot *snapshot, int language) {
     if (snapshot && snapshot->uid > 0) return language ? snapshot->name_zh : snapshot->name_en;
     if (civ_id < 0 || civ_id >= civ_count) return language ? "未知国家" : "Unknown country";
     return civilization_display_name_for_language(civ_id, language);
 }
-
 static void localized_raw_fallback(const EventLogEntry *entry, int language, char *out, size_t out_size) {
     const char *raw = entry->raw_message;
     if (!raw || !raw[0]) {
@@ -222,7 +219,6 @@ static void localized_raw_fallback(const EventLogEntry *entry, int language, cha
         snprintf(out, out_size, "系统事件：%s", raw);
     }
 }
-
 static void localized_collapse_reason(const char *raw, int language, char *out, size_t out_size) {
     if (!raw || !raw[0]) {
         snprintf(out, out_size, "%s", language ? "结构条件不足。" : "structural blocker.");
@@ -244,7 +240,6 @@ static void localized_collapse_reason(const char *raw, int language, char *out, 
         snprintf(out, out_size, "结构条件不足。");
     }
 }
-
 static void event_log_message(const EventLogEntry *entry, int language, char *out, size_t out_size) {
     int zh = language != 0;
     const char *civ = event_civ_name(entry->civ_id, &entry->civ_snapshot, language);
@@ -293,6 +288,21 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
             return;
         case EVENT_TYPE_COLLAPSE_SUCCEEDED:
             if (entry->civ_uid <= 0) break;
+            if (entry->param_a == -(int)COLLAPSE_SINGLE_ANNEX_OVERLORD) {
+                snprintf(out, out_size, zh ? "%s政权崩溃，被宗主国%s接管。" :
+                                            "%s collapsed and was absorbed by its overlord %s.", civ, target);
+                return;
+            }
+            if (entry->param_a == -(int)COLLAPSE_SINGLE_ANNEX_WAR || entry->param_a == -(int)COLLAPSE_SINGLE_ANNEX_NEIGHBOR) {
+                snprintf(out, out_size, zh ? "%s政权崩溃，被邻国%s吞并。" :
+                                            "%s collapsed and was annexed by %s.", civ, target);
+                return;
+            }
+            if (entry->param_a == -(int)COLLAPSE_SINGLE_UNCLAIMED) {
+                snprintf(out, out_size, zh ? "%s政权崩溃，因孤立而消失。" :
+                                            "%s collapsed in isolation and disappeared.", civ);
+                return;
+            }
             snprintf(out, out_size, zh ? "%s崩溃并形成%d个继承国家。" :
                                         "%s collapsed and formed %d successor states.", civ, entry->param_a);
             return;
@@ -386,7 +396,6 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
     }
     localized_raw_fallback(entry, language, out, out_size);
 }
-
 void event_log_format_entry_data(const EventLogEntry *entry, int language, char *out, size_t out_size) {
     char message[EVENT_LOG_LEN * 2];
     if (!out || out_size == 0 || !entry) return;
@@ -404,7 +413,6 @@ void event_log_format_entry_data(const EventLogEntry *entry, int language, char 
         strncat(out, repeat, out_size - strlen(out) - 1);
     }
 }
-
 void event_log_format_entry(int index, int language, char *out, size_t out_size) {
     EventLogEntry entry;
     if (!out || out_size == 0) return;
@@ -414,7 +422,6 @@ void event_log_format_entry(int index, int language, char *out, size_t out_size)
     }
     event_log_format_entry_data(&entry, language, out, out_size);
 }
-
 const char *event_log_get(int index) {
     static char formatted[EVENT_LOG_LEN * 3];
     char *newline;
@@ -423,12 +430,10 @@ const char *event_log_get(int index) {
     if (newline) *newline = ' ';
     return formatted;
 }
-
 EventLogType event_log_get_type(int index) {
     EventLogEntry entry;
     return event_log_get_entry(index, &entry) ? entry.type : EVENT_TYPE_GENERIC;
 }
-
 static int event_type_is_country_scoped(EventLogType type) {
     switch (type) {
         case EVENT_TYPE_GENERIC:
@@ -442,12 +447,10 @@ static int event_type_is_country_scoped(EventLogType type) {
             return 1;
     }
 }
-
 static int event_civ_identity_matches(int civ_id, int stored_id, int stored_uid) {
     if (stored_id != civ_id || stored_uid <= 0) return 0;
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].uid == stored_uid;
 }
-
 int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id) {
     if (!entry || civ_id < 0 || civ_id >= civ_count) return 0;
     if (!event_type_is_country_scoped(entry->type)) return 0;
@@ -457,28 +460,40 @@ int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id) {
         event_civ_identity_matches(civ_id, entry->param_a, entry->param_a_uid)) return 1;
     return 0;
 }
-
 int event_log_get_entry(int index, EventLogEntry *out) {
-    int pos;
     if (!out || index < 0 || index >= event_log_count) return 0;
-    pos = event_log_next - 1 - index;
-    while (pos < 0) pos += EVENT_LOG_COUNT;
-    *out = event_log_entries[pos % EVENT_LOG_COUNT];
-    return 1;
+    return event_log_store_get_newest(index, out);
 }
-
 void event_log_copy_save_state(EventLogEntry *entries, int max_entries, int *count, int *next, int *total) {
-    int n = min(max_entries, EVENT_LOG_COUNT);
-    if (entries && n > 0) memcpy(entries, event_log_entries, sizeof(EventLogEntry) * n);
-    if (count) *count = event_log_count;
-    if (next) *next = event_log_next;
+    int i;
+    int store_count = event_log_store_count();
+    int n = clamp(min(max_entries, store_count), 0, EVENT_LOG_COUNT);
+    if (entries && n > 0) {
+        memset(entries, 0, sizeof(EventLogEntry) * (size_t)max_entries);
+        for (i = 0; i < n; i++) event_log_store_get_oldest(store_count - n + i, &entries[i]);
+    }
+    if (count) *count = n;
+    if (next) *next = n % EVENT_LOG_COUNT;
     if (total) *total = event_log_total_entries;
 }
-
 void event_log_restore_save_state(const EventLogEntry *entries, int count, int next, int total) {
     int i;
     event_log_clear();
-    event_log_count = clamp(count, 0, EVENT_LOG_COUNT); event_log_next = clamp(next, 0, EVENT_LOG_COUNT - 1); event_log_total_entries = max(0, total);
-    if (entries) memcpy(event_log_entries, entries, sizeof(EventLogEntry) * EVENT_LOG_COUNT);
-    for (i = 0; i < EVENT_LOG_COUNT; i++) { snprintf(event_log[i], EVENT_LOG_LEN, "%s", event_log_entries[i].raw_message); event_log_history_store_related(&event_log_entries[i]); }
+    count = clamp(count, 0, EVENT_LOG_COUNT); event_log_total_entries = max(0, total);
+    if (!entries) return;
+    for (i = 0; i < count; i++) {
+        int pos = clamp(next, 0, EVENT_LOG_COUNT - 1) - count + i;
+        EventLogEntry entry;
+        while (pos < 0) pos += EVENT_LOG_COUNT;
+        entry = entries[pos % EVENT_LOG_COUNT];
+        if (!entry.raw_message[0] && entry.type == EVENT_TYPE_GENERIC && entry.civ_uid <= 0) continue;
+        event_log_entries[event_log_next] = entry;
+        snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", entry.raw_message);
+        event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
+        event_log_last_event_id = event_log_store_append(&entry);
+        event_log_history_store_related_id(&entry, event_log_last_event_id);
+        event_log_last_entry = entry;
+    }
+    event_log_count = event_log_store_count();
+    event_log_total_entries = max(event_log_total_entries, event_log_count);
 }

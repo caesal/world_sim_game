@@ -1,5 +1,6 @@
 #include "map_labels.h"
 
+#include "core/dirty_flags.h"
 #include "render/map_label_style.h"
 #include "render/render_context.h"
 #include "render_map_internal.h"
@@ -40,6 +41,10 @@ static int cached_label_count;
 static int label_rebuild_count;
 static int label_last_rebuild_ms;
 static int label_last_candidate_count;
+static int label_reason_counts[5], label_last_reason;
+static unsigned int last_label_source_key;
+static int last_label_lang, last_label_display, last_label_zoom, last_label_view, last_label_select;
+static const char *label_reason_names[5] = {"initial", "source", "view", "mode", "select"};
 
 static int rects_overlap(RECT a, RECT b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
@@ -137,10 +142,11 @@ static int selected_region_id(const RenderSnapshot *snapshot) {
 }
 
 static unsigned int label_anchor_key_for(const RenderSnapshot *snapshot) {
-    unsigned int key = snapshot ? snapshot->tiles_revision : 0;
+    unsigned int key;
     if (!snapshot) return 0;
-    key = key * 1000003u ^ snapshot->cities_revision;
-    key = key * 1000003u ^ snapshot->civs_revision;
+    key = (unsigned int)dirty_revision_ownership();
+    key = key * 1000003u ^ (unsigned int)dirty_revision_city();
+    key = key * 1000003u ^ (unsigned int)dirty_revision_civ();
     key = key * 1000003u ^ (unsigned int)(snapshot->map_w * 4099 + snapshot->map_h);
     return key;
 }
@@ -369,13 +375,54 @@ static unsigned int mix_label_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
 }
 
-static unsigned int label_layout_key_for(const RenderSnapshot *snapshot, RECT viewport, MapLayout layout) {
-    unsigned int key = snapshot ? snapshot->revision : 0;
+static unsigned int label_source_key_for(const RenderSnapshot *snapshot) {
+    unsigned int key;
     if (!snapshot) return 0;
-    key = mix_label_key(key, snapshot->tiles_revision);
-    key = mix_label_key(key, snapshot->cities_revision);
-    key = mix_label_key(key, snapshot->civs_revision);
-    key = mix_label_key(key, snapshot->regions_revision);
+    key = (unsigned int)dirty_revision_label();
+    key = mix_label_key(key, dirty_revision_ownership());
+    key = mix_label_key(key, dirty_revision_province());
+    key = mix_label_key(key, dirty_revision_city());
+    key = mix_label_key(key, dirty_revision_civ());
+    key = mix_label_key(key, snapshot->map_w * 4099 + snapshot->map_h);
+    return key;
+}
+
+static int label_view_bucket(RECT viewport, MapLayout layout) {
+    unsigned int key = (unsigned int)(layout.map_x / 24);
+    key = mix_label_key(key, layout.map_y / 24);
+    key = mix_label_key(key, layout.draw_w / 24);
+    key = mix_label_key(key, layout.draw_h / 24);
+    key = mix_label_key(key, viewport.right - viewport.left);
+    key = mix_label_key(key, viewport.bottom - viewport.top);
+    return (int)key;
+}
+
+static int label_reason_for(const RenderSnapshot *snapshot, RECT viewport, MapLayout layout) {
+    unsigned int source = label_source_key_for(snapshot);
+    int lang = ui_language, mode = display_mode;
+    int zoom = (map_zoom_percent / 5) * 131 + layout.tile_size;
+    int view = label_view_bucket(viewport, layout);
+    int select = selected_civ * 1000003 + selected_x * 257 + selected_y;
+    if (!label_layout_key) return 0;
+    if (source != last_label_source_key) return 1;
+    if (view != last_label_view || zoom != last_label_zoom) return 2;
+    if (lang != last_label_lang || mode != last_label_display) return 3;
+    if (select != last_label_select) return 4;
+    return 0;
+}
+
+static void remember_label_key_parts(const RenderSnapshot *snapshot, RECT viewport, MapLayout layout) {
+    last_label_source_key = label_source_key_for(snapshot);
+    last_label_lang = ui_language;
+    last_label_display = display_mode;
+    last_label_zoom = (map_zoom_percent / 5) * 131 + layout.tile_size;
+    last_label_view = label_view_bucket(viewport, layout);
+    last_label_select = selected_civ * 1000003 + selected_x * 257 + selected_y;
+}
+
+static unsigned int label_layout_key_for(const RenderSnapshot *snapshot, RECT viewport, MapLayout layout) {
+    unsigned int key = label_source_key_for(snapshot);
+    if (!snapshot) return 0;
     key = mix_label_key(key, ui_language);
     key = mix_label_key(key, display_mode);
     key = mix_label_key(key, map_zoom_percent / 5);
@@ -425,12 +472,16 @@ void draw_map_labels(HDC hdc, RECT client, MapLayout layout) {
     }
     {
         DWORD start = GetTickCount();
-    collect_country_labels(hdc, layout, candidates, &candidate_count);
-    collect_city_and_port_labels(hdc, layout, candidates, &candidate_count);
-    collect_province_labels(hdc, layout, candidates, &candidate_count);
+        int reason = label_reason_for(snapshot, viewport, layout);
+        collect_country_labels(hdc, layout, candidates, &candidate_count);
+        collect_city_and_port_labels(hdc, layout, candidates, &candidate_count);
+        collect_province_labels(hdc, layout, candidates, &candidate_count);
         cached_label_count = place_labels(candidates, candidate_count, viewport, cached_labels, MAX_RENDER_LABELS);
         label_last_candidate_count = candidate_count;
         label_layout_key = key;
+        remember_label_key_parts(snapshot, viewport, layout);
+        label_last_reason = reason;
+        label_reason_counts[reason]++;
         label_rebuild_count++;
         label_last_rebuild_ms = (int)(GetTickCount() - start);
     }
@@ -442,3 +493,5 @@ int map_label_cache_rebuild_count(void) { return label_rebuild_count; }
 int map_label_cache_last_rebuild_ms(void) { return label_last_rebuild_ms; }
 int map_label_cache_candidate_count(void) { return label_last_candidate_count; }
 int map_label_cache_drawn_count(void) { return cached_label_count; }
+const char *map_label_cache_last_reason(void) { return label_reason_names[label_last_reason]; }
+const char *map_label_cache_reason_summary(void) { static char text[96]; snprintf(text, sizeof(text), "src %d / view %d / mode %d", label_reason_counts[1], label_reason_counts[2], label_reason_counts[3]); return text; }

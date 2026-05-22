@@ -1,5 +1,6 @@
 ﻿#include "game.h"
 #include "core/game_types.h"
+#include "core/country_focus.h"
 #include "core/dirty_flags.h"
 #include "core/load_progress.h"
 #include "core/render_snapshot.h"
@@ -17,6 +18,7 @@
 #include "sim/regions.h"
 #include "sim/route_potential.h"
 #include "sim/simulation.h"
+#include "sim/stability_decision.h"
 #include "sim/territory_integrity.h"
 #include "sim/simulation_month.h"
 #include "sim/simulation_worker.h"
@@ -61,11 +63,12 @@ void game_request_regenerate_regions(void) {
     selected_civ = -1;
     render_snapshot_publish_from_live_state();
 }
-int game_request_add_civilization_from_selection(const char *name, char symbol,
-                                                int military, int logistics,
-                                                int governance, int cohesion,
-                                                int production, int commerce,
-                                                int innovation) {
+static int game_request_add_civilization_from_selection_internal(const char *name, char symbol,
+                                                                 int military, int logistics,
+                                                                 int governance, int cohesion,
+                                                                 int production, int commerce,
+                                                                 int innovation,
+                                                                 int use_color, Color32 color) {
     int x = -1;
     int y = -1;
     int before_count = civ_count;
@@ -84,11 +87,37 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
     }
     selected_civ = simulation_last_created_civ_id();
     if (selected_civ < 0) selected_civ = before_count;
+    if (use_color && selected_civ >= 0 && selected_civ < civ_count) {
+        civs[selected_civ].color = color;
+    }
     event_log_push_structured(EVENT_TYPE_CIV_CREATED, EVENT_SEVERITY_INFO,
                               selected_civ, -1, -1, civs[selected_civ].capital_city, 0, 0, NULL);
+    dirty_mark_territory();
+    dirty_mark_civ();
+    country_focus_invalidate();
+    world_visual_revision++;
     state_write_unlock();
     render_snapshot_publish_from_live_state();
     return selected_civ;
+}
+
+int game_request_add_civilization_from_selection(const char *name, char symbol,
+                                                int military, int logistics,
+                                                int governance, int cohesion,
+                                                int production, int commerce,
+                                                int innovation) {
+    return game_request_add_civilization_from_selection_internal(
+        name, symbol, military, logistics, governance, cohesion, production, commerce, innovation, 0, 0);
+}
+
+int game_request_add_civilization_from_selection_with_color(const char *name, char symbol,
+                                                           int military, int logistics,
+                                                           int governance, int cohesion,
+                                                           int production, int commerce,
+                                                           int innovation,
+                                                           Color32 color) {
+    return game_request_add_civilization_from_selection_internal(
+        name, symbol, military, logistics, governance, cohesion, production, commerce, innovation, 1, color);
 }
 int game_request_edit_selected_civilization(const char *name, char symbol,
                                             int military, int logistics,
@@ -104,6 +133,7 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
     simulation_apply_civilization_edit(civ_id, name, symbol, military, logistics, governance,
                                        cohesion, production, commerce, innovation);
     selected_civ = civ_id;
+    dirty_mark_civ();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
     return 1;
@@ -122,7 +152,7 @@ static int color_seed_region_for_civ(int civ_id) {
 
 static void mark_color_visuals_dirty(void) {
     dirty_mark_territory();
-    dirty_mark_labels();
+    dirty_mark_civ();
     world_visual_revision++;
 }
 
@@ -172,6 +202,8 @@ void game_request_after_load_map(int restored_dynamic_state) {
     load_progress_update(LOAD_STAGE_POST_LOAD, 3, 6);
     territory_integrity_repair_capitals();
     if (restored_dynamic_state) diplomacy_mark_contacts_dirty(); else diplomacy_update_contacts();
+    stability_decision_reset();
+    stability_decision_update_all();
     load_progress_update(LOAD_STAGE_POST_LOAD, 4, 6);
     civilization_colors_debug_check();
     dirty_mark_world();

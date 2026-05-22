@@ -19,6 +19,9 @@ int game_loop_actual_ms_per_month(void);
 int game_loop_pending_months(void);
 int game_loop_simulation_overloaded(void);
 int game_loop_snapshot_age_ms(void);
+int game_loop_presentation_backlog(void);
+int game_loop_visual_coalesced_months(void);
+int game_loop_presentation_throttled(void);
 const char *game_loop_worker_status(void);
 
 #endif

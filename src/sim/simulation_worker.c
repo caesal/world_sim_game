@@ -18,7 +18,11 @@ static volatile LONG last_used_ms = 0;
 static volatile LONG overloaded_flag = 0;
 static volatile LONG last_completed_tick = 0;
 static volatile LONG visual_completed_months = 0;
+static volatile LONG visual_coalesced_months = 0;
+static volatile LONG presentation_throttled = 0;
 static char worker_status[64] = "Idle";
+
+#define VISUAL_MONTH_BACKLOG_CAP 2
 
 static int budget_for_speed(int speed) {
     static const int budgets[SPEED_COUNT] = {3, 4, 5, 6, 8};
@@ -34,9 +38,18 @@ static void record_completed_months(int completed, DWORD *last_tick) {
     int elapsed;
     int sample;
     int current;
+    int overflow;
 
     if (completed <= 0) return;
-    InterlockedAdd(&visual_completed_months, completed);
+    current = (int)InterlockedAdd(&visual_completed_months, completed);
+    overflow = current - VISUAL_MONTH_BACKLOG_CAP;
+    if (overflow > 0) {
+        InterlockedAdd(&visual_completed_months, -overflow);
+        InterlockedAdd(&visual_coalesced_months, overflow);
+        presentation_throttled = 1;
+    } else {
+        presentation_throttled = 0;
+    }
     elapsed = clamp((int)(now - *last_tick), 1, 60000);
     *last_tick = now;
     sample = elapsed / completed;
@@ -73,9 +86,10 @@ static DWORD WINAPI worker_main(void *unused) {
 
         state_write_lock();
         pending = sim_scheduler_pending_months();
-        performance_limited = actual_ms_per_month > 0 &&
+        performance_limited = ((int)visual_completed_months >= VISUAL_MONTH_BACKLOG_CAP) ||
+                              (actual_ms_per_month > 0 &&
                               actual_ms_per_month > target_ms * 3 / 2 &&
-                              pending > 0;
+                              pending > 0);
         accumulator_ms = performance_limited ? 0 : min(accumulator_ms + elapsed, max(target_ms * 4, 120));
         if (pending >= sim_scheduler_pending_month_cap()) {
             sim_scheduler_trim_pending_months(2);
@@ -97,6 +111,7 @@ static DWORD WINAPI worker_main(void *unused) {
 
         if (has_work) {
             DWORD start = GetTickCount();
+            int publish_needed = 0;
             set_status(performance_limited ? "Performance limited; backlog prevented" : "Running simulation");
             do {
                 int remaining;
@@ -110,11 +125,12 @@ static DWORD WINAPI worker_main(void *unused) {
                 completed = sim_scheduler_take_completed_months();
                 pending_months_snapshot = sim_scheduler_pending_months();
                 state_write_unlock();
-                if (completed > 0) render_snapshot_publish_from_live_state_throttled(0);
+                if (completed > 0) publish_needed = 1;
                 record_completed_months(completed, &last_month_tick);
                 used_ms = (int)(GetTickCount() - start);
                 if (used_ms >= budget_ms || completed == 0) break;
             } while (used_ms < budget_ms);
+            if (publish_needed) render_snapshot_publish_from_live_state_throttled(0);
             state_write_lock();
             has_work = sim_scheduler_has_pending_work();
             state_write_unlock();
@@ -159,6 +175,8 @@ void simulation_worker_reset_scheduler(void) {
     overloaded_flag = 0;
     last_completed_tick = 0;
     visual_completed_months = 0;
+    visual_coalesced_months = 0;
+    presentation_throttled = 0;
     set_status("Idle");
 }
 
@@ -172,5 +190,19 @@ int simulation_worker_snapshot_age_ms(void) {
     if (tick <= 0) return 0;
     return clamp((int)(GetTickCount() - (DWORD)tick), 0, 600000);
 }
-int simulation_worker_take_visual_tick(void) { return (int)InterlockedExchange(&visual_completed_months, 0); }
+int simulation_worker_take_visual_tick(void) {
+    LONG remaining = visual_completed_months;
+    if (remaining <= 0) return 0;
+    remaining = InterlockedDecrement(&visual_completed_months);
+    if (remaining < 0) {
+        InterlockedExchange(&visual_completed_months, 0);
+        return 0;
+    }
+    return 1;
+}
+int simulation_worker_visual_backlog(void) { return (int)visual_completed_months; }
+int simulation_worker_visual_coalesced_months(void) { return (int)visual_coalesced_months; }
+int simulation_worker_presentation_throttled(void) {
+    return (int)presentation_throttled || (int)visual_completed_months >= VISUAL_MONTH_BACKLOG_CAP;
+}
 const char *simulation_worker_status(void) { return worker_status; }

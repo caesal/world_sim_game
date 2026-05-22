@@ -11,13 +11,17 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\io\map_save_state.c ^
   src\core\event_log.c ^
   src\core\event_log_history.c ^
+  src\core\event_log_store.c ^
   src\core\game_state.c ^
   src\core\country_focus.c ^
   src\core\dirty_flags.c ^
   src\core\load_progress.c ^
   src\core\profiler.c ^
   src\core\render_snapshot.c ^
+  src\core\render_snapshot_events.c ^
   src\core\render_snapshot_keys.c ^
+  src\core\render_snapshot_profile.c ^
+  src\core\render_snapshot_sections.c ^
   src\core\state_lock.c ^
   src\core\worldgen_progress.c ^
   src\data\country_names.c ^
@@ -29,6 +33,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\world\terrain_query.c ^
   src\world\world_smoothing.c ^
   src\world\rivers.c ^
+  src\sim\civilization_names.c ^
   src\sim\simulation.c ^
   src\sim\simulation_seed.c ^
   src\sim\simulation_month.c ^
@@ -37,6 +42,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\world\noise.c ^
   src\world\ports.c ^
   src\sim\ports.c ^
+  src\sim\stability_decision.c ^
   src\sim\maritime.c ^
   src\sim\maritime_diag.c ^
   src\sim\sea_nav.c ^
@@ -49,6 +55,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\civ_colors.c ^
   src\sim\disorder.c ^
   src\sim\collapse.c ^
+  src\sim\collapse_single.c ^
   src\sim\population.c ^
   src\sim\plague.c ^
   src\sim\civilization_metrics.c ^
@@ -68,6 +75,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\diplomacy_borders.c ^
   src\sim\diplomacy_contact.c ^
   src\sim\diplomacy_names.c ^
+  src\sim\war_desire.c ^
   src\sim\war.c ^
   src\sim\war_front.c ^
   src\sim\war_resolution.c ^
@@ -94,6 +102,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\route_render.c ^
   src\render\river_geometry.c ^
   src\render\river_render.c ^
+  src\render\sea_lane_dash_cache.c ^
   src\render\sea_lane_render.c ^
   src\render\plague_render.c ^
   src\render\plague_visual.c ^
@@ -105,6 +114,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\panel_country_detail.c ^
   src\render\panel_country_tech.c ^
   src\render\panel_country_decision.c ^
+  src\render\panel_country_decision_extra.c ^
   src\render\panel_country_population.c ^
   src\render\panel_country_resources.c ^
   src\render\panel_country_diplomacy.c ^

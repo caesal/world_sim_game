@@ -15,6 +15,9 @@ typedef struct {
     int run_quarterly;
     int population_cursor;
     int civ_pressure_cursor;
+    int calendar_started;
+    int calendar_year_rollover;
+    int calendar_step;
     int resource_scores[MAX_CIVS];
     int resource_totals[MAX_CIVS];
     int resource_counts[MAX_CIVS];

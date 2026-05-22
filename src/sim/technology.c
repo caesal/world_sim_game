@@ -1,5 +1,6 @@
 #include "technology.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "data/game_tables.h"
 #include "sim/disorder.h"
@@ -57,6 +58,7 @@ void technology_initialize_civ(int civ_id) {
 
 void technology_update_month(void) {
     int i;
+    int changed = 0;
 
     for (i = 0; i < civ_count; i++) {
         Civilization *civ = &civs[i];
@@ -67,14 +69,17 @@ void technology_update_month(void) {
         while (tech_progress_remainder[i] >= 100) {
             civ->tech_progress++;
             tech_progress_remainder[i] -= 100;
+            changed = 1;
         }
         if (civ->tech_progress >= required) {
             civ->tech_stage = clamp(civ->tech_stage + 1, 0, 10);
             civ->tech_progress = 0;
             tech_progress_remainder[i] = 0;
+            changed = 1;
             world_invalidate_population_cache();
         }
     }
+    if (changed) dirty_mark_civ();
 }
 
 int technology_years_to_next(int civ_id) {

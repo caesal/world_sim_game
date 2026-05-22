@@ -32,6 +32,8 @@ static int default_trait_for_index(int index, int metric) {
 void simulation_seed_default_civilizations(void) {
     int requested = initial_civ_count;
     int count = clamp(requested, 0, MAX_CIVS);
+    int heritage_queue[MAX_CIVS];
+    int western_count = (count + 1) / 2;
     int placed = 0;
     int i;
 
@@ -39,12 +41,19 @@ void simulation_seed_default_civilizations(void) {
         event_log_push_structured(EVENT_TYPE_WORLD_GENERATION_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, 1, -1, requested, MAX_CIVS, "");
     }
+    for (i = 0; i < count; i++) heritage_queue[i] = i < western_count ? CIV_HERITAGE_WESTERN : CIV_HERITAGE_EASTERN;
+    for (i = count - 1; i > 0; i--) {
+        int j = rnd(i + 1);
+        int tmp = heritage_queue[i];
+        heritage_queue[i] = heritage_queue[j];
+        heritage_queue[j] = tmp;
+    }
     for (i = 0; i < count; i++) {
-        int ok = add_civilization_at("", default_symbol_for_index(i),
-                                     default_trait_for_index(i, 0), default_trait_for_index(i, 1),
-                                     default_trait_for_index(i, 2), default_trait_for_index(i, 3),
-                                     default_trait_for_index(i, 4), default_trait_for_index(i, 5),
-                                     default_trait_for_index(i, 6), -1, -1);
+        int ok = add_civilization_at_with_heritage("", default_symbol_for_index(i), heritage_queue[i],
+                                                   default_trait_for_index(i, 0), default_trait_for_index(i, 1),
+                                                   default_trait_for_index(i, 2), default_trait_for_index(i, 3),
+                                                   default_trait_for_index(i, 4), default_trait_for_index(i, 5),
+                                                   default_trait_for_index(i, 6), -1, -1);
         if (ok) placed++;
     }
     if (placed < count) {

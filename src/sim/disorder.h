@@ -2,6 +2,7 @@
 #define WORLD_SIM_DISORDER_H
 
 void disorder_update_month(int civ_id, int resource_score);
+void disorder_reset_runtime(void);
 void disorder_set(int civ_id, int value);
 void disorder_set_civil_unrest(int civ_id);
 void disorder_relieve(int civ_id, int amount);
@@ -27,6 +28,9 @@ int disorder_last_condition_recovery_x10(int civ_id);
 int disorder_last_plague_decay(int civ_id);
 int disorder_last_war_decay(int civ_id);
 int disorder_last_migration_decay(int civ_id);
+int disorder_wartime_pressure(int civ_id);
+int disorder_last_wartime_pressure_x10(int civ_id);
+int disorder_last_wartime_decay_x10(int civ_id);
 int disorder_pressure_eta_months(int value, int monthly_decay);
 
 #endif

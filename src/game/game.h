@@ -14,6 +14,12 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
                                                 int governance, int cohesion,
                                                 int production, int commerce,
                                                 int innovation);
+int game_request_add_civilization_from_selection_with_color(const char *name, char symbol,
+                                                           int military, int logistics,
+                                                           int governance, int cohesion,
+                                                           int production, int commerce,
+                                                           int innovation,
+                                                           Color32 color);
 int game_request_edit_selected_civilization(const char *name, char symbol,
                                             int military, int logistics,
                                             int governance, int cohesion,

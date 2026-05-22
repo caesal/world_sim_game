@@ -25,6 +25,10 @@ void ui_invalidate_side_panel(HWND hwnd) {
     panel.top = TOP_BAR_H;
     panel.right = client.right;
     panel.bottom = client.bottom;
+    {
+        RECT handle = get_side_panel_handle_rect(client);
+        if (handle.left < panel.left) panel.left = handle.left;
+    }
     invalidate_clipped(hwnd, panel);
 }
 

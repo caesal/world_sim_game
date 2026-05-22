@@ -26,6 +26,9 @@ static int plague_revision = 1;
 static int population_revision = 1;
 static int ui_revision = 1;
 static int hydrology_revision = 1;
+static int civ_revision = 1;
+static int city_revision = 1;
+static int diplomacy_revision = 1;
 
 static void mark(unsigned int flags) {
     render_dirty_flags |= flags;
@@ -61,6 +64,9 @@ void dirty_mark_world(void) {
     bump(&population_revision);
     bump(&ui_revision);
     bump(&hydrology_revision);
+    bump(&civ_revision);
+    bump(&city_revision);
+    bump(&diplomacy_revision);
 }
 
 void dirty_mark_territory(void) {
@@ -68,18 +74,23 @@ void dirty_mark_territory(void) {
     bump(&ownership_revision);
     bump(&province_revision);
     bump(&label_revision);
+    bump(&civ_revision);
+    bump(&city_revision);
 }
 
 void dirty_mark_province(void) {
     mark(DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
     bump(&province_revision);
     bump(&label_revision);
+    bump(&civ_revision);
 }
 
 void dirty_mark_population(void) {
     mark(DIRTY_RENDER_LABELS);
     bump(&population_revision);
     bump(&label_revision);
+    bump(&civ_revision);
+    bump(&city_revision);
 }
 
 void dirty_mark_plague(void) {
@@ -101,6 +112,20 @@ void dirty_mark_hydrology(void) {
 void dirty_mark_labels(void) {
     mark(DIRTY_RENDER_LABELS);
     bump(&label_revision);
+}
+
+void dirty_mark_civ(void) {
+    bump(&civ_revision);
+    dirty_mark_labels();
+}
+
+void dirty_mark_city(void) {
+    bump(&city_revision);
+    dirty_mark_labels();
+}
+
+void dirty_mark_diplomacy(void) {
+    bump(&diplomacy_revision);
 }
 
 void dirty_mark_all_render(void) {
@@ -127,6 +152,9 @@ int dirty_revision_plague(void) { return plague_revision; }
 int dirty_revision_population(void) { return population_revision; }
 int dirty_revision_ui(void) { return ui_revision; }
 int dirty_revision_hydrology(void) { return hydrology_revision; }
+int dirty_revision_civ(void) { return civ_revision; }
+int dirty_revision_city(void) { return city_revision; }
+int dirty_revision_diplomacy(void) { return diplomacy_revision; }
 
 void dirty_clear_render_terrain(void) { clear(DIRTY_RENDER_TERRAIN); }
 void dirty_clear_render_political(void) { clear(DIRTY_RENDER_POLITICAL); }

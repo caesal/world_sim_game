@@ -4,7 +4,6 @@
 #include "core/game_types.h"
 #include "core/render_snapshot.h"
 #include "core/worldgen_progress.h"
-#include "data/province_names.h"
 #include "game/game_loop.h"
 #include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
@@ -117,7 +116,6 @@ void game_request_new_world_with_progress(HWND hwnd) {
 
     stage_start = begin_generation_stage(hwnd, WORLDGEN_PORTS, 0, 1);
     ports_ensure_island_ports();
-    province_names_assign_all();
     world_invalidate_region_cache();
     end_generation_stage(hwnd, WORLDGEN_PORTS, stage_start);
 

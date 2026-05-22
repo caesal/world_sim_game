@@ -1,6 +1,6 @@
 #include "io/map_save_regions.h"
 
-#include "data/province_names.h"
+#include "core/sim_types.h"
 #include "sim/regions.h"
 
 #include <string.h>
@@ -80,9 +80,18 @@ int map_save_write_natural_regions(FILE *file) {
 }
 
 int map_save_read_natural_regions(FILE *file, int save_version) {
-    if (save_version >= 7) {
+    if (save_version >= 9) {
         if (!read_block(file, natural_regions, sizeof(NaturalRegion), (size_t)region_count)) return 0;
-        province_names_assign_missing();
+        return 1;
+    }
+    if (save_version >= 7) {
+        size_t old_size = sizeof(NaturalRegion) - sizeof(int);
+        int i;
+        for (i = 0; i < region_count; i++) {
+            memset(&natural_regions[i], 0, sizeof(natural_regions[i]));
+            if (!read_block(file, &natural_regions[i], old_size, 1)) return 0;
+            natural_regions[i].name_heritage = CIV_HERITAGE_WESTERN;
+        }
         return 1;
     }
     if (save_version >= 5) {
@@ -93,8 +102,8 @@ int map_save_read_natural_regions(FILE *file, int save_version) {
             memset(&natural_regions[i], 0, sizeof(natural_regions[i]));
             memcpy(&natural_regions[i], &legacy[i], sizeof(legacy[i]));
             natural_regions[i].name_id = -1;
+            natural_regions[i].name_heritage = CIV_HERITAGE_WESTERN;
         }
-        province_names_assign_missing();
         return 1;
     }
     {
@@ -108,8 +117,8 @@ int map_save_read_natural_regions(FILE *file, int save_version) {
             natural_regions[i].disconnected_months = 0;
             natural_regions[i].disconnected_component_id = -1;
             natural_regions[i].name_id = -1;
+            natural_regions[i].name_heritage = CIV_HERITAGE_WESTERN;
         }
-        province_names_assign_missing();
         return 1;
     }
 }

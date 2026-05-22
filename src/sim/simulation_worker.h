@@ -11,6 +11,9 @@ int simulation_worker_last_used_ms(void);
 int simulation_worker_overloaded(void);
 int simulation_worker_snapshot_age_ms(void);
 int simulation_worker_take_visual_tick(void);
+int simulation_worker_visual_backlog(void);
+int simulation_worker_visual_coalesced_months(void);
+int simulation_worker_presentation_throttled(void);
 const char *simulation_worker_status(void);
 
 #endif

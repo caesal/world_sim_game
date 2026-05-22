@@ -8,8 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 
-#define COUNTRY_EVENT_VISIBLE_CARDS 5
-#define COUNTRY_EVENT_CARD_SLOT_H 64
+#define COUNTRY_EVENT_VISIBLE_CARDS 4
+#define COUNTRY_EVENT_CARD_SLOT_H 56
 #define COUNTRY_EVENT_AREA_H (COUNTRY_EVENT_VISIBLE_CARDS * COUNTRY_EVENT_CARD_SLOT_H + 12)
 #define COUNTRY_EVENT_HIT_MAX 48
 
@@ -46,21 +46,19 @@ static int recent_event_count_for_civ(int civ_id) {
     return snapshot ? render_snapshot_civ_recent_event_count(snapshot, civ_id) : 0;
 }
 
-static int text_height_utf8(HDC hdc, const char *text, int width) {
-    WCHAR wide[EVENT_LOG_LEN * 3];
-    RECT rect = {0, 0, max(80, width), 0};
-    int len = MultiByteToWideChar(CP_UTF8, 0, text, -1, wide,
-                                  (int)(sizeof(wide) / sizeof(wide[0])));
-    if (len <= 0) return 18;
-    DrawTextW(hdc, wide, -1, &rect, DT_WORDBREAK | DT_CALCRECT);
-    return max(18, rect.bottom - rect.top);
-}
-
 static COLORREF event_accent(EventLogSeverity severity) {
     switch (severity) {
         case EVENT_SEVERITY_DANGER: return RGB(202, 84, 75);
         case EVENT_SEVERITY_WARNING: return RGB(218, 166, 78);
         default: return RGB(92, 145, 175);
+    }
+}
+
+static const char *event_severity_label(EventLogSeverity severity) {
+    switch (severity) {
+        case EVENT_SEVERITY_DANGER: return tr("Danger", "危险");
+        case EVENT_SEVERITY_WARNING: return tr("Warning", "警告");
+        default: return tr("Info", "信息");
     }
 }
 
@@ -95,7 +93,7 @@ static void draw_country_chip(HDC hdc, RECT *line, int civ_id, const EventCivSna
     line->left = chip.right + 6;
 }
 
-static void draw_country_chips(HDC hdc, RECT line, const EventLogEntry *entry) {
+static RECT draw_country_chips(HDC hdc, RECT line, const EventLogEntry *entry) {
     draw_country_chip(hdc, &line, entry->civ_id, &entry->civ_snapshot);
     if (entry->target_id != entry->civ_id) {
         draw_country_chip(hdc, &line, entry->target_id, &entry->target_snapshot);
@@ -104,19 +102,24 @@ static void draw_country_chips(HDC hdc, RECT line, const EventLogEntry *entry) {
         entry->param_a != entry->civ_id && entry->param_a != entry->target_id) {
         draw_country_chip(hdc, &line, entry->param_a, &entry->param_a_snapshot);
     }
+    return line;
 }
 
 static int event_card_height(HDC hdc, const EventLogEntry *entry, int width) {
-    char text[EVENT_LOG_LEN * 3];
-    event_log_format_entry_data(entry, ui_language, text, sizeof(text));
-    return clamp(34 + text_height_utf8(hdc, text, width - 24), 58, 132);
+    (void)hdc;
+    (void)entry;
+    (void)width;
+    return 50;
 }
 
 static int draw_event_card(HDC hdc, UiCursor *cursor, const EventLogEntry *entry) {
     char text[EVENT_LOG_LEN * 3];
     RECT card;
     RECT stripe;
+    RECT line;
+    RECT severity;
     RECT body;
+    char *body_text;
     int h = event_card_height(hdc, entry, cursor->width - 10);
     if (cursor->y > cursor->bottom - h) return 0;
     card = ui_take_rect(cursor, h);
@@ -124,10 +127,25 @@ static int draw_event_card(HDC hdc, UiCursor *cursor, const EventLogEntry *entry
     stripe = card;
     stripe.right = stripe.left + 4;
     fill_rect(hdc, stripe, event_accent(entry->severity));
-    draw_country_chips(hdc, (RECT){card.left + 9, card.top + 5, card.right - 8, card.top + 27}, entry);
-    body = (RECT){card.left + 9, card.top + 30, card.right - 8, card.bottom - 5};
     event_log_format_entry_data(entry, ui_language, text, sizeof(text));
-    draw_text_rect(hdc, body, text, ui_theme_color(UI_COLOR_TEXT), DT_WORDBREAK | DT_END_ELLIPSIS);
+    body_text = strchr(text, '\n');
+    if (body_text) *body_text++ = '\0';
+    else body_text = text;
+    line = (RECT){card.left + 9, card.top + 5, card.right - 8, card.top + 27};
+    line = draw_country_chips(hdc, line, entry);
+    if (line.left < line.right - 42) {
+        severity = (RECT){line.left, line.top + 2, min(line.left + 42, line.right), line.bottom - 2};
+        fill_rect_alpha(hdc, severity, event_accent(entry->severity), 160);
+        draw_center_text(hdc, severity, event_severity_label(entry->severity), RGB(248, 248, 244));
+        line.left = severity.right + 5;
+    }
+    if (line.left < line.right - 24) {
+        draw_text_rect(hdc, line, text, ui_theme_color(UI_COLOR_TEXT_DIM),
+                       DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_END_ELLIPSIS);
+    }
+    body = (RECT){card.left + 9, card.top + 27, card.right - 8, card.bottom - 4};
+    draw_text_rect(hdc, body, body_text, ui_theme_color(UI_COLOR_TEXT),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     cursor->y += 6;
     return 1;
 }
@@ -170,6 +188,9 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
     recent_hit_count = 0;
     recent_scroll_match_count = recent_event_count_for_civ(civ_id);
     recent_scroll_offset = clamp(recent_scroll_offset, 0, max(0, recent_scroll_match_count - 1));
+    area_h = recent_scroll_match_count <= 0 ? 36 :
+             min(COUNTRY_EVENT_AREA_H,
+                 min(COUNTRY_EVENT_VISIBLE_CARDS, recent_scroll_match_count) * COUNTRY_EVENT_CARD_SLOT_H + 12);
     available_h = max(0, cursor->bottom - cursor->y - 8);
     if (available_h <= 0) return;
     area_h = min(area_h, available_h);
@@ -182,7 +203,7 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
     clip = CreateRectRgn(recent_events_rect.left, recent_events_rect.top,
                          recent_events_rect.right, recent_events_rect.bottom);
     SelectClipRgn(hdc, clip);
-    for (i = 0; i < source_event_count() && list.y < list.bottom - 50; i++) {
+    for (i = 0; i < source_event_count() && list.y < list.bottom - 42; i++) {
         if (!source_event_entry(i, &entry)) continue;
         if (skipped < recent_scroll_offset) {
             skipped++;
@@ -193,8 +214,7 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
     }
     if (recent_scroll_match_count == 0) {
         draw_text_rect(hdc, recent_events_rect,
-                       tr("No related events in the current history window.",
-                          "当前记录窗口内暂无相关事件。"),
+                       tr("No related events.", "暂无相关事件。"),
                        ui_theme_color(UI_COLOR_TEXT_MUTED), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
     SelectClipRgn(hdc, NULL);

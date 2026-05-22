@@ -35,28 +35,24 @@ int render_snapshot_lanes_revision_key(void) {
 }
 
 int render_snapshot_civs_revision_key(void) {
-    int key = combined_key(dirty_revision_population(), dirty_revision_plague());
+    int key = combined_key(dirty_revision_civ(), dirty_revision_population());
     key = combined_key(key, dirty_revision_ownership());
     key = combined_key(key, dirty_revision_province());
-    key = combined_key(key, dirty_revision_label());
-    key = combined_key(key, dirty_revision_route());
+    key = combined_key(key, dirty_revision_diplomacy());
     key = combined_key(key, civ_count * 31 + city_count);
     return combined_key(key, world_generated);
 }
 
 int render_snapshot_cities_revision_key(void) {
-    int key = combined_key(dirty_revision_population(), dirty_revision_plague());
+    int key = combined_key(dirty_revision_city(), dirty_revision_population());
     key = combined_key(key, dirty_revision_ownership());
     key = combined_key(key, dirty_revision_province());
-    key = combined_key(key, dirty_revision_route());
-    key = combined_key(key, dirty_revision_label());
     key = combined_key(key, city_count * 31 + civ_count);
     return combined_key(key, world_generated);
 }
 
 int render_snapshot_regions_revision_key(void) {
     int key = combined_key(dirty_revision_ownership(), dirty_revision_province());
-    key = combined_key(key, dirty_revision_label());
     key = combined_key(key, dirty_revision_terrain());
     key = combined_key(key, region_count * 31 + city_count);
     key = combined_key(key, map_w * 4099 + map_h);
@@ -64,10 +60,7 @@ int render_snapshot_regions_revision_key(void) {
 }
 
 int render_snapshot_diplomacy_revision_key(void) {
-    int key = combined_key(dirty_revision_ownership(), dirty_revision_province());
-    key = combined_key(key, dirty_revision_route());
-    key = combined_key(key, dirty_revision_population());
-    key = combined_key(key, dirty_revision_label());
+    int key = dirty_revision_diplomacy();
     key = combined_key(key, civ_count * 31 + city_count);
     return combined_key(key, world_generated);
 }

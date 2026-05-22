@@ -15,12 +15,12 @@
 #include "sim/province.h"
 #include "sim/province_partition.h"
 #include "sim/spawn.h"
+#include "sim/stability_decision.h"
 #include "sim/territory_integrity.h"
 #include "sim/civilization_uid.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
-#include "data/country_names.h"
 #include "core/profiler.h"
 #include "world/terrain_query.h"
 
@@ -32,95 +32,6 @@ static CountrySummary country_summary_cache[MAX_CIVS];
 static int country_summary_dirty = 1;
 static unsigned int territory_contact_hash = 0;
 static int last_created_civ_id = -1;
-
-static int is_default_manual_name(const char *name) {
-    return !name || !name[0] || strcmp(name, "New Realm") == 0;
-}
-
-int civilization_pick_unused_name_id(void) {
-    int used[COUNTRY_NAME_COUNT];
-    int i;
-
-    memset(used, 0, sizeof(used));
-    for (i = 0; i < civ_count; i++) {
-        if (!civs[i].custom_name && civs[i].name_id >= 0 && civs[i].name_id < COUNTRY_NAME_COUNT) {
-            used[civs[i].name_id] = 1;
-        }
-    }
-    for (i = 0; i < COUNTRY_NAME_COUNT; i++) {
-        int candidate = rnd(COUNTRY_NAME_COUNT);
-        if (!used[candidate]) return candidate;
-    }
-    for (i = 0; i < COUNTRY_NAME_COUNT; i++) {
-        if (!used[i]) return i;
-    }
-    return -1;
-}
-
-void civilization_assign_generated_name(Civilization *civ, int name_id) {
-    if (!civ) return;
-    civ->custom_name = 0;
-    civ->name_id = name_id;
-    if (name_id >= 0 && name_id < COUNTRY_NAME_COUNT) {
-        snprintf(civ->name, NAME_LEN, "%s", country_name_localized(name_id, 0));
-    } else {
-        snprintf(civ->name, NAME_LEN, "Country %d", civ_count + 1);
-    }
-}
-
-void civilization_set_custom_name(Civilization *civ, const char *name) {
-    if (!civ) return;
-    civ->custom_name = 1;
-    civ->name_id = -1;
-    snprintf(civ->name, NAME_LEN, "%s", name && name[0] ? name : "Custom Country");
-}
-
-static void civilization_apply_input_name(Civilization *civ, const char *name, int pick_default) {
-    int name_id;
-
-    if (pick_default && is_default_manual_name(name)) {
-        civilization_assign_generated_name(civ, civilization_pick_unused_name_id());
-        return;
-    }
-    name_id = country_name_find_by_text(name);
-    if (name_id >= 0) civilization_assign_generated_name(civ, name_id);
-    else civilization_set_custom_name(civ, name);
-}
-
-const char *civilization_display_name_for_language(int civ_id, int language) {
-    static char fallback[4][NAME_LEN];
-    static int fallback_index = 0;
-    Civilization *civ;
-
-    if (civ_id < 0 || civ_id >= civ_count) return "";
-    civ = &civs[civ_id];
-    if (!civ->custom_name && civ->name_id >= 0 && civ->name_id < COUNTRY_NAME_COUNT) {
-        return country_name_localized(civ->name_id, language);
-    }
-    if (!civ->custom_name && civ->name_id < 0) {
-        char *buffer = fallback[fallback_index++ % 4];
-        snprintf(buffer, NAME_LEN, language == 1 ? "国家 %d" : "Country %d", civ_id + 1);
-        return buffer;
-    }
-    return civ->name;
-}
-
-const char *civilization_display_name(int civ_id) {
-    return civilization_display_name_for_language(civ_id, ui_language);
-}
-
-void civilization_migrate_loaded_names(void) {
-    int i;
-
-    for (i = 0; i < civ_count; i++) {
-        if (civs[i].name_id >= 0 && civs[i].name_id < COUNTRY_NAME_COUNT) {
-            civs[i].custom_name = 0;
-            continue;
-        }
-        civs[i].name_id = country_name_find_by_text(civs[i].name);
-        civs[i].custom_name = civs[i].name_id < 0;
-    }
-}
 
 static void recalculate_territory(void) {
     int i;
@@ -400,9 +311,10 @@ CountrySummary summarize_country(int civ_id) {
     return country_summary_cache[civ_id];
 }
 
-int add_civilization_at(const char *name, char symbol, int military, int logistics,
-                        int governance, int cohesion, int production, int commerce,
-                        int innovation, int preferred_x, int preferred_y) {
+int add_civilization_at_with_heritage(const char *name, char symbol, int heritage,
+                                      int military, int logistics, int governance,
+                                      int cohesion, int production, int commerce,
+                                      int innovation, int preferred_x, int preferred_y) {
     int x = preferred_x;
     int y = preferred_y;
     int city_id;
@@ -418,7 +330,7 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
     civ_id = civilization_allocate_slot(1);
     if (civ_id < 0) return 0;
     civ = &civs[civ_id];
-    civilization_apply_input_name(civ, name, 1);
+    civilization_apply_input_name(civ, name, 1, heritage);
     civ->symbol = symbol;
     civ->color = civilization_pick_auto_color(civ_id, region_id);
     civ->alive = 1;
@@ -455,6 +367,14 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
     return 1;
 }
 
+int add_civilization_at(const char *name, char symbol, int military, int logistics,
+                        int governance, int cohesion, int production, int commerce,
+                        int innovation, int preferred_x, int preferred_y) {
+    return add_civilization_at_with_heritage(name, symbol, CIV_HERITAGE_WESTERN, military, logistics,
+                                             governance, cohesion, production, commerce, innovation,
+                                             preferred_x, preferred_y);
+}
+
 int simulation_last_created_civ_id(void) { return last_created_civ_id; }
 
 void simulation_reset_state(void) {
@@ -464,7 +384,9 @@ void simulation_reset_state(void) {
     city_count = 0;
     civilization_uid_reset();
     event_log_clear();
+    disorder_reset_runtime();
     expansion_reset();
+    stability_decision_reset();
     maritime_reset();
     plague_reset();
     territory_integrity_reset();
@@ -482,7 +404,7 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
 
     if (civ_id < 0 || civ_id >= civ_count) return;
     civ = &civs[civ_id];
-    if (name && name[0] != '\0') civilization_apply_input_name(civ, name, 0);
+    if (name && name[0] != '\0') civilization_apply_input_name(civ, name, 0, civ->heritage);
     if (symbol != '\0') civ->symbol = symbol;
     memset(&birth, 0, sizeof(birth));
     if (civ->capital_city >= 0 && civ->capital_city < city_count) {
@@ -490,5 +412,5 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
     }
     apply_civilization_core_metrics(civ, governance, cohesion, production, military,
                                     commerce, logistics, innovation, birth, 0);
-    dirty_mark_labels();
+    dirty_mark_civ();
 }

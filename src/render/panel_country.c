@@ -1,6 +1,7 @@
 ﻿#include "render_panel_internal.h"
 #include "render/panel_country.h"
 #include "render/panel_country_cards.h"
+#include "render/panel_country_decision.h"
 #include "render/panel_country_detail.h"
 #include "render/panel_country_diplomacy.h"
 #include "render/render_context.h"
@@ -12,6 +13,7 @@
 
 typedef struct {
     RECT header;
+    RECT count_cards[2];
     RECT sort_label;
     RECT fallen_toggle;
     RECT sort_columns[COUNTRY_SORT_COUNT];
@@ -174,6 +176,9 @@ static void country_panel_layout_build(RECT client, CountryPanelLayout *layout) 
     layout->selected_detail = snapshot_ui_civ(civ_id) != NULL;
     layout->header = (RECT){x, y, x + width, y + 24};
     y += 25;
+    layout->count_cards[0] = (RECT){x, y, x + width / 2 - 4, y + 36};
+    layout->count_cards[1] = (RECT){x + width / 2 + 4, y, x + width, y + 36};
+    y += 44;
     layout->sort_label = (RECT){x, y, x + width, y + 20};
     y += 25;
     layout->fallen_toggle = (RECT){x, y, x + width, y + 26};
@@ -266,12 +271,33 @@ static void draw_sort_columns(HDC hdc, const CountryPanelLayout *layout) {
     }
 }
 
+static void draw_country_count_cards(HDC hdc, const CountryPanelLayout *layout) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    const char *labels_en[2] = {"Countries", "Independent"};
+    const char *labels_zh[2] = {"国家数", "独立国家"};
+    int values[2] = {snapshot ? snapshot->civ_alive_count : 0,
+                     snapshot ? snapshot->civ_independent_alive_count : 0};
+    int i;
+    for (i = 0; i < 2; i++) {
+        char text[32];
+        RECT r = layout->count_cards[i];
+        fill_rect(hdc, r, ui_theme_color(UI_COLOR_PANEL_SOFT));
+        draw_text_rect(hdc, (RECT){r.left + 8, r.top + 3, r.right - 8, r.top + 18},
+                       tr(labels_en[i], labels_zh[i]), ui_theme_color(UI_COLOR_TEXT_DIM),
+                       DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        snprintf(text, sizeof(text), "%d", values[i]);
+        draw_text_rect(hdc, (RECT){r.left + 8, r.top + 16, r.right - 8, r.bottom - 3},
+                       text, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    }
+}
+
 static void draw_country_list(HDC hdc, const CountryPanelLayout *layout) {
     int i;
     char text[96];
 
     draw_text_rect(hdc, layout->header, tr("Country Dashboard", "国家面板"),
                    ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_country_count_cards(hdc, layout);
     snprintf(text, sizeof(text), "%s  %s %s", tr("Sort", "排序"),
              sort_column_label(country_sort_column),
              country_sort_descending ? tr("desc", "降序") : tr("asc", "升序"));
@@ -384,6 +410,14 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
         int diplomacy_hit = country_diplomacy_view_hit_test(displayed_country(), layout.detail_viewport,
                                                             layout.detail_scroll, mouse_x, mouse_y);
         if (diplomacy_hit != COUNTRY_PANEL_HIT_NONE) { country_panel_snapshot_end(owned, snapshot); return diplomacy_hit; }
+    }
+    if (layout.selected_detail && country_detail_subtab == COUNTRY_DETAIL_DECISION) {
+        int decision_hit = country_decision_subtab_hit_test(layout.detail_viewport, layout.detail_scroll,
+                                                            mouse_x, mouse_y);
+        if (decision_hit >= 0) {
+            country_panel_snapshot_end(owned, snapshot);
+            return COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - decision_hit;
+        }
     }
     if (country_detail_civil_unrest_hit(layout.detail_viewport, mouse_x, mouse_y)) {
         country_panel_snapshot_end(owned, snapshot);

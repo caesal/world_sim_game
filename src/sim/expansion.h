@@ -36,7 +36,11 @@ typedef struct {
     int resource_pressure;
     int expansion_need;
     int expansion_threshold;
+    int raw_expansion_desire;
     int expansion_desire;
+    int stability_expansion_penalty;
+    int stability_gate_mode;
+    int stability_blocked;
     int tech_expansion_percent;
     int claim_cooldown_months;
     int months_until_next_claim;

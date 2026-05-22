@@ -69,6 +69,18 @@ int game_loop_snapshot_age_ms(void) {
     return render_snapshot_age_ms();
 }
 
+int game_loop_presentation_backlog(void) {
+    return simulation_worker_visual_backlog();
+}
+
+int game_loop_visual_coalesced_months(void) {
+    return simulation_worker_visual_coalesced_months();
+}
+
+int game_loop_presentation_throttled(void) {
+    return simulation_worker_presentation_throttled();
+}
+
 const char *game_loop_worker_status(void) {
     return simulation_worker_status();
 }

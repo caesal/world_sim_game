@@ -9,6 +9,7 @@
 #include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/ports.h"
+#include "sim/stability_decision.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
@@ -136,6 +137,7 @@ static int step_civilization_pressures(SimulationMonthState *state) {
         civ = &civs[i];
         resources = state->resource_scores[i];
         disorder_update_month(i, resources);
+        stability_decision_update_month(i);
         civ->adaptation = compute_dynamic_adaptation(i, resources);
     }
     return state->civ_pressure_cursor >= civ_count;
@@ -333,15 +335,25 @@ int simulation_month_run_next(SimulationMonthState *state) {
             state->phase = SIM_MONTH_CALENDAR;
             break;
         case SIM_MONTH_CALENDAR:
-            month++;
-            if (month > 12) {
-                month = 1;
-                year = clamp(year + 1, 0, 99999);
-                diplomacy_update_year();
-                vassal_update_year();
-                war_update_year();
-                territory_integrity_update_year();
-                if (year % 25 == 0) collapse_update_decade();
+            if (!state->calendar_started) {
+                month++;
+                if (month > 12) {
+                    month = 1;
+                    year = clamp(year + 1, 0, 99999);
+                    state->calendar_year_rollover = 1;
+                }
+                state->calendar_started = 1;
+                break;
+            }
+            if (state->calendar_year_rollover && state->calendar_step < 5) {
+                switch (state->calendar_step++) {
+                    case 0: profiler_set_current_job("diplomacy-refresh"); diplomacy_update_year(); break;
+                    case 1: profiler_set_current_job("vassal-calendar"); vassal_update_year(); break;
+                    case 2: profiler_set_current_job("war-calendar"); war_update_year(); break;
+                    case 3: profiler_set_current_job("territory-integrity"); territory_integrity_update_year(); break;
+                    case 4: if (year % 25 == 0) { profiler_set_current_job("collapse-check"); collapse_update_decade(); } break;
+                }
+                break;
             }
             collapse_update_immediate();
             if (state->log[0]) {

@@ -5,5 +5,6 @@
 
 void event_log_history_clear(void);
 void event_log_history_store_related(const EventLogEntry *entry);
+void event_log_history_store_related_id(const EventLogEntry *entry, int event_id);
 
 #endif

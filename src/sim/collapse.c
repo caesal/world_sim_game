@@ -56,21 +56,37 @@ static int capital_region_for_civ(int civ_id) {
     return regions_region_for_city(city_id);
 }
 
+static int owned_region_count_for_civ(int civ_id, int *only_region) {
+    int count = 0;
+    int i;
+    if (only_region) *only_region = -1;
+    if (civ_id < 0 || civ_id >= civ_count) return 0;
+    for (i = 0; i < region_count; i++) {
+        if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id) continue;
+        if (only_region) *only_region = i;
+        count++;
+    }
+    return count;
+}
+
 CollapseBlockReason collapse_block_reason(int civ_id) {
     int cap_region;
-    int i;
     int owned_regions = 0;
 
     if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
         return COLLAPSE_BLOCK_NOT_ALIVE;
     }
+    owned_regions = owned_region_count_for_civ(civ_id, NULL);
+    if (owned_regions == 1 && civs[civ_id].disorder >= 100) return COLLAPSE_BLOCK_NONE;
     if (civilization_slot_capacity_left() <= 0) return COLLAPSE_BLOCK_MAX_CIVS;
     cap_region = capital_region_for_civ(civ_id);
     if (cap_region < 0) return COLLAPSE_BLOCK_NO_CAPITAL_REGION;
-    for (i = 0; i < region_count; i++) {
-        if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id) continue;
-        owned_regions++;
-        if (i != cap_region) return COLLAPSE_BLOCK_NONE;
+    if (owned_regions > 1) {
+        int i;
+        for (i = 0; i < region_count; i++) {
+            if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id) continue;
+            if (i != cap_region) return COLLAPSE_BLOCK_NONE;
+        }
     }
     if (owned_regions <= 1) return COLLAPSE_BLOCK_ONLY_CORE_LEFT;
     return COLLAPSE_BLOCK_NO_SPLITTABLE_REGION;
@@ -111,7 +127,8 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     child_id = civilization_allocate_slot(1);
     if (child_id < 0) return -1;
     child = &civs[child_id];
-    civilization_assign_generated_name(child, civilization_pick_unused_name_id());
+    civilization_assign_generated_name_for_heritage(child, parent_state.heritage,
+                                                    civilization_pick_unused_name_id_for_heritage(parent_state.heritage));
     child->symbol = (char)('a' + (child_id % 26));
     child->color = civilization_pick_distinct_color(child_id, 0, parent, seed_region);
     child->alive = 1;
@@ -191,6 +208,18 @@ static void claim_region_direct(int region_id, int owner) {
     }
 }
 
+static void collapse_release_vassal_relations(int civ_id) {
+    int released_vassals[MAX_CIVS];
+    int released_count = vassal_collect_direct(civ_id, released_vassals, MAX_CIVS);
+    int i;
+    vassal_release(civ_id);
+    vassal_release_all(civ_id);
+    for (i = 0; i < released_count; i++) {
+        event_log_push_structured(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE, EVENT_SEVERITY_INFO,
+                                  released_vassals[i], civ_id, -1, -1, 0, 0, "");
+    }
+}
+
 static int add_neighbor_regions(int parent, int child, int seed_region, int cap_region) {
     int claimed = 0;
     int frontier[MAX_REGION_NEIGHBORS + 1];
@@ -218,8 +247,6 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     int cap_region;
     int formed = 0;
     int i;
-    int released_vassals[MAX_CIVS];
-    int released_count = 0;
     int former_overlord = -1;
     CollapseBlockReason block;
 
@@ -237,14 +264,11 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
                                   civ_id, -1, -1, -1, 0, 0, collapse_reasons[civ_id]);
         return 0;
     }
-    former_overlord = vassal_overlord(civ_id);
-    released_count = vassal_collect_direct(civ_id, released_vassals, MAX_CIVS);
-    vassal_release(civ_id);
-    vassal_release_all(civ_id);
-    for (i = 0; i < released_count; i++) {
-        event_log_push_structured(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE, EVENT_SEVERITY_INFO,
-                                  released_vassals[i], civ_id, -1, -1, 0, 0, "");
+    if (collapse_single_province_preview(civ_id, NULL) != COLLAPSE_SINGLE_NONE) {
+        return collapse_single_province_execute(civ_id, cause);
     }
+    former_overlord = vassal_overlord(civ_id);
+    collapse_release_vassal_relations(civ_id);
     for (i = 0; i < region_count && formed < 4 && civilization_slot_capacity_left() > 0; i++) {
         int child;
         if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id || i == cap_region) continue;

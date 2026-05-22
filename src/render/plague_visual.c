@@ -31,6 +31,9 @@ static int last_fog_draw_ms;
 static int last_data_update_ms;
 static int data_update_accum_ms;
 static int infected_lane_count;
+static int plague_reason_counts[4];
+static int plague_last_reason;
+static const char *plague_reason_names[4] = {"data", "alpha", "dirty", "resize"};
 
 static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     unsigned int old = *dst;
@@ -96,6 +99,7 @@ int plague_visual_tick(int elapsed_ms) {
         fog_rebuild_accum_ms += update_elapsed;
         if (!was_active || fog_rebuild_accum_ms >= FOG_REBUILD_INTERVAL_MS) {
             fog_cache_dirty = 1;
+            plague_last_reason = 0;
             fog_rebuild_accum_ms = 0;
         }
     } else if (!any) {
@@ -160,7 +164,7 @@ static int blob_offset(int seed, int radius) {
 static void draw_blob(unsigned int *pixels, int cx, int cy, int radius, int intensity) {
     COLORREF color = intensity > 650 ? RGB(4, 42, 25) : (intensity > 330 ? RGB(10, 70, 38) : RGB(22, 90, 48));
     int base_alpha = clamp(24 + intensity / 8, 28, 155);
-    int max_alpha = clamp(base_alpha * clamp(plague_fog_alpha, 0, 100) / 100, 0, 255);
+    int max_alpha = clamp(base_alpha, 0, 255);
     int r = clamp(radius, 5, 72);
     int x;
     int y;
@@ -244,6 +248,7 @@ static int ensure_fog_cache(HDC hdc, const RenderSnapshot *snapshot) {
     if (fog_cache_dc && fog_cache_bitmap &&
         fog_cache_w == target_w && fog_cache_h == target_h) return 1;
     release_fog_cache();
+    plague_last_reason = 3;
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
     info.bmiHeader.biWidth = target_w;
@@ -292,8 +297,12 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     if (!snapshot || !snapshot->world_generated) return;
     if (!visual_active || plague_fog_alpha <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
     if (!ensure_fog_cache(hdc, snapshot)) return;
-    if (fog_cache_dirty || fog_cache_alpha != plague_fog_alpha || dirty_render_plague()) rebuild_fog_cache(snapshot);
-    blend.SourceConstantAlpha = (BYTE)fog_pulse_alpha();
+    if (fog_cache_dirty || dirty_render_plague()) {
+        if (dirty_render_plague()) plague_last_reason = 2;
+        plague_reason_counts[plague_last_reason]++;
+        rebuild_fog_cache(snapshot);
+    }
+    blend.SourceConstantAlpha = (BYTE)(fog_pulse_alpha() * clamp(plague_fog_alpha, 0, 100) / 100);
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, client.left, TOP_BAR_H, client.right - side_panel_w, client.bottom - BOTTOM_BAR_H);
     SetStretchBltMode(hdc, COLORONCOLOR);
@@ -302,3 +311,6 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     RestoreDC(hdc, saved_dc);
     last_fog_draw_ms = (int)(GetTickCount() - draw_start);
 }
+
+const char *plague_visual_last_reason(void) { return plague_reason_names[plague_last_reason]; }
+const char *plague_visual_reason_summary(void) { static char text[96]; snprintf(text, sizeof(text), "data %d / alpha %d / dirty %d", plague_reason_counts[0], plague_reason_counts[1], plague_reason_counts[2]); return text; }

@@ -4,13 +4,17 @@ static int panel_effective_width(void) {
     return side_panel_collapsed ? SIDE_PANEL_COLLAPSED_W : side_panel_w;
 }
 
+static int side_panel_handle_reserve(void) {
+    return 34;
+}
+
 RECT get_map_viewport_rect(RECT client) {
     RECT viewport;
     int panel_w = panel_effective_width();
 
     viewport.left = client.left;
     viewport.top = TOP_BAR_H;
-    viewport.right = client.right - panel_w;
+    viewport.right = client.right - panel_w - side_panel_handle_reserve();
     viewport.bottom = client.bottom - BOTTOM_BAR_H;
     if (viewport.right < viewport.left + 80) viewport.right = viewport.left + 80;
     if (viewport.bottom < viewport.top + 80) viewport.bottom = viewport.top + 80;
@@ -52,22 +56,18 @@ MapLayout get_map_layout(RECT client) {
 RECT get_side_panel_handle_rect(RECT client) {
     RECT rect;
     int panel_left = client.right - panel_effective_width();
-    if (!side_panel_collapsed) {
-        int handle_w = SIDE_PANEL_COLLAPSED_W - 8;
-        int handle_h = 68;
-        int area_top = TOP_BAR_H;
-        int area_bottom = client.bottom - BOTTOM_BAR_H;
-        rect.left = panel_left - handle_w / 2;
+    int handle_w = 28;
+    int handle_h = 68;
+    int area_top = TOP_BAR_H;
+    int area_bottom = client.bottom - BOTTOM_BAR_H;
+    rect.right = panel_left - 4;
+    rect.left = rect.right - handle_w;
+    rect.top = area_top + ((area_bottom - area_top) - handle_h) / 2;
+    rect.bottom = rect.top + handle_h;
+    if (rect.left < client.left + 4) {
+        rect.left = client.left + 4;
         rect.right = rect.left + handle_w;
-        rect.top = area_top + ((area_bottom - area_top) - handle_h) / 2;
-        rect.bottom = rect.top + handle_h;
-        return rect;
     }
-    rect.left = panel_left;
-    rect.top = TOP_BAR_H;
-    rect.right = panel_left + SIDE_PANEL_COLLAPSED_W;
-    rect.bottom = client.bottom - BOTTOM_BAR_H;
-    if (rect.right > client.right) rect.right = client.right;
     return rect;
 }
 

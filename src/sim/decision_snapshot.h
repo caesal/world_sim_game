@@ -2,11 +2,41 @@
 #define WORLD_SIM_DECISION_SNAPSHOT_H
 
 #include "sim/expansion.h"
+#include "sim/stability_decision.h"
+#include "sim/war_desire.h"
 
 typedef struct {
     ExpansionAIDiagnostics expansion;
     int war_desire;
+    int war_pre_stability_desire;
+    int war_raw_desire;
+    int war_threshold;
+    int war_readiness_percent;
+    int war_readiness_cap;
+    int war_readiness_cap_applied;
+    int war_aggression_score;
+    int war_border_score;
+    int war_resource_score;
+    int war_strength_score;
+    int war_trade_penalty;
+    int war_truce_penalty;
+    int war_disorder_penalty;
+    int war_frontier_penalty;
+    int war_heritage_affinity_penalty;
+    int war_stability_penalty;
+    int war_stability_blocked;
+    int war_own_soldiers;
+    int war_enemy_soldiers;
+    int war_result;
     int stability_pressure;
+    int stability_mode;
+    int stability_mode_months;
+    int stability_recovery_months;
+    int stability_expansion_penalty;
+    int stability_expansion_blocked;
+    int stability_peace_bonus;
+    int stability_allows_war;
+    int stability_allows_expansion;
     int expansion_weight;
     int war_weight;
     int stability_weight;
@@ -25,6 +55,8 @@ typedef struct {
     int disconnected_has_port;
     int disconnected_has_network;
     int disconnected_network_matches_capital;
+    int collapse_single_result;
+    int collapse_single_candidate;
     const char *main_intent;
     const char *expansion_reason;
     const char *war_reason;

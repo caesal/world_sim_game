@@ -7,5 +7,7 @@ void paint_window(HWND hwnd);
 int render_scene_cache_hits(void);
 int render_scene_cache_misses(void);
 int render_scene_cache_last_build_ms(void);
+const char *render_scene_cache_last_reason(void);
+const char *render_scene_cache_reason_summary(void);
 
 #endif

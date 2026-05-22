@@ -285,6 +285,7 @@ static void rebuild_region_metadata(void) {
         natural_regions[i].disconnected_months = 0;
         natural_regions[i].disconnected_component_id = -1;
         natural_regions[i].name_id = -1;
+        natural_regions[i].name_heritage = CIV_HERITAGE_WESTERN;
     }
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
@@ -480,7 +481,6 @@ void regions_generate(int region_size_value) {
     regions_validate_light_postprocess(target_size);
     rebuild_region_metadata();
     compute_direction_scores();
-    province_names_assign_all();
     log_region_generation_debug(region_size_value, target_size, target_count);
     region_boundary_debug_summary();
     dirty_mark_territory();

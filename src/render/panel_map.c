@@ -35,8 +35,8 @@ void draw_side_panel(HDC hdc, RECT client) {
 
     fill_rect(hdc, panel, ui_theme_color(UI_COLOR_PANEL));
     fill_rect(hdc, divider, ui_theme_color(UI_COLOR_PANEL_LINE));
-    draw_side_panel_handle(hdc, client);
     if (side_panel_collapsed) {
+        draw_side_panel_handle(hdc, client);
         DeleteObject(title_font);
         DeleteObject(body_font);
         return;
@@ -51,6 +51,7 @@ void draw_side_panel(HDC hdc, RECT client) {
     else draw_debug_panel(hdc, client, x, title_font, body_font);
 
     SelectObject(hdc, old_font);
+    draw_side_panel_handle(hdc, client);
     DeleteObject(title_font);
     DeleteObject(body_font);
 }

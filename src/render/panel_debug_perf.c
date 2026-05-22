@@ -5,10 +5,12 @@
 #include "render/panel_view_model_cache.h"
 #include "render/map_labels.h"
 #include "render/render.h"
+#include "render/render_static_map_cache.h"
 #include "render/sea_lane_render.h"
 #include "render/render_context.h"
 #include "render_panel_internal.h"
 #include "core/profiler.h"
+#include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
 #include "sim/sea_lanes.h"
 #include "ui/ui_theme.h"
@@ -61,6 +63,21 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
         perf_row(hdc, cursor, tr("Section copy mask", "快照分区复制"), text,
                   ui_theme_color(UI_COLOR_TEXT_MUTED));
     }
+    snprintf(text, sizeof(text), "total %d / wait %d / held %d ms",
+             render_snapshot_profile_total_ms(), render_snapshot_profile_lock_wait_ms(),
+             render_snapshot_profile_lock_held_ms());
+    perf_row(hdc, cursor, tr("Snapshot lock", "快照锁"), text,
+              render_snapshot_profile_lock_held_ms() > 30 ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "T%d C%d Ci%d R%d D%d L%d P%d E%d",
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_TILES),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_CIVS),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_CITIES),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_REGIONS),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_DIPLOMACY),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_LANES),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_PLAGUE),
+             render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_EVENTS));
+    perf_row(hdc, cursor, tr("Snapshot sections", "快照分区"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
     snprintf(text, sizeof(text), "target 16 ms / avg %d / peak %d", perf.frame_avg_ms, perf.frame_peak_ms);
     perf_row(hdc, cursor, tr("Frame avg / peak", "帧均值 / 峰值"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
@@ -75,6 +92,11 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "pending %d / step %d ms", perf.pending_months, perf.scheduler_step_ms);
     perf_row(hdc, cursor, tr("Queue / step", "队列 / 单步"), text,
               perf.scheduler_step_over_budget ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "visual %d / coalesced %d / throttle %s",
+             game_loop_presentation_backlog(), game_loop_visual_coalesced_months(),
+             game_loop_presentation_throttled() ? "yes" : "no");
+    perf_row(hdc, cursor, tr("Presentation", "展示背压"), text,
+              game_loop_presentation_throttled() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Current Job", "当前任务"),
               perf.current_job[0] ? perf.current_job : "Idle", ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Worker", "模拟线程"), game_loop_worker_status(),
@@ -100,18 +122,43 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              render_scene_cache_hits(), render_scene_cache_misses(),
              render_scene_cache_last_build_ms());
     perf_row(hdc, cursor, tr("Scene cache", "场景缓存"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s / %s", render_scene_cache_last_reason(),
+             render_scene_cache_reason_summary());
+    perf_row(hdc, cursor, tr("Scene reason", "场景原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s / %s", render_static_map_cache_last_reason(),
+             render_static_map_cache_reason_summary());
+    perf_row(hdc, cursor, tr("Static reason", "静态原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "build %d ms / age %d ms / refresh %d",
              panel_view_model_cache_last_build_ms(), panel_view_model_cache_age_ms(),
              panel_view_model_cache_refresh_count());
     perf_row(hdc, cursor, tr("Side panel cache", "侧栏缓存"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s / %s", panel_view_model_cache_last_reason(),
+             panel_view_model_cache_reason_summary());
+    perf_row(hdc, cursor, tr("Panel reason", "侧栏原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "labels %d/%d / last %d ms / rebuild %d",
              map_label_cache_drawn_count(), map_label_cache_candidate_count(),
              map_label_cache_last_rebuild_ms(), map_label_cache_rebuild_count());
     perf_row(hdc, cursor, tr("Label layout", "标签布局"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "hit %d / miss %d / %d ms / dash %d",
+    snprintf(text, sizeof(text), "%s / %s", map_label_cache_last_reason(),
+             map_label_cache_reason_summary());
+    perf_row(hdc, cursor, tr("Label reason", "标签原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "path hit %d / miss %d / %d ms / visible %d",
              sea_lane_render_cache_hits(), sea_lane_render_cache_misses(),
-             sea_lane_render_last_ms(), sea_lane_render_dash_segments());
+             sea_lane_render_last_ms(), sea_lane_render_visible_routes());
     perf_row(hdc, cursor, tr("Sea lane render", "航道渲染"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s / %s", sea_lane_render_last_reason(),
+             sea_lane_render_reason_summary());
+    perf_row(hdc, cursor, tr("Sea lane reason", "航道原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "dash hit %d / miss %d / rebuild %d ms / drawn %d",
+             sea_lane_render_dash_cache_hits(), sea_lane_render_dash_cache_misses(),
+             sea_lane_render_dash_rebuild_ms(), sea_lane_render_dash_segments());
+    perf_row(hdc, cursor, tr("Sea lane dash", "航道虚线"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s / %s", sea_lane_render_dash_reason(),
+             sea_lane_render_dash_reason_summary());
+    perf_row(hdc, cursor, tr("Dash reason", "虚线原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "infected %d / draw %d ms",
+             sea_lane_render_infected_routes(), sea_lane_render_infected_draw_ms());
+    perf_row(hdc, cursor, tr("Infected lanes", "感染航道"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "fog %d builds / last %d ms / gate %d ms",
              plague_visual_fog_rebuild_count(), plague_visual_last_fog_rebuild_ms(),
              plague_visual_fog_rebuild_interval_ms());
@@ -123,6 +170,9 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "data %d ms / draw %d ms",
              plague_visual_data_update_ms(), plague_visual_last_draw_ms());
     perf_row(hdc, cursor, tr("Plague split", "瘟疫分层"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "%s / %s", plague_visual_last_reason(),
+             plague_visual_reason_summary());
+    perf_row(hdc, cursor, tr("Plague reason", "瘟疫原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "contours %d paths / %d ms",
              perf.contour_path_count, perf.contour_rebuild_ms);
     perf_row(hdc, cursor, tr("Contours", "轮廓线"), text,
