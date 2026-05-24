@@ -144,9 +144,7 @@ static int selected_region_id(const RenderSnapshot *snapshot) {
 static unsigned int label_anchor_key_for(const RenderSnapshot *snapshot) {
     unsigned int key;
     if (!snapshot) return 0;
-    key = (unsigned int)dirty_revision_ownership();
-    key = key * 1000003u ^ (unsigned int)dirty_revision_city();
-    key = key * 1000003u ^ (unsigned int)dirty_revision_civ();
+    key = (unsigned int)dirty_revision_label_country();
     key = key * 1000003u ^ (unsigned int)(snapshot->map_w * 4099 + snapshot->map_h);
     return key;
 }
@@ -379,10 +377,8 @@ static unsigned int label_source_key_for(const RenderSnapshot *snapshot) {
     unsigned int key;
     if (!snapshot) return 0;
     key = (unsigned int)dirty_revision_label();
-    key = mix_label_key(key, dirty_revision_ownership());
-    key = mix_label_key(key, dirty_revision_province());
-    key = mix_label_key(key, dirty_revision_city());
-    key = mix_label_key(key, dirty_revision_civ());
+    key = mix_label_key(key, dirty_revision_label_country());
+    key = mix_label_key(key, dirty_revision_label_city());
     key = mix_label_key(key, snapshot->map_w * 4099 + snapshot->map_h);
     return key;
 }

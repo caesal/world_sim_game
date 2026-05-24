@@ -17,6 +17,17 @@ static int cohort_total(PopulationCohort cohort) {
     return cohort.male + cohort.female;
 }
 
+static int city_visual_population_class(const City *city, int population) {
+    int icon_class;
+    if (!city || !city->alive) return 0;
+    if (city->capital) icon_class = 4;
+    else if (population >= 520) icon_class = 3;
+    else if (population >= 240) icon_class = 2;
+    else if (population >= 100) icon_class = 1;
+    else icon_class = 0;
+    return icon_class | ((population >= 650 || city->radius >= 4 || city->port) ? 16 : 0);
+}
+
 static void add_cohort(PopulationCohort *target, PopulationCohort source) {
     target->male += source.male;
     target->female += source.female;
@@ -189,8 +200,15 @@ int population_pressure_for_civ(int civ_id) {
 }
 
 void population_sync_city(int city_id) {
+    City *city;
+    int before;
+    int after;
     if (city_id < 0 || city_id >= city_count) return;
-    cities[city_id].population = population_city_total(city_id);
+    city = &cities[city_id];
+    before = city_visual_population_class(city, city->population);
+    city->population = population_city_total(city_id);
+    after = city_visual_population_class(city, city->population);
+    if (before != after) dirty_mark_city();
 }
 
 void population_sync_all(void) {

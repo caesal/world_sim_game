@@ -231,7 +231,6 @@ int game_request_trigger_civil_unrest(int civ_id) {
     diplomacy_mark_contacts_dirty();
     diplomacy_update_contacts();
     dirty_mark_territory();
-    dirty_mark_labels();
     world_visual_revision++;
     state_write_unlock();
     render_snapshot_publish_from_live_state();
@@ -257,7 +256,6 @@ int game_request_release_vassal(int vassal_id) {
     diplomacy_update_contacts();
     maritime_mark_routes_dirty();
     dirty_mark_territory();
-    dirty_mark_labels();
     world_visual_revision++;
     state_write_unlock();
     render_snapshot_publish_from_live_state();

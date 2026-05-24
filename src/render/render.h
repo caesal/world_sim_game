@@ -9,5 +9,7 @@ int render_scene_cache_misses(void);
 int render_scene_cache_last_build_ms(void);
 const char *render_scene_cache_last_reason(void);
 const char *render_scene_cache_reason_summary(void);
+int render_city_icons_drawn_last_frame(void);
+int render_port_icons_drawn_last_frame(void);
 
 #endif

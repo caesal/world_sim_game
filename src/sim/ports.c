@@ -1,5 +1,6 @@
 #include "ports.h"
 
+#include "core/dirty_flags.h"
 #include "sim/maritime.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
@@ -141,6 +142,7 @@ static int assign_city_port(int city_id, const PortComponent *component) {
     cities[city_id].port_x = component->best_x;
     cities[city_id].port_y = component->best_y;
     cities[city_id].port_region = shallow_region;
+    dirty_mark_city();
     return 1;
 }
 
@@ -196,13 +198,25 @@ void ports_refresh_city_regions(void) {
     int i;
 
     for (i = 0; i < city_count; i++) {
+        int old_port;
+        int old_x;
+        int old_y;
+        int old_region;
         if (!cities[i].alive || !cities[i].port) continue;
+        old_port = cities[i].port;
+        old_x = cities[i].port_x;
+        old_y = cities[i].port_y;
+        old_region = cities[i].port_region;
         if (cities[i].port_x < 0 || cities[i].port_y < 0) {
             cities[i].port_x = cities[i].x;
             cities[i].port_y = cities[i].y;
         }
         cities[i].port_region = ports_shallow_region_near_land(cities[i].port_x, cities[i].port_y);
         if (cities[i].port_region < 0) cities[i].port = 0;
+        if (cities[i].port != old_port || cities[i].port_x != old_x ||
+            cities[i].port_y != old_y || cities[i].port_region != old_region) {
+            dirty_mark_city();
+        }
     }
 }
 
@@ -223,6 +237,7 @@ void ports_maybe_make_city_port(int city_id) {
     city->port_x = x;
     city->port_y = y;
     city->port_region = region;
+    dirty_mark_city();
     maritime_mark_routes_dirty();
     world_invalidate_region_cache();
 }
@@ -243,6 +258,7 @@ int ports_activate_region_port_for_city(int region_id, int city_id, int owner) {
     cities[city_id].port_x = region->port_x;
     cities[city_id].port_y = region->port_y;
     cities[city_id].port_region = port_region;
+    dirty_mark_city();
     maritime_mark_routes_dirty();
     world_invalidate_region_cache();
     return 1;

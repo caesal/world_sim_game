@@ -1,5 +1,6 @@
 #include "sim/war_resolution.h"
 
+#include "core/dirty_flags.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/sea_lanes.h"
@@ -77,10 +78,14 @@ static void choose_new_capital(int loser, int winner) {
     int i;
     int best = -1;
     int best_score = -1000000;
+    int city_visual_changed = 0;
 
     for (i = 0; i < city_count; i++) {
         int score;
-        if (cities[i].alive && cities[i].owner == loser) cities[i].capital = 0;
+        if (cities[i].alive && cities[i].owner == loser) {
+            if (cities[i].capital) city_visual_changed = 1;
+            cities[i].capital = 0;
+        }
         score = capital_candidate_score(i, loser, winner);
         if (score > best_score) {
             best_score = score;
@@ -88,12 +93,14 @@ static void choose_new_capital(int loser, int winner) {
         }
     }
     if (best >= 0) {
+        if (!cities[best].capital) city_visual_changed = 1;
         cities[best].capital = 1;
         civs[loser].capital_city = best;
     } else {
         civs[loser].capital_city = -1;
         civs[loser].alive = 0;
     }
+    if (city_visual_changed) dirty_mark_city();
 }
 
 static void handle_capital_loss(int loser, int winner) {
@@ -214,6 +221,7 @@ static int transfer_side_border_provinces(int loser, int winner, int count) {
         if (province_id < 0) break;
         province_owner = cities[province_id].owner;
         capital_lost = province_id == civs[province_owner].capital_city || cities[province_id].capital;
+        if (cities[province_id].capital) dirty_mark_city();
         cities[province_id].capital = 0;
         if (capital_lost) civs[province_owner].capital_city = -1;
         world_claim_city_region(province_id, winner);

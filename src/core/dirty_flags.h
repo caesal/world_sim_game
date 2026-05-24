@@ -11,6 +11,7 @@ void dirty_mark_maritime(void);
 void dirty_mark_hydrology(void);
 void dirty_mark_labels(void);
 void dirty_mark_civ(void);
+void dirty_mark_civ_stats(void);
 void dirty_mark_city(void);
 void dirty_mark_diplomacy(void);
 void dirty_mark_all_render(void);
@@ -38,6 +39,9 @@ int dirty_revision_hydrology(void);
 int dirty_revision_civ(void);
 int dirty_revision_city(void);
 int dirty_revision_diplomacy(void);
+int dirty_revision_label_country(void);
+int dirty_revision_label_city(void);
+const char *dirty_label_revision_summary(void);
 
 void dirty_clear_render_terrain(void);
 void dirty_clear_render_political(void);

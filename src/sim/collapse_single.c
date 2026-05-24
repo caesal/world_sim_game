@@ -99,7 +99,6 @@ static void collapse_refresh_world(void) {
     maritime_mark_routes_dirty();
     diplomacy_mark_contacts_dirty();
     dirty_mark_territory();
-    dirty_mark_labels();
     world_visual_revision++;
 }
 
@@ -122,6 +121,7 @@ static void transfer_region_cities(int region_id, int from, int to) {
         if (regions_region_for_city(i) != region_id) continue;
         cities[i].owner = to;
         cities[i].capital = 0;
+        dirty_mark_city();
     }
 }
 
@@ -129,6 +129,7 @@ static void unclaim_single_region(int region_id, int owner) {
     int x;
     int y;
     int i;
+    int city_visual_changed = 0;
     if (region_id < 0 || region_id >= region_count) return;
     natural_regions[region_id].owner_civ = -1;
     natural_regions[region_id].city_id = -1;
@@ -147,7 +148,9 @@ static void unclaim_single_region(int region_id, int owner) {
         cities[i].capital = 0;
         cities[i].port = 0;
         cities[i].port_region = -1;
+        city_visual_changed = 1;
     }
+    if (city_visual_changed) dirty_mark_city();
 }
 
 static void retire_collapsed_civ(int civ_id) {

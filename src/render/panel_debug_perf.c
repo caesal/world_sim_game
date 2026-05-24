@@ -9,6 +9,7 @@
 #include "render/sea_lane_render.h"
 #include "render/render_context.h"
 #include "render_panel_internal.h"
+#include "core/dirty_flags.h"
 #include "core/profiler.h"
 #include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
@@ -97,6 +98,15 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              game_loop_presentation_throttled() ? "yes" : "no");
     perf_row(hdc, cursor, tr("Presentation", "展示背压"), text,
               game_loop_presentation_throttled() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "months %d / map %s / flags 0x%02X",
+             game_loop_last_completed_months(),
+             game_loop_last_completed_month_map_redraw() ? "yes" : "no",
+             game_loop_last_redraw_flags());
+    perf_row(hdc, cursor, tr("Completed month", "Completed month"), text,
+              game_loop_last_completed_month_map_redraw() ? RGB(218, 178, 78) :
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Map invalidation", "Map invalidation"),
+              game_loop_last_map_redraw_reason(), ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Current Job", "当前任务"),
               perf.current_job[0] ? perf.current_job : "Idle", ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Worker", "模拟线程"), game_loop_worker_status(),
@@ -142,6 +152,11 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "%s / %s", map_label_cache_last_reason(),
              map_label_cache_reason_summary());
     perf_row(hdc, cursor, tr("Label reason", "标签原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Label revisions", "Label revisions"),
+              dirty_label_revision_summary(), ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "cities %d / ports %d",
+             render_city_icons_drawn_last_frame(), render_port_icons_drawn_last_frame());
+    perf_row(hdc, cursor, tr("Map icons", "Map icons"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "path hit %d / miss %d / %d ms / visible %d",
              sea_lane_render_cache_hits(), sea_lane_render_cache_misses(),
              sea_lane_render_last_ms(), sea_lane_render_visible_routes());
@@ -149,6 +164,10 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "%s / %s", sea_lane_render_last_reason(),
              sea_lane_render_reason_summary());
     perf_row(hdc, cursor, tr("Sea lane reason", "航道原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "geometry hit %d / miss %d / last %s",
+             sea_lane_render_cache_hits(), sea_lane_render_cache_misses(),
+             sea_lane_render_last_reason());
+    perf_row(hdc, cursor, tr("Route geometry", "Route geometry"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "dash hit %d / miss %d / rebuild %d ms / drawn %d",
              sea_lane_render_dash_cache_hits(), sea_lane_render_dash_cache_misses(),
              sea_lane_render_dash_rebuild_ms(), sea_lane_render_dash_segments());

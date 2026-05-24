@@ -3,6 +3,8 @@
 #include "render/render_context.h"
 
 static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int y);
+static int city_icons_drawn_last_frame;
+static int port_icons_drawn_last_frame;
 
 void draw_land_texture(HDC hdc, MapLayout layout, int x, int y) {
     int px = tile_left(layout, x);
@@ -158,6 +160,8 @@ void draw_cities(HDC hdc, MapLayout layout) {
     int i;
     int s = layout.tile_size;
 
+    city_icons_drawn_last_frame = 0;
+    port_icons_drawn_last_frame = 0;
     if (!snapshot || !snapshot->world_generated) return;
     for (i = 0; i < snapshot->city_count; i++) {
         const SnapshotCity *city = &snapshot->cities[i];
@@ -169,6 +173,7 @@ void draw_cities(HDC hdc, MapLayout layout) {
         cy = (snap_tile_top(layout, snapshot, city->y) + snap_tile_bottom(layout, snapshot, city->y)) / 2;
         draw_city_icon(hdc, cx, cy, clamp(s + (city->capital ? 8 : 4), 12, 26),
                        city_stage_icon(city->capital, city->population), city->capital);
+        city_icons_drawn_last_frame++;
         if (city->port && city->port_x >= 0 && city->port_y >= 0) {
             int px = (snap_tile_left(layout, snapshot, city->port_x) +
                       snap_tile_right(layout, snapshot, city->port_x)) / 2;
@@ -176,9 +181,13 @@ void draw_cities(HDC hdc, MapLayout layout) {
                       snap_tile_bottom(layout, snapshot, city->port_y)) / 2;
             separate_harbor_from_city(&px, &py, cx, cy, clamp(s + 8, 16, 26));
             draw_harbor_marker(hdc, px, py, clamp(s + 8, 16, 26));
+            port_icons_drawn_last_frame++;
         }
     }
 }
+
+int render_city_icons_drawn_last_frame(void) { return city_icons_drawn_last_frame; }
+int render_port_icons_drawn_last_frame(void) { return port_icons_drawn_last_frame; }
 
 void draw_selected_tile(HDC hdc, MapLayout layout) {
     RECT rect;

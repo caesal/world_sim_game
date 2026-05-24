@@ -1,5 +1,27 @@
 # Version Log
 
+## Ver0.2.9.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.9.a.
+2. Retired the old screen-space map scene cache that mixed static geography with dynamic cities, ports, and maritime routes.
+3. Kept maritime routes, plague visuals, city/capital/port icons, labels, highlights, and selected markers as live overlays over the static map cache.
+4. Removed the default completed-month dynamic map redraw request so month advancement only invalidates the map when a visible map dirty flag is present.
+5. Split label invalidation into narrower country and city/port label revision paths.
+6. Changed population-only and civ-stat-only dirty paths so they no longer force label or city-icon layout rebuilds by default.
+7. Added debug rows for completed-month map redraw, map invalidation reason, retired scene cache status, label revision components, icon counts, and route-geometry reuse.
+
+Known follow-up:
+
+- Large-map stutter is still present. Profiling shows remaining hot spots in RenderSnapshot civ-section publishing under the state read lock and in full viewport dynamic overlay rendering. This release records the cache-invalidation checkpoint before the next performance pass.
+
+Validation notes:
+
+- Ver0.2.9.a uses `WORLD_SIM_VERSION "0.2.9.a"`.
+- `docs/official` was not regenerated for this checkpoint release.
+- `make check-text`, `git diff --check`, `make all`, and bounded GUI large-map validation are required before the release commit.
+
 ## Ver0.2.9
 
 Implemented fixes:

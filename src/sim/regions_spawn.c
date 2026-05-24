@@ -306,6 +306,7 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     if (region->name_id < 0) province_names_assign_region_for_heritage(region_id, civs[owner].heritage);
 
     if (admin_city >= 0 && admin_city < city_count) {
+        if (!cities[admin_city].alive || cities[admin_city].owner != owner) dirty_mark_city();
         cities[admin_city].owner = owner;
         cities[admin_city].alive = 1;
     }
@@ -335,7 +336,6 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     territory_integrity_repair_capitals();
     world_invalidate_region_cache();
     dirty_mark_territory();
-    dirty_mark_labels();
     diplomacy_mark_contacts_dirty();
     maritime_mark_ownership_dirty();
     profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));

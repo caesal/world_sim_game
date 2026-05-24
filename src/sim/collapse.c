@@ -46,7 +46,6 @@ static void collapse_refresh_world(void) {
     maritime_mark_routes_dirty();
     diplomacy_mark_contacts_dirty();
     dirty_mark_territory();
-    dirty_mark_labels();
     world_visual_revision++;
 }
 
@@ -168,6 +167,7 @@ static int create_successor_civ(int parent, int index, int seed_region) {
         if (city_id >= 0) {
             cities[city_id].owner = child_id;
             cities[city_id].capital = 1;
+            dirty_mark_city();
             child->capital_city = city_id;
         }
     }

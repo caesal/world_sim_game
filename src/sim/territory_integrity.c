@@ -84,15 +84,21 @@ static int choose_capital_city(int civ_id) {
 void territory_integrity_repair_capitals(void) {
     int civ_id;
     int city_id;
+    int city_visual_changed = 0;
     for (civ_id = 0; civ_id < civ_count; civ_id++) {
         if (!civs[civ_id].alive) continue;
         if (!city_valid_capital(civ_id, civs[civ_id].capital_city)) {
             civs[civ_id].capital_city = choose_capital_city(civ_id);
         }
         for (city_id = 0; city_id < city_count; city_id++) {
-            if (cities[city_id].owner == civ_id) cities[city_id].capital = city_id == civs[civ_id].capital_city;
+            if (cities[city_id].owner == civ_id) {
+                int next = city_id == civs[civ_id].capital_city;
+                if (cities[city_id].capital != next) city_visual_changed = 1;
+                cities[city_id].capital = next;
+            }
         }
     }
+    if (city_visual_changed) dirty_mark_city();
 }
 
 static int region_has_port_city(int civ_id, int region_id) {
@@ -241,7 +247,6 @@ static void refresh_after_integrity_change(void) {
     maritime_mark_routes_dirty();
     diplomacy_mark_contacts_dirty();
     dirty_mark_territory();
-    dirty_mark_labels();
 }
 
 static int claim_component_to(int owner, const int *regions, int count, int preferred_city) {
@@ -297,6 +302,7 @@ static int create_independent_component(int owner, const int *regions, int count
     if (city_id >= 0) {
         cities[city_id].owner = child_id;
         cities[city_id].capital = 1;
+        dirty_mark_city();
         civs[child_id].capital_city = city_id;
     }
     if (!claim_component_to(child_id, regions, count, city_id)) {

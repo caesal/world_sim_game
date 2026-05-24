@@ -40,14 +40,10 @@ typedef struct {
 static LayerCache ui_cache;
 static LayerCache side_panel_cache;
 static LayerCache window_backbuffer;
-static LayerCache map_scene_cache;
 static int scene_cache_hits;
 static int scene_cache_misses;
 static int scene_cache_last_build_ms;
-static int scene_reason_counts[4];
-static int scene_last_reason;
 static DWORD last_static_continue_invalidate;
-static const char *scene_reason_names[4] = {"initial", "key", "dirty", "static"};
 
 static void release_layer_cache(LayerCache *cache) {
     if (cache->dc && cache->old_bitmap) SelectObject(cache->dc, cache->old_bitmap);
@@ -88,115 +84,10 @@ static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layo
     draw_country_highlight(hdc, client, layout);
 }
 
-static unsigned int mix_key(unsigned int key, unsigned int value) {
-    return key ^ (value + 0x9e3779b9u + (key << 6) + (key >> 2));
-}
-
-static unsigned int map_scene_key(const RenderSnapshot *snapshot, RECT client, MapLayout layout) {
-    unsigned int key = 2166136261u;
-    if (!snapshot || !snapshot->world_generated) return 0;
-    key = mix_key(key, (unsigned int)snapshot->map_w);
-    key = mix_key(key, (unsigned int)snapshot->map_h);
-    key = mix_key(key, (unsigned int)dirty_revision_city());
-    key = mix_key(key, (unsigned int)dirty_revision_ownership());
-    key = mix_key(key, (unsigned int)snapshot->lanes_revision);
-    key = mix_key(key, (unsigned int)dirty_revision_terrain());
-    key = mix_key(key, (unsigned int)dirty_revision_coast());
-    key = mix_key(key, (unsigned int)dirty_revision_ownership());
-    key = mix_key(key, (unsigned int)dirty_revision_province());
-    key = mix_key(key, (unsigned int)dirty_revision_hydrology());
-    key = mix_key(key, (unsigned int)display_mode);
-    key = mix_key(key, (unsigned int)(client.right - client.left));
-    key = mix_key(key, (unsigned int)(client.bottom - client.top));
-    key = mix_key(key, (unsigned int)layout.map_x);
-    key = mix_key(key, (unsigned int)layout.map_y);
-    key = mix_key(key, (unsigned int)layout.draw_w);
-    key = mix_key(key, (unsigned int)layout.draw_h);
-    return key;
-}
-
-static int static_map_needs_rebuild(void) {
-    return dirty_render_terrain() || dirty_render_political() ||
-           dirty_render_coast() || dirty_render_hydrology() ||
-           dirty_render_borders() || render_static_map_cache_needs_work();
-}
-
-static int map_scene_rebuild_reason(unsigned int key) {
-    if (!map_scene_cache.valid) return 0;
-    if (map_scene_cache.key != key) return 1;
-    if (dirty_render_terrain() || dirty_render_political() || dirty_render_coast() ||
-        dirty_render_hydrology() || dirty_render_borders() || dirty_render_maritime()) return 2;
-    if (render_static_map_cache_needs_work()) return 3;
-    return -1;
-}
-
-static int map_scene_cache_presentable(RECT client, MapLayout layout) {
-    int width = client.right - client.left;
-    int height = client.bottom - client.top;
-    return map_scene_cache.dc && map_scene_cache.valid &&
-           map_scene_cache.width == width && map_scene_cache.height == height &&
-           map_scene_cache.map_x == layout.map_x &&
-           map_scene_cache.map_y == layout.map_y &&
-           map_scene_cache.draw_w == layout.draw_w &&
-           map_scene_cache.draw_h == layout.draw_h;
-}
-
-static void present_map_scene_cache(HDC hdc, RECT client) {
-    RECT viewport = get_map_viewport_rect(client);
-    BitBlt(hdc, viewport.left, viewport.top, viewport.right - viewport.left,
-           viewport.bottom - viewport.top, map_scene_cache.dc,
-           viewport.left, viewport.top, SRCCOPY);
-}
-
-static void rebuild_map_scene_cache(HDC hdc, RECT client, MapLayout layout,
-                                    const RenderSnapshot *snapshot, unsigned int key) {
-    DWORD start = GetTickCount();
-    int static_pending;
-    if (!ensure_layer_cache(hdc, &map_scene_cache, client, layout)) return;
-    draw_cached_static_map_nonblocking(map_scene_cache.dc, client, layout);
-    static_pending = render_static_map_cache_needs_work();
-    if (!static_pending && snapshot && snapshot->world_generated && !map_interaction_preview) {
-        draw_maritime_routes(map_scene_cache.dc, client, layout);
-        dirty_clear_render_maritime();
-        draw_cities(map_scene_cache.dc, layout);
-    }
-    map_scene_cache.key = key;
-    map_scene_cache.valid = !static_pending && !map_interaction_preview;
-    scene_cache_last_build_ms = (int)(GetTickCount() - start);
-    scene_cache_misses++;
-}
-
 static void draw_non_plague_map_scene(HDC hdc, RECT client, MapLayout layout,
                                       const RenderSnapshot *snapshot) {
-    unsigned int key = map_scene_key(snapshot, client, layout);
-    if (!snapshot || !snapshot->world_generated || map_interaction_preview) {
-        draw_cached_static_map_nonblocking(hdc, client, layout);
-        return;
-    }
-    if (static_map_needs_rebuild()) {
-        draw_cached_static_map_nonblocking(hdc, client, layout);
-        if (static_map_needs_rebuild()) {
-            if (map_scene_cache_presentable(client, layout)) present_map_scene_cache(hdc, client);
-            return;
-        }
-    }
-    {
-        int reason = map_scene_rebuild_reason(key);
-    if (reason >= 0) {
-        scene_last_reason = reason;
-        scene_reason_counts[reason]++;
-        rebuild_map_scene_cache(hdc, client, layout, snapshot, key);
-    } else {
-        scene_cache_hits++;
-    }
-    }
-    if (map_scene_cache_presentable(client, layout) && map_scene_cache.key == key) {
-        present_map_scene_cache(hdc, client);
-    } else if (map_scene_cache_presentable(client, layout)) {
-        present_map_scene_cache(hdc, client);
-    } else {
-        draw_cached_static_map_nonblocking(hdc, client, layout);
-    }
+    (void)snapshot;
+    draw_cached_static_map_nonblocking(hdc, client, layout);
 }
 
 static void draw_stale_ui_indicator(HDC hdc, RECT client) {
@@ -302,6 +193,8 @@ static void render_world(HDC hdc, RECT client) {
     }
     draw_non_plague_map_scene(hdc, client, layout, snapshot);
     if (snapshot_world_ready) {
+        draw_maritime_routes(hdc, client, layout);
+        dirty_clear_render_maritime();
         if (!map_interaction_preview) {
             draw_plague_region_overlay(hdc, client, layout);
             dirty_clear_render_plague();
@@ -309,13 +202,14 @@ static void render_world(HDC hdc, RECT client) {
         draw_legacy_overlay_nonblocking(hdc, client, layout);
         diplomacy_map_anim_consume_events();
         draw_diplomacy_map_animations(hdc, client, layout);
-        draw_selected_tile(hdc, layout);
+        draw_cities(hdc, layout);
         {
             int labels_dirty = dirty_render_labels();
             draw_map_labels(hdc, client, layout);
             if (labels_dirty) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
             dirty_clear_render_labels();
         }
+        draw_selected_tile(hdc, layout);
     } else {
         dirty_clear_render_maritime();
         dirty_clear_render_plague();
@@ -380,5 +274,5 @@ int render_scene_cache_last_build_ms(void) {
     return scene_cache_last_build_ms;
 }
 
-const char *render_scene_cache_last_reason(void) { return scene_reason_names[scene_last_reason]; }
-const char *render_scene_cache_reason_summary(void) { static char text[96]; snprintf(text, sizeof(text), "key %d / dirty %d / static %d", scene_reason_counts[1], scene_reason_counts[2], scene_reason_counts[3]); return text; }
+const char *render_scene_cache_last_reason(void) { return "retired"; }
+const char *render_scene_cache_reason_summary(void) { return "static map cache draws scene"; }

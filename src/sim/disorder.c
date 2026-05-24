@@ -139,7 +139,7 @@ static void update_wartime_pressure(int civ_id, int has_war) {
     wartime_pressure_carry_x10[civ_id] = total_x10 - next * 10;
     if (next == 0 || next == 100) wartime_pressure_carry_x10[civ_id] = 0;
     if (next != old || old_gain != wartime_last_gain_x10[civ_id] ||
-        old_decay != wartime_last_decay_x10[civ_id]) dirty_mark_civ();
+        old_decay != wartime_last_decay_x10[civ_id]) dirty_mark_civ_stats();
 }
 
 static void record_recovery_components(Civilization *civ, int civ_id, int pressure, int resource_score, int has_war) {

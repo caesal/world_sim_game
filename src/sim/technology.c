@@ -79,7 +79,7 @@ void technology_update_month(void) {
             world_invalidate_population_cache();
         }
     }
-    if (changed) dirty_mark_civ();
+    if (changed) dirty_mark_civ_stats();
 }
 
 int technology_years_to_next(int civ_id) {

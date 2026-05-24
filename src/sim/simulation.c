@@ -37,6 +37,7 @@ static void recalculate_territory(void) {
     int i;
     int y;
     int x;
+    int city_visual_changed = 0;
     unsigned int next_hash = 2166136261u;
 
     for (i = 0; i < civ_count; i++) civs[i].territory = 0;
@@ -72,8 +73,10 @@ static void recalculate_territory(void) {
             cities[i].alive = 0;
             cities[i].owner = -1;
             cities[i].capital = 0;
+            city_visual_changed = 1;
         }
     }
+    if (city_visual_changed) dirty_mark_city();
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             next_hash = (next_hash ^ (unsigned int)(world[y][x].owner + 2)) * 16777619u;
@@ -128,6 +131,7 @@ static int create_city(int owner, int x, int y, int population, int capital) {
     city->population_ready = 0;
     city_id = city_count++;
     population_init_city(city_id, population);
+    dirty_mark_city();
     return city_id;
 }
 

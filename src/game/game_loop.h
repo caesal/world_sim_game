@@ -23,5 +23,9 @@ int game_loop_presentation_backlog(void);
 int game_loop_visual_coalesced_months(void);
 int game_loop_presentation_throttled(void);
 const char *game_loop_worker_status(void);
+int game_loop_last_redraw_flags(void);
+int game_loop_last_completed_months(void);
+int game_loop_last_completed_month_map_redraw(void);
+const char *game_loop_last_map_redraw_reason(void);
 
 #endif

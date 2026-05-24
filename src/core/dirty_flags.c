@@ -1,5 +1,7 @@
 #include "dirty_flags.h"
 
+#include <stdio.h>
+
 enum {
     DIRTY_RENDER_TERRAIN = 1 << 0,
     DIRTY_RENDER_POLITICAL = 1 << 1,
@@ -29,6 +31,8 @@ static int hydrology_revision = 1;
 static int civ_revision = 1;
 static int city_revision = 1;
 static int diplomacy_revision = 1;
+static int label_country_revision = 1;
+static int label_city_revision = 1;
 
 static void mark(unsigned int flags) {
     render_dirty_flags |= flags;
@@ -67,30 +71,26 @@ void dirty_mark_world(void) {
     bump(&civ_revision);
     bump(&city_revision);
     bump(&diplomacy_revision);
+    bump(&label_country_revision);
+    bump(&label_city_revision);
 }
 
 void dirty_mark_territory(void) {
     mark(DIRTY_RENDER_POLITICAL | DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
     bump(&ownership_revision);
     bump(&province_revision);
-    bump(&label_revision);
-    bump(&civ_revision);
-    bump(&city_revision);
+    bump(&label_country_revision);
 }
 
 void dirty_mark_province(void) {
     mark(DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
     bump(&province_revision);
-    bump(&label_revision);
-    bump(&civ_revision);
+    bump(&label_country_revision);
 }
 
 void dirty_mark_population(void) {
-    mark(DIRTY_RENDER_LABELS);
     bump(&population_revision);
-    bump(&label_revision);
-    bump(&civ_revision);
-    bump(&city_revision);
+    bump(&ui_revision);
 }
 
 void dirty_mark_plague(void) {
@@ -99,9 +99,8 @@ void dirty_mark_plague(void) {
 }
 
 void dirty_mark_maritime(void) {
-    mark(DIRTY_RENDER_MARITIME | DIRTY_RENDER_LABELS);
+    mark(DIRTY_RENDER_MARITIME);
     bump(&route_revision);
-    bump(&label_revision);
 }
 
 void dirty_mark_hydrology(void) {
@@ -116,12 +115,18 @@ void dirty_mark_labels(void) {
 
 void dirty_mark_civ(void) {
     bump(&civ_revision);
-    dirty_mark_labels();
+    mark(DIRTY_RENDER_LABELS);
+    bump(&label_country_revision);
+}
+
+void dirty_mark_civ_stats(void) {
+    bump(&civ_revision);
 }
 
 void dirty_mark_city(void) {
     bump(&city_revision);
-    dirty_mark_labels();
+    mark(DIRTY_RENDER_LABELS);
+    bump(&label_city_revision);
 }
 
 void dirty_mark_diplomacy(void) {
@@ -155,6 +160,15 @@ int dirty_revision_hydrology(void) { return hydrology_revision; }
 int dirty_revision_civ(void) { return civ_revision; }
 int dirty_revision_city(void) { return city_revision; }
 int dirty_revision_diplomacy(void) { return diplomacy_revision; }
+int dirty_revision_label_country(void) { return label_country_revision; }
+int dirty_revision_label_city(void) { return label_city_revision; }
+const char *dirty_label_revision_summary(void) {
+    static char text[96];
+    snprintf(text, sizeof(text), "text %d / country %d / city %d / own %d / prov %d",
+             label_revision, label_country_revision, label_city_revision,
+             ownership_revision, province_revision);
+    return text;
+}
 
 void dirty_clear_render_terrain(void) { clear(DIRTY_RENDER_TERRAIN); }
 void dirty_clear_render_political(void) { clear(DIRTY_RENDER_POLITICAL); }
