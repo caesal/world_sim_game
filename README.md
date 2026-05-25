@@ -7,18 +7,17 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.9.a is a Windows graphical sandbox prototype written in C.
+Ver0.2.9.b is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.9.a is a render/cache checkpoint over Ver0.2.9 focused on separating
-static map content from dynamic overlays. It keeps cities, capitals, ports,
-maritime routes, plague visuals, labels, highlights, and selected markers as
-live overlays over the durable static map cache, narrows several dirty flags,
-and adds debug rows for map invalidation and overlay/cache metrics.
+Ver0.2.9.b is a second render/cache checkpoint over Ver0.2.9 focused on moving
+expensive country decision diagnostics out of RenderSnapshot publishing. It adds
+a simulation-side DecisionSnapshot cache, keeps stale same-identity decisions
+visible when a fresh cache entry is not ready, and fixes Waiting/Unknown
+decision labels so they no longer fall through to Expansion.
 
-Known follow-up: large-map performance is still not solved. Current profiling
-shows remaining stalls in RenderSnapshot civ-section publishing and full
-viewport overlay rendering, which are intentionally left for the next
-architecture pass.
+Known follow-up: large-map performance is improved in the snapshot decision
+path but still not solved. Current profiling shows remaining render-side stalls
+in full viewport overlays, labels, sea-lane drawing, and plague animation.
 
 You can:
 
@@ -78,6 +77,7 @@ You can:
 54. Replace flat plague events with persistent city outbreaks, percentage deaths, spread pressure, disorder impact, and dark green map visualization
 55. Cache expensive map render layers across ordinary repaints and avoid duplicate maritime route rebuilds during monthly simulation
 56. Cache diplomacy border contacts and population summaries so monthly updates do less repeated full-map aggregation
+57. Cache country decision diagnostics on the simulation side so RenderSnapshot publishing no longer recomputes them under the state read lock
 57. Split core shared types into narrower `constants.h`, `world_types.h`, and `sim_types.h` headers while keeping `game_types.h` as the compatibility entry point
 58. Document the current map-rendering and river-polish diagnostic for the next targeted cleanup pass
 59. Use a fast transformed cached-map preview while wheel zooming or right-drag panning, then rebuild high-quality layers after input settles

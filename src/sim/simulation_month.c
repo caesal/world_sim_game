@@ -3,6 +3,7 @@
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
 #include "sim/collapse.h"
+#include "sim/decision_snapshot.h"
 #include "sim/disorder.h"
 #include "sim/expansion.h"
 #include "sim/maritime.h"
@@ -32,6 +33,7 @@ enum {
     SIM_MONTH_TERRITORY,
     SIM_MONTH_DIPLOMACY,
     SIM_MONTH_CALENDAR,
+    SIM_MONTH_DECISION_CACHE,
     SIM_MONTH_DONE
 };
 
@@ -63,6 +65,7 @@ static const char *simulation_phase_name(int phase) {
         case SIM_MONTH_TERRITORY: return "Territory";
         case SIM_MONTH_DIPLOMACY: return "Diplomacy";
         case SIM_MONTH_CALENDAR: return "Calendar";
+        case SIM_MONTH_DECISION_CACHE: return "Decision Cache";
         default: return "Month";
     }
 }
@@ -197,6 +200,7 @@ int simulation_month_begin(SimulationMonthState *state) {
     if (!world_generated || !state) return 0;
     memset(state, 0, sizeof(*state));
     profiler_begin_month();
+    decision_snapshot_cache_mark_all_dirty();
     state->active = 1;
     state->phase = SIM_MONTH_RESOURCES;
     state->run_quarterly = resource_pressure_due_this_month();
@@ -361,6 +365,11 @@ int simulation_month_run_next(SimulationMonthState *state) {
                                           -1, -1, -1, -1, 0, 0, state->log);
             }
             if (living_civilizations() <= 1) auto_run = 0;
+            state->phase = SIM_MONTH_DECISION_CACHE;
+            break;
+        case SIM_MONTH_DECISION_CACHE:
+            decision_snapshot_cache_update_budgeted(1);
+            if (decision_snapshot_cache_dirty_count() > 0) break;
             state->phase = SIM_MONTH_DONE;
             state->active = 0;
             break;

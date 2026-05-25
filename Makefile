@@ -20,6 +20,7 @@ SOURCES := \
 	src/core/load_progress.c \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
+	src/core/render_snapshot_civs.c \
 	src/core/render_snapshot_events.c \
 	src/core/render_snapshot_keys.c \
 	src/core/render_snapshot_profile.c \

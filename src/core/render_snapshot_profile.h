@@ -13,8 +13,20 @@ typedef enum {
     SNAPSHOT_PROFILE_COUNT
 } RenderSnapshotProfileSection;
 
+typedef enum {
+    SNAPSHOT_CIV_PROFILE_RAW,
+    SNAPSHOT_CIV_PROFILE_COUNTRY,
+    SNAPSHOT_CIV_PROFILE_POPULATION,
+    SNAPSHOT_CIV_PROFILE_DECISION,
+    SNAPSHOT_CIV_PROFILE_EXPANSION,
+    SNAPSHOT_CIV_PROFILE_MARITIME,
+    SNAPSHOT_CIV_PROFILE_NAMES,
+    SNAPSHOT_CIV_PROFILE_COUNT
+} RenderSnapshotCivProfilePhase;
+
 void render_snapshot_profile_reset_sections(void);
 void render_snapshot_profile_record_section(RenderSnapshotProfileSection section, int ms, int copied);
+void render_snapshot_profile_record_civ_phase(RenderSnapshotCivProfilePhase phase, int ms);
 void render_snapshot_profile_record_publish(int total_ms, int lock_wait_ms, int lock_held_ms,
                                             int copied_mask, int skipped_mask);
 int render_snapshot_profile_total_ms(void);
@@ -22,6 +34,7 @@ int render_snapshot_profile_lock_wait_ms(void);
 int render_snapshot_profile_lock_held_ms(void);
 int render_snapshot_profile_section_ms(RenderSnapshotProfileSection section);
 int render_snapshot_profile_section_copied(RenderSnapshotProfileSection section);
+int render_snapshot_profile_civ_phase_ms(RenderSnapshotCivProfilePhase phase);
 void render_snapshot_profile_format_sections(int copied, char *buffer, int buffer_size);
 
 #endif

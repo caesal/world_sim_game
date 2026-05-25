@@ -8,6 +8,7 @@
 #include "game/game_loop.h"
 #include "game/game_worldgen.h"
 #include "sim/collapse.h"
+#include "sim/decision_snapshot.h"
 #include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
@@ -207,6 +208,8 @@ void game_request_after_load_map(int restored_dynamic_state) {
     load_progress_update(LOAD_STAGE_POST_LOAD, 4, 6);
     civilization_colors_debug_check();
     dirty_mark_world();
+    decision_snapshot_cache_mark_all_dirty();
+    decision_snapshot_cache_update_budgeted(MAX_CIVS);
     world_visual_revision++;
     render_snapshot_publish_from_live_state();
     load_progress_update(LOAD_STAGE_POST_LOAD, 6, 6);
@@ -231,6 +234,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
     diplomacy_mark_contacts_dirty();
     diplomacy_update_contacts();
     dirty_mark_territory();
+    decision_snapshot_cache_mark_all_dirty();
     world_visual_revision++;
     state_write_unlock();
     render_snapshot_publish_from_live_state();
@@ -256,6 +260,7 @@ int game_request_release_vassal(int vassal_id) {
     diplomacy_update_contacts();
     maritime_mark_routes_dirty();
     dirty_mark_territory();
+    decision_snapshot_cache_mark_all_dirty();
     world_visual_revision++;
     state_write_unlock();
     render_snapshot_publish_from_live_state();

@@ -189,6 +189,14 @@ PopulationSummary population_country_summary(int civ_id) {
     return country_population_cache[civ_id];
 }
 
+int population_country_summary_cached(int civ_id, PopulationSummary *out) {
+    if (!out) return 0;
+    memset(out, 0, sizeof(*out));
+    if (civ_id < 0 || civ_id >= civ_count || population_cache_dirty) return 0;
+    *out = country_population_cache[civ_id];
+    return 1;
+}
+
 int population_recruitable_for_civ(int civ_id) {
     PopulationSummary summary = population_country_summary(civ_id);
     return summary.recruitable;

@@ -6,6 +6,7 @@
 #include "core/worldgen_progress.h"
 #include "game/game_loop.h"
 #include "sim/civ_colors.h"
+#include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/ports.h"
@@ -139,6 +140,8 @@ void game_request_new_world_with_progress(HWND hwnd) {
     civilization_repair_alive_colors();
     civilization_colors_debug_check();
     dirty_mark_world();
+    decision_snapshot_cache_mark_all_dirty();
+    decision_snapshot_cache_update_budgeted(MAX_CIVS);
     auto_run = 0;
     render_snapshot_publish_from_live_state();
     end_generation_stage(hwnd, WORLDGEN_FINALIZE, stage_start);

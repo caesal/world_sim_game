@@ -1,6 +1,7 @@
 ﻿#include "sim/simulation.h"
 
 #include "core/dirty_flags.h"
+#include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_slots.h"
 #include "sim/civilization_metrics.h"
@@ -315,6 +316,14 @@ CountrySummary summarize_country(int civ_id) {
     return country_summary_cache[civ_id];
 }
 
+int summarize_country_cached(int civ_id, CountrySummary *out) {
+    if (!out) return 0;
+    memset(out, 0, sizeof(*out));
+    if (civ_id < 0 || civ_id >= civ_count || country_summary_dirty) return 0;
+    *out = country_summary_cache[civ_id];
+    return 1;
+}
+
 int add_civilization_at_with_heritage(const char *name, char symbol, int heritage,
                                       int military, int logistics, int governance,
                                       int cohesion, int production, int commerce,
@@ -368,6 +377,7 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
     diplomacy_mark_contacts_dirty();
     territory_integrity_repair_capitals();
     last_created_civ_id = civ_id;
+    decision_snapshot_cache_mark_all_dirty();
     return 1;
 }
 
@@ -394,6 +404,7 @@ void simulation_reset_state(void) {
     maritime_reset();
     plague_reset();
     territory_integrity_reset();
+    decision_snapshot_cache_reset();
     territory_contact_hash = 0;
     world_invalidate_region_cache();
 }
@@ -416,5 +427,6 @@ void simulation_apply_civilization_edit(int civ_id, const char *name, char symbo
     }
     apply_civilization_core_metrics(civ, governance, cohesion, production, military,
                                     commerce, logistics, innovation, birth, 0);
+    decision_snapshot_cache_mark_dirty(civ_id);
     dirty_mark_civ();
 }

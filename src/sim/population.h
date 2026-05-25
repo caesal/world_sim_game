@@ -7,6 +7,7 @@ void population_init_city(int city_id, int total_population);
 int population_city_total(int city_id);
 PopulationSummary population_city_summary(int city_id);
 PopulationSummary population_country_summary(int civ_id);
+int population_country_summary_cached(int civ_id, PopulationSummary *out);
 int population_recruitable_for_civ(int civ_id);
 int population_pressure_for_civ(int civ_id);
 void population_sync_city(int city_id);

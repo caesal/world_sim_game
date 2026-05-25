@@ -1,5 +1,29 @@
 # Version Log
 
+## Ver0.2.9.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.9.b.
+2. Added a simulation-side DecisionSnapshot cache so RenderSnapshot civ copying no longer calls expensive decision diagnostics under the state read lock.
+3. Added cached-only country and population summary readers for snapshot copying.
+4. Split civ snapshot copying into `render_snapshot_civs.c` and added per-phase civ copy profiling.
+5. Added budgeted monthly DecisionSnapshot cache refresh and eager refresh after world generation or map load.
+6. Kept same-identity stale decision data when a fresh cache entry is not ready, with a safe Waiting fallback instead of zeroed contradictory data.
+7. Fixed country decision labels so Waiting and Unknown do not render as Expansion by default.
+8. Added debug rows for decision cache validity, dirty count, update time, and snapshot cached/stale/fallback counts.
+9. Added viewport static, route overlay, and city overlay presentation caches as the second render stutter cleanup pass.
+
+Known follow-up:
+
+- Large-map stutter is still present. DecisionSnapshot no longer dominates RenderSnapshot publishing, but profiling still shows render-side spikes in full viewport overlays, labels, sea-lane drawing, and plague animation.
+
+Validation notes:
+
+- Ver0.2.9.b uses `WORLD_SIM_VERSION "0.2.9.b"`.
+- `docs/official` was not regenerated for this checkpoint release.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size checks, and bounded GUI large-map validation are required before the release commit.
+
 ## Ver0.2.9.a
 
 Implemented fixes:

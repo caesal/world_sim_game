@@ -10,6 +10,7 @@ static int last_lock_wait_ms;
 static int last_lock_held_ms;
 static int last_section_ms[SNAPSHOT_PROFILE_COUNT];
 static int last_section_copied[SNAPSHOT_PROFILE_COUNT];
+static int last_civ_phase_ms[SNAPSHOT_CIV_PROFILE_COUNT];
 static int last_copied_mask;
 static int last_skipped_mask;
 
@@ -33,12 +34,18 @@ static int section_mask(RenderSnapshotProfileSection section) {
 void render_snapshot_profile_reset_sections(void) {
     memset(last_section_ms, 0, sizeof(last_section_ms));
     memset(last_section_copied, 0, sizeof(last_section_copied));
+    memset(last_civ_phase_ms, 0, sizeof(last_civ_phase_ms));
 }
 
 void render_snapshot_profile_record_section(RenderSnapshotProfileSection section, int ms, int copied) {
     if (section < 0 || section >= SNAPSHOT_PROFILE_COUNT) return;
     last_section_ms[section] = ms;
     last_section_copied[section] = copied ? 1 : 0;
+}
+
+void render_snapshot_profile_record_civ_phase(RenderSnapshotCivProfilePhase phase, int ms) {
+    if (phase < 0 || phase >= SNAPSHOT_CIV_PROFILE_COUNT) return;
+    last_civ_phase_ms[phase] += ms;
 }
 
 void render_snapshot_profile_record_publish(int total_ms, int lock_wait_ms, int lock_held_ms,
@@ -60,6 +67,10 @@ int render_snapshot_profile_section_ms(RenderSnapshotProfileSection section) {
 
 int render_snapshot_profile_section_copied(RenderSnapshotProfileSection section) {
     return section >= 0 && section < SNAPSHOT_PROFILE_COUNT ? last_section_copied[section] : 0;
+}
+
+int render_snapshot_profile_civ_phase_ms(RenderSnapshotCivProfilePhase phase) {
+    return phase >= 0 && phase < SNAPSHOT_CIV_PROFILE_COUNT ? last_civ_phase_ms[phase] : 0;
 }
 
 void render_snapshot_profile_format_sections(int copied, char *buffer, int buffer_size) {

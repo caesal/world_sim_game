@@ -10,12 +10,61 @@
 #include "sim/vassal.h"
 #include "sim/war.h"
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <stdio.h>
 #include <string.h>
+
+typedef struct {
+    int valid;
+    int dirty;
+    int uid;
+    DecisionSnapshot snapshot;
+    char main_intent[32];
+    char expansion_reason[128];
+    char war_reason[128];
+} DecisionSnapshotCacheEntry;
+
+static DecisionSnapshotCacheEntry decision_cache[MAX_CIVS];
+static int decision_cache_cursor;
+static int decision_cache_last_update_ms;
+static int decision_cache_last_update_count;
 
 static int years_to_decade_check(void) {
     int years_left = 25 - (year % 25);
     return years_left <= 0 ? 25 : years_left;
+}
+
+static void bind_cache_strings(DecisionSnapshotCacheEntry *entry) {
+    entry->snapshot.main_intent = entry->main_intent;
+    entry->snapshot.expansion_reason = entry->expansion_reason;
+    entry->snapshot.war_reason = entry->war_reason;
+}
+
+static void store_cached_decision(int civ_id, const DecisionSnapshot *snapshot) {
+    DecisionSnapshotCacheEntry *entry;
+
+    if (civ_id < 0 || civ_id >= MAX_CIVS || !snapshot) return;
+    entry = &decision_cache[civ_id];
+    entry->snapshot = *snapshot;
+    snprintf(entry->main_intent, sizeof(entry->main_intent), "%s",
+             snapshot->main_intent ? snapshot->main_intent : "");
+    snprintf(entry->expansion_reason, sizeof(entry->expansion_reason), "%s",
+             snapshot->expansion_reason ? snapshot->expansion_reason : "");
+    snprintf(entry->war_reason, sizeof(entry->war_reason), "%s",
+             snapshot->war_reason ? snapshot->war_reason : "");
+    bind_cache_strings(entry);
+    entry->uid = civs[civ_id].uid;
+    entry->valid = 1;
+    entry->dirty = 0;
+}
+
+static int cache_entry_needs_update(int civ_id) {
+    DecisionSnapshotCacheEntry *entry;
+
+    if (civ_id < 0 || civ_id >= civ_count || civ_id >= MAX_CIVS || !civs[civ_id].alive) return 0;
+    entry = &decision_cache[civ_id];
+    return !entry->valid || entry->dirty || entry->uid != civs[civ_id].uid;
 }
 
 void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
@@ -129,3 +178,86 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
                  "Capital core connected; stability pressure is routine.");
     }
 }
+
+void decision_snapshot_cache_reset(void) {
+    memset(decision_cache, 0, sizeof(decision_cache));
+    decision_cache_cursor = 0;
+    decision_cache_last_update_ms = 0;
+    decision_cache_last_update_count = 0;
+}
+
+void decision_snapshot_cache_mark_dirty(int civ_id) {
+    if (civ_id < 0 || civ_id >= MAX_CIVS) return;
+    decision_cache[civ_id].dirty = 1;
+}
+
+void decision_snapshot_cache_mark_all_dirty(void) {
+    int i;
+
+    for (i = 0; i < MAX_CIVS; i++) decision_cache[i].dirty = 1;
+    decision_cache_cursor = 0;
+}
+
+void decision_snapshot_cache_update_budgeted(int max_civs) {
+    DWORD start = GetTickCount();
+    int scanned = 0;
+    int updated = 0;
+
+    if (max_civs <= 0) max_civs = 1;
+    while (scanned < MAX_CIVS && updated < max_civs) {
+        int civ_id = (decision_cache_cursor + scanned) % MAX_CIVS;
+        scanned++;
+        if (civ_id >= civ_count || !civs[civ_id].alive) {
+            decision_cache[civ_id].valid = 0;
+            decision_cache[civ_id].dirty = 0;
+            continue;
+        }
+        if (!cache_entry_needs_update(civ_id)) continue;
+        {
+            DecisionSnapshot snapshot;
+            decision_snapshot_for_civ(civ_id, &snapshot);
+            store_cached_decision(civ_id, &snapshot);
+            updated++;
+        }
+    }
+    decision_cache_cursor = (decision_cache_cursor + scanned) % MAX_CIVS;
+    decision_cache_last_update_ms = (int)(GetTickCount() - start);
+    decision_cache_last_update_count = updated;
+}
+
+int decision_snapshot_cached(int civ_id, DecisionSnapshot *out) {
+    DecisionSnapshotCacheEntry *entry;
+
+    if (!out) return 0;
+    memset(out, 0, sizeof(*out));
+    if (civ_id < 0 || civ_id >= civ_count || civ_id >= MAX_CIVS || !civs[civ_id].alive) return 0;
+    entry = &decision_cache[civ_id];
+    if (!entry->valid || entry->dirty || entry->uid != civs[civ_id].uid) return 0;
+    bind_cache_strings(entry);
+    *out = entry->snapshot;
+    return 1;
+}
+
+int decision_snapshot_cache_valid_count(void) {
+    int i;
+    int count = 0;
+
+    for (i = 0; i < civ_count && i < MAX_CIVS; i++) {
+        if (civs[i].alive && decision_cache[i].valid &&
+            !decision_cache[i].dirty && decision_cache[i].uid == civs[i].uid) count++;
+    }
+    return count;
+}
+
+int decision_snapshot_cache_dirty_count(void) {
+    int i;
+    int count = 0;
+
+    for (i = 0; i < civ_count && i < MAX_CIVS; i++) {
+        if (cache_entry_needs_update(i)) count++;
+    }
+    return count;
+}
+
+int decision_snapshot_cache_last_update_ms(void) { return decision_cache_last_update_ms; }
+int decision_snapshot_cache_last_update_count(void) { return decision_cache_last_update_count; }

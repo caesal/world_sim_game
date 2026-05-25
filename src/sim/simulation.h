@@ -7,6 +7,7 @@ int city_at(int x, int y);
 int city_for_tile(int x, int y);
 RegionSummary summarize_city_region(int city_id);
 CountrySummary summarize_country(int civ_id);
+int summarize_country_cached(int civ_id, CountrySummary *out);
 const char *civilization_display_name_for_language(int civ_id, int language);
 const char *civilization_display_name(int civ_id);
 int civilization_pick_unused_name_id(void);

@@ -2,6 +2,17 @@
 
 #include <string.h>
 
+static void bind_civ_decision_strings(RenderSnapshot *snapshot) {
+    int i;
+    if (!snapshot) return;
+    for (i = 0; i < MAX_CIVS; i++) {
+        SnapshotCiv *civ = &snapshot->civs[i];
+        civ->decision.main_intent = civ->main_intent;
+        civ->decision.expansion_reason = civ->decision_expansion_reason;
+        civ->decision.war_reason = civ->decision_war_reason;
+    }
+}
+
 void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnapshot *src) {
     int mask;
     if (!dst || !src) return;
@@ -15,6 +26,7 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
         dst->civ_count = src->civ_count;
         dst->civ_independent_alive_count = src->civ_independent_alive_count;
         dst->civs_revision = src->civs_revision;
+        bind_civ_decision_strings(dst);
     }
     if (mask & RENDER_SNAPSHOT_SECTION_CITIES) {
         memcpy(dst->cities, src->cities, sizeof(dst->cities));

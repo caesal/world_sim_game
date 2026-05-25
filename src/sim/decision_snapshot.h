@@ -64,5 +64,14 @@ typedef struct {
 } DecisionSnapshot;
 
 void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out);
+void decision_snapshot_cache_reset(void);
+void decision_snapshot_cache_mark_dirty(int civ_id);
+void decision_snapshot_cache_mark_all_dirty(void);
+void decision_snapshot_cache_update_budgeted(int max_civs);
+int decision_snapshot_cached(int civ_id, DecisionSnapshot *out);
+int decision_snapshot_cache_valid_count(void);
+int decision_snapshot_cache_dirty_count(void);
+int decision_snapshot_cache_last_update_ms(void);
+int decision_snapshot_cache_last_update_count(void);
 
 #endif

@@ -15,7 +15,9 @@ static COLORREF disorder_color(int disorder) {
 }
 
 static const char *intent_label(const char *intent) {
-    if (!intent) return tr("Unknown", "未知");
+    if (!intent || !intent[0]) return tr("Unknown", "未知");
+    if (strcmp(intent, "Waiting") == 0) return tr("Waiting", "等待");
+    if (strcmp(intent, "Unknown") == 0) return tr("Unknown", "未知");
     if (strcmp(intent, "War") == 0) return tr("War", "战争");
     if (strcmp(intent, "Stability") == 0) return tr("Stability", "稳定");
     return tr("Expansion", "扩张");

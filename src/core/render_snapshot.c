@@ -1,6 +1,7 @@
 #include "core/render_snapshot.h"
 #include "core/dirty_flags.h"
 #include "core/render_snapshot_events.h"
+#include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_keys.h"
 #include "core/render_snapshot_profile.h"
 #include "core/render_snapshot_sections.h"
@@ -69,102 +70,6 @@ static void copy_tiles(RenderSnapshot *snapshot) {
             dst->region_id = (short)src->region_id;
             dst->province_id = (short)src->province_id;
         }
-    }
-}
-
-static void copy_civs(RenderSnapshot *snapshot) {
-    int i;
-    snapshot->civ_count = clamp(civ_count, 0, MAX_CIVS); snapshot->civ_independent_alive_count = 0;
-    for (i = 0; i < snapshot->civ_count; i++) {
-        SnapshotCiv *dst = &snapshot->civs[i];
-        Civilization *src = &civs[i];
-        dst->alive = src->alive;
-        dst->id = i;
-        dst->uid = src->uid;
-        dst->color = src->color;
-        dst->symbol = src->symbol;
-        dst->population = src->population;
-        dst->army = src->military;
-        dst->current_soldiers = war_current_soldiers_for_civ(i);
-        dst->aggression = src->aggression;
-        dst->expansion = src->expansion;
-        dst->defense = src->defense;
-        dst->culture = src->culture;
-        dst->governance = src->governance;
-        dst->cohesion = src->cohesion;
-        dst->production = src->production;
-        dst->military = src->military;
-        dst->commerce = src->commerce;
-        dst->logistics = src->logistics;
-        dst->innovation = src->innovation;
-        dst->adaptation = src->adaptation;
-        dst->tech_stage = src->tech_stage;
-        dst->tech_progress = src->tech_progress;
-        dst->tech_stage_progress_percent = technology_stage_progress_percent(i);
-        dst->tech_months_to_next = technology_months_to_next(i);
-        dst->tech_required_months = technology_required_months_for_civ(i);
-        dst->tech_expansion_percent = technology_expansion_percent(i);
-        dst->tech_resource_percent = technology_resource_percent(i);
-        dst->tech_progress_percent = technology_progress_percent(i);
-        dst->disorder = src->disorder;
-        dst->disorder_resource = src->disorder_resource;
-        dst->disorder_plague = src->disorder_plague;
-        dst->disorder_migration = src->disorder_migration;
-        dst->disorder_stability = src->disorder_stability; dst->disorder_wartime = disorder_wartime_pressure(i);
-        dst->disorder_last_pressure = src->disorder_last_pressure;
-        dst->disorder_last_recovery = src->disorder_last_recovery;
-        dst->disorder_last_net = src->disorder_last_net;
-        dst->disorder_last_pressure_x10 = src->disorder_last_pressure_x10;
-        dst->disorder_last_recovery_x10 = src->disorder_last_recovery_x10;
-        dst->disorder_last_net_x10 = src->disorder_last_net_x10;
-        dst->disorder_last_base_recovery_x10 = src->disorder_last_base_recovery_x10;
-        dst->disorder_last_governance_recovery_x10 = src->disorder_last_governance_recovery_x10;
-        dst->disorder_last_cohesion_recovery_x10 = src->disorder_last_cohesion_recovery_x10;
-        dst->disorder_last_peace_recovery_x10 = src->disorder_last_peace_recovery_x10;
-        dst->disorder_last_condition_recovery_x10 = src->disorder_last_condition_recovery_x10;
-        dst->disorder_last_plague_decay = src->disorder_last_plague_decay;
-        dst->disorder_last_war_decay = src->disorder_last_war_decay;
-        dst->disorder_last_migration_decay = src->disorder_last_migration_decay; dst->disorder_last_wartime_pressure_x10 = disorder_last_wartime_pressure_x10(i);
-        dst->disorder_last_wartime_decay_x10 = disorder_last_wartime_decay_x10(i);
-        dst->collapse_grace_months = src->collapse_grace_months;
-        dst->plague_random_immunity_months = src->plague_random_immunity_months;
-        dst->war_active = war_active_for_civ(i);
-        dst->war_deployed_soldiers = war_deployed_soldiers_for_civ(i);
-        dst->war_available_reserve = war_available_reserve_for_civ(i);
-        dst->war_front_count = war_front_count_for_civ(i);
-        dst->vassal_governance_disorder = vassal_governance_disorder(i);
-        dst->vassal_callable_soldiers = vassal_callable_soldiers(i);
-        dst->vassal_resource_tribute = vassal_estimated_resource_tribute_from(i);
-        dst->collapse_can_trigger = collapse_can_trigger(i);
-        dst->collapse_block_reason = collapse_block_reason(i);
-        snprintf(dst->collapse_last_reason, sizeof(dst->collapse_last_reason), "%s", collapse_last_reason(i));
-        dst->capital_city = src->capital_city;
-        dst->overlord = vassal_overlord(i); if (src->alive && dst->overlord < 0) snapshot->civ_independent_alive_count++;
-        dst->vassal_annex_threshold_years = dst->overlord >= 0 ? vassal_annex_threshold_years(dst->overlord) : 0;
-        dst->vassal_annex_remaining_years = dst->overlord >= 0 ? vassal_annex_remaining_years(dst->overlord, diplomacy_relation(dst->overlord, i).vassal_years) : 0;
-        dst->vassal_support_used = dst->overlord >= 0 ? vassal_support_used_by_overlord(dst->overlord, i) : 0; dst->vassal_support_casualties = vassal_support_casualties(i);
-        dst->vassal_count = vassal_direct_count(i);
-        dst->name_id = src->name_id;
-        dst->heritage = src->heritage;
-        dst->summary = summarize_country(i);
-        dst->population_summary = population_country_summary(i);
-        {
-            DecisionSnapshot decision;
-            decision_snapshot_for_civ(i, &decision);
-            dst->decision = decision;
-            dst->decision_expansion_weight = decision.expansion_weight; dst->decision_war_weight = decision.war_weight;
-            dst->decision_stability_weight = decision.stability_weight;
-            dst->decision_next_expansion_months = decision.next_expansion_months;
-            snprintf(dst->main_intent, sizeof(dst->main_intent), "%s", decision.main_intent ? decision.main_intent : "");
-            snprintf(dst->decision_expansion_reason, sizeof(dst->decision_expansion_reason), "%s", decision.expansion_reason ? decision.expansion_reason : "");
-            snprintf(dst->decision_war_reason, sizeof(dst->decision_war_reason), "%s", decision.war_reason ? decision.war_reason : "");
-            dst->decision.main_intent = dst->main_intent; dst->decision.expansion_reason = dst->decision_expansion_reason;
-            dst->decision.war_reason = dst->decision_war_reason;
-        }
-        snprintf(dst->name_en, sizeof(dst->name_en), "%s",
-                 civilization_display_name_for_language(i, 0));
-        snprintf(dst->name_zh, sizeof(dst->name_zh), "%s",
-                 civilization_display_name_for_language(i, 1));
     }
 }
 
@@ -383,7 +288,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_TILES;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_TILES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_TILES; }
     if (snapshot->revision == 0 || snapshot->civs_revision != civ_key) {
-        PROFILE_SECTION(SNAPSHOT_PROFILE_CIVS, copy_civs(snapshot));
+        PROFILE_SECTION(SNAPSHOT_PROFILE_CIVS, render_snapshot_copy_civs_locked(snapshot));
         snapshot->civs_revision = civ_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_CIVS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS; }

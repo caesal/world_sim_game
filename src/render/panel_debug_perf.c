@@ -11,8 +11,10 @@
 #include "render_panel_internal.h"
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
+#include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
+#include "sim/decision_snapshot.h"
 #include "sim/sea_lanes.h"
 #include "ui/ui_theme.h"
 #include <stdio.h>
@@ -78,7 +80,31 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_LANES),
              render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_PLAGUE),
              render_snapshot_profile_section_ms(SNAPSHOT_PROFILE_EVENTS));
-    perf_row(hdc, cursor, tr("Snapshot sections", "快照分区"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Snapshot sections", "快照分区"), text,
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "raw %d / country %d / pop %d / decision %d / exp %d / sea %d / names %d",
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_RAW),
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_COUNTRY),
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_POPULATION),
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_DECISION),
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_EXPANSION),
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_MARITIME),
+             render_snapshot_profile_civ_phase_ms(SNAPSHOT_CIV_PROFILE_NAMES));
+    perf_row(hdc, cursor, tr("Civ copy phases", "文明复制阶段"), text,
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "valid %d / dirty %d / update %d civs %d ms",
+             decision_snapshot_cache_valid_count(), decision_snapshot_cache_dirty_count(),
+             decision_snapshot_cache_last_update_count(), decision_snapshot_cache_last_update_ms());
+    perf_row(hdc, cursor, tr("Decision cache", "决策缓存"), text,
+              decision_snapshot_cache_dirty_count() > 0 ? RGB(218, 178, 78) :
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "cached %d / stale %d / fallback %d",
+             render_snapshot_civ_decision_cached_count(),
+             render_snapshot_civ_decision_stale_count(),
+             render_snapshot_civ_decision_fallback_count());
+    perf_row(hdc, cursor, tr("Snapshot decisions", "快照决策"), text,
+              render_snapshot_civ_decision_fallback_count() > 0 ? RGB(218, 178, 78) :
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
     snprintf(text, sizeof(text), "target 16 ms / avg %d / peak %d", perf.frame_avg_ms, perf.frame_peak_ms);
     perf_row(hdc, cursor, tr("Frame avg / peak", "帧均值 / 峰值"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));

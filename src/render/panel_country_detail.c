@@ -251,6 +251,7 @@ static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
     if (strstr(reason, "budget") || strstr(reason, "Budget")) return "等待扩张预算";
     if (strstr(reason, "city cap") || strstr(reason, "City cap")) return "城市数量达到上限";
     if (strstr(reason, "random") || strstr(reason, "chance") || strstr(reason, "Probability")) return "本次扩张机会未触发";
+    if (strcmp(reason, "Waiting") == 0) return tr("Waiting", "等待");
     if (strcmp(reason, "Expansion") == 0) return "倾向扩张";
     if (strcmp(reason, "War") == 0) return "战争倾向上升";
     if (strcmp(reason, "Stability") == 0) return "优先维持稳定";
@@ -258,6 +259,8 @@ static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
 }
 
 static const char *overview_dominant_intent(const DecisionSnapshot *decision) {
+    if (decision->main_intent && strcmp(decision->main_intent, "Waiting") == 0) return tr("Waiting", "等待");
+    if (decision->main_intent && strcmp(decision->main_intent, "Unknown") == 0) return tr("Unknown", "未知");
     if (decision->expansion_weight >= decision->war_weight &&
         decision->expansion_weight >= decision->stability_weight) return tr("Expansion", "扩张");
     if (decision->war_weight >= decision->expansion_weight &&
