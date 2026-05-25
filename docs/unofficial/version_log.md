@@ -1,5 +1,33 @@
 # Version Log
 
+## Ver0.2.10.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.a.
+2. Replaced the packaged Windows app icon with the new parchment-map icon.
+3. Regenerated `assets/app_icon.png` as a transparent 512x512 source image.
+4. Regenerated `assets/app_icon.ico` as a multi-resolution Windows icon.
+5. Kept the existing resource script, Makefile resource build, and window icon
+   loading path unchanged.
+6. Kept the release scoped to executable icon packaging and version metadata.
+
+Known follow-up:
+
+- Large-map stutter remains present. This checkpoint does not change gameplay,
+  rendering behavior, simulation scheduling, snapshot copying, cache
+  invalidation, or save format.
+- `docs/official` was not regenerated for this icon-only checkpoint release.
+
+Validation notes:
+
+- Ver0.2.10.a uses `WORLD_SIM_VERSION "0.2.10.a"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, root executable checks, associated-icon extraction, and executable
+  smoke launch are required before the release commit.
+
 ## Ver0.2.10
 
 Implemented fixes:

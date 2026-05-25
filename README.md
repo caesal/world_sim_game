@@ -7,14 +7,12 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.10 is a Windows graphical sandbox prototype written in C.
+Ver0.2.10.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.10 is a presentation-ordering and Windows polish checkpoint over
-Ver0.2.9.c. It routes diplomacy map animations through the same RenderSnapshot
-that is being drawn, adds snapshot-consistent animation endpoints, prevents
-stale static map cache revisions from acknowledging newer visual dirty state,
-and packages the executable with the project app icon. Gameplay rules are
-unchanged.
+Ver0.2.10.a is a Windows app-icon refresh checkpoint over Ver0.2.10. It
+replaces the packaged executable icon with the new parchment-map icon while
+keeping the Ver0.2.10 presentation-ordering, snapshot, render-cache, and
+gameplay behavior unchanged.
 
 Known follow-up: large-map performance is still not solved. Current profiling
 shows remaining stalls outside the plague switch itself, including full viewport
