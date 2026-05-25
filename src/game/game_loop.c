@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "core/plague_perf.h"
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
 #include "render/diplomacy_map_anim.h"
@@ -47,6 +48,7 @@ int game_loop_tick_frame(void) {
     last_frame_tick = now;
     elapsed = clamp(elapsed, 0, 250);
 
+    plague_perf_begin_frame();
     did_visual = plague_visual_tick(elapsed);
     profiler_record_frame(elapsed, simulation_worker_last_budget_ms(),
                           simulation_worker_last_used_ms(),
@@ -73,8 +75,13 @@ int game_loop_tick_frame(void) {
         append_map_reason(map_reason, sizeof(map_reason), "static-dirty");
     }
     if (dirty_render_plague()) {
-        redraw |= GAME_REDRAW_PLAGUE_OVERLAY;
-        append_map_reason(map_reason, sizeof(map_reason), "plague-dirty");
+        if (!plague_perf_visuals_allowed()) {
+            plague_perf_note_invalidation_suppressed(1);
+            dirty_clear_render_plague();
+        } else {
+            redraw |= GAME_REDRAW_PLAGUE_OVERLAY;
+            append_map_reason(map_reason, sizeof(map_reason), "plague-dirty");
+        }
     }
     if (dirty_render_maritime() || dirty_render_labels()) {
         redraw |= GAME_REDRAW_MAP_DYNAMIC;

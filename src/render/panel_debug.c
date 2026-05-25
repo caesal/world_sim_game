@@ -1,5 +1,6 @@
 #include "render/panel_debug.h"
 #include "render/contour_paths.h"
+#include "render/panel_debug_controls.h"
 #include "render/panel_debug_perf.h"
 #include "render/plague_visual.h"
 #include "render/render_context.h"
@@ -439,6 +440,7 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
              game_loop_actual_ms_per_month(), game_loop_pending_months());
     ui_row_text(hdc, &cursor, tr("Measured", "实测"),
                 game_loop_actual_ms_per_month() > 0 ? text : tr("No sample yet", "暂无样本"));
+    draw_debug_plague_perf_controls(hdc, &cursor);
     draw_debug_performance_panel(hdc, &cursor);
     if (selected_civ >= 0 && debug_snapshot() && selected_civ < debug_snapshot()->civ_count) {
         const SnapshotCiv *civ = &debug_snapshot()->civs[selected_civ];

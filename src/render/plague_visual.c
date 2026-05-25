@@ -1,6 +1,7 @@
 #include "plague_visual.h"
 
 #include "core/dirty_flags.h"
+#include "core/plague_perf.h"
 #include "core/render_snapshot.h"
 #include "render_map_internal.h"
 #include "render/render_context.h"
@@ -66,6 +67,19 @@ int plague_visual_tick(int elapsed_ms) {
     int was_active = visual_active;
     int update_elapsed;
 
+    if (!plague_perf_visuals_allowed()) {
+        plague_perf_note_visual_skipped(1);
+        if (visual_active || infected_lane_count) {
+            memset(city_visual, 0, sizeof(city_visual));
+            memset(route_visual, 0, sizeof(route_visual));
+        }
+        visual_active = 0;
+        infected_lane_count = 0;
+        last_data_update_ms = 0;
+        last_fog_draw_ms = 0;
+        return 0;
+    }
+    plague_perf_note_visual_skipped(0);
     elapsed_ms = clamp(elapsed_ms, 0, 250);
     if (elapsed_ms <= 0) return 0;
     data_update_accum_ms += elapsed_ms;
@@ -109,10 +123,11 @@ int plague_visual_tick(int elapsed_ms) {
 }
 
 int plague_visual_active(void) {
-    return visual_active;
+    return plague_perf_visuals_allowed() ? visual_active : 0;
 }
 
 int plague_visual_route_intensity(int route_id) {
+    if (!plague_perf_visuals_allowed()) return 0;
     if (route_id < 0 || route_id >= MAX_SEA_LANES) return 0;
     return route_visual[route_id];
 }
@@ -146,11 +161,13 @@ int plague_visual_fog_cache_height(void) {
 }
 
 int plague_visual_infected_lane_count(void) {
-    return infected_lane_count;
+    return plague_perf_visuals_allowed() ? infected_lane_count : 0;
 }
 
 const char *plague_visual_mode_text(void) {
     static char text[64];
+    if (!plague_perf_system_enabled()) return "system off";
+    if (!plague_perf_map_visuals_enabled()) return "visuals off";
     snprintf(text, sizeof(text), "pulse on / data %d / rebuild %d",
              DATA_UPDATE_INTERVAL_MS, FOG_REBUILD_INTERVAL_MS);
     return text;
@@ -294,6 +311,10 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     int saved_dc;
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
 
+    if (!plague_perf_visuals_allowed()) {
+        plague_perf_note_visual_skipped(1);
+        return;
+    }
     if (!snapshot || !snapshot->world_generated) return;
     if (!visual_active || plague_fog_alpha <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
     if (!ensure_fog_cache(hdc, snapshot)) return;

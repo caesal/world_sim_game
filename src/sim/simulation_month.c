@@ -19,6 +19,7 @@
 #include "sim/war.h"
 #include "world/terrain_query.h"
 #include "core/dirty_flags.h"
+#include "core/plague_perf.h"
 #include "core/profiler.h"
 
 #include <string.h>
@@ -121,7 +122,9 @@ static int compute_dynamic_adaptation(int civ_id, int resource_score) {
     hardship = clamp(10 - summary.habitability, 0, 10) + clamp(5 - summary.food, 0, 5) +
                clamp(5 - summary.water, 0, 5);
     social_capacity = civ->culture + civ->cohesion + civ->logistics + civ->innovation;
-    instability = civ->disorder / 10 + civ->disorder_plague / 20 + civ->disorder_migration / 20;
+    instability = civ->disorder / 10 +
+                  (plague_perf_system_enabled() ? civ->disorder_plague / 20 : 0) +
+                  civ->disorder_migration / 20;
     score = social_capacity / 4 + hardship / 3 + resource_diversity / 2 +
             clamp(18 - resource_score, 0, 10) / 3 - instability / 2;
     return clamp(score, 0, 10);
@@ -156,7 +159,11 @@ static void random_event(char *log, size_t log_size) {
     for (i = 0; i < civ_count; i++) {
         if (civs[i].alive) alive_ids[alive_count++] = i;
     }
-    if (plague_try_monthly_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
+    if (plague_perf_system_enabled()) {
+        if (plague_try_monthly_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
+    } else {
+        plague_perf_note_sim_skipped(1);
+    }
     if (alive_count == 0 || rnd(100) > 18) return;
     id = alive_ids[rnd(alive_count)];
     civ = &civs[id];
@@ -200,6 +207,7 @@ int simulation_month_begin(SimulationMonthState *state) {
     if (!world_generated || !state) return 0;
     memset(state, 0, sizeof(*state));
     profiler_begin_month();
+    plague_perf_note_sim_skipped(0);
     decision_snapshot_cache_mark_all_dirty();
     state->active = 1;
     state->phase = SIM_MONTH_RESOURCES;
@@ -309,6 +317,11 @@ int simulation_month_run_next(SimulationMonthState *state) {
             }
             break;
         case SIM_MONTH_PLAGUE:
+            if (!plague_perf_system_enabled()) {
+                plague_perf_note_sim_skipped(1);
+                state->phase = SIM_MONTH_RANDOM_EVENT;
+                break;
+            }
             {
                 ProfilerCallTrace trace = profiler_call_begin();
                 int done = plague_update_month_step(&state->plague_work, PLAGUE_CITY_STEP);

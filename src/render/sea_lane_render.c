@@ -1,6 +1,7 @@
 #include "render/sea_lane_render.h"
 
 #include "render/plague_visual.h"
+#include "core/plague_perf.h"
 #include "render/render_common.h"
 #include "render/render_context.h"
 #include "render/sea_lane_dash_cache.h"
@@ -441,7 +442,8 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
             int deep = lane->type == SEA_LANE_DEEP;
             int dash = deep ? DEEP_LANE_DASH_UNITS : SHALLOW_LANE_DASH_UNITS;
             int gap = deep ? DEEP_LANE_GAP_UNITS : SHALLOW_LANE_GAP_UNITS;
-            int exposure = max(lane->exposure, plague_visual_route_intensity(i) / 100);
+            int exposure = plague_perf_visuals_allowed() ?
+                           max(lane->exposure, plague_visual_route_intensity(i) / 100) : 0;
             const CachedLanePath *path;
             if (exposure <= 0) continue;
             path = cached_lane_path(snapshot, lane, i, deep, layout);

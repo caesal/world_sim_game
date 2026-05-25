@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/load_progress.h"
+#include "core/plague_perf.h"
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
 #include "render/cartography_layers.h"
@@ -186,7 +187,8 @@ static void draw_route_overlay_presentation(HDC hdc, RECT client, MapLayout layo
                                             const RenderSnapshot *snapshot) {
     unsigned int key;
     if (!snapshot || display_mode == DISPLAY_ROUTE_POTENTIAL ||
-        snapshot->plague_active || plague_visual_infected_lane_count() > 0) {
+        (plague_perf_visuals_allowed() &&
+         (snapshot->plague_active || plague_visual_infected_lane_count() > 0))) {
         draw_maritime_routes(hdc, client, layout);
         return;
     }
@@ -347,8 +349,11 @@ static void render_world(HDC hdc, RECT client) {
     if (snapshot_world_ready) {
         draw_route_overlay_presentation(hdc, client, layout, snapshot);
         dirty_clear_render_maritime();
-        if (!map_interaction_preview) {
+        if (!map_interaction_preview && plague_perf_visuals_allowed()) {
             draw_plague_region_overlay(hdc, client, layout);
+            dirty_clear_render_plague();
+        } else if (!plague_perf_visuals_allowed()) {
+            plague_perf_note_visual_skipped(1);
             dirty_clear_render_plague();
         }
         draw_legacy_overlay_nonblocking(hdc, client, layout);

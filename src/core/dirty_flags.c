@@ -1,5 +1,7 @@
 #include "dirty_flags.h"
 
+#include "core/plague_perf.h"
+
 #include <stdio.h>
 
 enum {
@@ -56,15 +58,16 @@ void dirty_reset_all(void) {
 
 void dirty_mark_world(void) {
     mark(DIRTY_RENDER_TERRAIN | DIRTY_RENDER_COAST | DIRTY_RENDER_POLITICAL |
-         DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS | DIRTY_RENDER_PLAGUE |
+         DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS |
          DIRTY_RENDER_MARITIME | DIRTY_RENDER_HYDROLOGY);
+    if (plague_perf_system_enabled()) mark(DIRTY_RENDER_PLAGUE);
     bump(&terrain_revision);
     bump(&coast_revision);
     bump(&ownership_revision);
     bump(&province_revision);
     bump(&route_revision);
     bump(&label_revision);
-    bump(&plague_revision);
+    if (plague_perf_system_enabled()) bump(&plague_revision);
     bump(&population_revision);
     bump(&ui_revision);
     bump(&hydrology_revision);
@@ -94,6 +97,10 @@ void dirty_mark_population(void) {
 }
 
 void dirty_mark_plague(void) {
+    if (!plague_perf_system_enabled()) {
+        plague_perf_note_invalidation_suppressed(1);
+        return;
+    }
     mark(DIRTY_RENDER_PLAGUE);
     bump(&plague_revision);
 }

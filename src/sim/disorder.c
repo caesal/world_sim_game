@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
+#include "core/plague_perf.h"
 #include "sim/collapse.h"
 #include "sim/plague.h"
 #include "sim/population.h"
@@ -62,6 +63,7 @@ static void finish_disorder_change(int civ_id, int old_disorder, int allow_immed
 }
 
 static int plague_decay_for_civ(Civilization *civ, int civ_id) {
+    if (!plague_perf_system_enabled()) return 0;
     if (civ->disorder_plague <= 0) return 0;
     if (plague_active_for_civ(civ_id)) {
         civ->plague_recovery_months = 0;
@@ -86,7 +88,8 @@ static int war_decay_for_civ(Civilization *civ, int civ_id) {
 }
 
 static int pressure_contribution_x10(Civilization *civ, int civ_id) {
-    return civ->disorder_resource * 10 / 18 + civ->disorder_plague * 10 / 24 +
+    return civ->disorder_resource * 10 / 18 +
+           (plague_perf_system_enabled() ? civ->disorder_plague * 10 / 24 : 0) +
            civ->disorder_migration * 10 / 26 + civ->disorder_stability * 10 / 28 +
            wartime_pressure[civ_id] * 10 / 24;
 }
@@ -250,6 +253,7 @@ void disorder_add_war_pressure(int civ_id, int amount) {
 }
 
 void disorder_add_plague_pressure(int civ_id, int amount) {
+    if (!plague_perf_system_enabled()) return;
     if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
     civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + amount, 0, 100);
 }

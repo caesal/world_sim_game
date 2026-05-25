@@ -1,6 +1,7 @@
 #include "population.h"
 
 #include "core/dirty_flags.h"
+#include "core/plague_perf.h"
 #include "sim/disorder.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
@@ -255,7 +256,10 @@ static int monthly_births(int city_id, PopulationSummary summary, TerrainStats s
 
     if (owner >= 0 && owner < civ_count) rate += civs[owner].cohesion + civs[owner].governance / 2;
     if (summary.pressure > 100) rate -= (summary.pressure - 100) / 2;
-    if (owner >= 0 && owner < civ_count) rate -= civs[owner].disorder / 3 + civs[owner].disorder_plague / 4;
+    if (owner >= 0 && owner < civ_count) {
+        rate -= civs[owner].disorder / 3 +
+                (plague_perf_system_enabled() ? civs[owner].disorder_plague / 4 : 0);
+    }
     rate = clamp(rate, 0, 95);
     births = (fertile_couples * rate + rnd(12000)) / 12000;
     if (owner >= 0 && owner < civ_count) {
@@ -368,6 +372,7 @@ int population_apply_city_plague(int city_id, int severity) {
     int removed = 0;
     int max_deaths;
 
+    if (!plague_perf_system_enabled()) return 0;
     if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) return 0;
     ensure_city_population(city_id);
     severity = clamp(severity, 1, 12);
@@ -396,6 +401,7 @@ int population_apply_plague(int civ_id, int severity) {
     int city_id;
     int removed = 0;
 
+    if (!plague_perf_system_enabled()) return 0;
     if (civ_id < 0 || civ_id >= civ_count) return 0;
     severity = clamp(severity, 1, 12);
     for (city_id = 0; city_id < city_count; city_id++) {

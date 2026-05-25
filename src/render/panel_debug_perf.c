@@ -10,6 +10,7 @@
 #include "render/render_context.h"
 #include "render_panel_internal.h"
 #include "core/dirty_flags.h"
+#include "core/plague_perf.h"
 #include "core/profiler.h"
 #include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_profile.h"
@@ -218,6 +219,19 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "%s / %s", plague_visual_last_reason(),
              plague_visual_reason_summary());
     perf_row(hdc, cursor, tr("Plague reason", "瘟疫原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Plague system", "瘟疫系统"),
+              plague_perf_system_enabled() ? "on" : "off", ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Plague map visuals", "瘟疫地图视觉"),
+              plague_perf_map_visuals_enabled() ? "on" : "off", ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Plague sim skipped", "瘟疫模拟跳过"),
+              plague_perf_sim_skipped() ? "yes" : "no",
+              plague_perf_sim_skipped() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Plague visual skipped", "瘟疫视觉跳过"),
+              plague_perf_visual_skipped() ? "yes" : "no",
+              plague_perf_visual_skipped() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Plague invalidation suppressed", "瘟疫刷新抑制"),
+              plague_perf_invalidation_suppressed() ? "yes" : "no",
+              plague_perf_invalidation_suppressed() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "contours %d paths / %d ms",
              perf.contour_path_count, perf.contour_rebuild_ms);
     perf_row(hdc, cursor, tr("Contours", "轮廓线"), text,

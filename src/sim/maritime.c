@@ -1,5 +1,6 @@
 ﻿#include "maritime.h"
 #include "core/dirty_flags.h"
+#include "core/plague_perf.h"
 #include "core/profiler.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
@@ -102,7 +103,7 @@ void maritime_update_migration(void) {
             int to_city = (int)(receiver - cities);
             int moved = population_migrate_between_cities(from_city, to_city, migrants);
             if (moved > 0) {
-                plague_notify_migration(from_city, to_city, moved);
+                if (plague_perf_system_enabled()) plague_notify_migration(from_city, to_city, moved);
                 changed = 1;
             }
         }

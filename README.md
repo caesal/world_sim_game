@@ -7,17 +7,18 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.9.b is a Windows graphical sandbox prototype written in C.
+Ver0.2.9.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.9.b is a second render/cache checkpoint over Ver0.2.9 focused on moving
-expensive country decision diagnostics out of RenderSnapshot publishing. It adds
-a simulation-side DecisionSnapshot cache, keeps stale same-identity decisions
-visible when a fresh cache entry is not ready, and fixes Waiting/Unknown
-decision labels so they no longer fall through to Expansion.
+Ver0.2.9.c is a plague performance checkpoint over Ver0.2.9.b. It adds Debug /
+Performance System switches for the plague system and plague map visuals so
+large-map stutter can be isolated between simulation effects and map-only
+animation. Both switches default to ON, so normal gameplay behavior is unchanged
+unless a debug switch is explicitly turned off.
 
-Known follow-up: large-map performance is improved in the snapshot decision
-path but still not solved. Current profiling shows remaining render-side stalls
-in full viewport overlays, labels, sea-lane drawing, and plague animation.
+Known follow-up: large-map performance is still not solved. Current profiling
+shows remaining stalls outside the plague switch itself, including full viewport
+overlays, label rebuilds, sea-lane drawing, calendar/scheduler work, diplomacy,
+war, and other late-game churn.
 
 You can:
 

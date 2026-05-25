@@ -1,5 +1,45 @@
 # Version Log
 
+## Ver0.2.9.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.9.c.
+2. Added a centralized plague performance switch module with default ON state
+   for both the plague system and plague map visuals.
+3. Added Debug / Performance System controls for `Plague System` and
+   `Plague Map Visuals`.
+4. Kept normal gameplay unchanged by default; plague simulation and visuals are
+   disabled only when the debug switches are explicitly turned off.
+5. When plague map visuals are OFF, skipped plague fog, pulse, and infected-lane
+   map visuals and suppressed plague-animation map invalidation.
+6. When the plague system is OFF, skipped random outbreaks, monthly plague
+   update work, migration and war exposure, plague disorder contribution, and
+   plague population death effects.
+7. Added debug rows for plague system/visual switch state, skipped simulation,
+   skipped visuals, suppressed invalidation, and last plague visual reason.
+8. Kept render and simulation integration narrow, without changing world
+   generation, expansion, diplomacy, war rules, maritime rules, sea-lane
+   generation, route-potential algorithms, or default plague balance.
+
+Known follow-up:
+
+- Large-map stutter is still present. Turning plague visuals/system off helps
+  isolate one source, but profiling still shows non-plague stalls in full
+  viewport overlays, labels, sea lanes, calendar/scheduler work, diplomacy, war,
+  and late-game map churn.
+- With the plague system OFF, existing plague snapshot data is preserved rather
+  than cleared. The switch disables ongoing plague simulation/effects and map
+  visuals; it does not currently rewrite historical plague state in panels.
+
+Validation notes:
+
+- Ver0.2.9.c uses `WORLD_SIM_VERSION "0.2.9.c"`.
+- `docs/official` was not regenerated for this checkpoint release.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, and bounded GUI large-map validation are required before the release
+  commit.
+
 ## Ver0.2.9.b
 
 Implemented fixes:

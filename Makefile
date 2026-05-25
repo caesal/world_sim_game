@@ -18,6 +18,7 @@ SOURCES := \
 	src/core/country_focus.c \
 	src/core/dirty_flags.c \
 	src/core/load_progress.c \
+	src/core/plague_perf.c \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
 	src/core/render_snapshot_civs.c \
@@ -128,6 +129,7 @@ SOURCES := \
 	src/render/panel_plague_page.c \
 	src/render/panel_worldgen.c \
 	src/render/panel_debug_worldgen.c \
+	src/render/panel_debug_controls.c \
 	src/render/panel_debug_perf.c \
 	src/render/panel_debug.c \
 	src/render/panel_population.c \

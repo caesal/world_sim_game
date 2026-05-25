@@ -1,8 +1,11 @@
 #include "ui/ui_debug_input.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "core/plague_perf.h"
 #include "game/game_loop.h"
 #include "render/panel_debug.h"
+#include "render/panel_debug_controls.h"
 #include "render/panel_view_model_cache.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_selection.h"
@@ -22,6 +25,20 @@ int ui_handle_debug_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y
     if (subtab >= 0) {
         debug_subtab = subtab;
         ui_invalidate_side_panel(hwnd);
+        return 1;
+    }
+    if (debug_subtab == DEBUG_SUBTAB_PERFORMANCE_SYSTEM) {
+        int plague_switch = debug_panel_plague_perf_switch_hit_test(client, mouse_x, mouse_y);
+        if (plague_switch == DEBUG_PLAGUE_SWITCH_SYSTEM) {
+            plague_perf_toggle_system();
+        } else if (plague_switch == DEBUG_PLAGUE_SWITCH_VISUALS) {
+            plague_perf_toggle_map_visuals();
+        } else {
+            return 0;
+        }
+        if (plague_perf_visuals_allowed()) dirty_mark_plague();
+        else dirty_clear_render_plague();
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_PLAGUE_OVERLAY | GAME_REDRAW_SIDE_PANEL);
         return 1;
     }
     if (debug_subtab != DEBUG_SUBTAB_MAP_LOG) return 0;
