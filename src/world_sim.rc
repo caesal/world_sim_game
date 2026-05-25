@@ -1,0 +1,3 @@
+#include "resource.h"
+
+IDI_WORLD_SIM_APP ICON "../assets/app_icon.ico"

@@ -1,7 +1,10 @@
 CC ?= gcc
+WINDRES ?= windres
 CFLAGS ?= -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc
 LDFLAGS ?= -lgdi32 -luser32 -lmsimg32 -lgdiplus -lcomdlg32 -mwindows
 TARGET := world_sim.exe
+RESOURCE_SCRIPT := src/world_sim.rc
+RESOURCE_OBJECT := build/world_sim_resource.o
 
 SOURCES := \
 	src/main.c \
@@ -158,11 +161,15 @@ SOURCES := \
 
 all: $(TARGET)
 
-$(TARGET): $(SOURCES)
-	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET) $(LDFLAGS)
+$(TARGET): $(SOURCES) $(RESOURCE_OBJECT)
+	$(CC) $(CFLAGS) $(SOURCES) $(RESOURCE_OBJECT) -o $(TARGET) $(LDFLAGS)
+
+$(RESOURCE_OBJECT): $(RESOURCE_SCRIPT) src/resource.h assets/app_icon.ico
+	mkdir -p build
+	$(WINDRES) $(RESOURCE_SCRIPT) -O coff -o $(RESOURCE_OBJECT)
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(RESOURCE_OBJECT)
 
 check-text:
 	python tools/check_mojibake.py

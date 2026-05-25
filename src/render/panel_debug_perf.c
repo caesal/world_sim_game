@@ -1,5 +1,6 @@
 #include "render/panel_debug_perf.h"
 #include "render/contour_paths.h"
+#include "render/diplomacy_map_anim.h"
 #include "render/panel_debug_worldgen.h"
 #include "render/plague_visual.h"
 #include "render/panel_view_model_cache.h"
@@ -165,6 +166,29 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "%s / %s", render_static_map_cache_last_reason(),
              render_static_map_cache_reason_summary());
     perf_row(hdc, cursor, tr("Static reason", "静态原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "source %s / delayed %s / prevented %d",
+             diplomacy_map_anim_source(),
+             diplomacy_map_anim_delayed_waiting_for_snapshot() ? "yes" : "no",
+             diplomacy_map_anim_stale_prevented_count());
+    perf_row(hdc, cursor, tr("Diplomacy anim", "外交动画"), text,
+              diplomacy_map_anim_delayed_waiting_for_snapshot() ? RGB(218, 178, 78) :
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    if (render_context_snapshot()) {
+        snprintf(text, sizeof(text), "consumed %d / snapshot %d / rev %u:%d",
+                 diplomacy_map_anim_last_consumed_total(),
+                 render_context_snapshot()->event_total_entries,
+                 diplomacy_map_anim_last_snapshot_revision(),
+                 diplomacy_map_anim_last_events_revision());
+        perf_row(hdc, cursor, tr("Diplomacy events", "外交事件"), text,
+                  ui_theme_color(UI_COLOR_TEXT_MUTED));
+        snprintf(text, sizeof(text), "tiles %d / static %d / live %d",
+                 render_context_snapshot()->tiles_revision,
+                 render_static_map_cache_snapshot_revision(),
+                 render_static_map_cache_live_revision());
+        perf_row(hdc, cursor, tr("Map revisions", "地图修订"), text,
+                  render_static_map_cache_snapshot_revision() != render_static_map_cache_live_revision() ?
+                  RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    }
     snprintf(text, sizeof(text), "build %d ms / age %d ms / refresh %d",
              panel_view_model_cache_last_build_ms(), panel_view_model_cache_age_ms(),
              panel_view_model_cache_refresh_count());

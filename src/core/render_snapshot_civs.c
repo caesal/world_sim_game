@@ -63,10 +63,29 @@ static void reset_stale_fields(SnapshotCiv *dst) {
     dst->vassal_callable_soldiers = 0;
     dst->vassal_resource_tribute = 0;
     dst->vassal_support_used = 0;
+    dst->focus_x = 0;
+    dst->focus_y = 0;
+    dst->focus_valid = 0;
     dst->main_intent[0] = '\0';
     dst->decision_expansion_reason[0] = '\0';
     dst->decision_war_reason[0] = '\0';
     bind_decision_strings(dst);
+}
+
+static void copy_focus_fields(SnapshotCiv *dst, int civ_id, int stable) {
+    int city_id = dst->capital_city;
+    if (city_id >= 0 && city_id < city_count && cities[city_id].alive &&
+        cities[city_id].owner == civ_id &&
+        cities[city_id].x >= 0 && cities[city_id].x < map_w &&
+        cities[city_id].y >= 0 && cities[city_id].y < map_h) {
+        dst->focus_x = cities[city_id].x;
+        dst->focus_y = cities[city_id].y;
+        dst->focus_valid = 1;
+    } else if (!stable) {
+        dst->focus_x = 0;
+        dst->focus_y = 0;
+        dst->focus_valid = 0;
+    }
 }
 
 static void copy_raw_fields(SnapshotCiv *dst, Civilization *src, int i) {
@@ -205,6 +224,7 @@ void render_snapshot_copy_civs_locked(RenderSnapshot *snapshot) {
         DWORD start = GetTickCount();
         if (!stable) reset_stale_fields(dst);
         copy_raw_fields(dst, src, i);
+        copy_focus_fields(dst, i, stable);
         if (src->alive && dst->overlord < 0) snapshot->civ_independent_alive_count++;
         record_phase(SNAPSHOT_CIV_PROFILE_RAW, start);
         start = GetTickCount();

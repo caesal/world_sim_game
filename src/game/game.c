@@ -4,6 +4,7 @@
 #include "core/dirty_flags.h"
 #include "core/load_progress.h"
 #include "core/render_snapshot.h"
+#include "resource.h"
 #include "core/state_lock.h"
 #include "game/game_loop.h"
 #include "game/game_worldgen.h"
@@ -443,13 +444,20 @@ int run_game(void) {
     const char *class_name = "WorldSimGameWindow";
     WNDCLASSA wc;
     HWND hwnd;
+    HICON app_icon;
+    HICON app_icon_small;
     MSG msg;
     render_snapshot_init();
     game_start_blank_world();
+    app_icon = (HICON)LoadImageA(instance, MAKEINTRESOURCEA(IDI_WORLD_SIM_APP),
+                                 IMAGE_ICON, 0, 0, LR_DEFAULTSIZE);
+    app_icon_small = (HICON)LoadImageA(instance, MAKEINTRESOURCEA(IDI_WORLD_SIM_APP),
+                                       IMAGE_ICON, 16, 16, 0);
     memset(&wc, 0, sizeof(wc));
     wc.lpfnWndProc = window_proc;
     wc.hInstance = instance;
     wc.lpszClassName = class_name;
+    wc.hIcon = app_icon ? app_icon : LoadIcon(NULL, IDI_APPLICATION);
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
     wc.hbrBackground = NULL;
     if (!RegisterClassA(&wc)) {
@@ -463,6 +471,8 @@ int run_game(void) {
         MessageBoxA(NULL, "Failed to create game window.", "World Sim Game", MB_ICONERROR);
         return 1;
     }
+    if (app_icon) SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)app_icon);
+    if (app_icon_small) SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)app_icon_small);
     ShowWindow(hwnd, SW_SHOW);
     UpdateWindow(hwnd);
     while (GetMessage(&msg, NULL, 0, 0) > 0) {

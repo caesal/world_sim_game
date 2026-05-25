@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_RESOURCE_H
+#define WORLD_SIM_RESOURCE_H
+
+#define IDI_WORLD_SIM_APP 1001
+
+#endif

@@ -3,6 +3,7 @@
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
+#include "core/render_snapshot_keys.h"
 #include "render/render_context.h"
 #include "render/river_render.h"
 #include "render/snapshot_map_layers.h"
@@ -35,6 +36,9 @@ static int cache_needs_work;
 static int static_reason_counts[6];
 static int static_last_reason;
 static const char *static_reason_names[6] = {"none", "physical", "fill", "coast", "hydro", "border"};
+static int last_presented_current;
+static int last_snapshot_revision_key;
+static int last_live_revision_key;
 
 static int combined_revision(int a, int b) {
     return (a * 1000003) ^ b;
@@ -265,21 +269,25 @@ static void present_cache(HDC hdc, RECT client, MapLayout layout, const MapLayer
     RestoreDC(hdc, saved_dc);
 }
 
-static int physical_revision(void) {
-    int key = combined_revision(dirty_revision_terrain(), dirty_revision_coast());
+static int physical_revision(int tile_key) {
+    int key = tile_key;
     key = combined_revision(key, display_mode);
     return key;
 }
 
-static int fill_revision(void) {
-    int key = combined_revision(dirty_revision_ownership(), dirty_revision_province());
-    key = combined_revision(key, dirty_revision_terrain());
+static int fill_revision(int tile_key, int region_key) {
+    int key = combined_revision(tile_key, region_key);
     return combined_revision(key, display_mode);
 }
 
-static int border_revision(void) {
-    int key = combined_revision(dirty_revision_ownership(), dirty_revision_province());
-    return combined_revision(key, dirty_revision_coast());
+static int border_revision(int tile_key, int region_key) {
+    return combined_revision(tile_key, region_key);
+}
+
+static int static_revision(int physical_key, int fill_key, int coast_key,
+                           int hydro_key, int border_key) {
+    return combined_revision(combined_revision(physical_key, fill_key),
+                             combined_revision(coast_key, combined_revision(hydro_key, border_key)));
 }
 
 static void draw_blank(HDC hdc, RECT client, MapLayout layout) {
@@ -316,31 +324,52 @@ static const MapLayerCache *best_present_cache(int static_key) {
 void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     int physical_key, fill_key, coast_key, hydro_key, border_key, static_key;
+    int live_tile_key, live_region_key;
+    int live_physical_key, live_fill_key, live_coast_key, live_hydro_key, live_border_key, live_static_key;
     int physical_needs, fill_needs, coast_needs, hydro_needs, border_needs;
     const MapLayerCache *present;
     if (!snapshot || !snapshot->world_generated) {
         cache_needs_work = 0;
+        last_presented_current = 0;
+        last_snapshot_revision_key = 0;
+        last_live_revision_key = 0;
         if (cache_presentable(&static_map_cache)) present_cache(hdc, client, layout, &static_map_cache);
         else draw_blank(hdc, client, layout);
         return;
     }
-    physical_key = physical_revision();
-    fill_key = fill_revision();
-    coast_key = dirty_revision_coast();
-    hydro_key = dirty_revision_hydrology();
-    border_key = border_revision();
-    static_key = combined_revision(combined_revision(physical_key, fill_key),
-                                   combined_revision(coast_key, combined_revision(hydro_key, border_key)));
+    physical_key = physical_revision(snapshot->tiles_revision);
+    fill_key = fill_revision(snapshot->tiles_revision, snapshot->regions_revision);
+    coast_key = snapshot->tiles_revision;
+    hydro_key = snapshot->tiles_revision;
+    border_key = border_revision(snapshot->tiles_revision, snapshot->regions_revision);
+    static_key = static_revision(physical_key, fill_key, coast_key, hydro_key, border_key);
+    live_tile_key = render_snapshot_tile_revision_key();
+    live_region_key = render_snapshot_regions_revision_key();
+    live_physical_key = physical_revision(live_tile_key);
+    live_fill_key = fill_revision(live_tile_key, live_region_key);
+    live_coast_key = live_tile_key;
+    live_hydro_key = live_tile_key;
+    live_border_key = border_revision(live_tile_key, live_region_key);
+    live_static_key = static_revision(live_physical_key, live_fill_key, live_coast_key,
+                                      live_hydro_key, live_border_key);
+    last_snapshot_revision_key = static_key;
+    last_live_revision_key = live_static_key;
     if (map_interaction_preview && cache_presentable(&static_map_cache)) {
         cache_needs_work = 0;
+        last_presented_current = cache_matches(&static_map_cache, static_key);
         present_cache(hdc, client, layout, &static_map_cache);
         return;
     }
-    physical_needs = dirty_render_terrain() || !cache_matches(&physical_cache, physical_key);
-    fill_needs = dirty_render_political() || !cache_matches(&fill_cache, fill_key);
-    coast_needs = dirty_render_coast() || !cache_matches(&coast_cache, coast_key);
-    hydro_needs = dirty_render_hydrology() || !cache_matches(&hydrology_cache, hydro_key);
-    border_needs = dirty_render_borders() || !cache_matches(&border_cache, border_key);
+    physical_needs = !cache_matches(&physical_cache, physical_key) ||
+                     (dirty_render_terrain() && physical_key == live_physical_key);
+    fill_needs = !cache_matches(&fill_cache, fill_key) ||
+                 (dirty_render_political() && fill_key == live_fill_key);
+    coast_needs = !cache_matches(&coast_cache, coast_key) ||
+                  (dirty_render_coast() && coast_key == live_coast_key);
+    hydro_needs = !cache_matches(&hydrology_cache, hydro_key) ||
+                  (dirty_render_hydrology() && hydro_key == live_hydro_key);
+    border_needs = !cache_matches(&border_cache, border_key) ||
+                   (dirty_render_borders() && border_key == live_border_key);
 
     if (physical_needs) {
         ProfilerCallTrace trace = profiler_call_begin();
@@ -349,39 +378,42 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
             build_physical_pixels(&physical_cache, snapshot);
             physical_cache.revision = physical_key; physical_cache.display = display_mode; physical_cache.valid = 1;
             profiler_add_render_rebuild(PROFILER_RENDER_TERRAIN);
+            if (physical_key == live_physical_key) dirty_clear_render_terrain();
         }
         profiler_call_end_quiet("render_rebuild_physical_base", -1, -1, trace);
-        dirty_clear_render_terrain();
     } else if (fill_needs) {
         static_last_reason = 2; static_reason_counts[2]++;
         if (ensure_cache(hdc, &fill_cache)) {
             build_fill_pixels(&fill_cache, snapshot);
             fill_cache.revision = fill_key; fill_cache.display = display_mode; fill_cache.valid = 1;
             profiler_add_render_rebuild(PROFILER_RENDER_POLITICAL);
+            if (fill_key == live_fill_key) dirty_clear_render_political();
         }
-        dirty_clear_render_political();
     } else if (coast_needs) {
         static_last_reason = 3; static_reason_counts[3]++;
         if (rebuild_overlay_layer(hdc, &coast_cache, draw_snapshot_coast_layer)) {
             coast_cache.revision = coast_key; profiler_add_render_rebuild(PROFILER_RENDER_COAST);
+            if (coast_key == live_coast_key) dirty_clear_render_coast();
         }
-        dirty_clear_render_coast();
     } else if (hydro_needs) {
         static_last_reason = 4; static_reason_counts[4]++;
         river_render_set_lod_tile_size(16);
-        if (rebuild_overlay_layer(hdc, &hydrology_cache, draw_snapshot_hydrology_layer)) hydrology_cache.revision = hydro_key;
-        dirty_clear_render_hydrology();
+        if (rebuild_overlay_layer(hdc, &hydrology_cache, draw_snapshot_hydrology_layer)) {
+            hydrology_cache.revision = hydro_key;
+            if (hydro_key == live_hydro_key) dirty_clear_render_hydrology();
+        }
     } else if (border_needs) {
         static_last_reason = 5; static_reason_counts[5]++;
         if (rebuild_overlay_layer(hdc, &border_cache, draw_snapshot_border_layer)) {
             border_cache.revision = border_key; profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
+            if (border_key == live_border_key) dirty_clear_render_borders();
         }
-        dirty_clear_render_borders();
     } else if (static_layers_ready() && !cache_matches(&static_map_cache, static_key)) {
         compose_static_map(hdc, static_key);
     }
 
     present = best_present_cache(static_key);
+    last_presented_current = present == &static_map_cache && cache_matches(&static_map_cache, static_key);
     if (present) present_cache(hdc, client, layout, present);
     else draw_blank(hdc, client, layout);
     cache_needs_work = static_cache_work_pending(physical_key, fill_key, coast_key,
@@ -394,3 +426,6 @@ int render_static_map_cache_needs_work(void) {
 
 const char *render_static_map_cache_last_reason(void) { return static_reason_names[static_last_reason]; }
 const char *render_static_map_cache_reason_summary(void) { static char text[128]; snprintf(text, sizeof(text), "phys %d / fill %d / coast %d / hydro %d / border %d", static_reason_counts[1], static_reason_counts[2], static_reason_counts[3], static_reason_counts[4], static_reason_counts[5]); return text; }
+int render_static_map_cache_presented_current(void) { return last_presented_current; }
+int render_static_map_cache_snapshot_revision(void) { return last_snapshot_revision_key; }
+int render_static_map_cache_live_revision(void) { return last_live_revision_key; }

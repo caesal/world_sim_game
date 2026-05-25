@@ -1,5 +1,45 @@
 # Version Log
 
+## Ver0.2.10
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.
+2. Added a Windows app icon and resource script to the canonical executable
+   build.
+3. Changed diplomacy map animations to consume only events present in the
+   currently rendered `RenderSnapshot`.
+4. Added snapshot-consistent civ focus endpoints for diplomacy animation lines.
+5. Validated diplomacy contact and war-front animation eligibility from
+   snapshot relation/front state instead of newer live state.
+6. Delayed new diplomacy map animations until snapshot-backed static map layers
+   have presented the same snapshot.
+7. Changed static map cache keys to use snapshot revision fields for
+   snapshot-drawn pixels.
+8. Guarded render dirty clearing so stale snapshot pixels cannot acknowledge
+   newer live visual dirty revisions.
+9. Added Debug / Performance System rows for diplomacy animation source,
+   delayed state, consumed event totals, and snapshot/static/live map revisions.
+10. Kept the release scoped to executable packaging, presentation ordering,
+    render/cache semantics, and debug visibility.
+
+Known follow-up:
+
+- Large-map stutter remains present. Ver0.2.10 gates the diplomacy animation
+  presentation race, but profiling still shows late-game pressure from plague
+  animation, static-dirty invalidation, maritime drawing, label work, and
+  simulation backlog.
+- `docs/official` was not regenerated for this checkpoint release.
+
+Validation notes:
+
+- Ver0.2.10 uses `WORLD_SIM_VERSION "0.2.10"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, root executable checks, and bounded GUI large-map validation are
+  required before the release commit.
+
 ## Ver0.2.9.c
 
 Implemented fixes:

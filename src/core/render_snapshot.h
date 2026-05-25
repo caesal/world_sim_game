@@ -108,6 +108,9 @@ typedef struct {
     int collapse_can_trigger;
     int collapse_block_reason;
     int capital_city;
+    int focus_x;
+    int focus_y;
+    int focus_valid;
     int overlord;
     int vassal_count;
     int name_id;

@@ -13,6 +13,7 @@ int render_snapshot_tile_revision_key(void) {
     int key = combined_key(dirty_revision_terrain(), dirty_revision_coast());
     key = combined_key(key, dirty_revision_ownership());
     key = combined_key(key, dirty_revision_province());
+    key = combined_key(key, dirty_revision_hydrology());
     key = combined_key(key, map_w * 4099 + map_h);
     return combined_key(key, world_generated);
 }

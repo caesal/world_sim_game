@@ -1,10 +1,7 @@
 #include "render/diplomacy_map_anim.h"
 
-#include "core/country_focus.h"
-#include "core/game_state.h"
 #include "render/render_common.h"
 #include "sim/diplomacy.h"
-#include "sim/war_front.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -29,20 +26,31 @@ typedef struct {
 
 static DiplomacyMapAnim animations[DIPLO_ANIM_MAX];
 static int next_slot;
-static int last_seen_total;
+static int last_consumed_total;
+static int consumed_initialized;
+static unsigned int last_consumed_snapshot_revision;
+static int last_consumed_events_revision;
+static int delayed_waiting_for_snapshot;
+static int stale_prevented_count;
 
-static int focus_for_event_civ(int civ_id, int uid, int *x, int *y) {
-    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return 0;
-    if (uid > 0 && civs[civ_id].uid != uid) return 0;
-    return country_focus_point(civ_id, x, y);
+static int focus_for_event_civ(const RenderSnapshot *snapshot, int civ_id, int uid, int *x, int *y) {
+    const SnapshotCiv *civ;
+    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return 0;
+    civ = &snapshot->civs[civ_id];
+    if (!civ->alive || !civ->focus_valid) return 0;
+    if (uid > 0 && civ->uid != uid) return 0;
+    if (x) *x = civ->focus_x;
+    if (y) *y = civ->focus_y;
+    return 1;
 }
 
-static int event_endpoint(const EventLogEntry *entry, int use_target, int *x, int *y) {
-    if (!use_target) return focus_for_event_civ(entry->civ_id, entry->civ_uid, x, y);
+static int event_endpoint(const RenderSnapshot *snapshot, const EventLogEntry *entry,
+                          int use_target, int *x, int *y) {
+    if (!use_target) return focus_for_event_civ(snapshot, entry->civ_id, entry->civ_uid, x, y);
     if (entry->type == EVENT_TYPE_VASSAL_TRANSFERRED && entry->param_a >= 0) {
-        return focus_for_event_civ(entry->param_a, entry->param_a_uid, x, y);
+        return focus_for_event_civ(snapshot, entry->param_a, entry->param_a_uid, x, y);
     }
-    return focus_for_event_civ(entry->target_id, entry->target_uid, x, y);
+    return focus_for_event_civ(snapshot, entry->target_id, entry->target_uid, x, y);
 }
 
 static void event_target_identity(const EventLogEntry *entry, int *id, int *uid) {
@@ -96,10 +104,21 @@ static int contact_required_anim(EventLogType type) {
            type == EVENT_TYPE_DIPLOMACY_TENSE;
 }
 
-static int event_anim_contact_valid(EventLogType type, int from_id, int to_id) {
-    if (type == EVENT_TYPE_WAR_STARTED) return war_has_active_front(from_id, to_id);
+static int valid_snapshot_pair(const RenderSnapshot *snapshot, int from_id, int to_id) {
+    return snapshot && from_id >= 0 && to_id >= 0 &&
+           from_id < snapshot->civ_count && to_id < snapshot->civ_count;
+}
+
+static int event_anim_contact_valid(const RenderSnapshot *snapshot, EventLogType type,
+                                    int from_id, int to_id) {
+    if (!valid_snapshot_pair(snapshot, from_id, to_id)) return 0;
+    if (type == EVENT_TYPE_WAR_STARTED) {
+        return snapshot->war_front_flags[from_id][to_id] ||
+               snapshot->war_front_flags[to_id][from_id];
+    }
     if (contact_required_anim(type)) {
-        return diplomacy_direct_contact_kind(from_id, to_id) != DIP_CONTACT_NONE;
+        return snapshot->relations[from_id][to_id].contact_kind != DIP_CONTACT_NONE ||
+               snapshot->relations[to_id][from_id].contact_kind != DIP_CONTACT_NONE;
     }
     return 1;
 }
@@ -125,14 +144,15 @@ static DiplomacyMapAnim *animation_slot_for(int from_id, int from_uid, int to_id
     return &animations[next_slot++ % DIPLO_ANIM_MAX];
 }
 
-static void enqueue_event_anim(const EventLogEntry *entry) {
+static void enqueue_event_anim(const RenderSnapshot *snapshot, const EventLogEntry *entry) {
     DiplomacyMapAnim *anim;
     int x1, y1, x2, y2;
     int to_id, to_uid;
     if (!entry || !anim_type(entry->type)) return;
     event_target_identity(entry, &to_id, &to_uid);
-    if (!event_anim_contact_valid(entry->type, entry->civ_id, to_id)) return;
-    if (!event_endpoint(entry, 0, &x1, &y1) || !event_endpoint(entry, 1, &x2, &y2)) return;
+    if (!event_anim_contact_valid(snapshot, entry->type, entry->civ_id, to_id)) return;
+    if (!event_endpoint(snapshot, entry, 0, &x1, &y1) ||
+        !event_endpoint(snapshot, entry, 1, &x2, &y2)) return;
     anim = animation_slot_for(entry->civ_id, entry->civ_uid, to_id, to_uid);
     memset(anim, 0, sizeof(*anim));
     anim->active = 1;
@@ -150,23 +170,37 @@ static void enqueue_event_anim(const EventLogEntry *entry) {
     anim->normal_sign = ((entry->civ_id * 31 + to_id * 17 + entry->type) & 1) ? 1 : -1;
 }
 
-void diplomacy_map_anim_consume_events(void) {
-    int total = event_log_total_entries;
+void diplomacy_map_anim_delay_for_snapshot(const RenderSnapshot *snapshot) {
+    delayed_waiting_for_snapshot = snapshot && consumed_initialized &&
+        snapshot->event_total_entries > last_consumed_total;
+    if (delayed_waiting_for_snapshot) stale_prevented_count++;
+}
+
+void diplomacy_map_anim_consume_events(const RenderSnapshot *snapshot) {
+    int total;
     int delta;
     int i;
-    if (last_seen_total == 0) {
-        last_seen_total = total;
+    delayed_waiting_for_snapshot = 0;
+    if (!snapshot) return;
+    total = snapshot->event_total_entries;
+    if (!consumed_initialized) {
+        consumed_initialized = 1;
+        last_consumed_total = total;
+        last_consumed_snapshot_revision = snapshot->revision;
+        last_consumed_events_revision = snapshot->events_revision;
         return;
     }
-    delta = total - last_seen_total;
+    delta = total - last_consumed_total;
     if (delta <= 0) return;
-    if (delta > EVENT_LOG_COUNT) delta = EVENT_LOG_COUNT;
+    if (delta > snapshot->event_count) delta = snapshot->event_count;
     if (delta > 12) delta = 12;
     for (i = delta - 1; i >= 0; i--) {
         EventLogEntry entry;
-        if (event_log_get_entry(i, &entry)) enqueue_event_anim(&entry);
+        if (render_snapshot_event_get_entry(snapshot, i, &entry)) enqueue_event_anim(snapshot, &entry);
     }
-    last_seen_total = total;
+    last_consumed_total = total;
+    last_consumed_snapshot_revision = snapshot->revision;
+    last_consumed_events_revision = snapshot->events_revision;
 }
 
 static POINT map_point(MapLayout layout, int x, int y) {
@@ -310,3 +344,10 @@ int diplomacy_map_anim_active(void) {
     }
     return 0;
 }
+
+const char *diplomacy_map_anim_source(void) { return "snapshot"; }
+int diplomacy_map_anim_delayed_waiting_for_snapshot(void) { return delayed_waiting_for_snapshot; }
+int diplomacy_map_anim_last_consumed_total(void) { return last_consumed_total; }
+unsigned int diplomacy_map_anim_last_snapshot_revision(void) { return last_consumed_snapshot_revision; }
+int diplomacy_map_anim_last_events_revision(void) { return last_consumed_events_revision; }
+int diplomacy_map_anim_stale_prevented_count(void) { return stale_prevented_count; }

@@ -5,6 +5,7 @@
 #include "core/plague_perf.h"
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
+#include "core/render_snapshot_keys.h"
 #include "render/cartography_layers.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/load_progress_overlay.h"
@@ -52,6 +53,7 @@ static int route_overlay_cache_hits, route_overlay_cache_misses;
 static int city_overlay_cache_hits, city_overlay_cache_misses;
 static char scene_cache_last_reason_text[64] = "cold";
 static DWORD last_static_continue_invalidate;
+static int static_base_presented_current;
 
 static void release_layer_cache(LayerCache *cache) {
     if (cache->dc && cache->old_bitmap) SelectObject(cache->dc, cache->old_bitmap);
@@ -141,20 +143,19 @@ static unsigned int static_base_key(RECT client, MapLayout layout, const RenderS
     unsigned int key = layout_key(client, layout);
     key = mix_key(key, snapshot ? snapshot->map_w : 0);
     key = mix_key(key, snapshot ? snapshot->map_h : 0);
-    key = mix_key(key, dirty_revision_terrain());
-    key = mix_key(key, dirty_revision_coast());
-    key = mix_key(key, dirty_revision_ownership());
-    key = mix_key(key, dirty_revision_province());
-    return mix_key(key, dirty_revision_hydrology());
+    key = mix_key(key, snapshot ? snapshot->tiles_revision : 0);
+    return mix_key(key, snapshot ? snapshot->regions_revision : 0);
 }
 
 static void draw_static_base_presentation(HDC hdc, RECT client, MapLayout layout,
                                           const RenderSnapshot *snapshot) {
     unsigned int key = static_base_key(client, layout, snapshot);
     DWORD start;
+    static_base_presented_current = 0;
     if (layer_cache_matches(&viewport_static_cache, client, layout, key)) {
         scene_cache_hits++;
         snprintf(scene_cache_last_reason_text, sizeof(scene_cache_last_reason_text), "viewport-static hit");
+        static_base_presented_current = 1;
         blit_viewport_cache(hdc, client, &viewport_static_cache);
         return;
     }
@@ -165,12 +166,15 @@ static void draw_static_base_presentation(HDC hdc, RECT client, MapLayout layout
         scene_cache_last_build_ms = (int)(GetTickCount() - start);
         viewport_static_cache.key = key;
         viewport_static_cache.valid = !render_static_map_cache_needs_work();
+        static_base_presented_current = viewport_static_cache.valid &&
+                                        render_static_map_cache_presented_current();
         snprintf(scene_cache_last_reason_text, sizeof(scene_cache_last_reason_text),
                  viewport_static_cache.valid ? "viewport-static rebuild" : "static rebuild pending");
         blit_viewport_cache(hdc, client, &viewport_static_cache);
     } else {
         draw_cached_static_map_nonblocking(hdc, client, layout);
         scene_cache_last_build_ms = (int)(GetTickCount() - start);
+        static_base_presented_current = render_static_map_cache_presented_current();
         snprintf(scene_cache_last_reason_text, sizeof(scene_cache_last_reason_text), "direct static draw");
     }
 }
@@ -179,7 +183,6 @@ static unsigned int route_overlay_key(RECT client, MapLayout layout,
                                       const RenderSnapshot *snapshot) {
     unsigned int key = layout_key(client, layout);
     key = mix_key(key, snapshot ? snapshot->lanes_revision : 0);
-    key = mix_key(key, dirty_revision_route());
     return mix_key(key, selected_civ);
 }
 
@@ -215,8 +218,8 @@ static unsigned int city_overlay_key(RECT client, MapLayout layout,
     unsigned int key = layout_key(client, layout);
     key = mix_key(key, snapshot ? snapshot->map_w : 0);
     key = mix_key(key, snapshot ? snapshot->map_h : 0);
-    key = mix_key(key, dirty_revision_city());
-    return mix_key(key, dirty_revision_ownership());
+    key = mix_key(key, snapshot ? snapshot->cities_revision : 0);
+    return mix_key(key, snapshot ? snapshot->tiles_revision : 0);
 }
 
 static void draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout,
@@ -326,6 +329,7 @@ static void render_world(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
     const RenderSnapshot *snapshot = render_context_snapshot();
     int snapshot_world_ready = snapshot && snapshot->world_generated;
+    int static_ready;
     WorldGenProgress progress;
 
     worldgen_progress_get(&progress);
@@ -346,9 +350,13 @@ static void render_world(HDC hdc, RECT client) {
         return;
     }
     draw_non_plague_map_scene(hdc, client, layout, snapshot);
+    static_ready = static_base_presented_current;
     if (snapshot_world_ready) {
         draw_route_overlay_presentation(hdc, client, layout, snapshot);
-        dirty_clear_render_maritime();
+        if (!dirty_render_maritime() ||
+            snapshot->lanes_revision == render_snapshot_lanes_revision_key()) {
+            dirty_clear_render_maritime();
+        }
         if (!map_interaction_preview && plague_perf_visuals_allowed()) {
             draw_plague_region_overlay(hdc, client, layout);
             dirty_clear_render_plague();
@@ -357,8 +365,6 @@ static void render_world(HDC hdc, RECT client) {
             dirty_clear_render_plague();
         }
         draw_legacy_overlay_nonblocking(hdc, client, layout);
-        diplomacy_map_anim_consume_events();
-        draw_diplomacy_map_animations(hdc, client, layout);
         draw_city_overlay_presentation(hdc, client, layout, snapshot);
         {
             int labels_dirty = dirty_render_labels();
@@ -366,6 +372,9 @@ static void render_world(HDC hdc, RECT client) {
             if (labels_dirty) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
             dirty_clear_render_labels();
         }
+        if (static_ready) diplomacy_map_anim_consume_events(snapshot);
+        else diplomacy_map_anim_delay_for_snapshot(snapshot);
+        draw_diplomacy_map_animations(hdc, client, layout);
         draw_selected_tile(hdc, layout);
     } else {
         dirty_clear_render_maritime();
