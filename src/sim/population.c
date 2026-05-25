@@ -222,10 +222,19 @@ void population_sync_city(int city_id) {
 
 void population_sync_all(void) {
     int city_id;
+    int visual_changed = 0;
 
     for (city_id = 0; city_id < city_count; city_id++) {
-        if (cities[city_id].alive) cities[city_id].population = population_city_total(city_id);
+        City *city = &cities[city_id];
+        int before;
+        int after;
+        if (!city->alive) continue;
+        before = city_visual_population_class(city, city->population);
+        city->population = population_city_total(city_id);
+        after = city_visual_population_class(city, city->population);
+        if (before != after) visual_changed = 1;
     }
+    if (visual_changed) dirty_mark_city();
     population_mark_dirty();
     rebuild_population_cache();
 }

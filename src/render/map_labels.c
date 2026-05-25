@@ -41,7 +41,7 @@ static int cached_label_count;
 static int label_rebuild_count;
 static int label_last_rebuild_ms;
 static int label_last_candidate_count;
-static int label_reason_counts[5], label_last_reason;
+static int label_reason_counts[5], label_last_reason, label_preview_skip_count;
 static unsigned int last_label_source_key;
 static int last_label_lang, last_label_display, last_label_zoom, last_label_view, last_label_select;
 static const char *label_reason_names[5] = {"initial", "source", "view", "mode", "select"};
@@ -461,6 +461,12 @@ void draw_map_labels(HDC hdc, RECT client, MapLayout layout) {
     IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
     SetBkMode(hdc, TRANSPARENT);
     key = label_layout_key_for(snapshot, viewport, layout);
+    if (map_interaction_preview) {
+        label_layout_key = 0;
+        label_preview_skip_count++;
+        RestoreDC(hdc, saved_dc);
+        return;
+    }
     if (key == label_layout_key && cached_label_count > 0) {
         draw_accepted_labels(hdc, cached_labels, cached_label_count);
         RestoreDC(hdc, saved_dc);
@@ -490,4 +496,4 @@ int map_label_cache_last_rebuild_ms(void) { return label_last_rebuild_ms; }
 int map_label_cache_candidate_count(void) { return label_last_candidate_count; }
 int map_label_cache_drawn_count(void) { return cached_label_count; }
 const char *map_label_cache_last_reason(void) { return label_reason_names[label_last_reason]; }
-const char *map_label_cache_reason_summary(void) { static char text[96]; snprintf(text, sizeof(text), "src %d / view %d / mode %d", label_reason_counts[1], label_reason_counts[2], label_reason_counts[3]); return text; }
+const char *map_label_cache_reason_summary(void) { static char text[96]; snprintf(text, sizeof(text), "src %d / view %d / mode %d / preview skip %d", label_reason_counts[1], label_reason_counts[2], label_reason_counts[3], label_preview_skip_count); return text; }

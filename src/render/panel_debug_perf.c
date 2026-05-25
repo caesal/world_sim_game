@@ -188,6 +188,12 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
         perf_row(hdc, cursor, tr("Map revisions", "地图修订"), text,
                   render_static_map_cache_snapshot_revision() != render_static_map_cache_live_revision() ?
                   RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+        snprintf(text, sizeof(text), "data %d / visual %d / pop %d",
+                 render_context_snapshot()->cities_revision,
+                 render_context_snapshot()->city_visual_revision,
+                 dirty_revision_population());
+        perf_row(hdc, cursor, tr("City revisions", "City revisions"), text,
+                  ui_theme_color(UI_COLOR_TEXT_MUTED));
     }
     snprintf(text, sizeof(text), "build %d ms / age %d ms / refresh %d",
              panel_view_model_cache_last_build_ms(), panel_view_model_cache_age_ms(),

@@ -1,5 +1,48 @@
 # Version Log
 
+## Ver0.2.10.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.b.
+2. Changed route overlay cache content keys so pan/zoom camera and layout state
+   do not continuously invalidate route overlay content during interaction.
+3. Changed city overlay cache content keys to use a city visual revision instead
+   of population-driven city data revisions or raw tile revisions.
+4. Added transformed preview reuse for route and city overlay bitmaps while
+   `map_interaction_preview` is active.
+5. Skipped full label candidate/layout work during interaction preview and
+   forced an exact label rebuild after preview settles.
+6. Split RenderSnapshot city revisions into data and visual revisions so
+   population data can refresh without forcing city/capital/port icon redraws.
+7. Narrowed `population_sync_all()` so it marks city visuals dirty only when a
+   city crosses a visual population class threshold.
+8. Added debug visibility for city data/visual/population revisions and overlay
+   exact versus preview reuse counts.
+9. Renamed the disorder pressure label from `Wartime pressure` to
+   `War fatigue`.
+10. Kept gameplay, world generation, expansion, diplomacy, war, plague,
+    population math, ports, maritime rules, sea-lane generation, route potential,
+    save format, and balance unchanged.
+
+Known follow-up:
+
+- Large-map stutter is improved during direct pan/zoom interaction, but it is
+  not fully solved. The next target is a map-space label candidate cache with
+  separate screen placement. Later work should split panel cache keys, slim
+  snapshot lock-held time, rebuild static layers in stricter budgeted stripes,
+  layer sea-lane overlays, and further reduce scheduler write-lock step size.
+- `docs/official` was not regenerated for this render/cache checkpoint release.
+
+Validation notes:
+
+- Ver0.2.10.b uses `WORLD_SIM_VERSION "0.2.10.b"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, root executable checks, and executable smoke launch are required
+  before the release commit.
+
 ## Ver0.2.10.a
 
 Implemented fixes:

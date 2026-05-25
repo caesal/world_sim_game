@@ -51,7 +51,9 @@ static int scene_cache_misses;
 static int scene_cache_last_build_ms;
 static int route_overlay_cache_hits, route_overlay_cache_misses;
 static int city_overlay_cache_hits, city_overlay_cache_misses;
+static int route_overlay_exact_rebuilds, route_overlay_preview_reuses, city_overlay_exact_rebuilds, city_overlay_preview_reuses;
 static char scene_cache_last_reason_text[64] = "cold";
+static char overlay_last_reason_text[48] = "cold";
 static DWORD last_static_continue_invalidate;
 static int static_base_presented_current;
 
@@ -118,6 +120,11 @@ static int layer_cache_matches(const LayerCache *cache, RECT client,
            cache->draw_h == layout.draw_h && cache->display == display_mode;
 }
 
+static int layer_cache_preview_presentable(const LayerCache *cache, RECT client) {
+    int width = client.right - client.left, height = client.bottom - client.top;
+    return cache->valid && cache->width == width && cache->height == height && cache->display == display_mode;
+}
+
 static void blit_viewport_cache(HDC hdc, RECT client, const LayerCache *cache) {
     RECT viewport = get_map_viewport_rect(client);
     BitBlt(hdc, viewport.left, viewport.top, viewport.right - viewport.left,
@@ -137,6 +144,39 @@ static void transparent_viewport_cache(HDC hdc, RECT client, const LayerCache *c
                    viewport.bottom - viewport.top, cache->dc, viewport.left, viewport.top,
                    viewport.right - viewport.left, viewport.bottom - viewport.top,
                    RGB(255, 0, 255));
+}
+
+static void transparent_map_cache_transformed(HDC hdc, RECT client, MapLayout layout,
+                                              const LayerCache *cache) {
+    RECT bounds = {0, 0, cache->width, cache->height};
+    RECT old_map = {cache->map_x, cache->map_y,
+                    cache->map_x + cache->draw_w, cache->map_y + cache->draw_h};
+    RECT src, content = get_map_content_rect(client);
+    RECT dst;
+    int saved_dc;
+    if (cache->draw_w <= 0 || cache->draw_h <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
+    if (!IntersectRect(&src, &old_map, &bounds)) return;
+    dst.left = layout.map_x + (src.left - old_map.left) * layout.draw_w / cache->draw_w;
+    dst.top = layout.map_y + (src.top - old_map.top) * layout.draw_h / cache->draw_h;
+    dst.right = layout.map_x + (src.right - old_map.left) * layout.draw_w / cache->draw_w;
+    dst.bottom = layout.map_y + (src.bottom - old_map.top) * layout.draw_h / cache->draw_h;
+    if (dst.right <= dst.left || dst.bottom <= dst.top) return;
+    saved_dc = SaveDC(hdc);
+    IntersectClipRect(hdc, content.left, content.top, content.right, content.bottom);
+    TransparentBlt(hdc, dst.left, dst.top, dst.right - dst.left, dst.bottom - dst.top,
+                   cache->dc, src.left, src.top, src.right - src.left, src.bottom - src.top,
+                   RGB(255, 0, 255));
+    RestoreDC(hdc, saved_dc);
+}
+
+static int draw_preview_layer(HDC hdc, RECT client, MapLayout layout, LayerCache *cache,
+                              int *counter, const char *reuse, const char *skip) {
+    if (layer_cache_preview_presentable(cache, client)) {
+        (*counter)++;
+        snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "%s", reuse);
+        transparent_map_cache_transformed(hdc, client, layout, cache);
+    } else snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "%s", skip);
+    return 0;
 }
 
 static unsigned int static_base_key(RECT client, MapLayout layout, const RenderSnapshot *snapshot) {
@@ -179,67 +219,82 @@ static void draw_static_base_presentation(HDC hdc, RECT client, MapLayout layout
     }
 }
 
-static unsigned int route_overlay_key(RECT client, MapLayout layout,
-                                      const RenderSnapshot *snapshot) {
-    unsigned int key = layout_key(client, layout);
+static unsigned int route_overlay_key(const RenderSnapshot *snapshot) {
+    unsigned int key = 2166136261u;
     key = mix_key(key, snapshot ? snapshot->lanes_revision : 0);
-    return mix_key(key, selected_civ);
+    key = mix_key(key, selected_civ);
+    return mix_key(key, display_mode);
 }
 
-static void draw_route_overlay_presentation(HDC hdc, RECT client, MapLayout layout,
-                                            const RenderSnapshot *snapshot) {
+static int draw_route_overlay_presentation(HDC hdc, RECT client, MapLayout layout,
+                                           const RenderSnapshot *snapshot) {
     unsigned int key;
-    if (!snapshot || display_mode == DISPLAY_ROUTE_POTENTIAL ||
-        (plague_perf_visuals_allowed() &&
+    if (!snapshot) return 0;
+    key = route_overlay_key(snapshot);
+    if (map_interaction_preview) {
+        return draw_preview_layer(hdc, client, layout, &route_overlay_cache,
+                                  &route_overlay_preview_reuses,
+                                  "route preview reuse", "route preview skip");
+    }
+    if (display_mode == DISPLAY_ROUTE_POTENTIAL || (plague_perf_visuals_allowed() &&
          (snapshot->plague_active || plague_visual_infected_lane_count() > 0))) {
         draw_maritime_routes(hdc, client, layout);
-        return;
+        return 1;
     }
-    key = route_overlay_key(client, layout, snapshot);
     if (layer_cache_matches(&route_overlay_cache, client, layout, key)) {
         route_overlay_cache_hits++;
         transparent_viewport_cache(hdc, client, &route_overlay_cache);
-        return;
+        return 1;
     }
     route_overlay_cache_misses++;
     if (!ensure_layer_cache(hdc, &route_overlay_cache, client, layout)) {
         draw_maritime_routes(hdc, client, layout);
-        return;
+        return 1;
     }
     clear_transparent_layer(&route_overlay_cache);
     draw_maritime_routes(route_overlay_cache.dc, client, layout);
     route_overlay_cache.key = key;
     route_overlay_cache.valid = 1;
+    route_overlay_exact_rebuilds++;
+    snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "route exact rebuild");
     transparent_viewport_cache(hdc, client, &route_overlay_cache);
+    return 1;
 }
 
-static unsigned int city_overlay_key(RECT client, MapLayout layout,
-                                     const RenderSnapshot *snapshot) {
-    unsigned int key = layout_key(client, layout);
+static unsigned int city_overlay_key(const RenderSnapshot *snapshot) {
+    unsigned int key = 2166136261u;
     key = mix_key(key, snapshot ? snapshot->map_w : 0);
     key = mix_key(key, snapshot ? snapshot->map_h : 0);
-    key = mix_key(key, snapshot ? snapshot->cities_revision : 0);
-    return mix_key(key, snapshot ? snapshot->tiles_revision : 0);
+    key = mix_key(key, snapshot ? snapshot->city_visual_revision : 0);
+    return mix_key(key, display_mode);
 }
 
-static void draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout,
-                                           const RenderSnapshot *snapshot) {
-    unsigned int key = city_overlay_key(client, layout, snapshot);
+static int draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout,
+                                          const RenderSnapshot *snapshot) {
+    unsigned int key = city_overlay_key(snapshot);
     if (layer_cache_matches(&city_overlay_cache, client, layout, key)) {
         city_overlay_cache_hits++;
         transparent_viewport_cache(hdc, client, &city_overlay_cache);
-        return;
+        return 1;
+    }
+    if (map_interaction_preview) {
+        return draw_preview_layer(hdc, client, layout, &city_overlay_cache,
+                                  &city_overlay_preview_reuses,
+                                  "city preview reuse", "city preview skip");
     }
     city_overlay_cache_misses++;
     if (!ensure_layer_cache(hdc, &city_overlay_cache, client, layout)) {
         draw_cities(hdc, layout);
-        return;
+        return 1;
     }
     clear_transparent_layer(&city_overlay_cache);
     draw_cities(city_overlay_cache.dc, layout);
     city_overlay_cache.key = key;
     city_overlay_cache.valid = 1;
+    city_overlay_exact_rebuilds++;
+    snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "city exact rebuild");
     transparent_viewport_cache(hdc, client, &city_overlay_cache);
+    return 1;
 }
 
 static void draw_non_plague_map_scene(HDC hdc, RECT client, MapLayout layout,
@@ -352,9 +407,9 @@ static void render_world(HDC hdc, RECT client) {
     draw_non_plague_map_scene(hdc, client, layout, snapshot);
     static_ready = static_base_presented_current;
     if (snapshot_world_ready) {
-        draw_route_overlay_presentation(hdc, client, layout, snapshot);
-        if (!dirty_render_maritime() ||
-            snapshot->lanes_revision == render_snapshot_lanes_revision_key()) {
+        int route_exact = draw_route_overlay_presentation(hdc, client, layout, snapshot);
+        if (route_exact && (!dirty_render_maritime() ||
+            snapshot->lanes_revision == render_snapshot_lanes_revision_key())) {
             dirty_clear_render_maritime();
         }
         if (!map_interaction_preview && plague_perf_visuals_allowed()) {
@@ -369,8 +424,8 @@ static void render_world(HDC hdc, RECT client) {
         {
             int labels_dirty = dirty_render_labels();
             draw_map_labels(hdc, client, layout);
-            if (labels_dirty) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
-            dirty_clear_render_labels();
+            if (labels_dirty && !map_interaction_preview) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
+            if (!map_interaction_preview) dirty_clear_render_labels();
         }
         if (static_ready) diplomacy_map_anim_consume_events(snapshot);
         else diplomacy_map_anim_delay_for_snapshot(snapshot);
@@ -428,23 +483,17 @@ void paint_window(HWND hwnd) {
     }
 }
 
-int render_scene_cache_hits(void) {
-    return scene_cache_hits;
-}
-
-int render_scene_cache_misses(void) {
-    return scene_cache_misses;
-}
-
-int render_scene_cache_last_build_ms(void) {
-    return scene_cache_last_build_ms;
-}
-
+int render_scene_cache_hits(void) { return scene_cache_hits; }
+int render_scene_cache_misses(void) { return scene_cache_misses; }
+int render_scene_cache_last_build_ms(void) { return scene_cache_last_build_ms; }
 const char *render_scene_cache_last_reason(void) { return scene_cache_last_reason_text; }
 const char *render_scene_cache_reason_summary(void) {
     static char text[160];
-    snprintf(text, sizeof(text), "viewport static only / route %d:%d / icons %d:%d",
+    snprintf(text, sizeof(text), "r %d/%d/%d/%d c %d/%d/%d/%d %s",
              route_overlay_cache_hits, route_overlay_cache_misses,
-             city_overlay_cache_hits, city_overlay_cache_misses);
+             route_overlay_exact_rebuilds, route_overlay_preview_reuses,
+             city_overlay_cache_hits, city_overlay_cache_misses,
+             city_overlay_exact_rebuilds, city_overlay_preview_reuses,
+             overlay_last_reason_text);
     return text;
 }

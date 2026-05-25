@@ -4,6 +4,7 @@
 int render_snapshot_tile_revision_key(void);
 int render_snapshot_civs_revision_key(void);
 int render_snapshot_cities_revision_key(void);
+int render_snapshot_city_visual_revision_key(void);
 int render_snapshot_regions_revision_key(void);
 int render_snapshot_diplomacy_revision_key(void);
 int render_snapshot_lanes_revision_key(void);

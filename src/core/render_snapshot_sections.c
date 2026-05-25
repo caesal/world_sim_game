@@ -32,6 +32,7 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
         memcpy(dst->cities, src->cities, sizeof(dst->cities));
         dst->city_count = src->city_count;
         dst->cities_revision = src->cities_revision;
+        dst->city_visual_revision = src->city_visual_revision;
     }
     if (mask & RENDER_SNAPSHOT_SECTION_REGIONS) {
         memcpy(dst->regions, src->regions, sizeof(dst->regions));

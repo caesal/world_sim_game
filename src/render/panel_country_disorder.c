@@ -204,7 +204,7 @@ static void draw_pressure_cards(HDC hdc, UiCursor *cursor, int civ_id) {
                               plague_active ? -2 : disorder_ui_pressure_eta_months(CIV(civ_id)->disorder_plague, plague_decay),
                               plague_active ? tr("Plague active", "瘟疫活跃") : tr("Post-plague recovery", "瘟疫后恢复"),
                               RGB(44, 116, 82), 0};
-    cards[2] = (PressureCard){tr("Wartime pressure", "战时压力"), ICON_BATTLE, CIV(civ_id)->disorder_wartime,
+    cards[2] = (PressureCard){tr("War fatigue", "战争疲劳"), ICON_BATTLE, CIV(civ_id)->disorder_wartime,
                               CIV(civ_id)->disorder_wartime * 10 / 24,
                               CIV(civ_id)->disorder_last_wartime_decay_x10 / 10,
                               war_active ? -1 : disorder_ui_pressure_eta_months(CIV(civ_id)->disorder_wartime,

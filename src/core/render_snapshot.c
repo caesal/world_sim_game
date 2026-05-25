@@ -226,6 +226,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     int tile_key;
     int civ_key;
     int city_key;
+    int city_visual_key;
     int region_key;
     int diplomacy_key;
     int lane_key;
@@ -275,6 +276,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     tile_key = render_snapshot_tile_revision_key();
     civ_key = render_snapshot_civs_revision_key();
     city_key = render_snapshot_cities_revision_key();
+    city_visual_key = render_snapshot_city_visual_revision_key();
     region_key = render_snapshot_regions_revision_key();
     diplomacy_key = render_snapshot_diplomacy_revision_key();
     lane_key = render_snapshot_lanes_revision_key();
@@ -295,8 +297,13 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     if (snapshot->revision == 0 || snapshot->cities_revision != city_key) {
         PROFILE_SECTION(SNAPSHOT_PROFILE_CITIES, copy_cities(snapshot));
         snapshot->cities_revision = city_key;
+        snapshot->city_visual_revision = city_visual_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
-    } else { PROFILE_SKIP(SNAPSHOT_PROFILE_CITIES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CITIES; }
+    } else {
+        snapshot->city_visual_revision = city_visual_key;
+        PROFILE_SKIP(SNAPSHOT_PROFILE_CITIES);
+        snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
+    }
     if (snapshot->revision == 0 || snapshot->regions_revision != region_key) {
         PROFILE_SECTION(SNAPSHOT_PROFILE_REGIONS, copy_regions(snapshot));
         snapshot->regions_revision = region_key;

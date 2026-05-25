@@ -252,6 +252,7 @@ typedef struct {
     int tiles_revision;
     int civs_revision;
     int cities_revision;
+    int city_visual_revision;
     int regions_revision;
     int diplomacy_revision;
     int lanes_revision;
