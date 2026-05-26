@@ -13,6 +13,7 @@
 #include "core/dirty_flags.h"
 #include "core/plague_perf.h"
 #include "core/profiler.h"
+#include "core/render_snapshot_cache.h"
 #include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
@@ -108,6 +109,14 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
               render_snapshot_civ_decision_fallback_count() > 0 ? RGB(218, 178, 78) :
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
+    perf_row(hdc, cursor, tr("Snapshot city cache", "快照城市缓存"),
+              render_snapshot_cache_city_summary_debug(), ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Snapshot diplomacy cache", "快照外交缓存"),
+              render_snapshot_cache_diplomacy_debug(), ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Snapshot plague cache", "快照瘟疫缓存"),
+              render_snapshot_cache_plague_debug(), ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Lane snapshot source", "航线快照来源"),
+              render_snapshot_cache_lane_debug(), ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "target 16 ms / avg %d / peak %d", perf.frame_avg_ms, perf.frame_peak_ms);
     perf_row(hdc, cursor, tr("Frame avg / peak", "帧均值 / 峰值"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "%d ms/month, %.1f months/sec", perf.actual_ms_per_month,

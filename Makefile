@@ -24,6 +24,7 @@ SOURCES := \
 	src/core/plague_perf.c \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
+	src/core/render_snapshot_cache.c \
 	src/core/render_snapshot_civs.c \
 	src/core/render_snapshot_events.c \
 	src/core/render_snapshot_keys.c \

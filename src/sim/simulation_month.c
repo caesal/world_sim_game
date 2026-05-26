@@ -21,6 +21,7 @@
 #include "core/dirty_flags.h"
 #include "core/plague_perf.h"
 #include "core/profiler.h"
+#include "core/render_snapshot_cache.h"
 
 #include <string.h>
 
@@ -34,6 +35,7 @@ enum {
     SIM_MONTH_TERRITORY,
     SIM_MONTH_DIPLOMACY,
     SIM_MONTH_CALENDAR,
+    SIM_MONTH_SNAPSHOT_CACHE,
     SIM_MONTH_DECISION_CACHE,
     SIM_MONTH_DONE
 };
@@ -66,6 +68,7 @@ static const char *simulation_phase_name(int phase) {
         case SIM_MONTH_TERRITORY: return "Territory";
         case SIM_MONTH_DIPLOMACY: return "Diplomacy";
         case SIM_MONTH_CALENDAR: return "Calendar";
+        case SIM_MONTH_SNAPSHOT_CACHE: return "Snapshot Cache";
         case SIM_MONTH_DECISION_CACHE: return "Decision Cache";
         default: return "Month";
     }
@@ -378,6 +381,11 @@ int simulation_month_run_next(SimulationMonthState *state) {
                                           -1, -1, -1, -1, 0, 0, state->log);
             }
             if (living_civilizations() <= 1) auto_run = 0;
+            state->phase = SIM_MONTH_SNAPSHOT_CACHE;
+            break;
+        case SIM_MONTH_SNAPSHOT_CACHE:
+            render_snapshot_cache_update_budgeted(32, 128, 1, 1);
+            if (render_snapshot_cache_dirty_count() > 0) break;
             state->phase = SIM_MONTH_DECISION_CACHE;
             break;
         case SIM_MONTH_DECISION_CACHE:

@@ -1,6 +1,7 @@
 #include "core/render_snapshot.h"
 #include "core/dirty_flags.h"
 #include "core/render_snapshot_events.h"
+#include "core/render_snapshot_cache.h"
 #include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_keys.h"
 #include "core/render_snapshot_profile.h"
@@ -73,40 +74,42 @@ static void copy_tiles(RenderSnapshot *snapshot) {
     }
 }
 
-static void copy_diplomacy(RenderSnapshot *snapshot) {
+static int copy_diplomacy(RenderSnapshot *snapshot, int key) {
     int a, b;
+    int complete = 1;
     for (a = 0; a < snapshot->civ_count; a++) {
         for (b = 0; b < snapshot->civ_count; b++) {
-            DiplomacyRelation rel = diplomacy_relation(a, b);
-            ActiveWar war = war_state_between(a, b);
-            SnapshotDiplomacyRelation *dst = &snapshot->relations[a][b];
-            SnapshotWar *w = &snapshot->wars[a][b];
-            dst->state = rel.state; dst->relation_score = rel.relation_score;
-            dst->border_tension = rel.border_tension; dst->trade_fit = rel.trade_fit;
-            dst->resource_conflict = rel.resource_conflict; dst->truce_years_left = rel.truce_years_left; dst->truce_initial_years = rel.truce_initial_years;
-            dst->border_length = rel.border_length; dst->natural_barrier = rel.natural_barrier;
-            dst->years_known = rel.years_known; dst->vassal_years = rel.vassal_years;
-            dst->easing_years = rel.easing_years; dst->contact_kind = rel.contact_kind;
-            dst->years_distant_known = rel.years_distant_known; dst->overlord = rel.overlord; dst->vassal = rel.vassal;
-            dst->last_war_winner = rel.last_war_winner; dst->last_war_loser = rel.last_war_loser;
-            dst->last_war_result = rel.last_war_result;
-            w->active = war.active; w->attacker = war.attacker; w->defender = war.defender;
-            w->soldiers_a = war.soldiers_a; w->soldiers_b = war.soldiers_b;
-            w->casualties_a = war.casualties_a; w->casualties_b = war.casualties_b;
-            w->support_casualties_a = war.support_casualties_a; w->support_casualties_b = war.support_casualties_b;
-            w->wins_a = war.wins_a; w->wins_b = war.wins_b; w->years = war.years;
-            snapshot->war_front_flags[a][b] = war_front_flags(a, b);
-            snapshot->war_peace_pressure[a][b] = war_peace_pressure_between(a, b);
+            if (!render_snapshot_cache_diplomacy_pair(a, b, key, &snapshot->relations[a][b],
+                                                      &snapshot->wars[a][b],
+                                                      &snapshot->war_front_flags[a][b],
+                                                      &snapshot->war_peace_pressure[a][b])) {
+                complete = 0;
+                if (snapshot->revision == 0) {
+                    memset(&snapshot->relations[a][b], 0, sizeof(snapshot->relations[a][b]));
+                    memset(&snapshot->wars[a][b], 0, sizeof(snapshot->wars[a][b]));
+                    snapshot->war_front_flags[a][b] = 0;
+                    snapshot->war_peace_pressure[a][b] = 0;
+                    render_snapshot_cache_note_diplomacy_fallback();
+                }
+            }
         }
     }
+    return complete;
 }
 
-static void copy_cities(RenderSnapshot *snapshot) {
+static int same_city_snapshot(const SnapshotCity *dst, const City *src) {
+    return dst && src && dst->alive == src->alive && dst->owner == src->owner &&
+           dst->x == src->x && dst->y == src->y && strcmp(dst->name, src->name) == 0;
+}
+
+static int copy_cities(RenderSnapshot *snapshot, int key) {
     int i;
+    int complete = 1;
     snapshot->city_count = clamp(city_count, 0, MAX_CITIES);
     for (i = 0; i < snapshot->city_count; i++) {
         SnapshotCity *dst = &snapshot->cities[i];
         City *src = &cities[i];
+        int stable = same_city_snapshot(dst, src);
         dst->alive = src->alive;
         dst->owner = src->owner;
         dst->x = src->x;
@@ -118,10 +121,18 @@ static void copy_cities(RenderSnapshot *snapshot) {
         dst->port_x = src->port_x;
         dst->port_y = src->port_y;
         dst->port_region = src->port_region;
-        dst->region_summary = summarize_city_region(i);
-        dst->population_summary = population_city_summary(i);
+        if (!render_snapshot_cache_city_summary(i, key, &dst->region_summary,
+                                                &dst->population_summary)) {
+            complete = 0;
+            if (!stable) {
+                memset(&dst->region_summary, 0, sizeof(dst->region_summary));
+                memset(&dst->population_summary, 0, sizeof(dst->population_summary));
+                render_snapshot_cache_note_city_fallback();
+            }
+        }
         snprintf(dst->name, sizeof(dst->name), "%s", src->name);
     }
+    return complete;
 }
 
 static void copy_regions(RenderSnapshot *snapshot) {
@@ -155,65 +166,81 @@ static void copy_regions(RenderSnapshot *snapshot) {
     }
 }
 
-static void copy_lanes(RenderSnapshot *snapshot) {
-    const SeaLane *lanes;
+static int copy_lanes(RenderSnapshot *snapshot, int key) {
+    const SnapshotSeaLane *lanes;
     int count;
     int i;
-    lanes = sea_lanes_get(&count);
+    if (!render_snapshot_cache_lanes(key, &lanes, &count)) return 0;
     snapshot->lane_count = clamp(count, 0, MAX_SEA_LANES);
     for (i = 0; i < snapshot->lane_count; i++) {
-        SnapshotSeaLane *dst = &snapshot->lanes[i];
-        const SeaLane *src = &lanes[i];
-        dst->active = src->active;
-        dst->type = src->type;
-        dst->from_node = src->from_node;
-        dst->to_node = src->to_node;
-        dst->from_region = src->from_region;
-        dst->to_region = src->to_region;
-        dst->from_city = src->from_city;
-        dst->to_city = src->to_city;
-        dst->from_port = src->from_port;
-        dst->to_port = src->to_port;
-        dst->from_sea_entry = src->from_sea_entry;
-        dst->to_sea_entry = src->to_sea_entry;
-        dst->point_count = clamp(src->point_count, 0, MAX_SEA_LANE_POINTS);
-        memcpy(dst->points, src->points, (size_t)dst->point_count * sizeof(dst->points[0]));
-        dst->exposure = src->exposure;
-        snapshot->plague_lane_exposure[i] = src->exposure;
+        snapshot->lanes[i] = lanes[i];
+        snapshot->plague_lane_exposure[i] = lanes[i].exposure;
     }
+    return 1;
 }
 
-static void copy_plague(RenderSnapshot *snapshot) {
+static int copy_plague(RenderSnapshot *snapshot, int key) {
     int i;
-    snapshot->plague_active = 0;
+    int complete = 1;
+    int active_known = 1;
+    int active = 0;
     for (i = 0; i < snapshot->civ_count; i++) {
         SnapshotCiv *civ = &snapshot->civs[i];
-        civ->plague_active_count = plague_civ_active_count(i);
-        civ->plague_months_left = plague_civ_months_left(i);
-        civ->plague_peak_severity = plague_civ_peak_severity(i);
-        civ->plague_deaths_total = plague_civ_deaths_total(i);
+        if (!render_snapshot_cache_plague_civ(i, key, &civ->plague_active_count,
+                                              &civ->plague_months_left,
+                                              &civ->plague_peak_severity,
+                                              &civ->plague_deaths_total)) {
+            complete = 0;
+            if (snapshot->revision == 0) {
+                civ->plague_active_count = 0;
+                civ->plague_months_left = 0;
+                civ->plague_peak_severity = 0;
+                civ->plague_deaths_total = 0;
+                render_snapshot_cache_note_plague_fallback();
+            }
+        }
     }
     for (i = 0; i < snapshot->city_count; i++) {
         SnapshotCity *city = &snapshot->cities[i];
-        int severity = plague_city_severity(i);
-        city->plague_active = plague_city_active(i);
-        city->plague_severity = severity;
-        city->plague_months_left = plague_city_months_left(i);
-        city->plague_deaths_total = plague_city_deaths_total(i);
-        snapshot->plague_city_severity[i] = severity;
-        if (severity > 0) snapshot->plague_active = 1;
+        int severity = 0;
+        if (render_snapshot_cache_plague_city(i, key, &city->plague_active,
+                                             &severity, &city->plague_months_left,
+                                             &city->plague_deaths_total)) {
+            city->plague_severity = severity;
+            snapshot->plague_city_severity[i] = severity;
+            if (severity > 0) active = 1;
+        } else {
+            complete = 0;
+            active_known = 0;
+            if (snapshot->revision == 0) {
+                city->plague_active = 0;
+                city->plague_severity = 0;
+                city->plague_months_left = 0;
+                city->plague_deaths_total = 0;
+                snapshot->plague_city_severity[i] = 0;
+                render_snapshot_cache_note_plague_fallback();
+            }
+        }
     }
     for (i = 0; i < snapshot->lane_count; i++) {
-        int exposure = sea_lanes_exposure(i);
-        snapshot->plague_lane_exposure[i] = exposure;
-        snapshot->lanes[i].exposure = exposure;
+        int exposure;
+        if (render_snapshot_cache_plague_lane(i, key, &exposure)) {
+            snapshot->plague_lane_exposure[i] = exposure;
+            snapshot->lanes[i].exposure = exposure;
+        } else {
+            complete = 0;
+            if (snapshot->revision == 0) render_snapshot_cache_note_plague_fallback();
+        }
     }
+    if (active_known) snapshot->plague_active = active;
+    return complete;
 }
 
 void render_snapshot_init(void) {
     memset(buffers, 0, sizeof(buffers)); memset((void *)refs, 0, sizeof(refs));
     front_index = 0; published_revision = 0; last_publish_tick = 0; last_publish_ms = 0;
     skipped_publish_count = 0; throttled_publish_count = 0; last_skip_reason = SNAPSHOT_SKIP_NONE; initialized = 1;
+    render_snapshot_cache_reset();
 }
 
 void render_snapshot_shutdown(void) {
@@ -257,6 +284,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     if (base_snapshot) render_snapshot_seed_from_front(snapshot, base_snapshot);
     else if (published_revision == 0 && snapshot->revision == 0) memset(snapshot, 0, sizeof(*snapshot));
     render_snapshot_profile_reset_sections();
+    render_snapshot_cache_begin_snapshot_copy();
     wait_start = GetTickCount();
     if (!force && !state_try_read_lock()) {
         if (base_snapshot) render_snapshot_release(base_snapshot);
@@ -295,8 +323,9 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_CIVS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS; }
     if (snapshot->revision == 0 || snapshot->cities_revision != city_key) {
-        PROFILE_SECTION(SNAPSHOT_PROFILE_CITIES, copy_cities(snapshot));
-        snapshot->cities_revision = city_key;
+        int complete = 0;
+        PROFILE_SECTION(SNAPSHOT_PROFILE_CITIES, complete = copy_cities(snapshot, city_key));
+        if (complete) snapshot->cities_revision = city_key;
         snapshot->city_visual_revision = city_visual_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CITIES;
     } else {
@@ -310,13 +339,15 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_REGIONS;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_REGIONS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_REGIONS; }
     if (snapshot->revision == 0 || snapshot->diplomacy_revision != diplomacy_key) {
-        PROFILE_SECTION(SNAPSHOT_PROFILE_DIPLOMACY, copy_diplomacy(snapshot));
-        snapshot->diplomacy_revision = diplomacy_key;
+        int complete = 0;
+        PROFILE_SECTION(SNAPSHOT_PROFILE_DIPLOMACY, complete = copy_diplomacy(snapshot, diplomacy_key));
+        if (complete) snapshot->diplomacy_revision = diplomacy_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_DIPLOMACY); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY; }
     if (world_generated && (snapshot->revision == 0 || snapshot->lanes_revision != lane_key)) {
-        PROFILE_SECTION(SNAPSHOT_PROFILE_LANES, copy_lanes(snapshot));
-        snapshot->lanes_revision = lane_key;
+        int complete = 0;
+        PROFILE_SECTION(SNAPSHOT_PROFILE_LANES, complete = copy_lanes(snapshot, lane_key));
+        if (complete) snapshot->lanes_revision = lane_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_LANES;
     } else if (!world_generated) {
         snapshot->lane_count = 0;
@@ -324,8 +355,9 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_LANES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_LANES; }
     if (snapshot->revision == 0 || snapshot->plague_revision != plague_key) {
-        PROFILE_SECTION(SNAPSHOT_PROFILE_PLAGUE, copy_plague(snapshot));
-        snapshot->plague_revision = plague_key;
+        int complete = 0;
+        PROFILE_SECTION(SNAPSHOT_PROFILE_PLAGUE, complete = copy_plague(snapshot, plague_key));
+        if (complete) snapshot->plague_revision = plague_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_PLAGUE); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE; }
     if (snapshot->revision == 0 || snapshot->events_revision != event_key) {

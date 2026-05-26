@@ -7,18 +7,20 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.10.d is a Windows graphical sandbox prototype written in C.
+Ver0.2.10.e is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.10.d is a side-panel cache checkpoint over Ver0.2.10.c. It keeps
-gameplay behavior unchanged while splitting the right-side panel cache by
-tab/subview, narrowing each panel data key, and adding a hover-only side-panel
-repaint path so hover movement no longer forces full panel cache rebuilds.
+Ver0.2.10.e is a Phase 5 snapshot-cache completion checkpoint over
+Ver0.2.10.d. It keeps gameplay behavior unchanged while adding simulation-side
+presentation caches for city summaries, diplomacy/war pairs, sea-lane
+snapshots, and plague summaries. Forced snapshot publishes after world
+generation, load, and manual simulation edits now prime those caches before
+publishing, and dead city cache entries no longer keep the city cache dirty
+forever.
 
 Known follow-up: large-map performance is still not solved. Current profiling
-shows remaining stalls outside the plague switch itself, including snapshot
-publish lock time, static layer rebuild chunks, sea-lane overlay drawing,
-calendar/scheduler work, diplomacy, war, plague animation, maritime redraws,
-and other late-game churn.
+shows remaining stalls outside the snapshot read-lock path, including static
+layer rebuild chunks, sea-lane overlay drawing, calendar/scheduler work,
+diplomacy, war, plague animation, maritime redraws, and other late-game churn.
 
 You can:
 
@@ -134,6 +136,9 @@ You can:
 109. Draw sea-lane dashes with stable world-distance rhythm and clearer shallow/deep colors and widths
 110. Gate diplomacy peace, tension, war starts, and map animations on current land or active sea-lane contact
 111. Fade disconnected known peace/tension relationships instead of allowing them to escalate without a current front
+112. Copy cached city, diplomacy, lane, and plague presentation data into RenderSnapshot instead of recomputing those summaries while holding the snapshot read lock
+113. Prime snapshot presentation caches before forced worldgen, load, and manual-action publishes so immediate UI views do not start with empty cache data
+114. Treat dead city cache slots as valid zero-summary entries so they do not keep city snapshot sections dirty forever
 
 ## Controls
 

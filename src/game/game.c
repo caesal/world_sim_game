@@ -4,6 +4,7 @@
 #include "core/dirty_flags.h"
 #include "core/load_progress.h"
 #include "core/render_snapshot.h"
+#include "core/render_snapshot_cache.h"
 #include "resource.h"
 #include "core/state_lock.h"
 #include "game/game_loop.h"
@@ -42,19 +43,12 @@ static void game_start_blank_world(void) {
     auto_run = 0;
     world_generated = 0;
     dirty_mark_world();
+    render_snapshot_cache_update_all();
     render_snapshot_publish_from_live_state();
 }
-void game_toggle_auto_run(void) {
-    if (!world_generated) return;
-    auto_run = !auto_run;
-    game_loop_reset();
-}
-void game_request_pause(void) {
-    auto_run = 0;
-}
-void game_pause_for_modal_or_action(void) {
-    game_request_pause();
-}
+void game_toggle_auto_run(void) { if (!world_generated) return; auto_run = !auto_run; game_loop_reset(); }
+void game_request_pause(void) { auto_run = 0; }
+void game_pause_for_modal_or_action(void) { game_request_pause(); }
 void game_request_regenerate_regions(void) {
     if (!world_generated || civ_count > 0) return;
     regions_generate(region_size_slider);
@@ -63,6 +57,7 @@ void game_request_regenerate_regions(void) {
     selected_x = -1;
     selected_y = -1;
     selected_civ = -1;
+    render_snapshot_cache_update_all();
     render_snapshot_publish_from_live_state();
 }
 static int game_request_add_civilization_from_selection_internal(const char *name, char symbol,
@@ -98,6 +93,7 @@ static int game_request_add_civilization_from_selection_internal(const char *nam
     dirty_mark_civ();
     country_focus_invalidate();
     world_visual_revision++;
+    render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
     return selected_civ;
@@ -136,6 +132,7 @@ int game_request_edit_selected_civilization(const char *name, char symbol,
                                        cohesion, production, commerce, innovation);
     selected_civ = civ_id;
     dirty_mark_civ();
+    render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
     return 1;
@@ -163,6 +160,7 @@ void game_request_set_civilization_color_exact(int civ_id, Color32 color) {
     state_write_lock();
     civs[civ_id].color = color;
     mark_color_visuals_dirty();
+    render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
 }
@@ -174,6 +172,7 @@ void game_request_set_civilization_color_auto_avoid(int civ_id, Color32 preferre
     seed_region = color_seed_region_for_civ(civ_id);
     civs[civ_id].color = civilization_pick_distinct_color(civ_id, preferred_color, -1, seed_region);
     mark_color_visuals_dirty();
+    render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
 }
@@ -212,6 +211,7 @@ void game_request_after_load_map(int restored_dynamic_state) {
     decision_snapshot_cache_mark_all_dirty();
     decision_snapshot_cache_update_budgeted(MAX_CIVS);
     world_visual_revision++;
+    render_snapshot_cache_update_all();
     render_snapshot_publish_from_live_state();
     load_progress_update(LOAD_STAGE_POST_LOAD, 6, 6);
 }
@@ -237,6 +237,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
     dirty_mark_territory();
     decision_snapshot_cache_mark_all_dirty();
     world_visual_revision++;
+    render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
     return collapsed;
@@ -263,6 +264,7 @@ int game_request_release_vassal(int vassal_id) {
     dirty_mark_territory();
     decision_snapshot_cache_mark_all_dirty();
     world_visual_revision++;
+    render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
     return 1;

@@ -1,6 +1,7 @@
 ﻿#include "sim/simulation.h"
 
 #include "core/dirty_flags.h"
+#include "core/render_snapshot_cache.h"
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_slots.h"
@@ -405,6 +406,7 @@ void simulation_reset_state(void) {
     plague_reset();
     territory_integrity_reset();
     decision_snapshot_cache_reset();
+    render_snapshot_cache_reset();
     territory_contact_hash = 0;
     world_invalidate_region_cache();
 }

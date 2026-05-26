@@ -3,6 +3,7 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "core/render_snapshot.h"
+#include "core/render_snapshot_cache.h"
 #include "core/worldgen_progress.h"
 #include "game/game_loop.h"
 #include "sim/civ_colors.h"
@@ -142,6 +143,7 @@ void game_request_new_world_with_progress(HWND hwnd) {
     dirty_mark_world();
     decision_snapshot_cache_mark_all_dirty();
     decision_snapshot_cache_update_budgeted(MAX_CIVS);
+    render_snapshot_cache_update_all();
     auto_run = 0;
     render_snapshot_publish_from_live_state();
     end_generation_stage(hwnd, WORLDGEN_FINALIZE, stage_start);

@@ -1,5 +1,52 @@
 # Version Log
 
+## Ver0.2.10.e
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.e.
+2. Completed the Phase 5 RenderSnapshot cache-slimming pass by adding a
+   simulation-side presentation cache module for snapshot-ready data.
+3. Cached city region summaries and city population summaries outside the
+   RenderSnapshot publish read-lock path.
+4. Cached diplomacy relation, war state, war-front flags, and peace-pressure
+   pairs outside the RenderSnapshot publish read-lock path.
+5. Cached sea-lane snapshot rows and plague civ/city/lane presentation
+   summaries outside the RenderSnapshot publish read-lock path.
+6. Added a synchronous `render_snapshot_cache_update_all()` helper for
+   simulation/write-side finalize paths that must publish immediately.
+7. Primed the snapshot presentation cache before forced publishes after world
+   generation finalize, load finalize, region regeneration, and manual
+   simulation edits such as add/edit civilization, color changes, civil unrest,
+   and vassal release.
+8. Changed dead city cache entries inside `city_count` to become valid
+   zero-summary entries for the current key so they no longer keep the city
+   cache dirty forever.
+9. Added Debug / Performance System rows for snapshot city cache, diplomacy
+   cache, plague cache, and lane snapshot source state.
+10. Kept gameplay, RNG, balance, save format, diplomacy rules, war rules,
+    plague rules, population math, maritime rules, route-potential rules, and
+    world generation semantics unchanged.
+
+Known follow-up:
+
+- Large-map stutter is improved around RenderSnapshot read-lock work, but it is
+  not fully solved. Remaining targets include static layer rebuild chunking,
+  sea-lane overlay layering, and further scheduler/write-lock slicing.
+- The new synchronous cache-prime helper is intended only for forced publish
+  finalize paths. Routine monthly cache refresh remains in the simulation
+  scheduler path.
+- `docs/official` was not regenerated for this render/cache checkpoint release.
+
+Validation notes:
+
+- Ver0.2.10.e uses `WORLD_SIM_VERSION "0.2.10.e"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, root executable checks, and executable GUI smoke/regression checks
+  are required before the release commit.
+
 ## Ver0.2.10.d
 
 Implemented fixes:
