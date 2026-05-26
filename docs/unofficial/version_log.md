@@ -1,5 +1,53 @@
 # Version Log
 
+## Ver0.2.10.d
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.d.
+2. Split the side-panel view-model cache into tab/subview-aware cache kinds for
+   collapsed, country list, country detail, population, plague, worldgen, debug
+   map, and debug performance views.
+3. Removed the global `render_snapshot_revision()` dependency from the default
+   panel data key so unrelated snapshot publishes no longer invalidate every
+   side-panel view.
+4. Narrowed panel UI/data keys so unrelated map zoom, map legend, worldgen,
+   debug, country, population, and plague state affect only the panels that
+   display them.
+5. Kept map zoom and map legend state in the World panel key because that panel
+   displays those values.
+6. Added a hover-only side-panel repaint path that does not force full panel
+   cache invalidation.
+7. Preserved full panel invalidation for real state changes such as clicks,
+   tab changes, scroll changes, language changes, and selected-civ changes.
+8. Added Debug / Performance System rows for panel cache key type, invalidation
+   kind, full/hover invalidation counts, and throttle counts.
+9. Fixed the Country Overview cache key so Recent Events updates when
+   `events_revision` changes, without adding event invalidation to unrelated
+   country detail tabs.
+10. Kept gameplay, world generation, expansion, diplomacy, war, plague,
+    population math, ports, maritime rules, sea-lane generation, route
+    potential, save format, and balance unchanged.
+
+Known follow-up:
+
+- Large-map stutter is improved for side-panel hover and unrelated map
+  interaction, but it is not fully solved. The next target is snapshot publish
+  slimming so RenderSnapshot copying holds the read lock for less time.
+- Hover-only repaint still draws the live side panel once for hover feedback.
+  If hover remains expensive, future work can split tooltip/highlight overlays
+  from the panel body.
+- `docs/official` was not regenerated for this render/cache checkpoint release.
+
+Validation notes:
+
+- Ver0.2.10.d uses `WORLD_SIM_VERSION "0.2.10.d"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, root executable checks, and executable smoke launch are required
+  before the release commit.
+
 ## Ver0.2.10.c
 
 Implemented fixes:

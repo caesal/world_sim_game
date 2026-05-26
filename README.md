@@ -7,19 +7,18 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.10.c is a Windows graphical sandbox prototype written in C.
+Ver0.2.10.d is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.10.c is a label-cache checkpoint over Ver0.2.10.b. It keeps gameplay
-behavior unchanged while splitting map labels into map-space source/candidate
-cache and screen-space placement cache, so pan/zoom preview no longer runs full
-label collection or collision placement and settled interaction rebuilds only
-the placement layer when source data is unchanged.
+Ver0.2.10.d is a side-panel cache checkpoint over Ver0.2.10.c. It keeps
+gameplay behavior unchanged while splitting the right-side panel cache by
+tab/subview, narrowing each panel data key, and adding a hover-only side-panel
+repaint path so hover movement no longer forces full panel cache rebuilds.
 
 Known follow-up: large-map performance is still not solved. Current profiling
-shows remaining stalls outside the plague switch itself, including side-panel
-cache invalidation, snapshot lock time, static layer rebuild chunks, sea-lane
-overlay drawing, calendar/scheduler work, diplomacy, war, plague animation,
-maritime redraws, and other late-game churn.
+shows remaining stalls outside the plague switch itself, including snapshot
+publish lock time, static layer rebuild chunks, sea-lane overlay drawing,
+calendar/scheduler work, diplomacy, war, plague animation, maritime redraws,
+and other late-game churn.
 
 You can:
 

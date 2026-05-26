@@ -16,8 +16,7 @@ static void invalidate_clipped(HWND hwnd, RECT rect) {
     if (rect.right > rect.left && rect.bottom > rect.top) InvalidateRect(hwnd, &rect, FALSE);
 }
 
-void ui_invalidate_side_panel(HWND hwnd) {
-    panel_view_model_cache_invalidate();
+static void invalidate_side_panel_rect(HWND hwnd) {
     RECT client;
     RECT panel;
     GetClientRect(hwnd, &client);
@@ -30,6 +29,16 @@ void ui_invalidate_side_panel(HWND hwnd) {
         if (handle.left < panel.left) panel.left = handle.left;
     }
     invalidate_clipped(hwnd, panel);
+}
+
+void ui_invalidate_side_panel(HWND hwnd) {
+    panel_view_model_cache_invalidate();
+    invalidate_side_panel_rect(hwnd);
+}
+
+void ui_invalidate_side_panel_hover(HWND hwnd) {
+    panel_view_model_cache_invalidate_hover();
+    invalidate_side_panel_rect(hwnd);
 }
 
 void ui_invalidate_map_viewport(HWND hwnd) {

@@ -195,13 +195,20 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
         perf_row(hdc, cursor, tr("City revisions", "City revisions"), text,
                   ui_theme_color(UI_COLOR_TEXT_MUTED));
     }
-    snprintf(text, sizeof(text), "build %d ms / age %d ms / refresh %d",
-             panel_view_model_cache_last_build_ms(), panel_view_model_cache_age_ms(),
-             panel_view_model_cache_refresh_count());
+    snprintf(text, sizeof(text), "%s / build %d ms / age %d ms / refresh %d",
+             panel_view_model_cache_key_type(), panel_view_model_cache_last_build_ms(),
+             panel_view_model_cache_age_ms(), panel_view_model_cache_refresh_count());
     perf_row(hdc, cursor, tr("Side panel cache", "侧栏缓存"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "%s / %s", panel_view_model_cache_last_reason(),
              panel_view_model_cache_reason_summary());
     perf_row(hdc, cursor, tr("Panel reason", "侧栏原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "last %s / full %d / hover %d / throttle %d",
+             panel_view_model_cache_last_invalidation(),
+             panel_view_model_cache_full_invalidation_count(),
+             panel_view_model_cache_hover_invalidation_count(),
+             panel_view_model_cache_throttle_count());
+    perf_row(hdc, cursor, tr("Panel invalidation", "Panel invalidation"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "draw %d/%d / source %d / place %d / %d ms",
              map_label_cache_drawn_count(), map_label_cache_candidate_count(),
              map_label_cache_source_rebuild_count(), map_label_cache_placement_rebuild_count(),

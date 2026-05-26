@@ -27,7 +27,7 @@
 static int tracking_mouse_leave = 0;
 static int last_panel_hover_target = -1;
 static void invalidate_side_panel(HWND hwnd) {
-    ui_invalidate_side_panel(hwnd);
+    ui_invalidate_side_panel_hover(hwnd);
 }
 
 static int panel_hover_target(RECT client, int x, int y) {
