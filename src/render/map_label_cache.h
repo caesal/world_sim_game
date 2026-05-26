@@ -1,10 +1,11 @@
-#ifndef WORLD_SIM_MAP_LABELS_H
-#define WORLD_SIM_MAP_LABELS_H
+#ifndef WORLD_SIM_MAP_LABEL_CACHE_H
+#define WORLD_SIM_MAP_LABEL_CACHE_H
 
-#include "render.h"
+#include "core/render_snapshot.h"
 #include "ui/ui_layout.h"
 
-void draw_map_labels(HDC hdc, RECT client, MapLayout layout);
+void map_label_cache_draw_labels(HDC hdc, RECT client, MapLayout layout,
+                                 const RenderSnapshot *snapshot);
 int map_label_cache_rebuild_count(void);
 int map_label_cache_last_rebuild_ms(void);
 int map_label_cache_candidate_count(void);

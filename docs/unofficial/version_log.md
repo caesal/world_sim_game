@@ -1,5 +1,50 @@
 # Version Log
 
+## Ver0.2.10.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.c.
+2. Added a dedicated map label cache module that separates map-space label
+   source/candidate data from screen-space placement.
+3. Reduced `src/render/map_labels.c` to a small draw-entry wrapper while moving
+   label cache implementation into `src/render/map_label_cache.c`.
+4. Changed the label source key so it excludes camera, viewport, raw pan,
+   mouse, and frame state.
+5. Kept the label source key tied to label dirty revisions, map size,
+   `city_visual_revision`, `regions_revision`, world generation state, and UI
+   language.
+6. Kept placement cache invalidation tied to placement concerns such as
+   viewport/layout buckets, display mode, semantic zoom LOD, tile size, and
+   selection.
+7. Skipped full label placement/collision work during `map_interaction_preview`
+   and allowed exact placement to rebuild after interaction settles.
+8. Added label debug rows for source rebuilds, placement rebuilds, preview
+   skips, drawn labels, and source/placement reasons.
+9. Added `src/render/map_label_cache.c` to the canonical Makefile build.
+10. Kept gameplay, world generation, expansion, diplomacy, war, plague,
+    population math, ports, maritime rules, sea-lane generation, route potential,
+    save format, and balance unchanged.
+
+Known follow-up:
+
+- Large-map stutter is improved for pan/zoom label work, but it is not fully
+  solved. The next target is side-panel cache key splitting so map zoom, hover,
+  unrelated snapshot publishes, and debug refreshes do not invalidate the whole
+  right-side panel.
+- `src/render/map_label_cache.c` is exactly 500 lines. Future label work should
+  split it before adding logic.
+- `docs/official` was not regenerated for this render/cache checkpoint release.
+
+Validation notes:
+
+- Ver0.2.10.c uses `WORLD_SIM_VERSION "0.2.10.c"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, root executable checks, and executable smoke launch are required
+  before the release commit.
+
 ## Ver0.2.10.b
 
 Implemented fixes:

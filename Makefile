@@ -105,6 +105,7 @@ SOURCES := \
 	src/render/region_render.c \
 	src/render/snapshot_map_layers.c \
 	src/render/map_labels.c \
+	src/render/map_label_cache.c \
 	src/render/map_label_style.c \
 	src/render/route_render.c \
 	src/render/river_geometry.c \

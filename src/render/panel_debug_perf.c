@@ -202,13 +202,17 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "%s / %s", panel_view_model_cache_last_reason(),
              panel_view_model_cache_reason_summary());
     perf_row(hdc, cursor, tr("Panel reason", "侧栏原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "labels %d/%d / last %d ms / rebuild %d",
+    snprintf(text, sizeof(text), "draw %d/%d / source %d / place %d / %d ms",
              map_label_cache_drawn_count(), map_label_cache_candidate_count(),
-             map_label_cache_last_rebuild_ms(), map_label_cache_rebuild_count());
+             map_label_cache_source_rebuild_count(), map_label_cache_placement_rebuild_count(),
+             map_label_cache_last_rebuild_ms());
     perf_row(hdc, cursor, tr("Label layout", "标签布局"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%s / %s", map_label_cache_last_reason(),
-             map_label_cache_reason_summary());
+    snprintf(text, sizeof(text), "source %s / placement %s / preview %d",
+             map_label_cache_source_last_reason(), map_label_cache_placement_last_reason(),
+             map_label_cache_preview_skip_count());
     perf_row(hdc, cursor, tr("Label reason", "标签原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    perf_row(hdc, cursor, tr("Label cache", "Label cache"), map_label_cache_reason_summary(),
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Label revisions", "Label revisions"),
               dirty_label_revision_summary(), ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "cities %d / ports %d",
