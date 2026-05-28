@@ -1,5 +1,53 @@
 # Version Log
 
+## Ver0.2.10.f
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.10.f.
+2. Restored the strict Phase 6 and performance validation gate in `AGENTS.md`
+   after the rejected Phase 6 experiments were rolled back to the
+   Ver0.2.10.e baseline.
+3. Reinstated the requirement that performance, stutter, scheduler, rendering,
+   map-display, simulation-speed, or Phase 6 validation use a Large map, at
+   least 26 placed civilizations, randomized physical map parameters,
+   randomized advanced terrain preferences, more than 600 natural regions, and
+   5x/max speed until at least five distinct civilizations reach technology
+   stage 10.
+4. Reinstated the requirement that final validation reports include final
+   year/month, natural region count, confirmed civilization count, speed
+   setting, and exact ids/names for five technology-stage-10 civilizations.
+5. Reinstated the fullscreen-safety rule for executable validation: agents must
+   not force `world_sim.exe` to the foreground when another fullscreen
+   application is active, and must use another monitor or a non-disruptive
+   background setup instead.
+6. Reinstated the maximized-window validation rule so the Debug / Performance
+   panel is fully visible or fully transcribed, rather than relying on cropped
+   performance evidence.
+7. Kept gameplay, RNG, balance, save format, diplomacy rules, war rules,
+   plague rules, population math, maritime rules, route-potential rules, world
+   generation semantics, rendering code, and simulation code unchanged.
+
+Known follow-up:
+
+- Phase 6 large-map stutter and simulation-speed work remains rejected and
+  unsolved. Future work should restart from this Ver0.2.10.f baseline and use
+  evidence-first diagnosis before making changes.
+- `docs/official` was not regenerated for this instructions/version checkpoint
+  release.
+
+Validation notes:
+
+- Ver0.2.10.f uses `WORLD_SIM_VERSION "0.2.10.f"`.
+- `MAP_SAVE_VERSION` remains 9 because this release does not change the save
+  format.
+- `make -B world_sim.exe`, `make check-text`, `git diff --check`, file-size
+  checks, and root executable checks are required before the release commit.
+- Full GUI gameplay regression is not required for this release because it only
+  changes repository instructions, version metadata, and release documentation;
+  no gameplay, simulation, rendering, UI, world generation, diplomacy, war,
+  plague, population, route, or map display code changed.
+
 ## Ver0.2.10.e
 
 Implemented fixes:

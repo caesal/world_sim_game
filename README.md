@@ -7,20 +7,25 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.10.e is a Windows graphical sandbox prototype written in C.
+Ver0.2.10.f is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.10.e is a Phase 5 snapshot-cache completion checkpoint over
-Ver0.2.10.d. It keeps gameplay behavior unchanged while adding simulation-side
-presentation caches for city summaries, diplomacy/war pairs, sea-lane
-snapshots, and plague summaries. Forced snapshot publishes after world
-generation, load, and manual simulation edits now prime those caches before
-publishing, and dead city cache entries no longer keep the city cache dirty
-forever.
+Ver0.2.10.f is an AGENTS validation-policy restoration checkpoint over
+Ver0.2.10.e. It keeps gameplay behavior unchanged after the rejected Phase 6
+performance experiments were rolled back, and restores the strict validation
+rules future performance work must pass before it can be accepted.
 
-Known follow-up: large-map performance is still not solved. Current profiling
-shows remaining stalls outside the snapshot read-lock path, including static
-layer rebuild chunks, sea-lane overlay drawing, calendar/scheduler work,
-diplomacy, war, plague animation, maritime redraws, and other late-game churn.
+Future performance, stutter, scheduler, rendering, map-display, simulation
+speed, or Phase 6 validation must use a Large map, at least 26 placed
+civilizations, randomized physical map parameters, randomized advanced terrain
+preferences, more than 600 natural regions, 5x/max speed until at least five
+distinct civilizations reach technology stage 10, maximized Debug /
+Performance evidence, and non-disruptive window handling when another
+fullscreen application is active.
+
+Known follow-up: Phase 6 large-map performance is still not solved. Future
+work should restart from this Ver0.2.10.f baseline, diagnose with evidence
+first, and avoid claiming success unless the strict validation gate is fully
+met.
 
 You can:
 
