@@ -269,7 +269,8 @@ static void draw_boundary_layer(HDC hdc, RECT client, MapLayout layout,
                                 COLORREF outer, int outer_w, COLORREF inner, int inner_w,
                                 int min_length) {
     int saved = SaveDC(hdc);
-    IntersectClipRect(hdc, client.left, client.top, client.right - side_panel_w, client.bottom);
+    RECT viewport = get_map_viewport_rect(client);
+    IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
     draw_paths(hdc, layout, outer, outer_w, min_length);
     if (inner_w > 0) {
         int i;

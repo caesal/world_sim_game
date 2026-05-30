@@ -17,7 +17,7 @@ extern int map_h;
 #define MAP_W map_w
 #define MAP_H map_h
 #define MAX_CIVS 200
-#define MAX_CITIES 512
+#define MAX_CITIES 1024
 #define MAX_NATURAL_REGIONS 768
 #define MAX_REGIONS MAX_NATURAL_REGIONS
 #define MAX_REGION_NEIGHBORS 16

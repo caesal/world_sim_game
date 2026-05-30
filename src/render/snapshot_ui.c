@@ -89,11 +89,7 @@ int snapshot_ui_province_count(int civ_id) {
     for (i = 0; i < snapshot->region_count; i++) {
         if (snapshot->regions[i].alive && snapshot->regions[i].owner == civ_id) count++;
     }
-    if (count > 0) return count;
-    {
-        const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
-        return civ ? civ->summary.cities : 0;
-    }
+    return count;
 }
 
 const char *snapshot_ui_civ_name(int civ_id) {

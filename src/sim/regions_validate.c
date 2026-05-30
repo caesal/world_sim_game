@@ -2,6 +2,7 @@
 
 #include "core/game_types.h"
 #include "sim/region_boundary.h"
+#include "sim/regions_balance.h"
 #include "sim/regions.h"
 #include "sim/regions_shape.h"
 #include "world/terrain_query.h"
@@ -112,7 +113,8 @@ static int add_neighbor_score(int *ids, int *scores, int *count, int id, int sco
     return 1;
 }
 
-static int best_neighbor_for_region(int id, int allow_strong) {
+static int best_neighbor_for_region(int id, int allow_strong, int target_size,
+                                    RegionSizeBand band, int force_merge) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int ids[MAX_REGION_NEIGHBORS * 3];
     int scores[MAX_REGION_NEIGHBORS * 3];
@@ -140,12 +142,14 @@ static int best_neighbor_for_region(int id, int allow_strong) {
         }
     }
     for (i = 0; i < count; i++) {
-        if (scores[i] > best_score) {
-            best_score = scores[i];
+        int score = regions_merge_target_score(m->tile_count, measure[ids[i]].tile_count,
+                                               target_size, band, force_merge, scores[i]);
+        if (score > best_score) {
+            best_score = score;
             best = ids[i];
         }
     }
-    return best;
+    return best_score > -1000000 ? best : -1;
 }
 
 static int best_neighbor_for_component(int id, int comp, int allow_strong) {
@@ -184,18 +188,16 @@ static int best_neighbor_for_component(int id, int comp, int allow_strong) {
 }
 
 static int merge_tiny_regions_pass(int target_size) {
-    int tiny_limit = max(16, target_size / 4);
-    int protected_limit = max(10, target_size / 8);
+    RegionSizeBand band = regions_size_band(target_size);
     int changed = 0;
     int i, x, y;
 
     measure_basic();
     for (i = 0; i < region_count; i++) {
         int best;
-        if (measure[i].tile_count <= 0 || measure[i].tile_count >= tiny_limit) continue;
+        if (measure[i].tile_count <= 0 || measure[i].tile_count >= band.hard_min) continue;
         last_stats.tiny_regions++;
-        if (measure[i].protected_shape && measure[i].tile_count >= protected_limit) continue;
-        best = best_neighbor_for_region(i, measure[i].tile_count < protected_limit);
+        best = best_neighbor_for_region(i, 1, target_size, band, 1);
         if (best < 0) continue;
         for (y = measure[i].min_y; y <= measure[i].max_y; y++) {
             for (x = measure[i].min_x; x <= measure[i].max_x; x++) {
@@ -396,7 +398,8 @@ static int split_huge_region(int id, int target_size) {
 }
 
 static int split_huge_regions_pass(int target_size) {
-    int huge_limit = max(target_size * 5 / 2, target_size + 80);
+    RegionSizeBand band = regions_size_band(target_size);
+    int huge_limit = band.hard_max;
     int changed = 0, i;
     measure_basic();
     for (i = 0; i < region_count; i++) {
@@ -495,5 +498,12 @@ void regions_validate_postprocess(int target_size) {
     OutputDebugStringA(buffer);
 }
 
-void regions_validate_light_postprocess(int target_size) { reassign_disconnected_components(); smooth_slivers_pass(); merge_tiny_regions_pass(max(24, target_size * 2 / 3)); reassign_disconnected_components(); measure_basic(); update_final_quality_stats(); }
+void regions_validate_light_postprocess(int target_size) {
+    reassign_disconnected_components();
+    smooth_slivers_pass();
+    merge_tiny_regions_pass(target_size);
+    reassign_disconnected_components();
+    measure_basic();
+    update_final_quality_stats();
+}
 const RegionValidationStats *regions_validate_last_stats(void) { return &last_stats; }

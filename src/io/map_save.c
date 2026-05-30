@@ -9,13 +9,15 @@
 #include "sim/civilization_uid.h"
 #include "sim/disorder.h"
 #include "sim/regions.h"
+#include "sim/regions_port_policy.h"
+#include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 
 #include <commdlg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#define MAP_SAVE_VERSION 9
+#define MAP_SAVE_VERSION 10
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {
@@ -491,6 +493,9 @@ int load_map_from_file(HWND hwnd) {
     normalize_loaded_technology();
     civilization_migrate_loaded_names();
     civilization_repair_loaded_uids();
+    regions_repair_local_city_slots(1);
+    regions_port_policy_apply_all();
+    regions_refresh_province_ids_from_regions();
     game_request_after_load_map(header.version >= 8);
     load_progress_finish();
     load_progress_set_repaint_callback(NULL, NULL);

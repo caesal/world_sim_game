@@ -54,15 +54,7 @@ static const char *panel_kind_names[PANEL_CACHE_COUNT] = {
 };
 
 static RECT panel_rect_for(RECT client) {
-    RECT panel;
-    RECT handle;
-    panel.left = side_panel_collapsed ? client.right - SIDE_PANEL_COLLAPSED_W : client.right - side_panel_w;
-    panel.top = TOP_BAR_H;
-    panel.right = client.right;
-    panel.bottom = client.bottom;
-    handle = get_side_panel_handle_rect(client);
-    if (handle.left < panel.left) panel.left = handle.left;
-    return panel;
+    return get_side_panel_draw_rect(client);
 }
 
 static unsigned int mix_key(unsigned int key, int value) {

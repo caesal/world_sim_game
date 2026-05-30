@@ -3,6 +3,8 @@
 #include "core/dirty_flags.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/regions.h"
+#include "sim/regions_settlement.h"
 #include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
@@ -17,39 +19,26 @@ static int resource_deficit_value(int value, int target) {
     return clamp(target - value, 0, target);
 }
 
-static int province_borders_owner(int province_id, int owner) {
-    static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
-    int x;
-    int y;
-
-    if (province_id < 0 || owner < 0) return 0;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int d;
-            if (world[y][x].province_id != province_id) continue;
-            for (d = 0; d < 4; d++) {
-                int nx = x + dirs[d][0];
-                int ny = y + dirs[d][1];
-                if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-                if (world[ny][nx].owner == owner && world[ny][nx].province_id >= 0) return 1;
-            }
-        }
-    }
-    return 0;
+static int region_borders_owner(int region_id, int owner) {
+    return regions_region_has_owner_neighbor(region_id, owner);
 }
 
-static int province_value_for_winner(int province_id, int winner) {
-    RegionSummary province = summarize_city_region(province_id);
+static int region_value_for_winner(int region_id, int winner) {
+    const NaturalRegion *region = regions_get(region_id);
     CountrySummary country = summarize_country(winner);
-    int score = province.tiles / 2 + province.population / 12 + province.habitability * 4;
+    TerrainStats stats;
+    int score;
 
-    score += province.food * resource_deficit_value(country.food, 5) * 2;
-    score += province.water * resource_deficit_value(country.water, 5) * 3;
-    score += province.minerals * resource_deficit_value(country.minerals, 5) * 2;
-    score += province.wood * resource_deficit_value(country.wood, 5) * 2;
-    score += province.stone * resource_deficit_value(country.stone, 5) * 2;
-    score += province.money * 3;
-    if (cities[province_id].port) score += 18;
+    if (!region || !region->alive) return -1000000;
+    stats = region->average_stats;
+    score = region->tile_count / 2 + region->development_score / 2 + region->habitability * 4;
+    score += stats.food * resource_deficit_value(country.food, 5) * 2;
+    score += stats.water * resource_deficit_value(country.water, 5) * 3;
+    score += stats.minerals * resource_deficit_value(country.minerals, 5) * 2;
+    score += stats.wood * resource_deficit_value(country.wood, 5) * 2;
+    score += stats.stone * resource_deficit_value(country.stone, 5) * 2;
+    score += stats.money * 3 + region->resource_diversity * 4;
+    if (region->has_port_site) score += 18;
     return score + rnd(16);
 }
 
@@ -64,13 +53,14 @@ static int any_city_owned_by(int owner) {
 
 static int capital_candidate_score(int city_id, int owner, int enemy) {
     RegionSummary province = summarize_city_region(city_id);
+    int region_id = regions_region_for_city(city_id);
     int score;
 
     if (!cities[city_id].alive || cities[city_id].owner != owner) return -1000000;
     score = cities[city_id].population / 2 + province.food * 4 + province.water * 4 +
             province.money * 3 + province.habitability * 4 + province.tiles;
     if (cities[city_id].port) score += 20;
-    if (province_borders_owner(city_id, enemy)) score -= 60;
+    if (region_borders_owner(region_id, enemy)) score -= 60;
     return score;
 }
 
@@ -121,34 +111,74 @@ static int owner_in_loser_side(int loser, int owner) {
 static int side_owned_province_count(int loser) {
     int i;
     int count = 0;
-    for (i = 0; i < city_count; i++) {
-        if (cities[i].alive && owner_in_loser_side(loser, cities[i].owner)) count++;
+    for (i = 0; i < region_count; i++) {
+        if (natural_regions[i].alive && owner_in_loser_side(loser, natural_regions[i].owner_civ)) count++;
     }
     return count;
 }
 
-static int owner_can_cede_province(int loser, int owner) {
+static int owner_can_cede_region(int loser, int owner) {
     if (vassal_is_direct(loser, owner) && war_owned_province_count(owner) <= 1) return 0;
     return 1;
 }
 
-static int winner_capital_distance(int province_id, int winner) {
-    int capital = civs[winner].capital_city;
-    if (capital < 0 || capital >= city_count || !cities[capital].alive) return 1000000;
-    return abs(cities[province_id].x - cities[capital].x) +
-           abs(cities[province_id].y - cities[capital].y);
+static int region_point_x(const NaturalRegion *region) {
+    return region->capital_x >= 0 ? region->capital_x : region->center_x;
 }
 
-static int province_port_distance_to_winner(int province_id, int winner) {
-    int best = 1000000;
-    int px = cities[province_id].port_x >= 0 ? cities[province_id].port_x : cities[province_id].x;
-    int py = cities[province_id].port_y >= 0 ? cities[province_id].port_y : cities[province_id].y;
+static int region_point_y(const NaturalRegion *region) {
+    return region->capital_y >= 0 ? region->capital_y : region->center_y;
+}
+
+static int winner_capital_distance(int region_id, int winner) {
+    const NaturalRegion *region = regions_get(region_id);
+    int capital = civs[winner].capital_city;
+    if (!region) return 1000000;
+    if (capital < 0 || capital >= city_count || !cities[capital].alive) return 1000000;
+    return abs(region_point_x(region) - cities[capital].x) +
+           abs(region_point_y(region) - cities[capital].y);
+}
+
+static int region_port_city(int region_id, int owner) {
     int i;
-    if (!cities[province_id].port) return best;
+
+    for (i = 0; i < city_count; i++) {
+        if (!cities[i].alive || cities[i].owner != owner || !cities[i].port) continue;
+        if (regions_region_for_city(i) == region_id) return i;
+    }
+    return -1;
+}
+
+static int region_preferred_transfer_city(int region_id, int owner) {
+    const NaturalRegion *region = regions_get(region_id);
+    int capital = owner >= 0 && owner < civ_count ? civs[owner].capital_city : -1;
+    int i;
+
+    if (regions_city_is_local_to_region(capital, region_id)) return capital;
+    if (region && regions_city_is_local_to_region(region->city_id, region_id)) return region->city_id;
+    for (i = 0; i < city_count; i++) {
+        if (cities[i].alive && cities[i].owner == owner && regions_region_for_city(i) == region_id) return i;
+    }
+    return -1;
+}
+
+static int region_port_distance_to_winner(int region_id, int winner) {
+    const NaturalRegion *region = regions_get(region_id);
+    int port_city;
+    int best = 1000000;
+    int px;
+    int py;
+    int i;
+
+    if (!region) return best;
+    port_city = region_port_city(region_id, region->owner_civ);
+    if (port_city < 0) return best;
+    px = cities[port_city].port_x >= 0 ? cities[port_city].port_x : cities[port_city].x;
+    py = cities[port_city].port_y >= 0 ? cities[port_city].port_y : cities[port_city].y;
     for (i = 0; i < city_count; i++) {
         int wx, wy, distance;
         if (!cities[i].alive || cities[i].owner != winner || !cities[i].port) continue;
-        if (!sea_lanes_network_connected(i, province_id)) continue;
+        if (!sea_lanes_network_connected(i, port_city)) continue;
         wx = cities[i].port_x >= 0 ? cities[i].port_x : cities[i].x;
         wy = cities[i].port_y >= 0 ? cities[i].port_y : cities[i].y;
         distance = abs(px - wx) + abs(py - wy);
@@ -157,22 +187,23 @@ static int province_port_distance_to_winner(int province_id, int winner) {
     return best;
 }
 
-static int pick_side_land_province(int loser, int winner) {
+static int pick_side_land_region(int loser, int winner) {
     int i;
     int best = -1;
     int best_distance = 1000000;
     int best_value = -1000000;
 
-    for (i = 0; i < city_count; i++) {
+    for (i = 0; i < region_count; i++) {
+        const NaturalRegion *region = &natural_regions[i];
         int owner;
         int distance;
         int value;
-        if (!cities[i].alive) continue;
-        owner = cities[i].owner;
-        if (!owner_in_loser_side(loser, owner) || !owner_can_cede_province(loser, owner)) continue;
-        if (!province_borders_owner(i, winner)) continue;
+        if (!region->alive) continue;
+        owner = region->owner_civ;
+        if (!owner_in_loser_side(loser, owner) || !owner_can_cede_region(loser, owner)) continue;
+        if (!region_borders_owner(i, winner)) continue;
         distance = winner_capital_distance(i, winner);
-        value = province_value_for_winner(i, winner);
+        value = region_value_for_winner(i, winner);
         if (distance < best_distance || (distance == best_distance && value > best_value)) {
             best_distance = distance;
             best_value = value;
@@ -182,21 +213,22 @@ static int pick_side_land_province(int loser, int winner) {
     return best;
 }
 
-static int pick_side_port_province(int loser, int winner) {
+static int pick_side_port_region(int loser, int winner) {
     int i;
     int best = -1;
     int best_distance = 1000000;
     int best_value = -1000000;
-    for (i = 0; i < city_count; i++) {
+    for (i = 0; i < region_count; i++) {
+        const NaturalRegion *region = &natural_regions[i];
         int owner;
         int distance;
         int value;
-        if (!cities[i].alive || !cities[i].port) continue;
-        owner = cities[i].owner;
-        if (!owner_in_loser_side(loser, owner) || !owner_can_cede_province(loser, owner)) continue;
-        distance = province_port_distance_to_winner(i, winner);
+        if (!region->alive) continue;
+        owner = region->owner_civ;
+        if (!owner_in_loser_side(loser, owner) || !owner_can_cede_region(loser, owner)) continue;
+        distance = region_port_distance_to_winner(i, winner);
         if (distance >= 1000000) continue;
-        value = province_value_for_winner(i, winner);
+        value = region_value_for_winner(i, winner);
         if (distance < best_distance || (distance == best_distance && value > best_value)) {
             best_distance = distance;
             best_value = value;
@@ -206,28 +238,38 @@ static int pick_side_port_province(int loser, int winner) {
     return best;
 }
 
-static int pick_side_cession_province(int loser, int winner) {
-    int province_id = pick_side_land_province(loser, winner);
-    return province_id >= 0 ? province_id : pick_side_port_province(loser, winner);
+static int pick_side_cession_region(int loser, int winner) {
+    int region_id = pick_side_land_region(loser, winner);
+    return region_id >= 0 ? region_id : pick_side_port_region(loser, winner);
 }
 
-static int transfer_side_border_provinces(int loser, int winner, int count) {
+static int transfer_side_border_regions(int loser, int winner, int count) {
     int transferred = 0;
 
     while (transferred < count) {
-        int province_id = pick_side_cession_province(loser, winner);
-        int province_owner;
+        int region_id = pick_side_cession_region(loser, winner);
+        const NaturalRegion *region = regions_get(region_id);
+        int region_owner;
+        int capital_city;
         int capital_lost;
-        if (province_id < 0) break;
-        province_owner = cities[province_id].owner;
-        capital_lost = province_id == civs[province_owner].capital_city || cities[province_id].capital;
-        if (cities[province_id].capital) dirty_mark_city();
-        cities[province_id].capital = 0;
-        if (capital_lost) civs[province_owner].capital_city = -1;
-        world_claim_city_region(province_id, winner);
-        disorder_add_war_pressure(province_owner, 12);
+        int preferred_city;
+        if (!region) break;
+        region_owner = region->owner_civ;
+        if (!owner_in_loser_side(loser, region_owner)) break;
+        capital_city = civs[region_owner].capital_city;
+        capital_lost = regions_region_for_city(capital_city) == region_id;
+        preferred_city = region_preferred_transfer_city(region_id, region_owner);
+        if (!regions_claim_for_civ(region_id, winner, preferred_city, 0)) break;
+        if (capital_lost) {
+            civs[region_owner].capital_city = -1;
+            if (capital_city >= 0 && capital_city < city_count && cities[capital_city].capital) {
+                cities[capital_city].capital = 0;
+                dirty_mark_city();
+            }
+        }
+        disorder_add_war_pressure(region_owner, 12);
         transferred++;
-        if (capital_lost) handle_capital_loss(province_owner, winner);
+        if (capital_lost) handle_capital_loss(region_owner, winner);
     }
     return transferred;
 }
@@ -253,13 +295,7 @@ static int cession_count_from_loss(int loser, int winner, int casualties, int in
 }
 
 int war_owned_province_count(int civ_id) {
-    int i;
-    int count = 0;
-
-    for (i = 0; i < city_count; i++) {
-        if (cities[i].alive && cities[i].owner == civ_id) count++;
-    }
-    return count;
+    return regions_owned_count_for_civ(civ_id);
 }
 
 void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margin,
@@ -278,7 +314,7 @@ void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margi
         int cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
         int transferred;
         diplomacy_record_war_result(winner, loser);
-        transferred = transfer_side_border_provinces(loser, winner, cession_count);
+        transferred = transfer_side_border_regions(loser, winner, cession_count);
         if (transferred == 0) disorder_add_war_pressure(loser, 10);
         if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3)) {
             vassal_make(winner, loser, margin >= 3 ? 18 : 25);

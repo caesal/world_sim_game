@@ -24,7 +24,7 @@ int ui_handle_debug_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y
 
     if (subtab >= 0) {
         debug_subtab = subtab;
-        ui_invalidate_side_panel(hwnd);
+        ui_invalidate_side_panel_immediate(hwnd);
         return 1;
     }
     if (debug_subtab == DEBUG_SUBTAB_PERFORMANCE_SYSTEM) {

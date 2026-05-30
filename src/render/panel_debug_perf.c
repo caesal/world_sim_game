@@ -231,9 +231,15 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Label revisions", "Label revisions"),
               dirty_label_revision_summary(), ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "cities %d / ports %d",
-             render_city_icons_drawn_last_frame(), render_port_icons_drawn_last_frame());
+    snprintf(text, sizeof(text), "cities %d / neutral %d / ports %d",
+             render_city_icons_drawn_last_frame(), render_neutral_city_icons_drawn_last_frame(),
+             render_port_icons_drawn_last_frame());
     perf_row(hdc, cursor, tr("Map icons", "Map icons"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "hit %d / miss %d / rebuild %d / preview %d / %s",
+             render_city_overlay_cache_hits(), render_city_overlay_cache_misses(),
+             render_city_overlay_exact_rebuilds(), render_city_overlay_preview_reuses(),
+             render_overlay_cache_last_reason());
+    perf_row(hdc, cursor, tr("City overlay", "City overlay"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "path hit %d / miss %d / %d ms / visible %d",
              sea_lane_render_cache_hits(), sea_lane_render_cache_misses(),
              sea_lane_render_last_ms(), sea_lane_render_visible_routes());

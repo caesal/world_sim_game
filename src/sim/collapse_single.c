@@ -7,6 +7,7 @@
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
@@ -132,7 +133,7 @@ static void unclaim_single_region(int region_id, int owner) {
     int city_visual_changed = 0;
     if (region_id < 0 || region_id >= region_count) return;
     natural_regions[region_id].owner_civ = -1;
-    natural_regions[region_id].city_id = -1;
+    regions_deactivate_local_city(region_id);
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             if (world[y][x].region_id != region_id) continue;
@@ -146,8 +147,6 @@ static void unclaim_single_region(int region_id, int owner) {
         cities[i].alive = 0;
         cities[i].owner = -1;
         cities[i].capital = 0;
-        cities[i].port = 0;
-        cities[i].port_region = -1;
         city_visual_changed = 1;
     }
     if (city_visual_changed) dirty_mark_city();

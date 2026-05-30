@@ -18,17 +18,9 @@ static void invalidate_clipped(HWND hwnd, RECT rect) {
 
 static void invalidate_side_panel_rect(HWND hwnd) {
     RECT client;
-    RECT panel;
     GetClientRect(hwnd, &client);
-    panel.left = side_panel_collapsed ? client.right - SIDE_PANEL_COLLAPSED_W : client.right - side_panel_w;
-    panel.top = TOP_BAR_H;
-    panel.right = client.right;
-    panel.bottom = client.bottom;
-    {
-        RECT handle = get_side_panel_handle_rect(client);
-        if (handle.left < panel.left) panel.left = handle.left;
-    }
-    invalidate_clipped(hwnd, panel);
+    if (!side_panel_collapsed) invalidate_clipped(hwnd, get_side_panel_body_rect(client));
+    invalidate_clipped(hwnd, get_side_panel_handle_rect(client));
 }
 
 void ui_invalidate_side_panel(HWND hwnd) {
@@ -36,9 +28,23 @@ void ui_invalidate_side_panel(HWND hwnd) {
     invalidate_side_panel_rect(hwnd);
 }
 
+void ui_invalidate_side_panel_immediate(HWND hwnd) {
+    ui_invalidate_side_panel(hwnd);
+    UpdateWindow(hwnd);
+}
+
 void ui_invalidate_side_panel_hover(HWND hwnd) {
     panel_view_model_cache_invalidate_hover();
     invalidate_side_panel_rect(hwnd);
+}
+
+void ui_invalidate_side_panel_handle(HWND hwnd) {
+    RECT client;
+    RECT rect;
+    panel_view_model_cache_invalidate_hover();
+    GetClientRect(hwnd, &client);
+    rect = get_side_panel_handle_dirty_rect(client);
+    invalidate_clipped(hwnd, rect);
 }
 
 void ui_invalidate_map_viewport(HWND hwnd) {

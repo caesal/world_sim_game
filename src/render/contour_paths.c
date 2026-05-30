@@ -418,7 +418,8 @@ static void draw_layer(HDC hdc, RECT client, MapLayout layout, ContourKind kind,
                        COLORREF outer, int outer_w, COLORREF inner, int inner_w, int min_len) {
     int saved = SaveDC(hdc);
     ContourCache *cache = &caches[kind];
-    IntersectClipRect(hdc, client.left, client.top, client.right - side_panel_w, client.bottom);
+    RECT viewport = get_map_viewport_rect(client);
+    IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
     draw_cached_paths(hdc, client, layout, cache, outer, outer_w, min_len);
     if (inner_w > 0) draw_cached_paths(hdc, client, layout, cache, inner, inner_w, min_len);
     RestoreDC(hdc, saved);

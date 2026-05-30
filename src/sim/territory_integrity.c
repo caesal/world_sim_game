@@ -12,6 +12,7 @@
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/regions_settlement.h"
 #include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
@@ -294,13 +295,10 @@ static int create_independent_component(int owner, const int *regions, int count
     civs[child_id].disorder_migration = 15;
     civs[child_id].disorder_stability = 12;
     civs[child_id].collapse_grace_months = 300;
-    city_id = best_component_city(regions, count, owner);
-    if (city_id < 0) {
-        NaturalRegion *r = &natural_regions[seed_region];
-        city_id = world_create_city(child_id, r->capital_x, r->capital_y, max(900, r->average_stats.pop_capacity * 450), 1);
-    }
+    city_id = regions_activate_local_city(seed_region, child_id,
+                                          max(900, natural_regions[seed_region].average_stats.pop_capacity * 450),
+                                          1, 1);
     if (city_id >= 0) {
-        cities[city_id].owner = child_id;
         cities[city_id].capital = 1;
         dirty_mark_city();
         civs[child_id].capital_city = city_id;

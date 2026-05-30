@@ -1,4 +1,6 @@
 #include "sim/simulation.h"
+#include "sim/regions_port_policy.h"
+#include "sim/regions_settlement.h"
 
 #include <stdio.h>
 
@@ -60,4 +62,7 @@ void simulation_seed_default_civilizations(void) {
         event_log_push_structured(EVENT_TYPE_WORLD_GENERATION_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, 2, -1, placed, count, "");
     }
+    regions_repair_local_city_slots(1);
+    regions_port_policy_apply_all();
+    regions_refresh_province_ids_from_regions();
 }

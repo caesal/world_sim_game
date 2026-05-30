@@ -82,10 +82,11 @@ static int sy(MapLayout layout, const RenderSnapshot *snapshot, int y) {
 
 static int visible_bounds_snapshot(const RenderSnapshot *snapshot, RECT client, MapLayout layout,
                                    int *min_x, int *max_x, int *min_y, int *max_y) {
-    int left = max(client.left, layout.map_x);
-    int top = max(TOP_BAR_H, layout.map_y);
-    int right = min(client.right - side_panel_w, layout.map_x + layout.draw_w);
-    int bottom = min(client.bottom - BOTTOM_BAR_H, layout.map_y + layout.draw_h);
+    RECT viewport = get_map_viewport_rect(client);
+    int left = max(viewport.left, layout.map_x);
+    int top = max(viewport.top, layout.map_y);
+    int right = min(viewport.right, layout.map_x + layout.draw_w);
+    int bottom = min(viewport.bottom, layout.map_y + layout.draw_h);
     if (!snapshot || layout.draw_w <= 0 || layout.draw_h <= 0 || right <= left || bottom <= top) return 0;
     *min_x = clamp((left - layout.map_x) * snapshot->map_w / layout.draw_w - 1, 0, snapshot->map_w - 1);
     *max_x = clamp((right - layout.map_x) * snapshot->map_w / layout.draw_w + 1, 0, snapshot->map_w - 1);

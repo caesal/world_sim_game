@@ -54,6 +54,7 @@ void ui_wheel_process_pending(HWND hwnd) {
     ScreenToClient(hwnd, &point);
     GetClientRect(hwnd, &client);
 
+    if (side_panel_collapsed && side_panel_handle_hit_test(client, point.x, point.y)) return;
     if (!side_panel_collapsed && point.x >= client.right - side_panel_w) {
         if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
             if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW &&

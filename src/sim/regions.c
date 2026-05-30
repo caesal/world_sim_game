@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <string.h>
 #define REGION_SEED_TRIES 80
-#define REGION_TINY_DIVISOR 5
 #define REGION_CAPITAL_EDGE_PAD 2
 
 typedef struct {
@@ -275,7 +274,7 @@ static void rebuild_region_metadata(void) {
         int id = natural_regions[i].id;
         memset(&natural_regions[i], 0, sizeof(natural_regions[i]));
         natural_regions[i].id = id;
-        natural_regions[i].alive = 1;
+        natural_regions[i].alive = 0;
         natural_regions[i].owner_civ = -1;
         natural_regions[i].city_id = -1;
         natural_regions[i].port_x = -1;
@@ -321,6 +320,7 @@ static void rebuild_region_metadata(void) {
         int best_climate = 0;
         int best_ecology = 0;
         if (region->tile_count <= 0) continue;
+        region->alive = 1;
         region->center_x /= region->tile_count;
         region->center_y /= region->tile_count;
         region->average_stats = stats_average(region->total_stats, region->tile_count);
@@ -428,33 +428,28 @@ static void assign_unreached_land(void) {
     }
 }
 
-static void merge_tiny_regions(int min_size) {
+static void compact_region_ids(void) {
+    int remap[MAX_NATURAL_REGIONS];
+    int next = 0;
+    int old_count = region_count;
     int i;
+    int x;
+    int y;
 
     rebuild_region_metadata();
-    for (i = 0; i < region_count; i++) {
-        NaturalRegion *region = &natural_regions[i];
-        int best = -1;
-        int best_tiles = -1;
-        int n;
-        if (region->tile_count <= 0 || region->tile_count >= min_size || region->neighbor_count <= 0) continue;
-        for (n = 0; n < region->neighbor_count; n++) {
-            int neighbor = region->neighbors[n];
-            if (neighbor >= 0 && neighbor < region_count && natural_regions[neighbor].tile_count > best_tiles) {
-                best = neighbor;
-                best_tiles = natural_regions[neighbor].tile_count;
-            }
-        }
-        if (best >= 0) {
-            int x;
-            int y;
-            for (y = 0; y < MAP_H; y++) {
-                for (x = 0; x < MAP_W; x++) {
-                    if (world[y][x].region_id == i) world[y][x].region_id = best;
-                }
-            }
+    for (i = 0; i < old_count; i++) {
+        if (natural_regions[i].tile_count > 0) remap[i] = next++;
+        else remap[i] = -1;
+    }
+    if (next == old_count) return;
+    for (y = 0; y < MAP_H; y++) {
+        for (x = 0; x < MAP_W; x++) {
+            int id = world[y][x].region_id;
+            if (id >= 0 && id < old_count) world[y][x].region_id = remap[id];
         }
     }
+    region_count = next;
+    regions_claim_cache_reset();
 }
 
 void regions_generate(int region_size_value) {
@@ -473,12 +468,12 @@ void regions_generate(int region_size_value) {
     choose_region_seeds(target_count, seed_x, seed_y);
     grow_regions_from_seeds(target_count, target_size, seed_x, seed_y);
     assign_unreached_land();
-    merge_tiny_regions(max(24, target_size / REGION_TINY_DIVISOR));
     regions_validate_postprocess(target_size);
     rebuild_region_metadata();
     regions_shape_refine(target_size);
     regions_shape_repair_ugly(target_size);
     regions_validate_light_postprocess(target_size);
+    compact_region_ids();
     rebuild_region_metadata();
     compute_direction_scores();
     log_region_generation_debug(region_size_value, target_size, target_count);

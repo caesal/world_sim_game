@@ -325,7 +325,10 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     }
     blend.SourceConstantAlpha = (BYTE)(fog_pulse_alpha() * clamp(plague_fog_alpha, 0, 100) / 100);
     saved_dc = SaveDC(hdc);
-    IntersectClipRect(hdc, client.left, TOP_BAR_H, client.right - side_panel_w, client.bottom - BOTTOM_BAR_H);
+    {
+        RECT viewport = get_map_viewport_rect(client);
+        IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
+    }
     SetStretchBltMode(hdc, COLORONCOLOR);
     AlphaBlend(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
                fog_cache_dc, 0, 0, fog_cache_w, fog_cache_h, blend);

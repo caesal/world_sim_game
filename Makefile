@@ -73,9 +73,12 @@ SOURCES := \
 	src/sim/province_partition.c \
 	src/sim/region_boundary.c \
 	src/sim/regions_config.c \
+	src/sim/regions_balance.c \
 	src/sim/regions.c \
 	src/sim/regions_validate.c \
 	src/sim/regions_shape.c \
+	src/sim/regions_settlement.c \
+	src/sim/regions_port_policy.c \
 	src/sim/regions_spawn.c \
 	src/sim/spawn.c \
 	src/sim/expansion.c \

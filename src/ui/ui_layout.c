@@ -1,20 +1,16 @@
 #include "ui_layout.h"
 
-static int panel_effective_width(void) {
-    return side_panel_collapsed ? SIDE_PANEL_COLLAPSED_W : side_panel_w;
-}
-
-static int side_panel_handle_reserve(void) {
-    return 34;
+int ui_side_panel_reserved_width(void) {
+    return side_panel_collapsed ? 0 : side_panel_w;
 }
 
 RECT get_map_viewport_rect(RECT client) {
     RECT viewport;
-    int panel_w = panel_effective_width();
+    int panel_w = ui_side_panel_reserved_width();
 
     viewport.left = client.left;
     viewport.top = TOP_BAR_H;
-    viewport.right = client.right - panel_w - side_panel_handle_reserve();
+    viewport.right = client.right - panel_w;
     viewport.bottom = client.bottom - BOTTOM_BAR_H;
     if (viewport.right < viewport.left + 80) viewport.right = viewport.left + 80;
     if (viewport.bottom < viewport.top + 80) viewport.bottom = viewport.top + 80;
@@ -55,13 +51,18 @@ MapLayout get_map_layout(RECT client) {
 
 RECT get_side_panel_handle_rect(RECT client) {
     RECT rect;
-    int panel_left = client.right - panel_effective_width();
+    int panel_left = client.right - ui_side_panel_reserved_width();
     int handle_w = 28;
-    int handle_h = 68;
+    int handle_h = 28;
     int area_top = TOP_BAR_H;
     int area_bottom = client.bottom - BOTTOM_BAR_H;
-    rect.right = panel_left - 4;
-    rect.left = rect.right - handle_w;
+    if (side_panel_collapsed) {
+        rect.right = client.right - 8;
+        rect.left = rect.right - handle_w;
+    } else {
+        rect.left = panel_left;
+        rect.right = rect.left + handle_w;
+    }
     rect.top = area_top + ((area_bottom - area_top) - handle_h) / 2;
     rect.bottom = rect.top + handle_h;
     if (rect.left < client.left + 4) {
@@ -71,8 +72,30 @@ RECT get_side_panel_handle_rect(RECT client) {
     return rect;
 }
 
+RECT get_side_panel_handle_dirty_rect(RECT client) {
+    RECT rect = get_side_panel_handle_rect(client);
+    InflateRect(&rect, 10, 10);
+    return rect;
+}
+
+RECT get_side_panel_body_rect(RECT client) {
+    RECT rect;
+    if (side_panel_collapsed) return (RECT){0, 0, 0, 0};
+    rect.left = client.right - side_panel_w;
+    rect.top = TOP_BAR_H;
+    rect.right = client.right;
+    rect.bottom = client.bottom;
+    return rect;
+}
+
+RECT get_side_panel_draw_rect(RECT client) {
+    if (side_panel_collapsed) return get_side_panel_handle_rect(client);
+    return get_side_panel_body_rect(client);
+}
+
 int side_panel_handle_hit_test(RECT client, int x, int y) {
     RECT rect = get_side_panel_handle_rect(client);
+    InflateRect(&rect, 8, 8);
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
@@ -114,7 +137,8 @@ void ui_map_view_clamp(RECT client) {
 
 void ui_side_panel_apply_state(RECT client) {
     if (side_panel_collapsed) {
-        side_panel_w = SIDE_PANEL_COLLAPSED_W;
+        if (side_panel_w >= MIN_SIDE_PANEL_W) side_panel_expanded_w = side_panel_w;
+        side_panel_w = clamp(side_panel_expanded_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
     } else {
         side_panel_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
         side_panel_expanded_w = side_panel_w;
@@ -128,7 +152,6 @@ void ui_toggle_side_panel(RECT client) {
         side_panel_w = clamp(side_panel_expanded_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
     } else {
         side_panel_expanded_w = clamp(side_panel_w, MIN_SIDE_PANEL_W, MAX_SIDE_PANEL_W);
-        side_panel_w = SIDE_PANEL_COLLAPSED_W;
         side_panel_collapsed = 1;
     }
     if (map_view_auto_centered) ui_map_view_reset();
@@ -187,9 +210,10 @@ RECT get_panel_tab_rect(RECT client, int index) {
 
 RECT get_language_button_rect(RECT client) {
     RECT rect;
-    rect.left = client.right - side_panel_w - 92;
+    int panel_w = ui_side_panel_reserved_width();
+    rect.left = client.right - panel_w - 92;
     rect.top = 16;
-    rect.right = client.right - side_panel_w - 18;
+    rect.right = client.right - panel_w - 18;
     rect.bottom = 46;
     if (rect.left < client.left + 250) {
         rect.left = client.left + 250;
@@ -212,36 +236,49 @@ RECT get_reset_view_button_rect(RECT client) {
     return rect;
 }
 
-RECT get_map_legend_box_rect(RECT client) {
+static RECT map_legend_collapsed_rect(RECT frame) {
     RECT box;
-    RECT frame = get_map_frame_rect(client);
+    box.right = frame.right - 8;
+    box.left = box.right - 34;
+    box.bottom = frame.bottom - 8;
+    box.top = box.bottom - 34;
+    if (box.left < frame.left + 8 || box.top < frame.top + 8) SetRectEmpty(&box);
+    return box;
+}
+
+static int map_legend_full_height(int show_geography, int show_climate, int show_routes) {
     int geo_count = 11;
     int climate_count = CLIMATE_COUNT;
     int line_h = 20;
-    int geography_rows = 3 + geo_count + 1;
-    int climate_rows = climate_count + 1;
-    int route_rows = display_mode == DISPLAY_ROUTE_POTENTIAL ? 3 : 0;
+    int left_bottom = 0;
+    int right_bottom = 0;
+    if (show_geography) left_bottom = 30 + line_h + line_h * 3 + geo_count * line_h;
+    if (show_climate) {
+        right_bottom = 30 + line_h + climate_count * line_h;
+        if (show_routes) right_bottom += line_h * 4;
+    }
+    return max(left_bottom, right_bottom) + 12;
+}
+
+RECT get_map_legend_box_rect(RECT client) {
+    RECT box;
+    RECT frame = get_map_frame_rect(client);
     int show_geography = display_mode != DISPLAY_CLIMATE;
     int show_climate = display_mode == DISPLAY_POLITICAL || display_mode == DISPLAY_REGIONS ||
-                       display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL;
-    int rows = show_geography ? geography_rows : 0;
+                       display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL ||
+                       display_mode == DISPLAY_CLIMATE;
+    int show_routes = display_mode == DISPLAY_ROUTE_POTENTIAL;
     int box_w = show_geography && show_climate ? 390 : 210;
-    int full_h;
+    int full_h = map_legend_full_height(show_geography, show_climate, show_routes);
 
-    if (show_climate && climate_rows + route_rows > rows) rows = climate_rows + route_rows;
-    if (rows <= 0) rows = climate_rows;
-    full_h = rows * line_h + 38;
+    if (map_legend_collapsed) return map_legend_collapsed_rect(frame);
     if (!map_legend_collapsed && full_h + 180 > frame.bottom - frame.top) {
-        box.right = frame.right - 8;
-        box.left = box.right - 150;
-        box.bottom = frame.bottom - 8;
-        box.top = box.bottom - 34;
-        return box;
+        return map_legend_collapsed_rect(frame);
     }
     box.right = frame.right - 8;
     box.left = box.right - box_w;
     box.bottom = frame.bottom - 8;
-    box.top = map_legend_collapsed ? box.bottom - 34 : box.bottom - full_h;
+    box.top = box.bottom - full_h;
     if (box.left < frame.left + 8 || box.top < frame.top + 8) {
         SetRectEmpty(&box);
     }
@@ -256,11 +293,32 @@ RECT get_map_legend_toggle_rect(RECT client) {
         SetRectEmpty(&button);
         return button;
     }
+    if (map_legend_collapsed || box.right - box.left <= 40) return box;
     button.left = box.right - 34;
     button.top = box.top + 6;
     button.right = box.right - 8;
     button.bottom = box.top + 28;
     return button;
+}
+
+RECT get_map_legend_hit_rect(RECT client) {
+    RECT box = get_map_legend_box_rect(client);
+    RECT hit;
+
+    if (IsRectEmpty(&box)) {
+        SetRectEmpty(&hit);
+        return hit;
+    }
+    if (map_legend_collapsed || box.right - box.left <= 40) {
+        hit = box;
+        InflateRect(&hit, 12, 12);
+        return hit;
+    }
+    hit = box;
+    hit.left = max(box.left, box.right - 88);
+    hit.bottom = min(box.bottom, box.top + 48);
+    InflateRect(&hit, 8, 8);
+    return hit;
 }
 
 const char *speed_seconds_text(int index) {

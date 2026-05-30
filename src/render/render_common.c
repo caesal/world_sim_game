@@ -289,13 +289,15 @@ RECT metric_grid_rect(int x, int y, int box_w, int box_h, int index) {
 void draw_tooltip(HDC hdc, RECT client, const char *tooltip_text) {
     RECT tip;
     SIZE text_size;
-    int panel_left = client.right - side_panel_w;
+    int panel_left = client.right - ui_side_panel_reserved_width();
+    int max_width = side_panel_collapsed ? client.right - client.left - FORM_X_PAD * 2 :
+                    side_panel_w - FORM_X_PAD * 2;
     int width;
     int height = 26;
 
     if (!tooltip_text || hover_x < 0 || hover_y < 0) return;
     measure_text_utf8(hdc, tooltip_text, &text_size);
-    width = clamp(text_size.cx + 24, 120, side_panel_w - FORM_X_PAD * 2);
+    width = clamp(text_size.cx + 24, 120, max(120, max_width));
     tip.left = hover_x + 14;
     tip.top = hover_y + 18;
     tip.right = tip.left + width;
@@ -304,7 +306,7 @@ void draw_tooltip(HDC hdc, RECT client, const char *tooltip_text) {
         tip.right = client.right - FORM_X_PAD;
         tip.left = tip.right - width;
     }
-    if (tip.left < panel_left + FORM_X_PAD) {
+    if (!side_panel_collapsed && tip.left < panel_left + FORM_X_PAD) {
         tip.left = panel_left + FORM_X_PAD;
         tip.right = tip.left + width;
     }
@@ -321,10 +323,11 @@ void draw_tooltip(HDC hdc, RECT client, const char *tooltip_text) {
 }
 
 int visible_tile_bounds(RECT client, MapLayout layout, int *min_x, int *max_x, int *min_y, int *max_y) {
-    int view_left = client.left;
-    int view_top = TOP_BAR_H;
-    int view_right = client.right - side_panel_w;
-    int view_bottom = client.bottom - BOTTOM_BAR_H;
+    RECT viewport = get_map_viewport_rect(client);
+    int view_left = viewport.left;
+    int view_top = viewport.top;
+    int view_right = viewport.right;
+    int view_bottom = viewport.bottom;
 
     if (layout.draw_w <= 0 || layout.draw_h <= 0) return 0;
     if (view_right <= layout.map_x || view_bottom <= layout.map_y ||

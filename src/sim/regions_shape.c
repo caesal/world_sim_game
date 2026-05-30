@@ -2,6 +2,7 @@
 
 #include "core/game_types.h"
 #include "sim/region_boundary.h"
+#include "sim/regions_balance.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
 
@@ -174,12 +175,13 @@ static int protected_shape_is_coherent(const ShapeMetrics *m) {
 
 static RegionShapeClass classify_region_shape(int id, int target_size) {
     ShapeMetrics *m = &shape_metrics[id];
+    RegionSizeBand band = regions_size_band(target_size);
     int coherent = protected_shape_is_coherent(m);
     int diagonal_percent;
     if (m->tile_count <= 0) return REGION_SHAPE_OK;
     diagonal_percent = m->diagonal_links * 100 / max(1, m->tile_count);
-    if (m->tile_count < max(16, target_size / 5)) return REGION_SHAPE_TINY;
-    if (m->tile_count > max(target_size * 5 / 2, target_size + 90)) return REGION_SHAPE_HUGE;
+    if (m->tile_count < band.hard_min) return REGION_SHAPE_TINY;
+    if (m->tile_count > band.hard_max) return REGION_SHAPE_HUGE;
     if (m->avg_width_x100 < 300 && m->tile_count > 24) return REGION_SHAPE_SLIVER;
     if (diagonal_percent > 18 && m->fill_percent < 38 && m->perimeter_area > 96) return REGION_SHAPE_ARTIFICIAL_DIAGONAL;
     if (m->fill_percent < (coherent ? 18 : 25) && m->tile_count > target_size / 3) return REGION_SHAPE_LOW_FILL;
@@ -192,6 +194,8 @@ static RegionShapeClass classify_region_shape(int id, int target_size) {
 static int best_merge_neighbor_for_region(int id, int target_size) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int scores[MAX_NATURAL_REGIONS];
+    RegionSizeBand band = regions_size_band(target_size);
+    int force_merge = shape_metrics[id].tile_count < band.hard_min;
     int best = -1, best_score = INT_MIN;
     int x, y, d, i;
     memset(scores, 0, sizeof(scores));
@@ -212,15 +216,16 @@ static int best_merge_neighbor_for_region(int id, int target_size) {
         }
     }
     for (i = 0; i < region_count; i++) {
-        int size_penalty = 0;
+        int score;
         if (i == id || shape_metrics[i].tile_count <= 0) continue;
-        if (shape_metrics[i].tile_count > target_size * 2) size_penalty = (shape_metrics[i].tile_count - target_size * 2) / 8;
-        if (scores[i] - size_penalty > best_score) {
-            best_score = scores[i] - size_penalty;
+        score = regions_merge_target_score(shape_metrics[id].tile_count, shape_metrics[i].tile_count,
+                                           target_size, band, force_merge, scores[i]);
+        if (score > best_score) {
+            best_score = score;
             best = i;
         }
     }
-    return best_score > 0 ? best : -1;
+    return best_score > -1000000 ? best : -1;
 }
 
 static int merge_bad_region(int id, int target_size) {
@@ -310,6 +315,7 @@ static int choose_split_seeds(int id, int pieces, int *seed_x, int *seed_y) {
 static int split_bad_region(int id, int target_size) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     ShapeMetrics *m = &shape_metrics[id];
+    RegionSizeBand band = regions_size_band(target_size);
     int pieces = clamp(m->tile_count / max(1, target_size) + 1, 2, SHAPE_SPLIT_PARTS);
     int available = MAX_NATURAL_REGIONS - region_count;
     int seed_x[SHAPE_SPLIT_PARTS], seed_y[SHAPE_SPLIT_PARTS];
@@ -358,7 +364,7 @@ static int split_bad_region(int id, int target_size) {
     part_region[preserve_part] = id;
     for (p = 0; p < pieces; p++) {
         if (p == preserve_part) continue;
-        if (part_count[p] < max(16, target_size / 8)) part_region[p] = id;
+        if (part_count[p] < band.hard_min) part_region[p] = id;
         else {
             part_region[p] = region_count++;
             natural_regions[part_region[p]].id = part_region[p];
@@ -452,11 +458,13 @@ static void merge_small_islands(int min_size) {
 }
 
 void regions_shape_refine(int target_size) {
+    RegionSizeBand band = regions_size_band(target_size);
     int pass; last_merge_count = 0;
     for (pass = 0; pass < SHAPE_PASSES; pass++) { rebuild_shape_counts(); if (!smooth_sliver_pass()) break; }
-    rebuild_shape_counts(); merge_small_islands(max(18, target_size / 7)); }
+    rebuild_shape_counts(); merge_small_islands(band.hard_min); }
 
 void regions_shape_repair_ugly(int target_size) {
+    RegionSizeBand band = regions_size_band(target_size);
     int pass, i;
     last_ugly_count = last_repair_tiles = 0;
     last_ribbon_count = last_low_fill_count = last_diagonal_count = 0;
@@ -479,7 +487,7 @@ void regions_shape_repair_ugly(int target_size) {
             }
             if ((cls == REGION_SHAPE_TINY || cls == REGION_SHAPE_SLIVER) && merge_bad_region(i, target_size) > 0) {
                 changed++;
-            } else if ((shape_metrics[i].tile_count > target_size * 135 / 100 ||
+            } else if ((shape_metrics[i].tile_count > band.soft_max ||
                         shape_metrics[i].aspect > 520 || cls == REGION_SHAPE_ARTIFICIAL_DIAGONAL) &&
                        split_bad_region(i, target_size) > 0) {
                 changed++;

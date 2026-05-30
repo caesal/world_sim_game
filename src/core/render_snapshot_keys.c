@@ -53,8 +53,7 @@ int render_snapshot_cities_revision_key(void) {
 }
 
 int render_snapshot_city_visual_revision_key(void) {
-    int key = combined_key(dirty_revision_city(), dirty_revision_ownership());
-    key = combined_key(key, dirty_revision_province());
+    int key = dirty_revision_city();
     key = combined_key(key, city_count * 31 + civ_count);
     key = combined_key(key, map_w * 4099 + map_h);
     return combined_key(key, world_generated);

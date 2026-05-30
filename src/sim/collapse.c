@@ -10,6 +10,7 @@
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
@@ -159,13 +160,9 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     child->capital_city = -1;
     if (seed_region >= 0 && seed_region < region_count) {
         NaturalRegion *region = &natural_regions[seed_region];
-        int city_id = region->city_id;
-        if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) {
-            city_id = world_create_city(child_id, region->capital_x, region->capital_y,
-                                        max(800, region->average_stats.pop_capacity * 600), 1);
-        }
+        int city_id = regions_activate_local_city(seed_region, child_id,
+                                                  max(800, region->average_stats.pop_capacity * 600), 1, 1);
         if (city_id >= 0) {
-            cities[city_id].owner = child_id;
             cities[city_id].capital = 1;
             dirty_mark_city();
             child->capital_city = city_id;
@@ -186,26 +183,7 @@ static void apply_post_collapse_grace(int civ_id) {
 }
 
 static void claim_region_direct(int region_id, int owner) {
-    int x;
-    int y;
-    NaturalRegion *region = &natural_regions[region_id];
-    int city_id = region->city_id;
-
-    if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) {
-        city_id = world_create_city(owner, region->capital_x, region->capital_y,
-                                    max(700, region->average_stats.pop_capacity * 420), 0);
-        region->city_id = city_id;
-    }
-    if (city_id < 0) city_id = civs[owner].capital_city;
-    region->owner_civ = owner;
-    if (city_id >= 0 && city_id < city_count && cities[city_id].alive) cities[city_id].owner = owner;
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            if (world[y][x].region_id != region_id) continue;
-            world[y][x].owner = owner;
-            world[y][x].province_id = city_id >= 0 ? city_id : region_id;
-        }
-    }
+    regions_claim_for_civ(region_id, owner, natural_regions[region_id].city_id, 1);
 }
 
 static void collapse_release_vassal_relations(int civ_id) {

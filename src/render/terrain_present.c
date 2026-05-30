@@ -137,7 +137,7 @@ void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
 }
 
 static RECT visible_map_rect(RECT client, MapLayout layout) {
-    RECT view = {client.left, TOP_BAR_H, client.right - side_panel_w, client.bottom - BOTTOM_BAR_H};
+    RECT view = get_map_viewport_rect(client);
     RECT map = {layout.map_x, layout.map_y, layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
     RECT out;
     if (!IntersectRect(&out, &view, &map)) SetRectEmpty(&out);

@@ -26,12 +26,15 @@
 #include <windowsx.h>
 static int tracking_mouse_leave = 0;
 static int last_panel_hover_target = -1;
-static void invalidate_side_panel(HWND hwnd) {
-    ui_invalidate_side_panel_hover(hwnd);
+static void invalidate_panel_hover_target(HWND hwnd, int old_target, int new_target) {
+    if (old_target == -2 || new_target == -2) ui_invalidate_side_panel_handle(hwnd);
+    else ui_invalidate_side_panel_hover(hwnd);
 }
 
 static int panel_hover_target(RECT client, int x, int y) {
-    if (x < client.right - side_panel_w || y < TOP_BAR_H || y > client.bottom) return -1;
+    if (side_panel_handle_hit_test(client, x, y)) return -2;
+    if (!point_in_rect(get_side_panel_draw_rect(client), x, y)) return -1;
+    if (side_panel_collapsed) return 1;
     if (panel_tab == PANEL_COUNTRY) return panel_tab * 100000 + country_panel_hit_test(client, x, y);
     return panel_tab * 100000 + (x / 24) * 31 + y / 24;
 }
@@ -48,10 +51,11 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         ui_invalidate_full(hwnd);
         return;
     }
-    legend_toggle = get_map_legend_toggle_rect(client);
+    legend_toggle = get_map_legend_hit_rect(client);
     if (!IsRectEmpty(&legend_toggle) && point_in_rect(legend_toggle, mouse_x, mouse_y)) {
         map_legend_collapsed = !map_legend_collapsed;
         ui_invalidate_map_viewport(hwnd);
+        UpdateWindow(hwnd);
         return;
     }
     if (point_in_rect(get_language_button_rect(client), mouse_x, mouse_y)) {
@@ -73,13 +77,13 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
     }
-    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) { ui_toggle_side_panel(client); ui_forms_layout(hwnd); ui_invalidate_full(hwnd); return; }
+    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) { ui_toggle_side_panel(client); ui_forms_layout(hwnd); ui_invalidate_full(hwnd); UpdateWindow(hwnd); return; }
     if (side_panel_collapsed) { ui_select_tile_from_mouse(hwnd, mouse_x, mouse_y); return; }
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         if (point_in_rect(get_panel_tab_rect(client, i), mouse_x, mouse_y)) {
             panel_tab = i;
             ui_forms_layout(hwnd);
-            ui_invalidate_side_panel(hwnd);
+            ui_invalidate_side_panel_immediate(hwnd);
             return;
         }
     }
@@ -151,14 +155,14 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             hit > COUNTRY_PANEL_HIT_SUBTAB_BASE - COUNTRY_DETAIL_TAB_COUNT) {
             country_detail_subtab = COUNTRY_PANEL_HIT_SUBTAB_BASE - hit;
             country_detail_subtab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
-            ui_invalidate_side_panel(hwnd);
+            ui_invalidate_side_panel_immediate(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE &&
             hit >= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - DIPLOMACY_VIEW_OTHER) {
             country_diplomacy_view = COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - hit;
             country_detail_scroll_offsets[COUNTRY_DETAIL_DIPLOMACY] = 0;
-            ui_invalidate_side_panel(hwnd);
+            ui_invalidate_side_panel_immediate(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_DECISION_VIEW_BASE &&
@@ -166,7 +170,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             country_decision_subtab = COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - hit;
             country_decision_subtab = clamp(country_decision_subtab, 0, COUNTRY_DECISION_SUBTAB_COUNT - 1);
             country_detail_scroll_offsets[COUNTRY_DETAIL_DECISION] = 0;
-            ui_invalidate_side_panel(hwnd);
+            ui_invalidate_side_panel_immediate(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_SORT_POPULATION && hit >= COUNTRY_PANEL_HIT_SORT_DISORDER) {
@@ -224,6 +228,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     TRACKMOUSEEVENT track;
     int old_hover_x = hover_x;
     int old_hover_y = hover_y;
+    RECT panel_rect;
     int was_panel;
     int is_panel;
     GetClientRect(hwnd, &client);
@@ -239,14 +244,19 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     }
     hover_x = mouse_x;
     hover_y = mouse_y;
-    was_panel = old_hover_x >= client.right - side_panel_w && old_hover_y >= TOP_BAR_H && old_hover_y <= client.bottom;
-    is_panel = mouse_x >= client.right - side_panel_w && mouse_y >= TOP_BAR_H && mouse_y <= client.bottom;
+    panel_rect = get_side_panel_draw_rect(client);
+    was_panel = point_in_rect(panel_rect, old_hover_x, old_hover_y) ||
+                side_panel_handle_hit_test(client, old_hover_x, old_hover_y);
+    is_panel = point_in_rect(panel_rect, mouse_x, mouse_y) ||
+               side_panel_handle_hit_test(client, mouse_x, mouse_y);
     if ((panel_tab == PANEL_COUNTRY || panel_tab == PANEL_POPULATION ||
          panel_tab == PANEL_PLAGUE || panel_tab == PANEL_WORLD ||
          panel_tab == PANEL_DEBUG) &&
         (was_panel || is_panel) && panel_hover_target(client, mouse_x, mouse_y) != last_panel_hover_target) {
-        last_panel_hover_target = panel_hover_target(client, mouse_x, mouse_y);
-        invalidate_side_panel(hwnd);
+        int old_target = last_panel_hover_target;
+        int new_target = panel_hover_target(client, mouse_x, mouse_y);
+        last_panel_hover_target = new_target;
+        invalidate_panel_hover_target(hwnd, old_target, new_target);
     }
     if (debug_panel_event_scrollbar_drag(mouse_y)) { ui_invalidate_side_panel(hwnd); return; }
     if (dragging_map) {
@@ -277,10 +287,13 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
 static void handle_mouse_leave(HWND hwnd) {
     tracking_mouse_leave = 0;
     if (hover_x >= 0 || hover_y >= 0) {
+        RECT client;
+        int old_target = last_panel_hover_target;
         hover_x = -1;
         hover_y = -1;
         last_panel_hover_target = -1;
-        invalidate_side_panel(hwnd);
+        GetClientRect(hwnd, &client);
+        if (old_target != -1) invalidate_panel_hover_target(hwnd, old_target, panel_hover_target(client, -1, -1));
     }
 }
 static void handle_mouse_up(HWND hwnd) {
@@ -299,10 +312,13 @@ static void handle_mouse_up(HWND hwnd) {
 }
 static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
+    RECT viewport;
     GetClientRect(hwnd, &client);
     if (color_picker_active()) return;
     if (pause_menu_open) return;
-    if (mouse_x >= client.right - side_panel_w || mouse_y < TOP_BAR_H || mouse_y > client.bottom - BOTTOM_BAR_H) return;
+    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) return;
+    viewport = get_map_viewport_rect(client);
+    if (!point_in_rect(viewport, mouse_x, mouse_y)) return;
     dragging_map = 1;
     map_interaction_preview = 1;
     last_mouse_x = mouse_x;
@@ -418,7 +434,6 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             return 0;
         case WM_PAINT:
             paint_window(hwnd);
-            ui_forms_redraw_visible_controls();
             return 0;
         case WM_ERASEBKGND:
             return 1;

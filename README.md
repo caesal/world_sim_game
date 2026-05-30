@@ -7,23 +7,25 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.10.f is a Windows graphical sandbox prototype written in C.
+Ver0.2.11 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.10.f is an AGENTS validation-policy restoration checkpoint over
-Ver0.2.10.e. It keeps gameplay behavior unchanged after the rejected Phase 6
-performance experiments were rolled back, and restores the strict validation
-rules future performance work must pass before it can be accepted.
+Ver0.2.11 is a province, settlement, war-cession, and render-cache checkpoint
+over Ver0.2.10.f. It makes natural regions the owned province unit, keeps one
+stable generated settlement slot per natural region, treats ports as a city
+subtype rather than an extra settlement, and keeps neutral settlement icons
+visible only on the Regions map layer.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
 civilizations, randomized physical map parameters, randomized advanced terrain
 preferences, more than 600 natural regions, 5x/max speed until at least five
-distinct civilizations reach technology stage 10, maximized Debug /
-Performance evidence, and non-disruptive window handling when another
-fullscreen application is active.
+distinct civilizations reach technology stage 5, verify deep-sea routes
+transition from hidden/unrevealed to visible/revealed after unlock, include
+maximized Debug / Performance evidence, and use non-disruptive window handling
+when another fullscreen application is active.
 
 Known follow-up: Phase 6 large-map performance is still not solved. Future
-work should restart from this Ver0.2.10.f baseline, diagnose with evidence
+work should restart from this Ver0.2.11 baseline, diagnose with evidence
 first, and avoid claiming success unless the strict validation gate is fully
 met.
 
@@ -144,6 +146,10 @@ You can:
 112. Copy cached city, diplomacy, lane, and plague presentation data into RenderSnapshot instead of recomputing those summaries while holding the snapshot read lock
 113. Prime snapshot presentation caches before forced worldgen, load, and manual-action publishes so immediate UI views do not start with empty cache data
 114. Treat dead city cache slots as valid zero-summary entries so they do not keep city snapshot sections dirty forever
+115. Treat every natural region as one province with exactly one stable generated city slot
+116. Make port cities a subtype of that one city slot, with island landmasses guaranteed at least one port city
+117. Transfer war cessions by natural region rather than by legacy city-index province ids
+118. Show neutral generated settlement slots on the Regions map layer while hiding them on normal gameplay layers
 
 ## Controls
 

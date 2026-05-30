@@ -248,7 +248,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
             if (city_cap_fallback) append_log(log, log_size, "[Expansion] Island claim failed: city cap and no owner admin city. ");
             continue;
         }
-        if (city_cap_fallback) append_log(log, log_size, "[Expansion] Claimed island as dependency of nearest owned city. ");
+        if (city_cap_fallback) append_log(log, log_size, "[Expansion] Claimed island with its local region city. ");
         if (civ_id >= 0 && civ_id < MAX_CIVS) overseas_target_cursor[civ_id] = (unsigned char)((index + 1) % MARITIME_TARGET_KEEP);
         if (sea_stability > 0 && !civs[civ_id].deep_sea_route_unlocked_event_done) {
             disorder_relieve(civ_id, 25);

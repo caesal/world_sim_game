@@ -19,6 +19,8 @@
 #include "sim/plague.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/regions_port_policy.h"
+#include "sim/regions_settlement.h"
 #include "sim/route_potential.h"
 #include "sim/simulation.h"
 #include "sim/stability_decision.h"
@@ -53,6 +55,9 @@ void game_request_regenerate_regions(void) {
     if (!world_generated || civ_count > 0) return;
     regions_generate(region_size_slider);
     ports_ensure_island_ports();
+    regions_repair_local_city_slots(1);
+    regions_port_policy_apply_all();
+    regions_refresh_province_ids_from_regions();
     route_potential_rebuild();
     selected_x = -1;
     selected_y = -1;

@@ -33,14 +33,14 @@ void draw_side_panel(HDC hdc, RECT client) {
                                   DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
     HFONT old_font;
 
-    fill_rect(hdc, panel, ui_theme_color(UI_COLOR_PANEL));
-    fill_rect(hdc, divider, ui_theme_color(UI_COLOR_PANEL_LINE));
     if (side_panel_collapsed) {
         draw_side_panel_handle(hdc, client);
         DeleteObject(title_font);
         DeleteObject(body_font);
         return;
     }
+    fill_rect(hdc, panel, ui_theme_color(UI_COLOR_PANEL));
+    fill_rect(hdc, divider, ui_theme_color(UI_COLOR_PANEL_LINE));
     draw_panel_tabs(hdc, client);
 
     old_font = SelectObject(hdc, title_font);
@@ -57,7 +57,8 @@ void draw_side_panel(HDC hdc, RECT client) {
 }
 
 void draw_bottom_bar(HDC hdc, RECT client) {
-    RECT bar = {0, client.bottom - BOTTOM_BAR_H, client.right - side_panel_w, client.bottom};
+    int panel_w = ui_side_panel_reserved_width();
+    RECT bar = {0, client.bottom - BOTTOM_BAR_H, client.right - panel_w, client.bottom};
     RECT play = get_play_button_rect(client);
     char text[256];
     const char *speed_name_zh[SPEED_COUNT] = {"观察 10秒/月", "慢速 5秒/月", "正常 1秒/月", "快速 0.25秒/月", "极速 0.1秒/月"};
@@ -68,7 +69,7 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     const char *render_status;
     const char *sim_status;
     char actual_text[32];
-    RECT status_rect = {336, client.bottom - 40, client.right - side_panel_w - 12, client.bottom - 8};
+    RECT status_rect = {336, client.bottom - 40, client.right - panel_w - 12, client.bottom - 8};
     int i;
 
     profiler_snapshot(&profiler);
@@ -169,11 +170,11 @@ void draw_map_legend(HDC hdc, RECT client) {
     IntersectClipRect(hdc, box.left, box.top, box.right, box.bottom);
     fill_rect_alpha(hdc, toggle, RGB(47, 58, 68), 236);
     draw_center_text(hdc, toggle, collapsed ? "^" : "v", RGB(236, 242, 246));
-    draw_text_line(hdc, box.left + 10, box.top + 8, tr("Map Legend", "地图图例"), RGB(245, 245, 245));
     if (collapsed) {
         RestoreDC(hdc, saved_dc);
         return;
     }
+    draw_text_line(hdc, box.left + 10, box.top + 8, tr("Map Legend", "地图图例"), RGB(245, 245, 245));
 
     x = box.left + 10;
     y = box.top + 30;

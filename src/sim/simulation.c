@@ -14,6 +14,7 @@
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
+#include "sim/regions_settlement.h"
 #include "sim/province.h"
 #include "sim/province_partition.h"
 #include "sim/spawn.h"
@@ -66,7 +67,7 @@ static void recalculate_territory(void) {
         int owner = natural_regions[i].owner_civ;
         if (owner >= 0 && (owner >= civ_count || !civs[owner].alive)) {
             natural_regions[i].owner_civ = -1;
-            natural_regions[i].city_id = -1;
+            regions_deactivate_local_city(i);
         }
     }
     for (i = 0; i < city_count; i++) {
@@ -183,9 +184,7 @@ int world_create_city(int owner, int x, int y, int population, int capital) {
 void world_claim_city_region(int city_id, int owner) {
     int region_id = regions_region_for_city(city_id);
 
-    if (regions_claim_for_civ(region_id, owner, city_id, 0)) return;
-    /* Legacy fallback for debug/old saves where a city is not inside a generated natural region. */
-    province_claim_city_region(city_id, owner);
+    regions_claim_for_civ(region_id, owner, city_id, 0);
 }
 
 void world_mark_province_partition_dirty(int owner) {
@@ -234,11 +233,15 @@ static void rebuild_country_summary_cache(void) {
         country_summary_cache[i].population = 0;
         country_summary_cache[i].territory = civs[i].territory;
     }
-    for (i = 0; i < city_count; i++) {
-        if (cities[i].alive && cities[i].owner >= 0 && cities[i].owner < civ_count) {
-            country_summary_cache[cities[i].owner].cities++;
-            country_summary_cache[cities[i].owner].population += cities[i].population;
-            if (cities[i].port) country_summary_cache[cities[i].owner].ports++;
+    for (i = 0; i < region_count; i++) {
+        int owner = natural_regions[i].owner_civ;
+        int city_id = natural_regions[i].city_id;
+        if (!natural_regions[i].alive || owner < 0 || owner >= civ_count) continue;
+        if (regions_city_is_local_to_region(city_id, i) &&
+            cities[city_id].alive && cities[city_id].owner == owner) {
+            country_summary_cache[owner].cities++;
+            country_summary_cache[owner].population += cities[city_id].population;
+            if (cities[city_id].port) country_summary_cache[owner].ports++;
         }
     }
     for (y = 0; y < MAP_H; y++) {
@@ -357,15 +360,16 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
     civ->capital_city = -1;
     technology_initialize_civ(civ_id);
 
-    city_id = create_city(civ_id, x, y, civ->population, 1);
+    city_id = regions_activate_local_city(region_id, civ_id, civ->population, 1, 1);
     if (city_id < 0) {
         civilization_reset_slot_state(civ_id);
         return 0;
     }
+    snprintf(cities[city_id].name, sizeof(cities[city_id].name), "%s Capital",
+             civilization_display_name_for_language(civ_id, 0));
     civ->capital_city = city_id;
     if (!regions_claim_as_province(region_id, civ_id, city_id)) {
-        if (city_id == city_count - 1) city_count--;
-        else cities[city_id].alive = 0;
+        regions_deactivate_local_city(region_id);
         civilization_reset_slot_state(civ_id);
         return 0;
     }

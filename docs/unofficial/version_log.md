@@ -1,5 +1,48 @@
 # Version Log
 
+## Ver0.2.11
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.11.
+2. Rebalanced natural-region province sizing with explicit hard/soft size
+   bands, target-fit merge scoring, and stricter huge-region splitting so
+   province sizes can vary without extreme outliers.
+3. Made natural regions the province ownership unit used by war cession
+   accounting and transfer selection.
+4. Added stable one-region-one-city settlement slots generated at worldgen,
+   repaired after load/regeneration, and preserved across claim and war
+   transfer.
+5. Moved port-city assignment into a full region port-policy pass. Ports are a
+   subtype of the one region city, not an extra settlement entity.
+6. Applied coastal port weighting and forced at least one port city for island
+   land components when a valid coastal candidate exists.
+7. Updated settlement rendering so neutral generated city/port slots are
+   visible on the Regions map layer but hidden on normal gameplay layers.
+8. Exposed city overlay cache and neutral-settlement debug counters in the
+   Debug / Performance panel.
+9. Kept side-panel collapse, handle dirty-rect, legend, and UI-only repaint
+   fixes in the release scope.
+10. Updated AGENTS validation to require technology stage 5 and explicit
+    deep-sea route hidden-before/revealed-after evidence for strict regression.
+
+Known follow-up:
+
+- Phase 6 large-map stutter and simulation-speed work remains outside this
+  release scope.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.2.11 uses `WORLD_SIM_VERSION "0.2.11"`.
+- `MAP_SAVE_VERSION` is 10 because generated settlement/port-region state is
+  repaired and normalized after loading.
+- Required release checks include `make -B world_sim.exe`,
+  `make check-text`, `git diff --check`, file-size checks, root executable
+  inventory, static keyword scans, focused GUI validation, and the current
+  AGENTS strict regression for simulation/render/map-display changes.
+
 ## Ver0.2.10.f
 
 Implemented fixes:

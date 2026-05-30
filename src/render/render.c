@@ -339,22 +339,22 @@ static int rects_intersect(RECT a, RECT b) {
     return IntersectRect(&out, &a, &b);
 }
 
-static RECT side_panel_rect(RECT client) {
-    RECT panel;
-    RECT handle;
-    panel.left = side_panel_collapsed ? client.right - SIDE_PANEL_COLLAPSED_W : client.right - side_panel_w;
-    panel.top = TOP_BAR_H;
-    panel.right = client.right;
-    panel.bottom = client.bottom;
-    handle = get_side_panel_handle_rect(client);
-    if (handle.left < panel.left) panel.left = handle.left;
-    return panel;
+static int rect_contains_rect(RECT o, RECT i) { return i.left >= o.left && i.top >= o.top && i.right <= o.right && i.bottom <= o.bottom && i.right > i.left && i.bottom > i.top; }
+
+static int paint_is_ui_chrome_only(RECT client, RECT paint) {
+    RECT top = {client.left, client.top, client.right, TOP_BAR_H}, bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
+    RECT side = get_side_panel_draw_rect(client), handle = get_side_panel_handle_rect(client);
+    RECT handle_dirty = get_side_panel_handle_dirty_rect(client);
+    if (!side_panel_collapsed && handle.left < side.left) side.left = handle.left;
+    return rect_contains_rect(top, paint) || rect_contains_rect(bottom, paint) ||
+           rect_contains_rect(side, paint) || rect_contains_rect(handle, paint) ||
+           rect_contains_rect(handle_dirty, paint);
 }
 
 static void draw_partial_ui(HDC hdc, RECT client, RECT paint) {
     RECT top = {client.left, client.top, client.right, TOP_BAR_H};
     RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
-    RECT panel = side_panel_rect(client);
+    RECT panel = get_side_panel_draw_rect(client);
     if (rects_intersect(paint, top)) {
         draw_top_bar(hdc, client);
         if (render_snapshot_age_ms() > 500) draw_stale_ui_indicator(hdc, client);
@@ -377,6 +377,7 @@ static int can_paint_ui_only(RECT client, RECT paint) {
     WorldGenProgress progress;
     worldgen_progress_get(&progress);
     if (color_picker_active() || pause_menu_open || progress.active || load_progress_active()) return 0;
+    if (paint_is_ui_chrome_only(client, paint)) return 1;
     return !rects_intersect(paint, viewport);
 }
 
@@ -487,6 +488,11 @@ int render_scene_cache_hits(void) { return scene_cache_hits; }
 int render_scene_cache_misses(void) { return scene_cache_misses; }
 int render_scene_cache_last_build_ms(void) { return scene_cache_last_build_ms; }
 const char *render_scene_cache_last_reason(void) { return scene_cache_last_reason_text; }
+int render_city_overlay_cache_hits(void) { return city_overlay_cache_hits; }
+int render_city_overlay_cache_misses(void) { return city_overlay_cache_misses; }
+int render_city_overlay_exact_rebuilds(void) { return city_overlay_exact_rebuilds; }
+int render_city_overlay_preview_reuses(void) { return city_overlay_preview_reuses; }
+const char *render_overlay_cache_last_reason(void) { return overlay_last_reason_text; }
 const char *render_scene_cache_reason_summary(void) {
     static char text[160];
     snprintf(text, sizeof(text), "r %d/%d/%d/%d c %d/%d/%d/%d %s",

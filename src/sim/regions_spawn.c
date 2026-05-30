@@ -6,8 +6,7 @@
 #include "core/profiler.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
-#include "sim/population.h"
-#include "sim/ports.h"
+#include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 #include "sim/territory_integrity.h"
 #include "world/terrain_query.h"
@@ -209,68 +208,26 @@ int regions_region_has_owner_neighbor(int region_id, int owner) {
     return 0;
 }
 
-static int city_can_admin_region(int city_id, int owner, int region_id) {
-    if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) return 0;
-    if (cities[city_id].owner != owner) return 0;
-    return regions_region_for_city(city_id) == region_id;
-}
-
-static int city_is_in_region(int city_id, int region_id) {
-    if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) return 0;
-    return regions_region_for_city(city_id) == region_id;
-}
-
-static int find_region_city(int region_id, int owner) {
+int regions_owned_count_for_civ(int civ_id) {
     int i;
+    int count = 0;
 
-    for (i = 0; i < city_count; i++) {
-        if (city_can_admin_region(i, owner, region_id)) return i;
+    if (civ_id < 0 || civ_id >= MAX_CIVS) return 0;
+    for (i = 0; i < region_count; i++) {
+        if (natural_regions[i].alive && natural_regions[i].owner_civ == civ_id) count++;
     }
-    return -1;
+    return count;
 }
 
-static int find_nearest_owner_city(const NaturalRegion *region, int owner) {
-    int best_city = -1;
-    int best_dist = MAP_W * MAP_W + MAP_H * MAP_H;
-    int i;
-
-    for (i = 0; i < city_count; i++) {
-        int dx;
-        int dy;
-        int dist;
-        if (!cities[i].alive || cities[i].owner != owner) continue;
-        dx = cities[i].x - region->capital_x;
-        dy = cities[i].y - region->capital_y;
-        dist = dx * dx + dy * dy;
-        if (dist < best_dist) {
-            best_dist = dist;
-            best_city = i;
-        }
-    }
-    return best_city;
-}
-
-static int create_region_admin_city(const NaturalRegion *region, int owner) {
+static int region_claim_seed_population(const NaturalRegion *region) {
     TerrainStats stats;
-    int source_city;
     int desired;
-    int seed_population;
-    int city_id;
 
-    if (!region || region->capital_x < 0 || region->capital_y < 0 || city_count >= MAX_CITIES) return -1;
-    if (city_at(region->capital_x, region->capital_y) >= 0) return -1;
+    if (!region || region->capital_x < 0 || region->capital_y < 0) return 1200;
     stats = tile_stats(region->capital_x, region->capital_y);
     desired = 1600 + stats.food * 420 + stats.water * 420 + stats.pop_capacity * 520 +
               stats.habitability * 280 + stats.money * 180 + min(region->tile_count, 1200) * 2;
-    desired = clamp(desired + rnd(1200), 1200, 18000);
-    source_city = find_nearest_owner_city(region, owner);
-    if (source_city >= 0) desired = clamp(desired, 800, max(900, cities[source_city].population / 9));
-    seed_population = source_city >= 0 ? min(500, desired) : desired;
-    city_id = world_create_city(owner, region->capital_x, region->capital_y, seed_population, 0);
-    if (city_id >= 0 && source_city >= 0 && desired > seed_population) {
-        population_migrate_between_cities(source_city, city_id, desired - seed_population);
-    }
-    return city_id;
+    return clamp(desired + rnd(1200), 1200, 18000);
 }
 
 int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int create_city) {
@@ -289,15 +246,8 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     if (!region_claim_tiles(region_id, &start, &count)) return 0;
     claim_start = GetTickCount();
     trace = profiler_call_begin();
-    admin_city = city_is_in_region(preferred_city_id, region_id) ? preferred_city_id : -1;
-    if (admin_city < 0) admin_city = find_region_city(region_id, owner);
-    if (admin_city < 0 && region->owner_civ == owner && city_can_admin_region(region->city_id, owner, region_id)) {
-        admin_city = region->city_id;
-    }
-    if (admin_city < 0 && create_city) {
-        admin_city = create_region_admin_city(region, owner);
-    }
-    if (admin_city < 0) admin_city = find_nearest_owner_city(region, owner);
+    if (regions_city_is_local_to_region(preferred_city_id, region_id)) region->city_id = preferred_city_id;
+    admin_city = regions_activate_local_city(region_id, owner, region_claim_seed_population(region), 0, create_city);
     if (admin_city < 0) {
         profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));
         profiler_call_end("regions_claim_for_civ", owner, region_id, trace);
@@ -305,11 +255,6 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     }
     if (region->name_id < 0) province_names_assign_region_for_heritage(region_id, civs[owner].heritage);
 
-    if (admin_city >= 0 && admin_city < city_count) {
-        if (!cities[admin_city].alive || cities[admin_city].owner != owner) dirty_mark_city();
-        cities[admin_city].owner = owner;
-        cities[admin_city].alive = 1;
-    }
     region->owner_civ = owner;
     region->city_id = admin_city;
     profiler_add_scanned_tiles(count);
@@ -330,9 +275,6 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
         touched++;
     }
     profiler_add_claim_tiles_touched(touched);
-    if (!ports_activate_region_port_for_city(region_id, admin_city, owner)) {
-        ports_maybe_make_city_port(admin_city);
-    }
     territory_integrity_repair_capitals();
     world_invalidate_region_cache();
     dirty_mark_territory();

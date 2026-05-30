@@ -234,7 +234,6 @@ static int repartition_owner_from_regions(int owner) {
             int admin;
             if (world[y][x].owner != owner || !is_land(world[y][x].geography)) continue;
             admin = region_admin_city(world[y][x].region_id, owner);
-            if (admin < 0) admin = nearest_owner_city(owner, x, y);
             world[y][x].province_id = admin;
             handled_any = 1;
         }
