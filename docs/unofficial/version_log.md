@@ -1,5 +1,46 @@
 # Version Log
 
+## Ver0.2.12.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.12.a.
+2. Added `src/ui/ui_clay_theme.c` and `src/ui/ui_clay_theme.h` for centralized
+   Claymorphism theme tokens, colors, radius, spacing, shadow, highlight, and
+   state text colors.
+3. Added `src/ui/ui_clay_primitives.c` and
+   `src/ui/ui_clay_primitives.h` for reusable clay surface drawing primitives.
+4. Wired the first minimal clay proof into the side-panel shell and panel-tab
+   backgrounds without changing panel content, hit testing, actions, or map
+   body rendering.
+5. Updated panel-tab text to use the clay theme text token instead of a local
+   hard-coded color.
+6. Synchronized `Makefile` and `build.bat` for the new UI clay source files.
+7. Added the AGENTS rule for hwnd-scoped, non-activating GUI validation on
+   another monitor, explicitly avoiding focus-stealing global input while the
+   user may be using another foreground application.
+
+Known follow-up:
+
+- Phase 2 Claymorphism work can start from this foundation, but should stay
+  scoped to top/bottom bars, buttons, tabs, and pause menu.
+- Broader clay migration should add a widget or surface-cache layer before
+  expanding repeated rounded shadows and stateful controls.
+- Phase 6 large-map stutter and simulation-speed work remains outside this
+  release scope.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.2.12.a uses `WORLD_SIM_VERSION "0.2.12.a"`.
+- `MAP_SAVE_VERSION` remains 10 because this release does not change the binary
+  save layout.
+- Build/static validation and focused non-disruptive GUI smoke validation were
+  completed for the Phase 1 UI presentation scope. The strict AGENTS full
+  game-flow regression was not completed and should not be claimed for broad
+  gameplay acceptance.
+
 ## Ver0.2.12
 
 Implemented fixes:

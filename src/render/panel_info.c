@@ -1,6 +1,7 @@
 ﻿#include "render_panel_internal.h"
 
 #include "render/snapshot_ui.h"
+#include "ui/ui_clay_primitives.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -58,8 +59,11 @@ void draw_panel_tabs(HDC hdc, RECT client) {
 
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         RECT tab = get_panel_tab_rect(client, i);
-        fill_rect(hdc, tab, i == panel_tab ? RGB(77, 80, 68) : RGB(43, 49, 52));
-        draw_center_text(hdc, tab, tr(names_en[i], names_zh[i]), RGB(238, 243, 247));
+        UiClayState state = i == panel_tab ? UI_CLAY_STATE_SELECTED :
+                            point_in_rect_local(tab, hover_x, hover_y) ?
+                            UI_CLAY_STATE_HOVER : UI_CLAY_STATE_NORMAL;
+        ui_clay_draw_tab(hdc, tab, state);
+        draw_center_text(hdc, tab, tr(names_en[i], names_zh[i]), ui_clay_text_color(state));
     }
 }
 

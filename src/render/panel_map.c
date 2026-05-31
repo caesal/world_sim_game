@@ -2,6 +2,7 @@
 
 #include "core/profiler.h"
 #include "game/game_loop.h"
+#include "ui/ui_clay_primitives.h"
 #include "ui/ui_theme.h"
 
 static void draw_side_panel_handle(HDC hdc, RECT client) {
@@ -39,7 +40,7 @@ void draw_side_panel(HDC hdc, RECT client) {
         DeleteObject(body_font);
         return;
     }
-    fill_rect(hdc, panel, ui_theme_color(UI_COLOR_PANEL));
+    ui_clay_draw_panel(hdc, panel, UI_CLAY_STATE_NORMAL);
     fill_rect(hdc, divider, ui_theme_color(UI_COLOR_PANEL_LINE));
     draw_panel_tabs(hdc, client);
 

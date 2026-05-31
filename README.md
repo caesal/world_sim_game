@@ -7,15 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.12 is a Windows graphical sandbox prototype written in C.
+Ver0.2.12.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.12 is a port-display, port-density, and release-hygiene checkpoint over
-Ver0.2.11. It keeps the one natural-region / one generated city-slot model,
-centralizes city and port display coordinates so labels, highlights, focus,
-click targets, and country focus use the same marker point, draws port capitals
-with the same capital-ring treatment, reduces coastal port density while
-preserving island port guarantees, and synchronizes `Makefile` / `build.bat`
-source lists.
+Ver0.2.12.a is a UI/UX Claymorphism foundation checkpoint over Ver0.2.12. It
+adds centralized clay theme tokens and reusable clay drawing primitives,
+connects the first minimal side-panel shell and panel-tab visual proof, and
+records non-disruptive hwnd-scoped GUI validation rules for working safely on a
+second monitor without stealing focus from another foreground application.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -27,7 +25,7 @@ maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
 Known follow-up: Phase 6 large-map performance is still not solved. Future
-work should restart from this Ver0.2.12 baseline, diagnose with evidence
+work should restart from this Ver0.2.12.a baseline, diagnose with evidence
 first, and avoid claiming success unless the strict validation gate is fully
 met.
 

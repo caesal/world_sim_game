@@ -145,6 +145,8 @@ SOURCES := \
 	src/render/panel_info.c \
 	src/render/panel_map.c \
 	src/render/icons.c \
+	src/ui/ui_clay_theme.c \
+	src/ui/ui_clay_primitives.c \
 	src/ui/ui_theme.c \
 	src/ui/ui_widgets.c \
 	src/ui/color_picker.c \
