@@ -376,6 +376,12 @@ static int can_paint_ui_only(RECT client, RECT paint) {
     return !rects_intersect(paint, viewport);
 }
 
+static int render_input_waiting(void) { return (HIWORD(GetQueueStatus(QS_INPUT | QS_SENDMESSAGE)) & (QS_INPUT | QS_SENDMESSAGE)) != 0; }
+static int blit_cached_window(HDC hdc, int width, int height) {
+    if (!window_backbuffer.dc || window_backbuffer.width != width || window_backbuffer.height != height) return 0;
+    BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY); return 1;
+}
+
 static void render_world(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
     const RenderSnapshot *snapshot = render_context_snapshot();
@@ -447,6 +453,7 @@ void paint_window(HWND hwnd) {
     int height;
     int ui_only;
     int continue_static_work;
+    int deferred_for_input = 0;
 
     GetClientRect(hwnd, &client);
     width = client.right - client.left;
@@ -457,6 +464,8 @@ void paint_window(HWND hwnd) {
     continue_static_work = render_static_map_cache_needs_work();
     if (ui_only) {
         draw_partial_ui(hdc, client, ps.rcPaint);
+    } else if (render_input_waiting() && blit_cached_window(hdc, width, height)) {
+        deferred_for_input = 1;
     } else if (ensure_layer_cache(hdc, &window_backbuffer, client, get_map_layout(client))) {
         render_world(window_backbuffer.dc, client);
         color_picker_draw(window_backbuffer.dc, client);
@@ -466,6 +475,7 @@ void paint_window(HWND hwnd) {
         color_picker_draw(hdc, client);
     }
     if (!ui_only) continue_static_work = render_static_map_cache_needs_work();
+    if (deferred_for_input) continue_static_work = 1;
     render_context_end();
     render_snapshot_release(snapshot);
     profiler_record_render_ms((int)(GetTickCount() - render_start));
@@ -477,6 +487,26 @@ void paint_window(HWND hwnd) {
             ui_invalidate_map_viewport(hwnd);
         }
     }
+}
+
+void render_paint_side_panel_now(HWND hwnd) {
+    RECT client, panel, handle_dirty, paint; WorldGenProgress progress;
+    const RenderSnapshot *snapshot; HDC hdc; int saved;
+    DWORD start = GetTickCount();
+    if (!hwnd) return;
+    GetClientRect(hwnd, &client);
+    worldgen_progress_get(&progress);
+    if (color_picker_active() || pause_menu_open || progress.active || load_progress_active()) return;
+    panel = get_side_panel_draw_rect(client); handle_dirty = get_side_panel_handle_dirty_rect(client);
+    UnionRect(&paint, &panel, &handle_dirty);
+    if (paint.right <= paint.left || paint.bottom <= paint.top) return;
+    hdc = GetDC(hwnd); if (!hdc) return;
+    snapshot = render_snapshot_acquire(); render_context_begin(snapshot); saved = SaveDC(hdc);
+    IntersectClipRect(hdc, paint.left, paint.top, paint.right, paint.bottom);
+    draw_partial_ui(hdc, client, paint);
+    RestoreDC(hdc, saved);
+    render_context_end(); render_snapshot_release(snapshot); ReleaseDC(hwnd, hdc); ValidateRect(hwnd, &paint);
+    profiler_record_render_ms((int)(GetTickCount() - start));
 }
 
 int render_scene_cache_hits(void) { return scene_cache_hits; }

@@ -17,6 +17,9 @@ static DWORD last_frame_tick = 0;
 static int last_redraw_flags;
 static int last_completed_months;
 static int last_completed_month_map_redraw;
+static int pending_presentation_redraw;
+static int render_presentation_throttled;
+static DWORD last_presentation_redraw_tick;
 static char last_map_redraw_reason[160] = "none";
 
 static void append_map_reason(char *buffer, int buffer_size, const char *reason) {
@@ -29,9 +32,50 @@ static void append_map_reason(char *buffer, int buffer_size, const char *reason)
 
 void game_loop_reset(void) {
     last_frame_tick = GetTickCount();
+    pending_presentation_redraw = GAME_REDRAW_NONE;
+    render_presentation_throttled = 0;
+    last_presentation_redraw_tick = 0;
     simulation_worker_start();
     simulation_worker_reset_scheduler();
     profiler_reset();
+}
+
+static int presentation_throttle_interval_ms(int redraw) {
+    RuntimeProfilerSnapshot perf;
+    int actual_ms;
+    int target_ms;
+    int overloaded;
+    int worker_throttled;
+    if (!auto_run || speed_index < SPEED_COUNT - 1) return 0;
+    if (redraw & GAME_REDRAW_FULL) return 0;
+    if (map_interaction_preview) return 0;
+    profiler_snapshot(&perf);
+    actual_ms = simulation_worker_actual_ms_per_month();
+    target_ms = SPEED_MS[clamp(speed_index, 0, SPEED_COUNT - 1)];
+    overloaded = simulation_worker_overloaded();
+    worker_throttled = simulation_worker_presentation_throttled();
+    if (!worker_throttled && !overloaded &&
+        perf.render_avg_ms <= 34 && perf.render_peak_ms <= 80) {
+        return 0;
+    }
+    if (overloaded || actual_ms > target_ms * 6 || perf.render_avg_ms > 40) return 500;
+    return 250;
+}
+
+static int coalesce_presentation_redraw(int redraw, DWORD now) {
+    int interval = presentation_throttle_interval_ms(redraw);
+    int combined = redraw | pending_presentation_redraw;
+    if (!combined) return GAME_REDRAW_NONE;
+    if (interval > 0 && last_presentation_redraw_tick > 0 &&
+        (int)(now - last_presentation_redraw_tick) < interval) {
+        pending_presentation_redraw = combined;
+        render_presentation_throttled = 1;
+        return GAME_REDRAW_NONE;
+    }
+    pending_presentation_redraw = GAME_REDRAW_NONE;
+    render_presentation_throttled = 0;
+    last_presentation_redraw_tick = now;
+    return combined;
 }
 
 int game_loop_tick_frame(void) {
@@ -88,6 +132,7 @@ int game_loop_tick_frame(void) {
         if (dirty_render_maritime()) append_map_reason(map_reason, sizeof(map_reason), "maritime");
         if (dirty_render_labels()) append_map_reason(map_reason, sizeof(map_reason), "labels");
     }
+    redraw = coalesce_presentation_redraw(redraw, now);
     last_redraw_flags = redraw;
     last_completed_months = completed_months;
     last_completed_month_map_redraw = completed_months > 0 &&
@@ -121,7 +166,7 @@ int game_loop_visual_coalesced_months(void) {
 }
 
 int game_loop_presentation_throttled(void) {
-    return simulation_worker_presentation_throttled();
+    return simulation_worker_presentation_throttled() || render_presentation_throttled;
 }
 
 const char *game_loop_worker_status(void) {

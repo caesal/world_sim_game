@@ -2,6 +2,7 @@
 
 #include "core/constants.h"
 #include "game/game_loop.h"
+#include "render/render.h"
 #include "render/panel_view_model_cache.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
@@ -30,7 +31,7 @@ void ui_invalidate_side_panel(HWND hwnd) {
 
 void ui_invalidate_side_panel_immediate(HWND hwnd) {
     ui_invalidate_side_panel(hwnd);
-    UpdateWindow(hwnd);
+    render_paint_side_panel_now(hwnd);
 }
 
 void ui_invalidate_side_panel_hover(HWND hwnd) {

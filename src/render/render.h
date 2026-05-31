@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 
 void paint_window(HWND hwnd);
+void render_paint_side_panel_now(HWND hwnd);
 int render_scene_cache_hits(void);
 int render_scene_cache_misses(void);
 int render_scene_cache_last_build_ms(void);

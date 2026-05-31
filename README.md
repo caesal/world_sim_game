@@ -7,14 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.12.b is a Windows graphical sandbox prototype written in C.
+Ver0.2.12.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.12.b is a UI/UX Claymorphism Phase 2A and resource-hygiene checkpoint
-over Ver0.2.12.a. It adds a reusable clay widget layer, applies clay styling to
-top-bar buttons, bottom-bar play/speed buttons, the side-panel handle, and the
-pause menu, fixes the collapsed-handle square artifact, preserves the app icon
-in both Makefile and build.bat builds, and adds a validation-only
-`--no-activate` launch path for non-disruptive GUI checks.
+Ver0.2.12.c is a max-speed interaction responsiveness checkpoint over
+Ver0.2.12.b. It keeps simulation and gameplay rules unchanged while narrowing
+side-panel/tab repaint work, removing a synchronous full-window repaint from
+the side-panel handle path, deferring heavy full-map repaints when input is
+waiting, and coalescing presentation redraws under render/simulation pressure.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -25,10 +24,9 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: Phase 6 large-map performance is still not solved. Future
-work should restart from this Ver0.2.12.b baseline, diagnose with evidence
-first, and avoid claiming success unless the strict validation gate is fully
-met.
+Known follow-up: broader Phase 6 performance work may still continue from this
+Ver0.2.12.c baseline, but future claims must remain evidence-based and pass
+the strict validation gate for the specific performance or UI scope involved.
 
 You can:
 
@@ -138,6 +136,8 @@ You can:
 99. Add vassal governance burden to disorder as `min(100, 10n)` for direct vassal count
 100. Release vassals on overlord collapse and keep successor states independent after a vassal collapse
 101. Use a route-potential graph to precompute potential port nodes and shallow/deep route edges after world generation
+102. Keep side-panel tab clicks responsive at max speed by repainting the side panel through a narrow partial path instead of a synchronous full-window redraw
+103. Defer heavy full-map repaint work while input is waiting and reuse the cached backbuffer so 5x interaction remains responsive under render/simulation pressure
 102. Activate occupied region port sites deterministically so ordinary map sea lanes come from the same graph shown in the route-potential debug layer
 103. Render shallow and deep water as the visible water categories, with a soft visual gradient while gameplay still uses hard shallow/deep thresholds
 104. Collapse or expand the right sidebar while centering the map inside the actual available viewport

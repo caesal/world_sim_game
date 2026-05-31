@@ -77,7 +77,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
     }
-    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) { ui_toggle_side_panel(client); ui_forms_layout(hwnd); ui_invalidate_full(hwnd); UpdateWindow(hwnd); return; }
+    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) { ui_toggle_side_panel(client); ui_forms_layout(hwnd); ui_invalidate_full(hwnd); return; }
     if (side_panel_collapsed) { ui_select_tile_from_mouse(hwnd, mouse_x, mouse_y); return; }
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         if (point_in_rect(get_panel_tab_rect(client, i), mouse_x, mouse_y)) {

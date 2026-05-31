@@ -1,5 +1,43 @@
 # Version Log
 
+## Ver0.2.12.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.12.c.
+2. Removed the side-panel handle path's synchronous full-window `UpdateWindow`
+   call so collapse/expand no longer forces an immediate heavy repaint.
+3. Added a narrow side-panel immediate paint path for tab and subtab changes,
+   letting side-panel navigation repaint without forcing a full map redraw.
+4. Added cached-window blitting when full-map repaint work is requested while
+   input is waiting, deferring the heavy repaint until the queue can process it
+   without blocking user interaction.
+5. Coalesced max-speed presentation redraws under render/simulation pressure
+   without changing month progression, technology rules, war, population,
+   world generation, or other gameplay semantics.
+
+Known follow-up:
+
+- The direct side-panel immediate paint path should remain centralized and
+  should not be copied into unrelated UI controls without a broader partial
+  paint API.
+- Broader Phase 6 performance work may continue from this checkpoint if new
+  bottlenecks are found, but future claims still require strict evidence.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.2.12.c uses `WORLD_SIM_VERSION "0.2.12.c"`.
+- `MAP_SAVE_VERSION` remains 10 because this release does not change the binary
+  save layout.
+- Build/static validation passed for the performance responsiveness scope.
+- Strict AGENTS regression was reported complete with a Large map, 26 initial
+  civilizations, 654 natural regions, randomized physical and advanced terrain
+  settings, max speed, final Year 424 Month 11, five distinct civilizations at
+  technology stage 5 or beyond, and deep-sea route hidden-before/revealed-after
+  evidence.
+
 ## Ver0.2.12.b
 
 Implemented fixes:
