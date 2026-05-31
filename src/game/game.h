@@ -4,6 +4,7 @@
 #include "core/value_types.h"
 
 int run_game(void);
+int run_game_no_activate(void);
 void game_toggle_auto_run(void);
 void game_request_pause(void);
 void game_pause_for_modal_or_action(void);

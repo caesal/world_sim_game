@@ -297,6 +297,11 @@ void panel_view_model_cache_draw(HDC hdc, RECT client) {
     unsigned int ui_key = panel_ui_key_for(client, kind);
     unsigned int data_key = panel_data_key_for(snapshot, kind);
     panel_last_kind = kind;
+    if (kind == PANEL_CACHE_COLLAPSED) {
+        draw_side_panel(hdc, client);
+        hover_repaint_pending = 0;
+        return;
+    }
     if (!ensure_panel_cache(hdc, cache, client)) {
         draw_side_panel(hdc, client);
         hover_repaint_pending = 0;

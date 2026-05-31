@@ -151,13 +151,11 @@ static int color_seed_region_for_civ(int civ_id) {
     }
     return seed_region;
 }
-
 static void mark_color_visuals_dirty(void) {
     dirty_mark_territory();
     dirty_mark_civ();
     world_visual_revision++;
 }
-
 void game_request_set_civilization_color_exact(int civ_id, Color32 color) {
     if (civ_id < 0 || civ_id >= civ_count) return;
     state_write_lock();
@@ -167,7 +165,6 @@ void game_request_set_civilization_color_exact(int civ_id, Color32 color) {
     state_write_unlock();
     render_snapshot_publish_from_live_state();
 }
-
 void game_request_set_civilization_color_auto_avoid(int civ_id, Color32 preferred_color) {
     int seed_region;
     if (civ_id < 0 || civ_id >= civ_count) return;
@@ -179,7 +176,6 @@ void game_request_set_civilization_color_auto_avoid(int civ_id, Color32 preferre
     state_write_unlock();
     render_snapshot_publish_from_live_state();
 }
-
 Color32 game_preview_civilization_color_auto_avoid(int civ_id, Color32 preferred_color) {
     int effective_id = civ_id >= 0 ? civ_id : civ_count;
     int seed_region = color_seed_region_for_civ(civ_id);
@@ -444,7 +440,7 @@ int run_tech10_probe(void) {
     fclose(file);
     return reached_month >= 0 ? 0 : 2;
 }
-int run_game(void) {
+static int run_game_internal(int no_activate) {
     HINSTANCE instance = GetModuleHandle(NULL);
     const char *class_name = "WorldSimGameWindow";
     WNDCLASSA wc;
@@ -478,7 +474,7 @@ int run_game(void) {
     }
     if (app_icon) SendMessage(hwnd, WM_SETICON, ICON_BIG, (LPARAM)app_icon);
     if (app_icon_small) SendMessage(hwnd, WM_SETICON, ICON_SMALL, (LPARAM)app_icon_small);
-    ShowWindow(hwnd, SW_SHOW);
+    ShowWindow(hwnd, no_activate ? SW_SHOWNOACTIVATE : SW_SHOW);
     UpdateWindow(hwnd);
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
         if (msg.message == WM_KEYDOWN && (msg.hwnd == hwnd || IsChild(hwnd, msg.hwnd))) {
@@ -498,3 +494,5 @@ int run_game(void) {
     render_snapshot_shutdown();
     return 0;
 }
+int run_game(void) { return run_game_internal(0); }
+int run_game_no_activate(void) { return run_game_internal(1); }

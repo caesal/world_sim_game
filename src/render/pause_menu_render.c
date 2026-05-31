@@ -3,11 +3,12 @@
 #include "core/version.h"
 #include "render/render_common.h"
 #include "ui/pause_menu.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 
 static void draw_menu_button(HDC hdc, RECT rect, const char *label) {
-    fill_rect(hdc, rect, RGB(64, 73, 82));
-    draw_center_text(hdc, rect, label, ui_theme_color(UI_COLOR_TEXT));
+    ui_clay_draw_pill_button(hdc, rect, label,
+                             ui_clay_state_for_rect(rect, hover_x, hover_y, 0, 0));
 }
 
 void draw_pause_menu_overlay(HDC hdc, RECT client) {
@@ -17,7 +18,7 @@ void draw_pause_menu_overlay(HDC hdc, RECT client) {
     int i;
 
     fill_rect_alpha(hdc, client, RGB(8, 10, 12), 168);
-    fill_rect(hdc, panel, RGB(30, 37, 43));
+    ui_clay_draw_menu_panel(hdc, panel);
     title.top += 22;
     title.bottom = title.top + 28;
     draw_center_text(hdc, title, "World Sim Game", ui_theme_color(UI_COLOR_TEXT));

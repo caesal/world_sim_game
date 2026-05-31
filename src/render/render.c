@@ -63,7 +63,6 @@ static void release_layer_cache(LayerCache *cache) {
 static int ensure_layer_cache(HDC hdc, LayerCache *cache, RECT client, MapLayout layout) {
     int width = client.right - client.left;
     int height = client.bottom - client.top;
-
     if (width <= 0 || height <= 0) return 0;
     if (!cache->dc || cache->width != width || cache->height != height) {
         release_layer_cache(cache);
@@ -355,7 +354,9 @@ static void draw_partial_ui(HDC hdc, RECT client, RECT paint) {
     }
     if (rects_intersect(paint, bottom)) draw_bottom_bar(hdc, client);
     if (rects_intersect(paint, panel)) {
-        if (ensure_layer_cache(hdc, &side_panel_cache, client, get_map_layout(client))) {
+        if (side_panel_collapsed) {
+            panel_view_model_cache_draw(hdc, client);
+        } else if (ensure_layer_cache(hdc, &side_panel_cache, client, get_map_layout(client))) {
             fill_rect(side_panel_cache.dc, panel, ui_theme_color(UI_COLOR_PANEL));
             panel_view_model_cache_draw(side_panel_cache.dc, client);
             BitBlt(hdc, panel.left, panel.top, panel.right - panel.left, panel.bottom - panel.top,

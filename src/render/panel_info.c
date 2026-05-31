@@ -2,6 +2,7 @@
 
 #include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -22,6 +23,12 @@ void draw_top_bar(HDC hdc, RECT client) {
     RECT year_box = {client.right / 2 - 112, 9, client.right / 2 + 112, 50};
     RECT language_button = get_language_button_rect(client);
     RECT reset_button = get_reset_view_button_rect(client);
+    int reset_hot = point_in_rect_local(reset_button, hover_x, hover_y);
+    int language_hot = point_in_rect_local(language_button, hover_x, hover_y);
+    UiClayState reset_state = ui_clay_state_from_flags(
+        reset_hot, reset_hot && (GetKeyState(VK_LBUTTON) & 0x8000), 0, 0);
+    UiClayState language_state = ui_clay_state_from_flags(
+        language_hot, language_hot && (GetKeyState(VK_LBUTTON) & 0x8000), 0, 0);
     char text[80];
     HFONT title_font = CreateFontW(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
                                    OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
@@ -36,11 +43,9 @@ void draw_top_bar(HDC hdc, RECT client) {
     SelectObject(hdc, old_font);
     DeleteObject(title_font);
     draw_text_line(hdc, 18, 20, WORLD_SIM_VERSION_LABEL, RGB(245, 250, 255));
-    fill_rect(hdc, reset_button, point_in_rect_local(reset_button, hover_x, hover_y) ?
-              RGB(70, 80, 76) : RGB(48, 58, 55));
-    draw_center_text(hdc, reset_button, tr("Reset", "重置"), RGB(245, 250, 255));
-    fill_rect(hdc, language_button, RGB(58, 68, 64));
-    draw_center_text(hdc, language_button, ui_language == UI_LANG_ZH ? "中文" : "EN", RGB(245, 250, 255));
+    ui_clay_draw_pill_button(hdc, reset_button, tr("Reset", "重置"), reset_state);
+    ui_clay_draw_pill_button(hdc, language_button, ui_language == UI_LANG_ZH ? "中文" : "EN",
+                             language_state);
 }
 
 int selected_tile_owner(void) {

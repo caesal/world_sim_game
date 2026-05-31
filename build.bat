@@ -1,6 +1,10 @@
 @echo off
 setlocal
 
+if not exist build mkdir build
+windres src\world_sim.rc -O coff -o build\world_sim_resource.o
+if errorlevel 1 exit /b %errorlevel%
+
 gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\main.c ^
   src\game\game.c ^
@@ -142,6 +146,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\icons.c ^
   src\ui\ui_clay_theme.c ^
   src\ui\ui_clay_primitives.c ^
+  src\ui\ui_clay_widgets.c ^
   src\ui\ui_theme.c ^
   src\ui\ui_widgets.c ^
   src\ui\color_picker.c ^
@@ -159,6 +164,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\ui\ui_selection.c ^
   src\ui\ui_snapshot_read.c ^
   src\ui\ui.c ^
+  build\world_sim_resource.o ^
   -o world_sim.exe -lgdi32 -luser32 -lmsimg32 -lgdiplus -lcomdlg32 -mwindows
 if errorlevel 1 exit /b %errorlevel%
 

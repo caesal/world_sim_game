@@ -13,6 +13,8 @@ static int probe_flag_present(void) {
 }
 
 int main(int argc, char **argv) {
+    int no_activate = argc > 1 && argv[1] && strcmp(argv[1], "--no-activate") == 0;
+
     if ((argc > 1 && argv[1] && strcmp(argv[1], "--probe-expansion") == 0) ||
         getenv("WORLD_SIM_PROBE_EXPANSION") || probe_flag_present()) {
         return run_expansion_probe();
@@ -20,5 +22,6 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-tech10") == 0) {
         return run_tech10_probe();
     }
+    if (no_activate) return run_game_no_activate();
     return run_game();
 }

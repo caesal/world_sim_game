@@ -56,6 +56,23 @@ static void clay_highlight(HDC hdc, RECT rect, const UiClayStyle *style) {
     DeleteObject(pen);
 }
 
+static void clay_inner_shadow(HDC hdc, RECT rect, const UiClayStyle *style) {
+    HPEN pen;
+    HGDIOBJ old_pen;
+    int inset = max(2, style->radius / 4);
+
+    if (clay_rect_width(rect) <= 4 || clay_rect_height(rect) <= 4) return;
+    pen = CreatePen(PS_SOLID, 1, style->shadow);
+    if (!pen) return;
+    old_pen = SelectObject(hdc, pen);
+    MoveToEx(hdc, rect.left + inset, rect.bottom - 2, NULL);
+    LineTo(hdc, rect.right - inset, rect.bottom - 2);
+    MoveToEx(hdc, rect.right - 2, rect.top + inset, NULL);
+    LineTo(hdc, rect.right - 2, rect.bottom - inset);
+    SelectObject(hdc, old_pen);
+    DeleteObject(pen);
+}
+
 static void clay_draw_surface(HDC hdc, RECT rect, UiClaySurface surface, UiClayState state) {
     UiClayStyle style = ui_clay_style(surface, state);
     RECT shadow = rect;
@@ -70,6 +87,15 @@ static void clay_draw_surface(HDC hdc, RECT rect, UiClaySurface surface, UiClayS
     clay_highlight(hdc, rect, &style);
 }
 
+static void clay_draw_inset_surface(HDC hdc, RECT rect, UiClaySurface surface, UiClayState state) {
+    UiClayStyle style = ui_clay_style(surface, state);
+
+    if (clay_rect_width(rect) <= 0 || clay_rect_height(rect) <= 0) return;
+    clay_round_rect(hdc, rect, style.radius, style.fill, style.border);
+    clay_highlight(hdc, rect, &style);
+    clay_inner_shadow(hdc, rect, &style);
+}
+
 void ui_clay_draw_shell(HDC hdc, RECT rect) {
     clay_draw_surface(hdc, rect, UI_CLAY_SURFACE_SHELL, UI_CLAY_STATE_NORMAL);
 }
@@ -80,6 +106,14 @@ void ui_clay_draw_panel(HDC hdc, RECT rect, UiClayState state) {
 
 void ui_clay_draw_card(HDC hdc, RECT rect, UiClayState state) {
     clay_draw_surface(hdc, rect, UI_CLAY_SURFACE_CARD, state);
+}
+
+void ui_clay_draw_pill(HDC hdc, RECT rect, UiClayState state) {
+    clay_draw_surface(hdc, rect, UI_CLAY_SURFACE_PILL, state);
+}
+
+void ui_clay_draw_pill_inset(HDC hdc, RECT rect, UiClayState state) {
+    clay_draw_inset_surface(hdc, rect, UI_CLAY_SURFACE_PILL, state);
 }
 
 void ui_clay_draw_tab(HDC hdc, RECT rect, UiClayState state) {

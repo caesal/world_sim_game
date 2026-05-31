@@ -3,23 +3,16 @@
 #include "core/profiler.h"
 #include "game/game_loop.h"
 #include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 
 static void draw_side_panel_handle(HDC hdc, RECT client) {
     RECT handle = get_side_panel_handle_rect(client);
-    COLORREF bg = side_panel_collapsed ? RGB(38, 48, 54) : RGB(33, 40, 46);
-    COLORREF fg = RGB(220, 228, 232);
-    HBRUSH border;
     int hot = point_in_rect(handle, hover_x, hover_y);
-    int pressed = hot && (GetKeyState(VK_LBUTTON) & 0x8000);
+    UiClayState state = ui_clay_state_from_flags(
+        hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), 0, 0);
 
-    if (hot) bg = RGB(54, 66, 74);
-    if (pressed) bg = RGB(64, 75, 82);
-    fill_rect(hdc, handle, bg);
-    border = CreateSolidBrush(RGB(75, 90, 100));
-    FrameRect(hdc, &handle, border);
-    DeleteObject(border);
-    draw_center_text(hdc, handle, side_panel_collapsed ? "<" : ">", fg);
+    ui_clay_draw_icon_button(hdc, handle, side_panel_collapsed ? "<" : ">", state);
 }
 
 void draw_side_panel(HDC hdc, RECT client) {
@@ -71,6 +64,9 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     const char *sim_status;
     char actual_text[32];
     RECT status_rect = {336, client.bottom - 40, client.right - panel_w - 12, client.bottom - 8};
+    int play_hot = point_in_rect_local(play, hover_x, hover_y);
+    UiClayState play_state = ui_clay_state_from_flags(
+        play_hot, play_hot && (GetKeyState(VK_LBUTTON) & 0x8000), auto_run, 0);
     int i;
 
     profiler_snapshot(&profiler);
@@ -82,13 +78,14 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     else snprintf(actual_text, sizeof(actual_text), "--");
 
     fill_rect(hdc, bar, ui_theme_color(UI_COLOR_CHROME));
-    fill_rect(hdc, play, auto_run ? RGB(87, 93, 78) : RGB(48, 56, 58));
-    draw_center_text(hdc, play, auto_run ? "||" : ">", RGB(245, 248, 250));
+    ui_clay_draw_icon_button(hdc, play, auto_run ? "||" : ">", play_state);
 
     for (i = 0; i < SPEED_COUNT; i++) {
         RECT button = get_speed_button_rect(client, i);
-        fill_rect(hdc, button, i == speed_index ? RGB(87, 93, 78) : RGB(48, 56, 58));
-        draw_center_text(hdc, button, speed_button_icon(i), RGB(235, 240, 244));
+        int hot = point_in_rect_local(button, hover_x, hover_y);
+        UiClayState state = ui_clay_state_from_flags(
+            hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), i == speed_index, 0);
+        ui_clay_draw_icon_button(hdc, button, speed_button_icon(i), state);
     }
 
     snprintf(text, sizeof(text), "%s: %s %dms | %s: %s %s/%s | %s: %s | %s: %d | %s: %s",

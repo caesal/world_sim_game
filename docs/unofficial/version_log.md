@@ -1,5 +1,50 @@
 # Version Log
 
+## Ver0.2.12.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.12.b.
+2. Added `src/ui/ui_clay_widgets.c` and `src/ui/ui_clay_widgets.h` for a
+   reusable Claymorphism widget layer above the existing clay primitives.
+3. Extended the clay primitive layer with pill and inset pill drawing so tiny
+   floating icon buttons do not need an external square shadow.
+4. Migrated the top-bar reset/language buttons, bottom play/speed buttons,
+   side-panel handle, and pause-menu shell/buttons to the Phase 2A clay widget
+   path while preserving existing hit tests, actions, labels, and panel
+   content.
+5. Fixed the collapsed side-panel handle artifact by bypassing the opaque
+   collapsed mini-panel cache path and drawing the handle directly over the
+   already-rendered scene.
+6. Fixed `build.bat` so it mirrors the Makefile resource pipeline: it now
+   builds `src/world_sim.rc` with `windres` and links
+   `build/world_sim_resource.o`, preserving the application icon after both
+   canonical build paths.
+7. Added `world_sim.exe --no-activate` as a validation-only launch path using
+   `SW_SHOWNOACTIVATE`, while keeping the normal launch path unchanged.
+
+Known follow-up:
+
+- Phase 6 large-map stutter and simulation-speed work remains outside this
+  release scope.
+- The clay widgets still rely on direct GDI pen/brush creation through the
+  primitive path; broader UI migration should add caching before expanding to
+  more repeated controls.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.2.12.b uses `WORLD_SIM_VERSION "0.2.12.b"`.
+- `MAP_SAVE_VERSION` remains 10 because this release does not change the binary
+  save layout.
+- Build/static validation and focused non-disruptive GUI validation were
+  completed for the Phase 2A UI/resource scope, including app icon preservation
+  after both Makefile and build.bat builds and collapsed-handle artifact checks.
+- Strict AGENTS full game-flow regression was not completed for this
+  presentation/resource checkpoint and should not be claimed for broad gameplay
+  or performance acceptance.
+
 ## Ver0.2.12.a
 
 Implemented fixes:
