@@ -1,17 +1,13 @@
 #include "regions_shape.h"
-
 #include "core/game_types.h"
 #include "sim/region_boundary.h"
 #include "sim/regions_balance.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
-
 #include <limits.h>
 #include <string.h>
-
 #define SHAPE_PASSES 3
 #define SHAPE_SPLIT_PARTS 4
-
 typedef struct {
     int tile_count;
     int min_x, min_y, max_x, max_y;
@@ -27,9 +23,7 @@ typedef struct {
     int protected_tiles;
     int diagonal_links;
 } ShapeMetrics;
-
 typedef struct { int x, y, part, cost; } ShapeNode;
-
 static int shape_tile_count[MAX_NATURAL_REGIONS];
 static ShapeMetrics shape_metrics[MAX_NATURAL_REGIONS];
 static RegionShapeClass shape_class[MAX_NATURAL_REGIONS];

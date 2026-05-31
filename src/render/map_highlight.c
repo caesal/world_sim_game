@@ -1,5 +1,6 @@
 #include "render/map_highlight.h"
 
+#include "core/city_display.h"
 #include "core/game_state.h"
 #include "render/render_context.h"
 #include "render/render_map_internal.h"
@@ -115,9 +116,9 @@ static int focus_point(const RenderSnapshot *snapshot, int civ_id, int *out_x, i
     if (civ->capital_city >= 0 && civ->capital_city < snapshot->city_count) {
         const SnapshotCity *city = &snapshot->cities[civ->capital_city];
         if (city->alive && city->owner == civ_id) {
-            *out_x = city->x;
-            *out_y = city->y;
-            return 1;
+            return city_display_point_fields(city->port, city->x, city->y, city->port_x, city->port_y,
+                                             snapshot->map_w, snapshot->map_h, out_x, out_y) !=
+                   CITY_DISPLAY_POINT_NONE;
         }
     }
     for (y = 0; y < snapshot->map_h; y++) {

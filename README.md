@@ -7,13 +7,15 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.11 is a Windows graphical sandbox prototype written in C.
+Ver0.2.12 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.11 is a province, settlement, war-cession, and render-cache checkpoint
-over Ver0.2.10.f. It makes natural regions the owned province unit, keeps one
-stable generated settlement slot per natural region, treats ports as a city
-subtype rather than an extra settlement, and keeps neutral settlement icons
-visible only on the Regions map layer.
+Ver0.2.12 is a port-display, port-density, and release-hygiene checkpoint over
+Ver0.2.11. It keeps the one natural-region / one generated city-slot model,
+centralizes city and port display coordinates so labels, highlights, focus,
+click targets, and country focus use the same marker point, draws port capitals
+with the same capital-ring treatment, reduces coastal port density while
+preserving island port guarantees, and synchronizes `Makefile` / `build.bat`
+source lists.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -25,7 +27,7 @@ maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
 Known follow-up: Phase 6 large-map performance is still not solved. Future
-work should restart from this Ver0.2.11 baseline, diagnose with evidence
+work should restart from this Ver0.2.12 baseline, diagnose with evidence
 first, and avoid claiming success unless the strict validation gate is fully
 met.
 

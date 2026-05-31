@@ -103,7 +103,6 @@ static int game_request_add_civilization_from_selection_internal(const char *nam
     render_snapshot_publish_from_live_state();
     return selected_civ;
 }
-
 int game_request_add_civilization_from_selection(const char *name, char symbol,
                                                 int military, int logistics,
                                                 int governance, int cohesion,
@@ -112,7 +111,6 @@ int game_request_add_civilization_from_selection(const char *name, char symbol,
     return game_request_add_civilization_from_selection_internal(
         name, symbol, military, logistics, governance, cohesion, production, commerce, innovation, 0, 0);
 }
-
 int game_request_add_civilization_from_selection_with_color(const char *name, char symbol,
                                                            int military, int logistics,
                                                            int governance, int cohesion,

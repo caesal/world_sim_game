@@ -1,5 +1,4 @@
 ﻿#include "render_internal.h"
-
 #include "core/dirty_flags.h"
 #include "core/load_progress.h"
 #include "core/plague_perf.h"
@@ -20,9 +19,7 @@
 #include "ui/color_picker.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_theme.h"
-
 #include <stdio.h>
-
 typedef struct {
     HDC dc;
     HBITMAP bitmap;
@@ -63,7 +60,6 @@ static void release_layer_cache(LayerCache *cache) {
     if (cache->dc) DeleteDC(cache->dc);
     memset(cache, 0, sizeof(*cache));
 }
-
 static int ensure_layer_cache(HDC hdc, LayerCache *cache, RECT client, MapLayout layout) {
     int width = client.right - client.left;
     int height = client.bottom - client.top;
@@ -91,11 +87,9 @@ static int ensure_layer_cache(HDC hdc, LayerCache *cache, RECT client, MapLayout
     cache->valid = 1;
     return 1;
 }
-
 static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layout) {
     draw_country_highlight(hdc, client, layout);
 }
-
 static unsigned int mix_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
 }

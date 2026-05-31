@@ -1,14 +1,12 @@
 #include "render/map_label_cache.h"
-
+#include "core/city_display.h"
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "render/map_label_style.h"
 #include "ui/ui_types.h"
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
 #define MAX_RENDER_LABELS 180
 #define MAX_LABEL_SOURCES 1400
 #define MAX_LABEL_PLACEMENT 640
@@ -20,19 +18,16 @@ typedef struct {
     MapLabelKind kind;
     int source_id, sequence, anchor_x2, anchor_y2, large, weight, tile_count;
 } MapLabelSource;
-
 typedef struct {
     int source_index, priority, sequence, selected, centered, pad;
     MapLabelStyle style;
     SIZE size;
 } MapLabelPlacementCandidate;
-
 typedef struct {
     int source_index, slot, selected, centered, pad;
     MapLabelStyle style;
     SIZE size;
 } MapLabelPlaced;
-
 typedef struct {
     int valid;
     char text[LABEL_TEXT_MAX];
@@ -52,14 +47,11 @@ static int source_rebuild_count, placement_rebuild_count, preview_skip_count;
 static int source_last_reason, placement_last_reason, placement_last_ms;
 static const char *source_reason_names[3] = {"initial", "source", "snapshot"};
 static const char *placement_reason_names[5] = {"initial", "source", "view", "mode", "select"};
-
 static unsigned int mix_label_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
 }
-
 static int rects_overlap(RECT a, RECT b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
 static int rect_visible(RECT rect, RECT viewport) { return rects_overlap(rect, viewport); }
-
 static int label_is_open(const RECT *used, int used_count, RECT candidate) {
     int i;
     for (i = 0; i < used_count; i++) if (rects_overlap(used[i], candidate)) return 0;
@@ -186,11 +178,14 @@ static void collect_country_sources(const RenderSnapshot *snapshot) {
     }
     for (i = 0; i < snapshot->city_count; i++) {
         const SnapshotCity *city = &snapshot->cities[i];
-        int owner = city->owner, city_weight;
+        int owner = city->owner, city_weight, display_x, display_y;
         if (!city->alive || owner < 0 || owner >= snapshot->civ_count) continue;
+        if (city_display_point_fields(city->port, city->x, city->y, city->port_x, city->port_y,
+                                      snapshot->map_w, snapshot->map_h,
+                                      &display_x, &display_y) == CITY_DISPLAY_POINT_NONE) continue;
         city_weight = city->capital ? 36 : 8;
-        sx[owner] += (long)city->x * city_weight;
-        sy[owner] += (long)city->y * city_weight;
+        sx[owner] += (long)display_x * city_weight;
+        sy[owner] += (long)display_y * city_weight;
         weight[owner] += city_weight;
     }
     for (i = 0; i < snapshot->civ_count; i++) {
@@ -209,18 +204,19 @@ static void collect_city_sources(const RenderSnapshot *snapshot) {
     for (i = 0; i < snapshot->city_count; i++) {
         const SnapshotCity *city = &snapshot->cities[i];
         char display_name[96];
-        int major;
+        int major, display_x, display_y, display_kind;
         if (!city->alive || city->owner < 0 || city->owner >= snapshot->civ_count ||
             !snapshot->civs[city->owner].alive) continue;
+        display_kind = city_display_point_fields(city->port, city->x, city->y, city->port_x, city->port_y,
+                                                snapshot->map_w, snapshot->map_h,
+                                                &display_x, &display_y);
+        if (display_kind == CITY_DISPLAY_POINT_NONE) continue;
         city_display_name(snapshot, city, display_name, sizeof(display_name));
         major = city_is_major(city);
-        add_source(city->capital ? LABEL_CAPITAL : major ? LABEL_MAJOR_CITY : LABEL_CITY,
-                   i, city->x, city->y, display_name, major, 0, 0);
-        if (city->port) {
-            int px = city->port_x >= 0 ? city->port_x : city->x;
-            int py = city->port_y >= 0 ? city->port_y : city->y;
-            add_source(LABEL_PORT, i, px, py, display_name, major, 0, 0);
-        }
+        add_source(city->capital ? LABEL_CAPITAL :
+                   display_kind == CITY_DISPLAY_POINT_PORT ? LABEL_PORT :
+                   major ? LABEL_MAJOR_CITY : LABEL_CITY,
+                   i, display_x, display_y, display_name, major, 0, 0);
     }
 }
 
@@ -287,9 +283,13 @@ static int source_selected(const RenderSnapshot *snapshot, const MapLabelSource 
     if (source->kind == LABEL_PORT || source->kind == LABEL_CAPITAL ||
         source->kind == LABEL_MAJOR_CITY || source->kind == LABEL_CITY) {
         const SnapshotCity *city;
+        int display_x, display_y;
         if (source->source_id < 0 || source->source_id >= snapshot->city_count) return 0;
         city = &snapshot->cities[source->source_id];
-        return selected_x == city->x && selected_y == city->y;
+        if (city_display_point_fields(city->port, city->x, city->y, city->port_x, city->port_y,
+                                      snapshot->map_w, snapshot->map_h,
+                                      &display_x, &display_y) == CITY_DISPLAY_POINT_NONE) return 0;
+        return selected_x == display_x && selected_y == display_y;
     }
     return 0;
 }

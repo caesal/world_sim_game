@@ -1,5 +1,52 @@
 # Version Log
 
+## Ver0.2.12
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.12.
+2. Added `src/core/city_display.c` and `src/core/city_display.h` as the
+   shared display-coordinate boundary for normal city slots and port-city
+   harbor markers.
+3. Updated map rendering, label placement, selection highlighting, country
+   focus, civ snapshot focus points, and map hit-testing so a port city uses
+   its harbor marker as the visible/clickable/focused point instead of mixing
+   city and harbor positions.
+4. Drew port capitals with the same extra capital ring treatment used by
+   ordinary capitals, while still rendering the harbor marker at the coast.
+5. Updated the country overview metrics so the duplicate city count is replaced
+   by port count; province count remains the total one-city-per-region count.
+6. Reworked port policy so coastal candidate discovery is private/transient and
+   `NaturalRegion.has_port_site` records the final actual port state only.
+7. Reduced non-forced coastal port density while preserving the land-component
+   island guarantee for at least one valid port.
+8. Synchronized `Makefile` and `build.bat` source lists for the current module
+   split.
+9. Recorded the UI/UX Claymorphism presentation rules in `AGENTS.md`.
+10. Cleaned module line counts back under the 500-line `.c` / `.h` limit
+    without gameplay changes.
+
+Known follow-up:
+
+- Phase 6 large-map stutter and simulation-speed work remains outside this
+  release scope.
+- Full current-AGENTS GUI/game-flow strict regression remains required before
+  treating this gameplay/rendering checkpoint as broadly accepted if it was not
+  completed in the release task.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.2.12 uses `WORLD_SIM_VERSION "0.2.12"`.
+- `MAP_SAVE_VERSION` remains 10 because this release does not change the binary
+  save layout; it only changes settlement/port display and policy semantics
+  within the existing saved region/city fields.
+- Required release checks include `make -B world_sim.exe`,
+  `make check-text`, `git diff --check`, file-size checks, root executable
+  inventory, static keyword scans, focused GUI validation, and the current
+  AGENTS strict regression for simulation/render/map-display changes.
+
 ## Ver0.2.11
 
 Implemented fixes:

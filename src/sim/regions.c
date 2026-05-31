@@ -302,15 +302,6 @@ static void rebuild_region_metadata(void) {
             climate_counts[id][world[y][x].climate]++;
             ecology_counts[id][world[y][x].ecology]++;
             consider_region_site(region, x, y, &region->cradle_score);
-            if (world_is_coastal_land_tile(x, y)) {
-                int score = stats.water * 4 + stats.money * 3 + stats.food + stats.habitability - world_tile_cost(x, y);
-                if (!region->has_port_site || score > region->natural_defense) {
-                    region->has_port_site = 1;
-                    region->port_x = x;
-                    region->port_y = y;
-                    region->natural_defense = score;
-                }
-            }
         }
     }
     for (i = 0; i < region_count; i++) {

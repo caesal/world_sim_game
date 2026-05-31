@@ -17,6 +17,7 @@ SOURCES := \
 	src/core/event_log.c \
 	src/core/event_log_history.c \
 	src/core/event_log_store.c \
+	src/core/city_display.c \
 	src/core/game_state.c \
 	src/core/country_focus.c \
 	src/core/dirty_flags.c \

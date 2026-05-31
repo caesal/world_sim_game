@@ -16,7 +16,15 @@ typedef struct {
     int best_score;
 } PortComponentChoice;
 
+typedef struct {
+    int has_candidate;
+    int x;
+    int y;
+    int score;
+} PortCandidate;
+
 static RegionPortPolicyStats last_stats;
+static PortCandidate port_candidates[MAX_NATURAL_REGIONS];
 static unsigned char forced_port[MAX_NATURAL_REGIONS];
 static int component_id[MAX_MAP_H][MAX_MAP_W];
 static int queue_x[MAX_MAP_W * MAX_MAP_H];
@@ -71,42 +79,60 @@ static int candidate_tile_score(int x, int y) {
     return score;
 }
 
-static int best_region_port_tile(int region_id, int *out_x, int *out_y, int *out_score) {
+static void precompute_port_candidates(void) {
     int x;
     int y;
-    int best_x = -1;
-    int best_y = -1;
-    int best_score = -1000000;
 
+    memset(port_candidates, 0, sizeof(port_candidates));
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
+            int region_id = world[y][x].region_id;
             int score;
-            if (world[y][x].region_id != region_id) continue;
+            PortCandidate *candidate;
+            if (region_id < 0 || region_id >= region_count) continue;
+            candidate = &port_candidates[region_id];
             score = candidate_tile_score(x, y);
-            if (score > best_score) {
-                best_score = score;
-                best_x = x;
-                best_y = y;
+            if (score <= -1000000) continue;
+            if (!candidate->has_candidate || score > candidate->score) {
+                candidate->has_candidate = 1;
+                candidate->x = x;
+                candidate->y = y;
+                candidate->score = score;
             }
         }
     }
-    if (best_x < 0) return 0;
-    if (out_x) *out_x = best_x;
-    if (out_y) *out_y = best_y;
-    if (out_score) *out_score = best_score;
-    return 1;
+    for (x = 0; x < region_count; x++) {
+        if (port_candidates[x].has_candidate) last_stats.coastal_candidate_regions++;
+    }
 }
 
-static int region_port_chance(const NaturalRegion *region, int best_score) {
-    int chance = 50;
+static int candidate_neighbor_count(int region_id) {
+    const NaturalRegion *region = &natural_regions[region_id];
+    int count = 0;
+    int i;
+
+    for (i = 0; i < region->neighbor_count; i++) {
+        int neighbor_id = region->neighbors[i];
+        if (neighbor_id >= 0 && neighbor_id < region_count &&
+            port_candidates[neighbor_id].has_candidate) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static int region_port_chance(const NaturalRegion *region, int best_score, int candidate_neighbors) {
+    int chance = 35;
     int strong = region->average_stats.money >= 5 || region->development_score >= 48 ||
                  region->average_stats.water >= 6 || best_score >= 84;
     int weak = region->dominant_geography == GEO_MOUNTAIN || region->dominant_geography == GEO_CANYON ||
                region->dominant_geography == GEO_VOLCANO || region->habitability <= 3 || best_score < 45;
 
-    if (strong) chance = 65;
-    if (weak) chance = 35;
-    return chance;
+    if (strong) chance = 50;
+    if (weak) chance = 20;
+    if (candidate_neighbors >= 4) chance -= 15;
+    else if (candidate_neighbors >= 2) chance -= 8;
+    return clamp(chance, 15, 55);
 }
 
 static void set_region_city_port(int region_id, int is_port, int x, int y) {
@@ -133,18 +159,22 @@ static void set_region_city_port(int region_id, int is_port, int x, int y) {
 
 static void apply_region_port_policy(int region_id) {
     NaturalRegion *region;
-    int x;
-    int y;
-    int score;
+    const PortCandidate *candidate;
     int is_port = 0;
 
     if (region_id < 0 || region_id >= region_count) return;
     region = &natural_regions[region_id];
+    candidate = &port_candidates[region_id];
     if (!region->alive) return;
-    if (best_region_port_tile(region_id, &x, &y, &score)) {
-        int chance = region_port_chance(region, score);
-        is_port = forced_port[region_id] || region->has_port_site || region_roll(region) < chance;
-        set_region_city_port(region_id, is_port, x, y);
+    if (candidate->has_candidate) {
+        if (forced_port[region_id]) {
+            is_port = 1;
+        } else {
+            int chance = region_port_chance(region, candidate->score,
+                                            candidate_neighbor_count(region_id));
+            is_port = region_roll(region) < chance;
+        }
+        set_region_city_port(region_id, is_port, candidate->x, candidate->y);
     } else {
         set_region_city_port(region_id, 0, -1, -1);
     }
@@ -165,13 +195,14 @@ static void scan_component(int sx, int sy, int id, PortComponentChoice *choice) 
         int x = queue_x[head];
         int y = queue_y[head++];
         int region_id = world[y][x].region_id;
-        int score = candidate_tile_score(x, y);
         int i;
 
-        if (region_id >= 0 && region_id < region_count && score > choice->best_score) {
+        if (region_id >= 0 && region_id < region_count &&
+            port_candidates[region_id].has_candidate &&
+            port_candidates[region_id].score > choice->best_score) {
             choice->has_candidate = 1;
             choice->best_region = region_id;
-            choice->best_score = score;
+            choice->best_score = port_candidates[region_id].score;
         }
         for (i = 0; i < 4; i++) {
             int nx = x + dirs[i][0];
@@ -212,6 +243,7 @@ void regions_port_policy_apply_all(void) {
     int i;
 
     memset(&last_stats, 0, sizeof(last_stats));
+    precompute_port_candidates();
     choose_forced_island_ports();
     for (i = 0; i < region_count; i++) apply_region_port_policy(i);
     for (i = 0; i < region_count; i++) {

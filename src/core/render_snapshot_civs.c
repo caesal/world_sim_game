@@ -1,5 +1,6 @@
 #include "core/render_snapshot_civs.h"
 
+#include "core/city_display.h"
 #include "core/render_snapshot_profile.h"
 #include "sim/civilization_slots.h"
 #include "sim/collapse.h"
@@ -74,12 +75,15 @@ static void reset_stale_fields(SnapshotCiv *dst) {
 
 static void copy_focus_fields(SnapshotCiv *dst, int civ_id, int stable) {
     int city_id = dst->capital_city;
+    int focus_x;
+    int focus_y;
     if (city_id >= 0 && city_id < city_count && cities[city_id].alive &&
         cities[city_id].owner == civ_id &&
-        cities[city_id].x >= 0 && cities[city_id].x < map_w &&
-        cities[city_id].y >= 0 && cities[city_id].y < map_h) {
-        dst->focus_x = cities[city_id].x;
-        dst->focus_y = cities[city_id].y;
+        city_display_point_fields(cities[city_id].port, cities[city_id].x, cities[city_id].y,
+                                  cities[city_id].port_x, cities[city_id].port_y,
+                                  map_w, map_h, &focus_x, &focus_y) != CITY_DISPLAY_POINT_NONE) {
+        dst->focus_x = focus_x;
+        dst->focus_y = focus_y;
         dst->focus_valid = 1;
     } else if (!stable) {
         dst->focus_x = 0;

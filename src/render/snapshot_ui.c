@@ -1,5 +1,6 @@
 #include "render/snapshot_ui.h"
 
+#include "core/city_display.h"
 #include "render/render_context.h"
 #include "ui/ui_types.h"
 
@@ -70,7 +71,12 @@ int snapshot_ui_city_at(int x, int y) {
     if (!snapshot) return -1;
     for (i = 0; i < snapshot->city_count; i++) {
         const SnapshotCity *city = &snapshot->cities[i];
-        if (city->alive && city->x == x && city->y == y) return i;
+        int display_x, display_y;
+        if (!city->alive) continue;
+        if (city_display_point_fields(city->port, city->x, city->y, city->port_x, city->port_y,
+                                      snapshot->map_w, snapshot->map_h,
+                                      &display_x, &display_y) == CITY_DISPLAY_POINT_NONE) continue;
+        if (display_x == x && display_y == y) return i;
     }
     return -1;
 }

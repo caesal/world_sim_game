@@ -2,6 +2,7 @@
 #define WORLD_SIM_REGIONS_PORT_POLICY_H
 
 typedef struct {
+    int coastal_candidate_regions;
     int island_components_checked;
     int island_components_with_port;
     int forced_island_ports;

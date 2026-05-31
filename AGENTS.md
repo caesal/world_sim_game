@@ -77,6 +77,109 @@ be treated as a permission boundary, not just a title.
 41. When an Architect or Software Engineer launches or operates `world_sim.exe` for gameplay validation, do not force the game window to the foreground if another fullscreen application is active on the user's screen. Move the game to another monitor when available, or run/observe it in the background without disrupting the active app: do not send keyboard input, mouse input, focus changes, or page/window switches to the user's active fullscreen application.
 42. GUI gameplay or performance validation must run `world_sim.exe` in a maximized window on an available monitor so the Debug / Performance panel can be fully inspected. If the panel still does not fit, resize/scroll the panel and capture or transcribe all relevant rows. Cropped, partial, or hidden performance rows are not acceptable validation evidence. This requirement does not override rule 41: if another fullscreen application is active, use another monitor or a non-disruptive background setup rather than stealing focus.
 
+## UI/UX Presentation and Claymorphism Rules
+
+These rules apply to UI/UX presentation work, including the long-term migration
+toward a unified Claymorphism / clay UI visual style.
+
+1. Role boundary and preservation:
+   - UI/UX tasks are presentation-only unless the user explicitly asks for
+     gameplay changes.
+   - UI/UX work must preserve all existing visible information, interactions,
+     debug information, and behavior.
+   - UI/UX work must not delete, hide, or weaken panel sections, debug rows,
+     labels, buttons, tabs, forms, sliders, tooltips, legends, or map display
+     modes.
+2. Claymorphism style system:
+   - Use one unified Claymorphism theme instead of ad-hoc panel colors.
+   - Prefer theme tokens for colors, radius, spacing, shadow, highlight,
+     typography, state colors, and accent roles.
+   - Use reusable clay primitives and widgets instead of copying shadow,
+     highlight, rounded-rectangle, or card drawing code into each panel.
+   - Candidate modules may include `src/ui/ui_clay_theme.h/.c`,
+     `src/ui/ui_clay_primitives.h/.c`, `src/ui/ui_clay_widgets.h/.c`, and
+     `src/ui/ui_clay_surface_cache.h/.c`, but exact filenames must be confirmed
+     against current code first. Reuse or extend existing `src/ui/ui_theme.*`,
+     `src/ui/ui_widgets.*`, and `src/render/render_common.*` when they are the
+     cleaner fit.
+3. Content and gameplay boundaries:
+   - Existing UI content is sacred. A style pass may change containers, colors,
+     spacing, radius, shadows, highlights, borders, and state rendering, but may
+     not remove, hide, simplify away, or silently replace existing data.
+   - If a component has too much information for chunky clay cards, preserve the
+     information and adapt spacing, density, or grouping carefully.
+   - UI/UX work must not modify world generation, terrain, geography, climate,
+     rivers, coasts, water depth, regions, provinces, natural regions, spawn,
+     expansion, ports, harbors, route potential, maritime routes, sea lanes,
+     diplomacy, war, vassals, collapse, plague simulation, population
+     simulation, economy, resources, technology progression, or balance
+     constants.
+   - Compile-only include or build-list changes are allowed only when needed to
+     support UI presentation modules and must not change gameplay behavior.
+4. Rendering boundaries:
+   - Rendering code must not mutate simulation state.
+   - UI draw paths should read `RenderSnapshot`, snapshot helpers, or
+     presentation caches instead of live simulation globals.
+   - Do not hold simulation or state locks during expensive drawing, text
+     layout, shadow generation, bitmap cache rebuilds, or UI-only formatting.
+   - Keep map rendering and UI shell rendering separated, and do not bake
+     dynamic UI overlays into static map content caches.
+5. Performance guardrails:
+   - Clay shadows, rounded cards, and soft highlights must not introduce
+     noticeable stutter.
+   - Avoid excessive per-frame `CreatePen`, `CreateBrush`, `CreateFont`, bitmap,
+     or compatible-DC churn.
+   - Prefer cached surfaces for repeated clay panels, buttons, tabs, cards, and
+     other stable UI shapes.
+   - Hover, pressed, selected, disabled, and focused states should redraw the
+     smallest practical area.
+   - Panel caches must not depend on unrelated map camera state such as pan or
+     zoom unless the panel explicitly displays that state.
+   - The Debug / Performance panel must remain readable and must not rebuild
+     every frame only to display animated styling.
+6. Component migration rules:
+   - Migrate in small, buildable, reviewable phases. Do not attempt a full UI
+     conversion in one commit.
+   - Recommended order: Phase 1 theme tokens, clay primitives, surface cache
+     plan, and minimal shell integration; Phase 2 top bar, bottom bar, buttons,
+     tabs, and pause menu; Phase 3 world-generation sliders, inputs, toggles,
+     color controls, and setup forms; Phase 4 country list, country detail,
+     cards, and diplomacy subviews; Phase 5 population, plague, map/info, and
+     Debug / Performance panel polish; Phase 6 hover, pressed, selected,
+     disabled, and focused states plus performance cleanup.
+7. Layout and readability:
+   - Preserve English and Chinese readability.
+   - New UI text must use the existing localization helpers and UTF-8-safe text
+     rendering path.
+   - Do not introduce mojibake or use corrupted text as translation source
+     material.
+   - High-density panels, especially Debug / Performance, may use lighter clay
+     styling to preserve information density.
+   - Do not let large radius, shadows, highlights, or decorative spacing reduce
+     critical data visibility.
+   - Keep the map viewport readable and avoid covering important map content
+     with decorative UI.
+8. Build, validation, and reporting:
+   - Update both `Makefile` and `build.bat` if new source files are added.
+   - Run the canonical build first. If `world_sim.exe` is locked, follow the
+     temporary-target verification rule above.
+   - If player-visible text, localization, UI labels, event logs, generated
+     names, or text data files change, run `make check-text` or
+     `python tools/check_mojibake.py` and scan touched files for mojibake
+     markers.
+   - Verify at least: game launch, map display, side-panel existing content,
+     Country panel, World panel, Population panel, Plague panel, Debug /
+     Performance panel, pause menu, top bar, bottom bar, and that no existing
+     controls disappeared.
+   - Confirm no gameplay files were modified except allowed compile-only
+     include or build-list necessities. Do not claim broad gameplay safety
+     unless the required project regression was actually run and checked.
+   - Every UI/UX implementation response must report files changed, whether
+     gameplay files were touched, whether visible content was preserved, build
+     result, UI screens manually checked, known visual compromises or follow-up
+     items, any cache or performance risks introduced, and whether styling
+     implementation was started.
+
 ## Code Review Rules
 
 The tracked code review source of truth is `docs/unofficial/ver0.1.4a_code_review_notes_for_codex.pdf`.

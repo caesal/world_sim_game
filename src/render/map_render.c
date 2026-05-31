@@ -1,5 +1,6 @@
 ﻿#include "render_map_internal.h"
 
+#include "core/city_display.h"
 #include "render/render_context.h"
 
 static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int y);
@@ -135,13 +136,18 @@ static void draw_city_icon(HDC hdc, int cx, int cy, int size, IconId icon, int c
     draw_icon(hdc, icon, icon_rect, RGB(22, 22, 20));
 }
 
-static void draw_harbor_marker(HDC hdc, int cx, int cy, int size) {
-    int marker_size = clamp(size, 15, 26);
-    int icon_size = clamp(marker_size - 4, 10, 20);
+static void draw_harbor_marker(HDC hdc, int cx, int cy, int size, int capital) {
+    int marker_size = clamp(size + (capital ? 4 : 0), 15, capital ? 30 : 26);
+    int icon_size = clamp(marker_size - 4, 10, capital ? 22 : 20);
     RECT plate = centered_rect(cx, cy, marker_size);
     RECT icon_rect = centered_rect(cx, cy, icon_size);
 
     draw_marker_ellipse(hdc, plate, RGB(218, 226, 205), RGB(31, 50, 48), 2);
+    if (capital) {
+        RECT inner = plate;
+        InflateRect(&inner, -4, -4);
+        draw_marker_ellipse(hdc, inner, RGB(226, 234, 217), RGB(28, 27, 23), 2);
+    }
     draw_icon(hdc, ICON_HARBOR, icon_rect, RGB(24, 94, 116));
 }
 
@@ -159,21 +165,6 @@ static void draw_neutral_harbor_marker(HDC hdc, int cx, int cy, int size) {
 
     draw_marker_ellipse(hdc, plate, RGB(168, 181, 176), RGB(74, 87, 86), 1);
     draw_icon(hdc, ICON_HARBOR, icon_rect, RGB(58, 92, 102));
-}
-
-static void separate_harbor_from_city(int *px, int *py, int cx, int cy, int size) {
-    int dx = *px - cx;
-    int dy = *py - cy;
-    int distance_sq = dx * dx + dy * dy;
-    int min_distance = clamp(size + 10, 18, 34);
-
-    if (distance_sq >= min_distance * min_distance) return;
-    if (dx == 0 && dy == 0) {
-        dx = 1;
-        dy = -1;
-    }
-    *px += dx >= 0 ? min_distance / 2 : -min_distance / 2;
-    *py += dy >= 0 ? min_distance / 2 : -min_distance / 2;
 }
 
 static int city_local_region_id(const RenderSnapshot *snapshot, int city_id, const SnapshotCity *city) {
@@ -205,29 +196,29 @@ void draw_cities(HDC hdc, MapLayout layout) {
                     snapshot->civs[city->owner].alive;
         int neutral = show_neutral && !city->alive && city->owner < 0 && region_id >= 0 &&
                       snapshot->regions[region_id].owner < 0;
+        int marker_x;
+        int marker_y;
+        int marker_kind;
         int cx;
         int cy;
         if (!owned && !neutral) continue;
-        cx = (snap_tile_left(layout, snapshot, city->x) + snap_tile_right(layout, snapshot, city->x)) / 2;
-        cy = (snap_tile_top(layout, snapshot, city->y) + snap_tile_bottom(layout, snapshot, city->y)) / 2;
-        if (owned) {
+        marker_kind = city_display_point_fields(city->port, city->x, city->y, city->port_x, city->port_y,
+                                                snapshot->map_w, snapshot->map_h, &marker_x, &marker_y);
+        if (marker_kind == CITY_DISPLAY_POINT_NONE) continue;
+        cx = (snap_tile_left(layout, snapshot, marker_x) + snap_tile_right(layout, snapshot, marker_x)) / 2;
+        cy = (snap_tile_top(layout, snapshot, marker_y) + snap_tile_bottom(layout, snapshot, marker_y)) / 2;
+        if (marker_kind == CITY_DISPLAY_POINT_PORT) {
+            if (owned) draw_harbor_marker(hdc, cx, cy, clamp(s + 8, 16, 26), city->capital);
+            else draw_neutral_harbor_marker(hdc, cx, cy, clamp(s + 5, 11, 18));
+            port_icons_drawn_last_frame++;
+        } else if (owned) {
             draw_city_icon(hdc, cx, cy, clamp(s + (city->capital ? 8 : 4), 12, 26),
                            city_stage_icon(city->capital, city->population), city->capital);
         } else {
             draw_neutral_city_icon(hdc, cx, cy, clamp(s + 2, 9, 16));
-            neutral_city_icons_drawn_last_frame++;
         }
+        if (neutral) neutral_city_icons_drawn_last_frame++;
         city_icons_drawn_last_frame++;
-        if (city->port && city->port_x >= 0 && city->port_y >= 0) {
-            int px = (snap_tile_left(layout, snapshot, city->port_x) +
-                      snap_tile_right(layout, snapshot, city->port_x)) / 2;
-            int py = (snap_tile_top(layout, snapshot, city->port_y) +
-                      snap_tile_bottom(layout, snapshot, city->port_y)) / 2;
-            separate_harbor_from_city(&px, &py, cx, cy, clamp(s + 8, 16, 26));
-            if (owned) draw_harbor_marker(hdc, px, py, clamp(s + 8, 16, 26));
-            else draw_neutral_harbor_marker(hdc, px, py, clamp(s + 5, 11, 18));
-            port_icons_drawn_last_frame++;
-        }
     }
 }
 

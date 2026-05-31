@@ -1,5 +1,6 @@
 #include "core/country_focus.h"
 
+#include "core/city_display.h"
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "sim/regions.h"
@@ -190,8 +191,9 @@ static void choose_focus_for_civ(int civ_id) {
 
     if (!entry->valid) return;
     if (valid_capital_city_for_civ(civ_id, city_id)) {
-        entry->focus_x = cities[city_id].x;
-        entry->focus_y = cities[city_id].y;
+        city_display_point_fields(cities[city_id].port, cities[city_id].x, cities[city_id].y,
+                                  cities[city_id].port_x, cities[city_id].port_y,
+                                  MAP_W, MAP_H, &entry->focus_x, &entry->focus_y);
         entry->has_capital = 1;
         return;
     }

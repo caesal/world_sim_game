@@ -1,5 +1,4 @@
 #include "map_save.h"
-
 #include "core/game_types.h"
 #include "core/load_progress.h"
 #include "game/game.h"
@@ -12,7 +11,6 @@
 #include "sim/regions_port_policy.h"
 #include "sim/regions_settlement.h"
 #include "sim/simulation.h"
-
 #include <commdlg.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -52,7 +50,6 @@ typedef struct {
 
 static const char MAP_SAVE_MAGIC[8] = {'W', 'S', 'G', 'M', 'A', 'P', '1', '\0'};
 static char save_folder[MAP_SAVE_PATH_MAX];
-
 static int path_exists(const char *path) {
     DWORD attributes = GetFileAttributesA(path);
     return attributes != INVALID_FILE_ATTRIBUTES;
@@ -106,7 +103,6 @@ static void migrate_legacy_nested_saves(void) {
     do {
         char src[MAP_SAVE_PATH_MAX];
         char dst[MAP_SAVE_PATH_MAX];
-
         if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
         if (!join_path(src, sizeof(src), nested_folder, find_data.cFileName)) continue;
         if (!join_path(dst, sizeof(dst), save_folder, find_data.cFileName)) continue;
@@ -132,7 +128,6 @@ static void show_utf8_message(HWND hwnd, const char *text, const char *title, UI
 static void load_repaint(void *user_data) {
     HWND hwnd = (HWND)user_data; if (hwnd) { InvalidateRect(hwnd, NULL, FALSE); UpdateWindow(hwnd); }
 }
-
 static int write_block(FILE *file, const void *data, size_t size, size_t count) {
     return fwrite(data, size, count, file) == count;
 }

@@ -1,20 +1,16 @@
 #include "regions_validate.h"
-
 #include "core/game_types.h"
 #include "sim/region_boundary.h"
 #include "sim/regions_balance.h"
 #include "sim/regions.h"
 #include "sim/regions_shape.h"
 #include "world/terrain_query.h"
-
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #define MAX_SPLIT_PARTS 4
 #define MAX_COMPONENTS 96
-
 typedef struct {
     int tile_count;
     int min_x, min_y, max_x, max_y;
@@ -26,26 +22,21 @@ typedef struct {
     int compactness;
     int protected_shape;
 } RegionMeasure;
-
 static RegionValidationStats last_stats;
 static RegionMeasure measure[MAX_NATURAL_REGIONS];
 static unsigned char seen[MAX_MAP_H][MAX_MAP_W];
 static int work_assign[MAX_MAP_W * MAX_MAP_H];
 static int work_cost[MAX_MAP_W * MAX_MAP_H];
 static int queue_cells[MAX_MAP_W * MAX_MAP_H];
-
 static int cell_index(int x, int y) { return y * MAX_MAP_W + x; }
 static int in_map(int x, int y) { return x >= 0 && y >= 0 && x < MAP_W && y < MAP_H; }
-
 static int region_tile(int x, int y, int id) {
     return in_map(x, y) && world[y][x].region_id == id && is_land(world[y][x].geography);
 }
-
 static int is_protected_geography(Geography g) {
     return g == GEO_ISLAND || g == GEO_DELTA || g == GEO_MOUNTAIN ||
            g == GEO_CANYON || g == GEO_WETLAND || g == GEO_COAST;
 }
-
 static void reset_measure(void) {
     int i;
     memset(measure, 0, sizeof(measure));

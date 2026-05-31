@@ -378,12 +378,12 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
             break;
         default:
             ui_section(hdc, cursor, tr("Overview", "总览"));
-            draw_metric_row(hdc, cursor, country.population, province_count_for_civ(civ_id), country.cities,
-                            ICON_POPULATION, ICON_TERRITORY, ICON_CITY_VILLAGE,
-                            metric_label("Pop", "人口"), metric_label("Provinces", "省份"), metric_label("Cities", "城市"));
-            draw_metric_row(hdc, cursor, civ ? civ->current_soldiers : 0, country.ports, civ ? civ->disorder : 0,
-                            ICON_MILITARY, ICON_HARBOR, ICON_DISORDER,
-                            metric_label("Army", "军队"), metric_label("Ports", "港口"), metric_label("Disorder", "混乱"));
+            draw_metric_row(hdc, cursor, country.population, province_count_for_civ(civ_id), country.ports,
+                            ICON_POPULATION, ICON_TERRITORY, ICON_HARBOR,
+                            metric_label("Pop", "人口"), metric_label("Provinces", "省份"), metric_label("Ports", "港口"));
+            draw_metric_row(hdc, cursor, civ ? civ->current_soldiers : 0, civ ? civ->war_front_count : 0,
+                            civ ? civ->disorder : 0, ICON_MILITARY, ICON_BATTLE, ICON_DISORDER,
+                            metric_label("Army", "军队"), metric_label("Fronts", "战线"), metric_label("Disorder", "混乱"));
             draw_overview_text_row(hdc, cursor,
                                    tr("Heritage", "文明圈"),
                                    heritage_label(civ ? civ->heritage : CIV_HERITAGE_WESTERN),

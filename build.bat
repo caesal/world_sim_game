@@ -12,12 +12,16 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\core\event_log.c ^
   src\core\event_log_history.c ^
   src\core\event_log_store.c ^
+  src\core\city_display.c ^
   src\core\game_state.c ^
   src\core\country_focus.c ^
   src\core\dirty_flags.c ^
   src\core\load_progress.c ^
+  src\core\plague_perf.c ^
   src\core\profiler.c ^
   src\core\render_snapshot.c ^
+  src\core\render_snapshot_cache.c ^
+  src\core\render_snapshot_civs.c ^
   src\core\render_snapshot_events.c ^
   src\core\render_snapshot_keys.c ^
   src\core\render_snapshot_profile.c ^
@@ -65,9 +69,12 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\province_partition.c ^
   src\sim\region_boundary.c ^
   src\sim\regions_config.c ^
+  src\sim\regions_balance.c ^
   src\sim\regions.c ^
   src\sim\regions_validate.c ^
   src\sim\regions_shape.c ^
+  src\sim\regions_settlement.c ^
+  src\sim\regions_port_policy.c ^
   src\sim\regions_spawn.c ^
   src\sim\spawn.c ^
   src\sim\expansion.c ^
@@ -98,6 +105,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\region_render.c ^
   src\render\snapshot_map_layers.c ^
   src\render\map_labels.c ^
+  src\render\map_label_cache.c ^
   src\render\map_label_style.c ^
   src\render\route_render.c ^
   src\render\river_geometry.c ^
@@ -125,6 +133,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\panel_plague_page.c ^
   src\render\panel_worldgen.c ^
   src\render\panel_debug_worldgen.c ^
+  src\render\panel_debug_controls.c ^
   src\render\panel_debug_perf.c ^
   src\render\panel_debug.c ^
   src\render\panel_population.c ^
