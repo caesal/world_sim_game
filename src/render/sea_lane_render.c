@@ -1,16 +1,13 @@
 #include "render/sea_lane_render.h"
-
 #include "render/plague_visual.h"
 #include "core/plague_perf.h"
 #include "render/render_common.h"
 #include "render/render_context.h"
 #include "render/sea_lane_dash_cache.h"
 #include "sim/route_potential.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 #define SEA_LANE_SCREEN_POINTS (MAX_SEA_LANE_POINTS * 2)
 #define SHALLOW_LANE_DASH_UNITS 50
 #define SHALLOW_LANE_GAP_UNITS 30
@@ -20,7 +17,6 @@
 #define SHALLOW_LANE_OUTLINE_WIDTH 3
 #define DEEP_LANE_WIDTH 3
 #define DEEP_LANE_HALO_WIDTH 4
-
 typedef struct {
     int valid;
     unsigned int key;
@@ -28,7 +24,6 @@ typedef struct {
     MapPoint map_points[SEA_LANE_SCREEN_POINTS];
     POINT screen_points[SEA_LANE_SCREEN_POINTS];
 } CachedLanePath;
-
 static CachedLanePath lane_path_cache[MAX_SEA_LANES];
 static int lane_cache_hits;
 static int lane_cache_misses;
@@ -39,11 +34,9 @@ static int lane_infected_routes;
 static int lane_infected_draw_ms;
 static int lane_miss_initial, lane_miss_route, lane_miss_other;
 static const char *lane_last_reason = "none";
-
 static unsigned int mix_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
 }
-
 static unsigned int lane_layout_key(const RenderSnapshot *snapshot, const SnapshotSeaLane *lane,
                                     int lane_index, int deep, MapLayout layout) {
     unsigned int key = snapshot ? (unsigned int)snapshot->lanes_revision : 0;
@@ -55,14 +48,12 @@ static unsigned int lane_layout_key(const RenderSnapshot *snapshot, const Snapsh
     key = mix_key(key, snapshot ? snapshot->map_h : 0);
     return key;
 }
-
 static POINT tile_point(const RenderSnapshot *snapshot, MapPoint tile, MapLayout layout) {
     POINT point;
     point.x = layout.map_x + (tile.x * 2 + 1) * layout.draw_w / (max(1, snapshot->map_w) * 2);
     point.y = layout.map_y + (tile.y * 2 + 1) * layout.draw_h / (max(1, snapshot->map_h) * 2);
     return point;
 }
-
 static int screen_to_tile(const RenderSnapshot *snapshot, POINT point, MapLayout layout, int *tx, int *ty) {
     if (point.x < layout.map_x || point.y < layout.map_y ||
         point.x >= layout.map_x + layout.draw_w || point.y >= layout.map_y + layout.draw_h) return 0;
@@ -70,12 +61,10 @@ static int screen_to_tile(const RenderSnapshot *snapshot, POINT point, MapLayout
     *ty = (point.y - layout.map_y) * snapshot->map_h / layout.draw_h;
     return *tx >= 0 && *tx < snapshot->map_w && *ty >= 0 && *ty < snapshot->map_h;
 }
-
 static int snapshot_water_at(const RenderSnapshot *snapshot, int x, int y) {
     const SnapshotTile *tile = render_snapshot_tile_at(snapshot, x, y);
     return tile && !is_land((Geography)tile->geography);
 }
-
 static int segment_crosses_land(const RenderSnapshot *snapshot, POINT a, POINT b,
                                 MapLayout layout, int allow_port_land) {
     int dx = b.x - a.x;
@@ -92,7 +81,6 @@ static int segment_crosses_land(const RenderSnapshot *snapshot, POINT a, POINT b
     }
     return 0;
 }
-
 static int path_crosses_land(const RenderSnapshot *snapshot, const POINT *points, int count, MapLayout layout) {
     int i;
     for (i = 1; i < count; i++) {
@@ -100,7 +88,6 @@ static int path_crosses_land(const RenderSnapshot *snapshot, const POINT *points
     }
     return 0;
 }
-
 static int screen_path_visible(const POINT *points, int count, RECT content, int pad) {
     RECT bounds;
     int i;
@@ -120,14 +107,12 @@ static int screen_path_visible(const POINT *points, int count, RECT content, int
     return bounds.right >= content.left && bounds.left <= content.right &&
            bounds.bottom >= content.top && bounds.top <= content.bottom;
 }
-
 static int append_map_point(MapPoint *out, int *count, int max_count, MapPoint p) {
     if (*count > 0 && out[*count - 1].x == p.x && out[*count - 1].y == p.y) return 1;
     if (*count >= max_count) return 0;
     out[(*count)++] = p;
     return 1;
 }
-
 static int densify_map_path(const MapPoint *src, int src_count, int is_deep, MapPoint *out, int max_count) {
     int count = 0;
     int allow_dense = src_count * 3 < max_count;
@@ -149,7 +134,6 @@ static int densify_map_path(const MapPoint *src, int src_count, int is_deep, Map
     }
     return count;
 }
-
 static void smooth_screen_path(const POINT *src, POINT *out, int count) {
     if (count <= 0) return;
     out[0] = src[0];
@@ -159,7 +143,6 @@ static void smooth_screen_path(const POINT *src, POINT *out, int count) {
     }
     if (count > 1) out[count - 1] = src[count - 1];
 }
-
 static void refresh_screen_points(const RenderSnapshot *snapshot, CachedLanePath *cache, MapLayout layout) {
     POINT raw[SEA_LANE_SCREEN_POINTS];
     int i;
@@ -167,7 +150,6 @@ static void refresh_screen_points(const RenderSnapshot *snapshot, CachedLanePath
     for (i = 0; i < cache->count; i++) raw[i] = tile_point(snapshot, cache->map_points[i], layout);
     smooth_screen_path(raw, cache->screen_points, cache->count);
 }
-
 static int map_path_render_points(const RenderSnapshot *snapshot, const MapPoint *src_map,
                                   int src_count, int is_deep, MapLayout layout, MapPoint *out_map,
                                   POINT *out_screen, int max_count) {
@@ -180,7 +162,6 @@ static int map_path_render_points(const RenderSnapshot *snapshot, const MapPoint
     if (path_crosses_land(snapshot, out_screen, count, layout)) memcpy(out_screen, raw, (size_t)count * sizeof(raw[0]));
     return count;
 }
-
 static const CachedLanePath *cached_lane_path(const RenderSnapshot *snapshot,
                                               const SnapshotSeaLane *lane, int lane_index,
                                               int deep, MapLayout layout) {
@@ -245,12 +226,34 @@ static void offset_points(const POINT *src, POINT *dst, int count, int shift) {
     if (count <= 0) return;
     dx = src[count - 1].x - src[0].x;
     dy = src[count - 1].y - src[0].y;
-    ox = abs(dx) >= abs(dy) ? 0 : shift;
-    oy = abs(dx) >= abs(dy) ? shift : 0;
+    ox = -dy * shift / max(1, max(abs(dx), abs(dy)));
+    oy = dx * shift / max(1, max(abs(dx), abs(dy)));
+    if (!ox && !oy && shift) {
+        ox = abs(dx) >= abs(dy) ? 0 : shift;
+        oy = abs(dx) >= abs(dy) ? shift : 0;
+    }
     for (i = 0; i < count; i++) {
         dst[i].x = src[i].x + ox;
         dst[i].y = src[i].y + oy;
     }
+}
+
+static int route_visual_shift(unsigned int key, int deep) {
+    static const int shifts[4] = {-3, -1, 1, 3};
+    return shifts[(key ^ (deep ? 0x9e37u : 0x51edu)) & 3u];
+}
+
+static void draw_lane_stroke_shifted(HDC hdc, int cache_id, unsigned int route_key,
+                                     const MapPoint *map_points, const POINT *screen_points,
+                                     int count, COLORREF color, int width,
+                                     int dash_units, int gap_units, int shift) {
+    POINT shifted[SEA_LANE_SCREEN_POINTS];
+    if (shift) {
+        offset_points(screen_points, shifted, count, shift);
+        screen_points = shifted;
+    }
+    draw_lane_stroke(hdc, cache_id, route_key, map_points, screen_points,
+                     count, color, width, dash_units, gap_units);
 }
 
 static void draw_lane_infection_overlay(HDC hdc, const MapPoint *map_points,
@@ -328,6 +331,8 @@ static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot
             int dash;
             int gap;
             int count;
+            int visual_shift;
+            unsigned int key;
             if (!edge->active || edge->point_count < 2) continue;
             if ((pass == 1) != (edge->type == ROUTE_POTENTIAL_DEEP)) continue;
             count = map_path_render_points(snapshot, edge->points, edge->point_count,
@@ -348,14 +353,15 @@ static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot
                 dash = SHALLOW_LANE_DASH_UNITS;
                 gap = SHALLOW_LANE_GAP_UNITS;
             }
-            draw_lane_stroke(hdc, SEA_LANE_DASH_CACHE_POTENTIAL_BASE + i,
-                             potential_edge_key(snapshot, edge, i),
-                             map_points, points, count, outline,
-                             edge->type == ROUTE_POTENTIAL_DEEP ? DEEP_LANE_HALO_WIDTH : SHALLOW_LANE_OUTLINE_WIDTH,
-                             dash, gap);
-            draw_lane_stroke(hdc, SEA_LANE_DASH_CACHE_POTENTIAL_BASE + i,
-                             potential_edge_key(snapshot, edge, i),
-                             map_points, points, count, color, width, dash, gap);
+            key = potential_edge_key(snapshot, edge, i);
+            visual_shift = route_visual_shift(key, edge->type == ROUTE_POTENTIAL_DEEP);
+            draw_lane_stroke_shifted(hdc, SEA_LANE_DASH_CACHE_POTENTIAL_BASE + i,
+                                     key, map_points, points, count, outline,
+                                     edge->type == ROUTE_POTENTIAL_DEEP ? DEEP_LANE_HALO_WIDTH : SHALLOW_LANE_OUTLINE_WIDTH,
+                                     dash, gap, visual_shift);
+            draw_lane_stroke_shifted(hdc, SEA_LANE_DASH_CACHE_POTENTIAL_BASE + i,
+                                     key, map_points, points, count, color, width, dash, gap,
+                                     visual_shift);
         }
     }
     for (i = 0; i < node_count; i++) {
@@ -417,6 +423,8 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
             COLORREF outline;
             COLORREF inner;
             const CachedLanePath *path;
+            unsigned int key;
+            int visual_shift;
             if ((pass == 1) != deep) continue;
             path = cached_lane_path(snapshot, lane, i, deep, layout);
             dash = deep ? DEEP_LANE_DASH_UNITS : SHALLOW_LANE_DASH_UNITS;
@@ -426,12 +434,14 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
             outline = deep ? RGB(92, 96, 102) : RGB(145, 140, 118);
             inner = deep ? RGB(70, 74, 78) : RGB(240, 238, 218);
             width = deep ? DEEP_LANE_WIDTH : SHALLOW_LANE_WIDTH;
-            draw_lane_stroke(hdc, i, dash_route_key(path->key, 1),
-                             path->map_points, path->screen_points, path->count, outline,
-                             deep ? DEEP_LANE_HALO_WIDTH : SHALLOW_LANE_OUTLINE_WIDTH,
-                             dash, gap);
-            draw_lane_stroke(hdc, i, dash_route_key(path->key, 1),
-                             path->map_points, path->screen_points, path->count, inner, width, dash, gap);
+            key = dash_route_key(path->key, 1);
+            visual_shift = route_visual_shift(key, deep);
+            draw_lane_stroke_shifted(hdc, i, key, path->map_points, path->screen_points,
+                                     path->count, outline,
+                                     deep ? DEEP_LANE_HALO_WIDTH : SHALLOW_LANE_OUTLINE_WIDTH,
+                                     dash, gap, visual_shift);
+            draw_lane_stroke_shifted(hdc, i, key, path->map_points, path->screen_points,
+                                     path->count, inner, width, dash, gap, visual_shift);
             lane_visible_routes++;
         }
     }

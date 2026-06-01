@@ -22,6 +22,9 @@ static int render_presentation_throttled;
 static DWORD last_presentation_redraw_tick;
 static char last_map_redraw_reason[160] = "none";
 
+#define PRESENTATION_MAP_REDRAW_MASK \
+    (GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_MAP_STATIC | GAME_REDRAW_PLAGUE_OVERLAY)
+
 static void append_map_reason(char *buffer, int buffer_size, const char *reason) {
     int used;
     if (!buffer || buffer_size <= 0 || !reason || !reason[0]) return;
@@ -62,20 +65,46 @@ static int presentation_throttle_interval_ms(int redraw) {
     return 250;
 }
 
+static int max_speed_presentation_overloaded(void) {
+    return auto_run && world_generated && speed_index >= SPEED_COUNT - 1 &&
+           (simulation_worker_presentation_throttled() || simulation_worker_overloaded());
+}
+
 static int coalesce_presentation_redraw(int redraw, DWORD now) {
     int interval = presentation_throttle_interval_ms(redraw);
     int combined = redraw | pending_presentation_redraw;
+    int immediate;
+    int map_redraw;
     if (!combined) return GAME_REDRAW_NONE;
+    if (combined & GAME_REDRAW_FULL) {
+        pending_presentation_redraw = GAME_REDRAW_NONE;
+        render_presentation_throttled = 0;
+        last_presentation_redraw_tick = now;
+        return combined;
+    }
+    if (interval <= 0) {
+        pending_presentation_redraw = GAME_REDRAW_NONE;
+        render_presentation_throttled = 0;
+        last_presentation_redraw_tick = now;
+        return combined;
+    }
+    immediate = combined & ~PRESENTATION_MAP_REDRAW_MASK;
+    map_redraw = combined & PRESENTATION_MAP_REDRAW_MASK;
+    if (!map_redraw) {
+        pending_presentation_redraw = GAME_REDRAW_NONE;
+        render_presentation_throttled = 0;
+        return immediate;
+    }
     if (interval > 0 && last_presentation_redraw_tick > 0 &&
         (int)(now - last_presentation_redraw_tick) < interval) {
-        pending_presentation_redraw = combined;
+        pending_presentation_redraw = map_redraw;
         render_presentation_throttled = 1;
-        return GAME_REDRAW_NONE;
+        return immediate;
     }
     pending_presentation_redraw = GAME_REDRAW_NONE;
     render_presentation_throttled = 0;
     last_presentation_redraw_tick = now;
-    return combined;
+    return immediate | map_redraw;
 }
 
 int game_loop_tick_frame(void) {
@@ -101,9 +130,11 @@ int game_loop_tick_frame(void) {
     completed_months = simulation_worker_take_visual_tick();
     if (completed_months > 0) redraw |= GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
                                         GAME_REDRAW_SIDE_PANEL;
-    if (did_visual) {
+    if (did_visual && !max_speed_presentation_overloaded()) {
         redraw |= GAME_REDRAW_PLAGUE_OVERLAY;
         append_map_reason(map_reason, sizeof(map_reason), "plague-animation");
+    } else if (did_visual) {
+        plague_perf_note_invalidation_suppressed(1);
     }
     if (diplomacy_map_anim_active()) {
         redraw |= GAME_REDRAW_MAP_DYNAMIC;
@@ -119,7 +150,7 @@ int game_loop_tick_frame(void) {
         append_map_reason(map_reason, sizeof(map_reason), "static-dirty");
     }
     if (dirty_render_plague()) {
-        if (!plague_perf_visuals_allowed()) {
+        if (!plague_perf_visuals_allowed() || max_speed_presentation_overloaded()) {
             plague_perf_note_invalidation_suppressed(1);
             dirty_clear_render_plague();
         } else {

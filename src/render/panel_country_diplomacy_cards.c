@@ -376,15 +376,27 @@ static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id
     }
 }
 
+int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view) {
+    SnapshotDiplomacyRelation relation = card_relation(civ_id, other_id);
+    int vassal_like = view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
+                      card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
+                      card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
+    int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
+    if (relation.state == DIPLOMACY_WAR) return 194;
+    if (relation.state == DIPLOMACY_TRUCE) return 126;
+    if (direct_vassal) return 150;
+    if (vassal_like) return 104;
+    return 126;
+}
+
 void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
                                   int other_id, DiplomacyView view) {
     SnapshotDiplomacyRelation relation = card_relation(civ_id, other_id);
     int vassal_like = view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
                       card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
-    int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
     RECT card = {cursor->x, cursor->y, cursor->x + cursor->width,
-                 cursor->y + (direct_vassal ? 150 : (vassal_like ? 150 : 184))};
+                 cursor->y + diplomacy_relation_card_height(civ_id, other_id, view)};
     UiCursor inner = ui_cursor(card.left + 10, card.top + 8, card.right - card.left - 20, card.bottom - 8);
     fill_rect(hdc, card, RGB(34, 39, 42));
     draw_header(hdc, &inner, civ_id, other_id, relation);

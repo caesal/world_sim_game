@@ -156,17 +156,15 @@ static void compute_shape_metrics(void) {
         if (m->perimeter_area > last_worst_perimeter_area) last_worst_perimeter_area = m->perimeter_area;
     }
 }
-
 static int protected_shape_is_coherent(const ShapeMetrics *m) {
     int protected_ratio = m->protected_tiles * 100 / max(1, m->tile_count);
     int river_ratio = m->river_tiles * 100 / max(1, m->tile_count);
     int coast_ratio = m->coastal_tiles * 100 / max(1, m->tile_count);
     if (protected_ratio < 36) return 0;
-    if (m->avg_width_x100 < 450 || m->fill_percent < 26 || m->perimeter_area > 132) return 0;
-    if (m->mountain_tiles * 100 / max(1, m->tile_count) > 65 && m->avg_width_x100 < 700) return 0;
+    if (m->aspect > 360 || m->avg_width_x100 < 560 || m->fill_percent < 32 || m->perimeter_area > 118) return 0;
+    if (m->mountain_tiles * 100 / max(1, m->tile_count) > 60 && m->avg_width_x100 < 800) return 0;
     return river_ratio >= 8 || coast_ratio >= 12 || protected_ratio >= 52;
 }
-
 static RegionShapeClass classify_region_shape(int id, int target_size) {
     ShapeMetrics *m = &shape_metrics[id];
     RegionSizeBand band = regions_size_band(target_size);
@@ -176,15 +174,14 @@ static RegionShapeClass classify_region_shape(int id, int target_size) {
     diagonal_percent = m->diagonal_links * 100 / max(1, m->tile_count);
     if (m->tile_count < band.hard_min) return REGION_SHAPE_TINY;
     if (m->tile_count > band.hard_max) return REGION_SHAPE_HUGE;
-    if (m->avg_width_x100 < 300 && m->tile_count > 24) return REGION_SHAPE_SLIVER;
+    if (m->avg_width_x100 < 360 && m->tile_count > 20) return REGION_SHAPE_SLIVER;
     if (diagonal_percent > 18 && m->fill_percent < 38 && m->perimeter_area > 96) return REGION_SHAPE_ARTIFICIAL_DIAGONAL;
-    if (m->fill_percent < (coherent ? 18 : 25) && m->tile_count > target_size / 3) return REGION_SHAPE_LOW_FILL;
-    if (m->aspect > (coherent ? 480 : 320)) return REGION_SHAPE_RIBBON;
-    if (m->aspect > 240 && m->avg_width_x100 < (coherent ? 520 : 620)) return REGION_SHAPE_RIBBON;
-    if (!coherent && m->perimeter_area > 132 && m->fill_percent < 34) return REGION_SHAPE_LOW_FILL;
+    if (m->fill_percent < (coherent ? 24 : 30) && m->tile_count > target_size / 4) return REGION_SHAPE_LOW_FILL;
+    if (m->aspect > (coherent ? 380 : 280)) return REGION_SHAPE_RIBBON;
+    if (m->aspect > 220 && m->avg_width_x100 < (coherent ? 700 : 760)) return REGION_SHAPE_RIBBON;
+    if (m->perimeter_area > (coherent ? 128 : 118) && m->fill_percent < (coherent ? 38 : 42)) return REGION_SHAPE_LOW_FILL;
     return REGION_SHAPE_OK;
 }
-
 static int best_merge_neighbor_for_region(int id, int target_size) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int scores[MAX_NATURAL_REGIONS];
@@ -479,10 +476,13 @@ void regions_shape_repair_ugly(int target_size) {
                 if (cls == REGION_SHAPE_LOW_FILL) last_low_fill_count++;
                 if (cls == REGION_SHAPE_ARTIFICIAL_DIAGONAL) last_diagonal_count++;
             }
-            if ((cls == REGION_SHAPE_TINY || cls == REGION_SHAPE_SLIVER) && merge_bad_region(i, target_size) > 0) {
+            if ((cls == REGION_SHAPE_TINY ||
+                 (cls == REGION_SHAPE_SLIVER && shape_metrics[i].tile_count < band.soft_min)) &&
+                merge_bad_region(i, target_size) > 0) {
                 changed++;
-            } else if ((shape_metrics[i].tile_count > band.soft_max ||
-                        shape_metrics[i].aspect > 520 || cls == REGION_SHAPE_ARTIFICIAL_DIAGONAL) &&
+            } else if ((shape_metrics[i].tile_count > band.soft_max || cls == REGION_SHAPE_RIBBON ||
+                        cls == REGION_SHAPE_SLIVER || cls == REGION_SHAPE_ARTIFICIAL_DIAGONAL ||
+                        (cls == REGION_SHAPE_LOW_FILL && shape_metrics[i].tile_count >= band.soft_min)) &&
                        split_bad_region(i, target_size) > 0) {
                 changed++;
             } else {

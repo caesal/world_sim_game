@@ -384,7 +384,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
             state->phase = SIM_MONTH_SNAPSHOT_CACHE;
             break;
         case SIM_MONTH_SNAPSHOT_CACHE:
-            render_snapshot_cache_update_budgeted(32, 128, 1, 1);
+            render_snapshot_cache_update_budgeted(32, 1024, 1, 1);
             if (render_snapshot_cache_dirty_count() > 0) break;
             state->phase = SIM_MONTH_DECISION_CACHE;
             break;

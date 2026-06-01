@@ -22,7 +22,7 @@ static volatile LONG visual_coalesced_months = 0;
 static volatile LONG presentation_throttled = 0;
 static char worker_status[64] = "Idle";
 
-#define VISUAL_MONTH_BACKLOG_CAP 2
+#define VISUAL_MONTH_BACKLOG_CAP 8
 
 static int budget_for_speed(int speed) {
     static const int budgets[SPEED_COUNT] = {3, 4, 5, 6, 8};
@@ -62,6 +62,7 @@ static DWORD WINAPI worker_main(void *unused) {
     DWORD last_tick = GetTickCount();
     DWORD last_month_tick = last_tick;
     int accumulator_ms = 0;
+    int publish_pending = 0;
     (void)unused;
 
     while (!worker_stop) {
@@ -83,14 +84,24 @@ static DWORD WINAPI worker_main(void *unused) {
             Sleep(4);
             continue;
         }
+        if ((int)visual_completed_months >= VISUAL_MONTH_BACKLOG_CAP) {
+            if (publish_pending && render_snapshot_publish_from_live_state_throttled(0)) {
+                publish_pending = 0;
+            } else if (!publish_pending && render_snapshot_age_ms() > 1000) {
+                render_snapshot_publish_from_live_state_throttled(1);
+            }
+            accumulator_ms = 0;
+            presentation_throttled = 1;
+            overloaded_flag = 1;
+            set_status("Waiting for presentation");
+            Sleep(1);
+            continue;
+        }
 
         state_write_lock();
         pending = sim_scheduler_pending_months();
-        performance_limited = ((int)visual_completed_months >= VISUAL_MONTH_BACKLOG_CAP) ||
-                              (actual_ms_per_month > 0 &&
-                              actual_ms_per_month > target_ms * 3 / 2 &&
-                              pending > 0);
-        accumulator_ms = performance_limited ? 0 : min(accumulator_ms + elapsed, max(target_ms * 4, 120));
+        performance_limited = 0;
+        accumulator_ms = min(accumulator_ms + elapsed, max(target_ms * 4, 120));
         if (pending >= sim_scheduler_pending_month_cap()) {
             sim_scheduler_trim_pending_months(2);
             pending = sim_scheduler_pending_months();
@@ -128,9 +139,12 @@ static DWORD WINAPI worker_main(void *unused) {
                 if (completed > 0) publish_needed = 1;
                 record_completed_months(completed, &last_month_tick);
                 used_ms = (int)(GetTickCount() - start);
-                if (used_ms >= budget_ms || completed == 0) break;
+                if (publish_needed || used_ms >= budget_ms || completed == 0) break;
             } while (used_ms < budget_ms);
-            if (publish_needed) render_snapshot_publish_from_live_state_throttled(0);
+            if (publish_needed) publish_pending = 1;
+            if (publish_pending && render_snapshot_publish_from_live_state_throttled(0)) {
+                publish_pending = 0;
+            }
             state_write_lock();
             has_work = sim_scheduler_has_pending_work();
             state_write_unlock();

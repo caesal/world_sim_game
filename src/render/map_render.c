@@ -121,6 +121,52 @@ static RECT centered_rect(int cx, int cy, int size) {
     return rect;
 }
 
+static void draw_city_stage_glyph(HDC hdc, RECT rect, IconId icon) {
+    int w = rect.right - rect.left;
+    int h = rect.bottom - rect.top;
+    int inset = max(1, min(w, h) / 5);
+    RECT body = {rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset};
+    HPEN old_pen = SelectObject(hdc, GetStockObject(BLACK_PEN));
+    HBRUSH old_brush = SelectObject(hdc, GetStockObject(BLACK_BRUSH));
+
+    if (icon == ICON_CITY_OUTPOST) {
+        Ellipse(hdc, body.left + w / 5, body.top + h / 5, body.right - w / 5, body.bottom - h / 5);
+    } else if (icon == ICON_CITY_VILLAGE) {
+        Ellipse(hdc, body.left, body.top + h / 6, body.right, body.bottom - h / 6);
+    } else if (icon == ICON_CITY_TOWN) {
+        Rectangle(hdc, body.left, body.top + h / 6, body.right, body.bottom);
+    } else {
+        Rectangle(hdc, body.left, body.top, body.right, body.bottom);
+        MoveToEx(hdc, body.left, body.top, NULL);
+        LineTo(hdc, (body.left + body.right) / 2, rect.top);
+        LineTo(hdc, body.right, body.top);
+    }
+    SelectObject(hdc, old_brush);
+    SelectObject(hdc, old_pen);
+}
+
+static void draw_harbor_glyph(HDC hdc, RECT rect) {
+    int cx = (rect.left + rect.right) / 2;
+    int cy = (rect.top + rect.bottom) / 2;
+    int s = min(rect.right - rect.left, rect.bottom - rect.top);
+    int top = cy - s / 3;
+    int bottom = cy + s / 3;
+    int arm = s / 3;
+    HPEN old_pen = SelectObject(hdc, GetStockObject(BLACK_PEN));
+    HBRUSH old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+    Ellipse(hdc, cx - s / 8, top - s / 8, cx + s / 8, top + s / 8);
+    MoveToEx(hdc, cx, top + s / 8, NULL);
+    LineTo(hdc, cx, bottom);
+    MoveToEx(hdc, cx - arm, cy, NULL);
+    LineTo(hdc, cx + arm, cy);
+    MoveToEx(hdc, cx - arm, bottom - s / 7, NULL);
+    LineTo(hdc, cx, bottom);
+    LineTo(hdc, cx + arm, bottom - s / 7);
+    SelectObject(hdc, old_brush);
+    SelectObject(hdc, old_pen);
+}
+
 static void draw_city_icon(HDC hdc, int cx, int cy, int size, IconId icon, int capital) {
     int backplate = clamp(size + (capital ? 10 : 6), 16, capital ? 34 : 28);
     int icon_size = clamp(size - 2, 10, capital ? 24 : 20);
@@ -133,7 +179,7 @@ static void draw_city_icon(HDC hdc, int cx, int cy, int size, IconId icon, int c
         InflateRect(&inner, -4, -4);
         draw_marker_ellipse(hdc, inner, RGB(241, 229, 188), RGB(28, 27, 23), 2);
     }
-    draw_icon(hdc, icon, icon_rect, RGB(22, 22, 20));
+    draw_city_stage_glyph(hdc, icon_rect, icon);
 }
 
 static void draw_harbor_marker(HDC hdc, int cx, int cy, int size, int capital) {
@@ -148,7 +194,7 @@ static void draw_harbor_marker(HDC hdc, int cx, int cy, int size, int capital) {
         InflateRect(&inner, -4, -4);
         draw_marker_ellipse(hdc, inner, RGB(226, 234, 217), RGB(28, 27, 23), 2);
     }
-    draw_icon(hdc, ICON_HARBOR, icon_rect, RGB(24, 94, 116));
+    draw_harbor_glyph(hdc, icon_rect);
 }
 
 static void draw_neutral_city_icon(HDC hdc, int cx, int cy, int size) {
@@ -164,7 +210,7 @@ static void draw_neutral_harbor_marker(HDC hdc, int cx, int cy, int size) {
     RECT icon_rect = centered_rect(cx, cy, icon_size);
 
     draw_marker_ellipse(hdc, plate, RGB(168, 181, 176), RGB(74, 87, 86), 1);
-    draw_icon(hdc, ICON_HARBOR, icon_rect, RGB(58, 92, 102));
+    draw_harbor_glyph(hdc, icon_rect);
 }
 
 static int city_local_region_id(const RenderSnapshot *snapshot, int city_id, const SnapshotCity *city) {
@@ -228,19 +274,34 @@ int render_neutral_city_icons_drawn_last_frame(void) { return neutral_city_icons
 
 void draw_selected_tile(HDC hdc, MapLayout layout) {
     RECT rect;
+    RECT marker;
     HPEN pen;
     HPEN old_pen;
     HBRUSH old_brush;
+    int cx;
+    int cy;
+    int marker_size;
 
     if (selected_x < 0 || selected_y < 0) return;
     rect.left = tile_left(layout, selected_x);
     rect.top = tile_top(layout, selected_y);
     rect.right = tile_right(layout, selected_x);
     rect.bottom = tile_bottom(layout, selected_y);
+    cx = (rect.left + rect.right) / 2;
+    cy = (rect.top + rect.bottom) / 2;
+    marker_size = clamp(layout.tile_size * 4, 18, 34);
+    marker = centered_rect(cx, cy, marker_size);
 
-    pen = CreatePen(PS_SOLID, 3, RGB(255, 255, 255));
+    fill_rect_alpha(hdc, rect, RGB(162, 96, 226), 88);
+    fill_rect_alpha(hdc, marker, RGB(162, 96, 226), 54);
+    pen = CreatePen(PS_SOLID, 3, RGB(218, 172, 255));
     old_pen = SelectObject(hdc, pen);
     old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    Rectangle(hdc, marker.left, marker.top, marker.right, marker.bottom);
+    SelectObject(hdc, old_pen);
+    DeleteObject(pen);
+    pen = CreatePen(PS_SOLID, 2, RGB(92, 54, 150));
+    old_pen = SelectObject(hdc, pen);
     Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
     SelectObject(hdc, old_brush);
     SelectObject(hdc, old_pen);

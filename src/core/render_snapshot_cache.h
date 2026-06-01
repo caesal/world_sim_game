@@ -9,6 +9,8 @@ void render_snapshot_cache_update_budgeted(int city_budget, int pair_budget,
                                            int refresh_lanes, int refresh_plague);
 void render_snapshot_cache_update_all(void);
 int render_snapshot_cache_dirty_count(void);
+int render_snapshot_cache_city_ready(int key);
+int render_snapshot_cache_diplomacy_ready(int key);
 
 int render_snapshot_cache_city_summary(int city_id, int key, RegionSummary *region,
                                        PopulationSummary *population);

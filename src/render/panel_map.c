@@ -63,7 +63,7 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     const char *render_status;
     const char *sim_status;
     char actual_text[32];
-    RECT status_rect = {336, client.bottom - 40, client.right - panel_w - 12, client.bottom - 8};
+    RECT status_rect = {398, client.bottom - 40, client.right - panel_w - 12, client.bottom - 8};
     int play_hot = point_in_rect_local(play, hover_x, hover_y);
     UiClayState play_state = ui_clay_state_from_flags(
         play_hot, play_hot && (GetKeyState(VK_LBUTTON) & 0x8000), auto_run, 0);
@@ -77,7 +77,7 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     if (actual_ms > 0) snprintf(actual_text, sizeof(actual_text), "%.1fs/%s", actual_ms / 1000.0, tr("month", "月"));
     else snprintf(actual_text, sizeof(actual_text), "--");
 
-    fill_rect(hdc, bar, ui_theme_color(UI_COLOR_CHROME));
+    ui_clay_draw_bar_shell(hdc, bar);
     ui_clay_draw_icon_button(hdc, play, auto_run ? "||" : ">", play_state);
 
     for (i = 0; i < SPEED_COUNT; i++) {
@@ -146,11 +146,12 @@ void draw_map_legend(HDC hdc, RECT client) {
     int x;
     int y;
     int i;
-    int show_geography = display_mode != DISPLAY_CLIMATE;
+    int route_only = display_mode == DISPLAY_ROUTE_POTENTIAL;
+    int show_geography = !route_only && display_mode != DISPLAY_CLIMATE;
     int show_climate = display_mode == DISPLAY_POLITICAL || display_mode == DISPLAY_REGIONS ||
-                       display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL ||
+                       display_mode == DISPLAY_ALL ||
                        display_mode == DISPLAY_CLIMATE;
-    int show_routes = display_mode == DISPLAY_ROUTE_POTENTIAL;
+    int show_routes = route_only;
     RECT box = get_map_legend_box_rect(client);
     RECT toggle = get_map_legend_toggle_rect(client);
     HBRUSH border_brush;
@@ -176,6 +177,15 @@ void draw_map_legend(HDC hdc, RECT client) {
 
     x = box.left + 10;
     y = box.top + 30;
+
+    if (show_routes && !show_geography && !show_climate) {
+        draw_legend_group(hdc, x, y, tr("Routes", "航道"));
+        y += line_h;
+        draw_legend_item(hdc, x, y, RGB(240, 238, 218), tr("Shallow route", "浅海航道"));
+        draw_legend_item(hdc, x, y + line_h, RGB(70, 74, 78), tr("Deep route", "深海航道"));
+        RestoreDC(hdc, saved_dc);
+        return;
+    }
 
     if (show_geography) {
         draw_legend_group(hdc, x, y, tr("Water", "水域"));

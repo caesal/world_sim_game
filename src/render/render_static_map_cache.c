@@ -337,18 +337,18 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
         else draw_blank(hdc, client, layout);
         return;
     }
-    physical_key = physical_revision(snapshot->tiles_revision);
-    fill_key = fill_revision(snapshot->tiles_revision, snapshot->regions_revision);
-    coast_key = snapshot->tiles_revision;
-    hydro_key = snapshot->tiles_revision;
-    border_key = border_revision(snapshot->tiles_revision, snapshot->regions_revision);
+    physical_key = physical_revision(snapshot->terrain_revision);
+    fill_key = fill_revision(snapshot->terrain_revision, snapshot->regions_revision);
+    coast_key = snapshot->coast_revision;
+    hydro_key = snapshot->hydrology_revision;
+    border_key = border_revision(snapshot->terrain_revision, snapshot->regions_revision);
     static_key = static_revision(physical_key, fill_key, coast_key, hydro_key, border_key);
-    live_tile_key = render_snapshot_tile_revision_key();
+    live_tile_key = dirty_revision_terrain();
     live_region_key = render_snapshot_regions_revision_key();
     live_physical_key = physical_revision(live_tile_key);
     live_fill_key = fill_revision(live_tile_key, live_region_key);
-    live_coast_key = live_tile_key;
-    live_hydro_key = live_tile_key;
+    live_coast_key = dirty_revision_coast();
+    live_hydro_key = dirty_revision_hydrology();
     live_border_key = border_revision(live_tile_key, live_region_key);
     live_static_key = static_revision(live_physical_key, live_fill_key, live_coast_key,
                                       live_hydro_key, live_border_key);

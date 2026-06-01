@@ -165,9 +165,9 @@ RECT get_play_button_rect(RECT client) {
 
 RECT get_speed_button_rect(RECT client, int index) {
     RECT rect;
-    rect.left = 68 + index * 50;
+    rect.left = 68 + index * 64;
     rect.top = client.bottom - 38;
-    rect.right = rect.left + 46;
+    rect.right = rect.left + 58;
     rect.bottom = client.bottom - 8;
     return rect;
 }
@@ -252,6 +252,7 @@ static int map_legend_full_height(int show_geography, int show_climate, int show
     int line_h = 20;
     int left_bottom = 0;
     int right_bottom = 0;
+    if (show_routes && !show_geography && !show_climate) return 30 + line_h * 3 + 12;
     if (show_geography) left_bottom = 30 + line_h + line_h * 3 + geo_count * line_h;
     if (show_climate) {
         right_bottom = 30 + line_h + climate_count * line_h;
@@ -263,12 +264,14 @@ static int map_legend_full_height(int show_geography, int show_climate, int show
 RECT get_map_legend_box_rect(RECT client) {
     RECT box;
     RECT frame = get_map_frame_rect(client);
-    int show_geography = display_mode != DISPLAY_CLIMATE;
+    int route_only = display_mode == DISPLAY_ROUTE_POTENTIAL;
+    int show_geography = !route_only && display_mode != DISPLAY_CLIMATE;
     int show_climate = display_mode == DISPLAY_POLITICAL || display_mode == DISPLAY_REGIONS ||
-                       display_mode == DISPLAY_ROUTE_POTENTIAL || display_mode == DISPLAY_ALL ||
+                       display_mode == DISPLAY_ALL ||
                        display_mode == DISPLAY_CLIMATE;
-    int show_routes = display_mode == DISPLAY_ROUTE_POTENTIAL;
-    int box_w = show_geography && show_climate ? 390 : 210;
+    int show_routes = route_only;
+    int box_w = show_routes && !show_geography && !show_climate ? 230 :
+                show_geography && show_climate ? 390 : 210;
     int full_h = map_legend_full_height(show_geography, show_climate, show_routes);
 
     if (map_legend_collapsed) return map_legend_collapsed_rect(frame);

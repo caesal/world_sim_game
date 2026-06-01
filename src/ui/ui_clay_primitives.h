@@ -4,6 +4,7 @@
 #include "ui/ui_clay_theme.h"
 
 void ui_clay_draw_shell(HDC hdc, RECT rect);
+void ui_clay_draw_bar_shell(HDC hdc, RECT rect);
 void ui_clay_draw_panel(HDC hdc, RECT rect, UiClayState state);
 void ui_clay_draw_card(HDC hdc, RECT rect, UiClayState state);
 void ui_clay_draw_pill(HDC hdc, RECT rect, UiClayState state);

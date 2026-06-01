@@ -35,8 +35,8 @@ void draw_top_bar(HDC hdc, RECT client) {
                                    DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
     HFONT old_font;
 
-    fill_rect(hdc, bar, ui_theme_color(UI_COLOR_CHROME));
-    fill_rect(hdc, year_box, RGB(38, 43, 42));
+    ui_clay_draw_bar_shell(hdc, bar);
+    ui_clay_draw_card(hdc, year_box, UI_CLAY_STATE_NORMAL);
     snprintf(text, sizeof(text), "%s %d  %s %d", tr("Year", "年"), year, tr("Month", "月"), month);
     old_font = SelectObject(hdc, title_font);
     draw_center_text(hdc, year_box, text, RGB(222, 205, 132));
@@ -64,9 +64,9 @@ void draw_panel_tabs(HDC hdc, RECT client) {
 
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         RECT tab = get_panel_tab_rect(client, i);
-        UiClayState state = i == panel_tab ? UI_CLAY_STATE_SELECTED :
-                            point_in_rect_local(tab, hover_x, hover_y) ?
-                            UI_CLAY_STATE_HOVER : UI_CLAY_STATE_NORMAL;
+        int hot = point_in_rect_local(tab, hover_x, hover_y);
+        UiClayState state = ui_clay_state_from_flags(
+            hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), i == panel_tab, 0);
         ui_clay_draw_tab(hdc, tab, state);
         draw_center_text(hdc, tab, tr(names_en[i], names_zh[i]), ui_clay_text_color(state));
     }

@@ -69,6 +69,11 @@ int event_log_store_increment_repeat(int event_id) {
     event_store_lock_init();
     if (event_id <= 0) return 0;
     EnterCriticalSection(&store_lock);
+    if (event_id <= event_count && events[event_id - 1].event_id == event_id) {
+        events[event_id - 1].entry.repeat_count++;
+        LeaveCriticalSection(&store_lock);
+        return 1;
+    }
     for (i = event_count - 1; i >= 0; i--) {
         if (events[i].event_id != event_id) continue;
         events[i].entry.repeat_count++;
@@ -116,6 +121,11 @@ int event_log_store_get_by_id(int event_id, EventLogEntry *out) {
     event_store_lock_init();
     if (!out || event_id <= 0) return 0;
     EnterCriticalSection(&store_lock);
+    if (event_id <= event_count && events[event_id - 1].event_id == event_id) {
+        *out = events[event_id - 1].entry;
+        LeaveCriticalSection(&store_lock);
+        return 1;
+    }
     for (i = event_count - 1; i >= 0; i--) {
         if (events[i].event_id != event_id) continue;
         *out = events[i].entry;

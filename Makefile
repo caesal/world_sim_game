@@ -92,6 +92,7 @@ SOURCES := \
 	src/sim/war_front.c \
 	src/sim/war_resolution.c \
 	src/render/render.c \
+	src/render/render_layer_cache.c \
 	src/render/render_static_map_cache.c \
 	src/render/render_context.c \
 	src/render/snapshot_ui.c \

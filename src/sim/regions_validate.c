@@ -47,11 +47,9 @@ static void reset_measure(void) {
         measure[i].max_y = -1;
     }
 }
-
 static void measure_basic(void) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int x, y, d, i;
-
     reset_measure();
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
@@ -87,7 +85,6 @@ static void measure_basic(void) {
         m->compactness = m->tile_count * 100 / max(1, area);
     }
 }
-
 static int add_neighbor_score(int *ids, int *scores, int *count, int id, int score) {
     int i;
     if (id < 0 || id >= region_count) return 0;
@@ -103,7 +100,6 @@ static int add_neighbor_score(int *ids, int *scores, int *count, int id, int sco
     (*count)++;
     return 1;
 }
-
 static int best_neighbor_for_region(int id, int allow_strong, int target_size,
                                     RegionSizeBand band, int force_merge) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
@@ -113,7 +109,6 @@ static int best_neighbor_for_region(int id, int allow_strong, int target_size,
     int x, y, d, i;
     int best = -1, best_score = INT_MIN;
     RegionMeasure *m = &measure[id];
-
     memset(ids, 0, sizeof(ids));
     memset(scores, 0, sizeof(scores));
     for (y = m->min_y; y <= m->max_y; y++) {
@@ -142,7 +137,6 @@ static int best_neighbor_for_region(int id, int allow_strong, int target_size,
     }
     return best_score > -1000000 ? best : -1;
 }
-
 static int best_neighbor_for_component(int id, int comp, int allow_strong) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int ids[MAX_REGION_NEIGHBORS * 3];
@@ -151,7 +145,6 @@ static int best_neighbor_for_component(int id, int comp, int allow_strong) {
     int x, y, d, i;
     int best = -1, best_score = INT_MIN;
     RegionMeasure *m = &measure[id];
-
     memset(ids, 0, sizeof(ids));
     memset(scores, 0, sizeof(scores));
     for (y = m->min_y; y <= m->max_y; y++) {
@@ -177,12 +170,10 @@ static int best_neighbor_for_component(int id, int comp, int allow_strong) {
     }
     return best;
 }
-
 static int merge_tiny_regions_pass(int target_size) {
     RegionSizeBand band = regions_size_band(target_size);
     int changed = 0;
     int i, x, y;
-
     measure_basic();
     for (i = 0; i < region_count; i++) {
         int best;
@@ -200,7 +191,6 @@ static int merge_tiny_regions_pass(int target_size) {
     }
     return changed;
 }
-
 static int flood_component(int sx, int sy, int id, int comp) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int head = 0, tail = 0, count = 0;
@@ -226,18 +216,18 @@ static int flood_component(int sx, int sy, int id, int comp) {
     }
     return count;
 }
-
 static int reassign_disconnected_components(void) {
     int changed = 0;
     int id, x, y;
-
     measure_basic();
     memset(seen, 0, sizeof(seen));
     for (id = 0; id < region_count; id++) {
         int comp_count = 0;
         int comp_size[MAX_COMPONENTS];
+        int comp_region[MAX_COMPONENTS];
         int best_comp = 0, best_size = 0;
         if (measure[id].tile_count <= 0) continue;
+        memset(comp_region, -1, sizeof(comp_region));
         for (y = measure[id].min_y; y <= measure[id].max_y; y++) {
             for (x = measure[id].min_x; x <= measure[id].max_x; x++) {
                 if (!region_tile(x, y, id) || seen[y][x]) continue;
@@ -264,6 +254,18 @@ static int reassign_disconnected_components(void) {
                 if (best >= 0) {
                     world[y][x].region_id = best;
                     changed++;
+                } else if (region_count < MAX_NATURAL_REGIONS) {
+                    if (comp_region[comp] < 0) {
+                        comp_region[comp] = region_count;
+                        natural_regions[region_count].id = region_count;
+                        natural_regions[region_count].owner_civ = -1;
+                        natural_regions[region_count].city_id = -1;
+                        region_count++;
+                    }
+                    world[y][x].region_id = comp_region[comp];
+                    changed++;
+                } else {
+                    last_stats.cap_reached = 1;
                 }
             }
         }
@@ -271,7 +273,6 @@ static int reassign_disconnected_components(void) {
     last_stats.disconnected_reassigned += changed;
     return changed;
 }
-
 static int choose_center_seed(int id, int *out_x, int *out_y) {
     RegionMeasure *m = &measure[id];
     int cx = m->sum_x / max(1, m->tile_count);
@@ -293,7 +294,6 @@ static int choose_center_seed(int id, int *out_x, int *out_y) {
     }
     return best_dist < INT_MAX;
 }
-
 static void choose_far_seed(int id, int part, int *seed_x, int *seed_y) {
     RegionMeasure *m = &measure[id];
     int best_score = -1, best_x = seed_x[0], best_y = seed_y[0];
@@ -317,7 +317,6 @@ static void choose_far_seed(int id, int part, int *seed_x, int *seed_y) {
     seed_x[part] = best_x;
     seed_y[part] = best_y;
 }
-
 static int split_huge_region(int id, int target_size) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int pieces = clamp(measure[id].tile_count / max(1, target_size), 2, MAX_SPLIT_PARTS);
@@ -387,7 +386,6 @@ static int split_huge_region(int id, int target_size) {
     last_stats.huge_split += pieces - 1;
     return pieces - 1;
 }
-
 static int split_huge_regions_pass(int target_size) {
     RegionSizeBand band = regions_size_band(target_size);
     int huge_limit = band.hard_max;
@@ -404,7 +402,6 @@ static int split_huge_regions_pass(int target_size) {
     }
     return changed;
 }
-
 static int smooth_slivers_pass(void) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int changed = 0, x, y, d;
@@ -443,7 +440,6 @@ static int smooth_slivers_pass(void) {
     last_stats.sliver_smoothed += changed;
     return changed;
 }
-
 static void update_final_quality_stats(void) {
     int i, total = 0, active = 0;
     last_stats.smallest_region_size = INT_MAX; last_stats.largest_region_size = 0; last_stats.worst_elongation = 0;
@@ -468,7 +464,6 @@ static void update_final_quality_stats(void) {
     last_stats.worst_fill_percent = regions_shape_last_worst_fill_percent();
     last_stats.worst_perimeter_area = regions_shape_last_worst_perimeter_area();
 }
-
 void regions_validate_postprocess(int target_size) {
     char buffer[256];
     memset(&last_stats, 0, sizeof(last_stats));
@@ -488,12 +483,15 @@ void regions_validate_postprocess(int target_size) {
              last_stats.sliver_smoothed, last_stats.cap_reached);
     OutputDebugStringA(buffer);
 }
-
 void regions_validate_light_postprocess(int target_size) {
+    int pass;
     reassign_disconnected_components();
     smooth_slivers_pass();
     merge_tiny_regions_pass(target_size);
-    reassign_disconnected_components();
+    for (pass = 0; pass < 4; pass++) {
+        split_huge_regions_pass(target_size);
+        reassign_disconnected_components();
+    }
     measure_basic();
     update_final_quality_stats();
 }

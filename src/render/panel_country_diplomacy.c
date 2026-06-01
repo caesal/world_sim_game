@@ -380,16 +380,23 @@ int country_diplomacy_view_hit_test(int civ_id, RECT viewport, int scroll, int m
 
 int country_diplomacy_tab_height(int civ_id) {
     const SnapshotCiv *civ = dip_civ(civ_id);
-    int visible = 0;
-    int i;
+    DiplomacyEntry entries[MAX_CIVS];
+    int selected_is_vassal = dip_overlord(civ_id) >= 0;
     DiplomacyView view = normalize_diplomacy_view(civ_id);
-    for (i = 0; i < dip_civ_count(); i++) {
-        if (!direct_relation_visible(civ_id, i)) continue;
-        if (display_group_for_pair(civ_id, i) != view && dip_overlord(civ_id) < 0) continue;
-        visible++;
-        if (dip_overlord(civ_id) < 0 && dip_overlord(i) < 0) visible += dip_direct_count(i);
+    int count = collect_entries(civ_id, view, selected_is_vassal, entries, MAX_CIVS);
+    int height = 220 + (civ ? civ->war_front_count : 0) * 110;
+    int i;
+    for (i = 0; i < count; i++) {
+        int id = entries[i].id;
+        if (selected_is_vassal && view == DIPLOMACY_VIEW_OTHER) {
+            height += 52;
+        } else {
+            height += diplomacy_relation_card_height(civ_id, id, view) + 8;
+            if (!selected_is_vassal && dip_overlord(id) < 0) height += dip_direct_count(id) * 52;
+        }
     }
-    return 220 + max(1, visible) * 205 + (civ ? civ->war_front_count : 0) * 110;
+    if (count == 0) height += 42;
+    return height;
 }
 
 static int draw_diplomacy_group(HDC hdc, UiCursor *cursor, int civ_id,

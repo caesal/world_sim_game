@@ -50,11 +50,28 @@ static POINT interpolate_screen_point(POINT a, POINT b, int pos, int length) {
 
 static int dash_phase_for_path(const MapPoint *points, int count, int period) {
     int seed;
+    MapPoint a;
+    MapPoint b;
     if (count < 2 || period <= 0) return 0;
-    seed = points[0].x * 31 + points[0].y * 47 +
-           points[count - 1].x * 61 + points[count - 1].y * 89;
+    a = points[0];
+    b = points[count - 1];
+    if (b.x < a.x || (b.x == a.x && b.y < a.y)) {
+        MapPoint tmp = a;
+        a = b;
+        b = tmp;
+    }
+    seed = a.x * 31 + a.y * 47 + b.x * 61 + b.y * 89;
     if (seed < 0) seed = -seed;
     return seed % period;
+}
+
+static int path_is_reversed_for_dash(const MapPoint *points, int count) {
+    MapPoint a;
+    MapPoint b;
+    if (count < 2) return 0;
+    a = points[0];
+    b = points[count - 1];
+    return b.x < a.x || (b.x == a.x && b.y < a.y);
 }
 
 static int ensure_segment_capacity(DashCacheEntry *entry, int needed) {
@@ -88,12 +105,15 @@ static int rebuild_dash_segments(DashCacheEntry *entry, const MapPoint *map_poin
     int period = dash_units + gap_units;
     int pattern_pos;
     int i;
+    int reversed;
     entry->segment_count = 0;
     if (point_count < 2 || dash_units <= 0 || gap_units < 0 || period <= 0) return 1;
     pattern_pos = dash_phase_for_path(map_points, point_count, period) % period;
     if (pattern_pos < 0) pattern_pos += period;
-    for (i = 1; i < point_count; i++) {
-        int segment_len = world_segment_units(map_points[i - 1], map_points[i]);
+    reversed = path_is_reversed_for_dash(map_points, point_count);
+    for (i = reversed ? point_count - 1 : 1; reversed ? i > 0 : i < point_count; reversed ? i-- : i++) {
+        int segment_len = reversed ? world_segment_units(map_points[i], map_points[i - 1]) :
+                          world_segment_units(map_points[i - 1], map_points[i]);
         int pos = 0;
         if (segment_len <= 0) continue;
         while (pos < segment_len) {
@@ -101,7 +121,9 @@ static int rebuild_dash_segments(DashCacheEntry *entry, const MapPoint *map_poin
             int remain = in_dash ? dash_units - pattern_pos : period - pattern_pos;
             int take = remain < segment_len - pos ? remain : segment_len - pos;
             if (in_dash && take > 0) {
-                if (!append_segment(entry, i, pos, pos + take, segment_len)) return 0;
+                int start = reversed ? segment_len - pos - take : pos;
+                int end = reversed ? segment_len - pos : pos + take;
+                if (!append_segment(entry, i, start, end, segment_len)) return 0;
             }
             pos += take;
             pattern_pos = (pattern_pos + take) % period;

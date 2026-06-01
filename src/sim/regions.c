@@ -448,6 +448,8 @@ void regions_generate(int region_size_value) {
     static int seed_y[MAX_NATURAL_REGIONS];
     int land = land_tile_count();
     int target_size = regions_target_size_from_slider(region_size_value);
+    int repair_headroom = max(128, MAX_NATURAL_REGIONS / 3);
+    int target_capacity = max(1, MAX_NATURAL_REGIONS - repair_headroom);
     int target_count;
 
     regions_reset();
@@ -455,11 +457,13 @@ void regions_generate(int region_size_value) {
         dirty_mark_territory();
         return;
     }
-    target_count = clamp(land / target_size, 1, MAX_NATURAL_REGIONS);
+    target_size = max(target_size, (land + target_capacity - 1) / target_capacity);
+    target_count = clamp(land / target_size, 1, target_capacity);
     choose_region_seeds(target_count, seed_x, seed_y);
     grow_regions_from_seeds(target_count, target_size, seed_x, seed_y);
     assign_unreached_land();
     regions_validate_postprocess(target_size);
+    compact_region_ids();
     rebuild_region_metadata();
     regions_shape_refine(target_size);
     regions_shape_repair_ugly(target_size);

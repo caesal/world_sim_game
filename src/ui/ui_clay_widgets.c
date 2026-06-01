@@ -12,7 +12,9 @@ UiClayState ui_clay_state_from_flags(int hovered, int pressed, int selected, int
 }
 
 UiClayState ui_clay_state_for_rect(RECT rect, int x, int y, int selected, int disabled) {
-    return ui_clay_state_from_flags(point_in_rect_local(rect, x, y), 0, selected, disabled);
+    int hovered = point_in_rect_local(rect, x, y);
+    return ui_clay_state_from_flags(hovered, hovered && (GetKeyState(VK_LBUTTON) & 0x8000),
+                                    selected, disabled);
 }
 
 static void clay_draw_label(HDC hdc, RECT rect, const char *label, UiClayState state) {

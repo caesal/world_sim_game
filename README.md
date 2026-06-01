@@ -7,13 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.12.c is a Windows graphical sandbox prototype written in C.
+Ver0.2.12.d is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.12.c is a max-speed interaction responsiveness checkpoint over
-Ver0.2.12.b. It keeps simulation and gameplay rules unchanged while narrowing
-side-panel/tab repaint work, removing a synchronous full-window repaint from
-the side-panel handle path, deferring heavy full-map repaints when input is
-waiting, and coalescing presentation redraws under render/simulation pressure.
+Ver0.2.12.d is a recoverable performance and UI/UX checkpoint over
+Ver0.2.12.c. It records the combined Claymorphism Phase 2B polish, province
+shape and route display follow-ups, and the successful max-speed stutter /
+year-jump responsiveness fixes before the next city/harbor marker visual pass.
+The checkpoint keeps the improved interaction behavior while preserving an
+explicit rollback point for the marker-icon follow-up.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -24,9 +25,13 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: broader Phase 6 performance work may still continue from this
-Ver0.2.12.c baseline, but future claims must remain evidence-based and pass
-the strict validation gate for the specific performance or UI scope involved.
+Known follow-up: Ver0.2.12.d intentionally preserves the current simplified
+city and harbor map marker rendering as an archival checkpoint. The next pass
+should restore recognizable city/harbor icon visuals through cached or
+otherwise lightweight drawing without reintroducing the old marker-rendering
+stutter. Broader performance work may still continue, but future claims must
+remain evidence-based and pass the strict validation gate for the specific
+performance or UI scope involved.
 
 You can:
 

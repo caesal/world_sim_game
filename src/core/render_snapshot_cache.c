@@ -58,7 +58,21 @@ static int last_update_ms, last_update_items;
 static int copy_city_cached, copy_city_stale, copy_city_fallback;
 static int copy_pair_cached, copy_pair_stale, copy_pair_fallback;
 static int copy_plague_cached, copy_plague_stale, copy_plague_fallback;
+static int tracked_city_key, tracked_pair_key;
+static int tracked_city_dirty, tracked_pair_dirty;
 static const char *last_lane_source = "none";
+
+static void track_city_key(int key, int city_limit) {
+    if (tracked_city_key == key) return;
+    tracked_city_key = key;
+    tracked_city_dirty = clamp(city_limit, 0, MAX_CITIES);
+}
+
+static void track_pair_key(int key, int total_pairs) {
+    if (tracked_pair_key == key) return;
+    tracked_pair_key = key;
+    tracked_pair_dirty = clamp(total_pairs, 0, MAX_CIVS * MAX_CIVS);
+}
 
 static void copy_relation(SnapshotDiplomacyRelation *dst, DiplomacyRelation rel) {
     dst->state = rel.state; dst->relation_score = rel.relation_score;
@@ -105,9 +119,13 @@ static void refresh_pair(int a, int b, int key) {
     entry->key = key;
     if (a >= civ_count || b >= civ_count) return;
     copy_relation(&entry->relation, diplomacy_relation(a, b));
-    copy_war(&entry->war, war_state_between(a, b));
-    entry->front_flags = war_front_flags(a, b);
-    entry->peace_pressure = war_peace_pressure_between(a, b);
+    if (entry->relation.state == DIPLOMACY_WAR) {
+        copy_war(&entry->war, war_state_between(a, b));
+        if (entry->war.active) {
+            entry->front_flags = war_front_flags(a, b);
+            entry->peace_pressure = war_peace_pressure_between(a, b);
+        }
+    }
     entry->valid = 1;
 }
 
@@ -178,6 +196,7 @@ void render_snapshot_cache_reset(void) {
     copy_city_cached = copy_city_stale = copy_city_fallback = 0;
     copy_pair_cached = copy_pair_stale = copy_pair_fallback = 0;
     copy_plague_cached = copy_plague_stale = copy_plague_fallback = 0;
+    tracked_city_key = tracked_pair_key = tracked_city_dirty = tracked_pair_dirty = 0;
     last_lane_source = "none";
 }
 
@@ -196,13 +215,17 @@ void render_snapshot_cache_update_budgeted(int city_budget, int pair_budget,
     int lane_key = render_snapshot_lanes_revision_key();
     int plague_key = render_snapshot_plague_revision_key(lane_key);
     int civ_limit = clamp(civ_count, 0, MAX_CIVS);
+    int city_limit = clamp(city_count, 0, MAX_CITIES);
     int scanned = 0, updated = 0, total_pairs = civ_limit * civ_limit;
+    track_city_key(city_key, city_limit);
+    track_pair_key(pair_key, total_pairs);
     if (city_budget < 1) city_budget = 1;
     while (scanned < MAX_CITIES && updated < city_budget) {
         int id = (city_cursor + scanned) % MAX_CITIES;
         scanned++;
         if (id < city_count && (!city_cache[id].valid || city_cache[id].key != city_key)) {
             refresh_city(id, city_key);
+            if (tracked_city_dirty > 0) tracked_city_dirty--;
             updated++;
         }
     }
@@ -215,6 +238,7 @@ void render_snapshot_cache_update_budgeted(int city_budget, int pair_budget,
         scanned++;
         if (!pair_cache[a][b].valid || pair_cache[a][b].key != pair_key) {
             refresh_pair(a, b, pair_key);
+            if (tracked_pair_dirty > 0) tracked_pair_dirty--;
             updated++;
         }
     }
@@ -263,26 +287,23 @@ void render_snapshot_cache_update_all(void) {
     }
     city_cursor = 0;
     pair_cursor = 0;
+    tracked_city_key = city_key;
+    tracked_pair_key = pair_key;
+    tracked_city_dirty = 0;
+    tracked_pair_dirty = 0;
     last_update_ms = (int)(GetTickCount() - start);
     last_update_items = updated;
 }
 
 static int city_dirty_count(int key) {
-    int i, count = 0, city_limit = clamp(city_count, 0, MAX_CITIES);
-    for (i = 0; i < city_limit; i++) {
-        if (!city_cache[i].valid || city_cache[i].key != key) count++;
-    }
-    return count;
+    track_city_key(key, clamp(city_count, 0, MAX_CITIES));
+    return tracked_city_dirty;
 }
 
 static int pair_dirty_count(int key) {
-    int a, b, count = 0;
-    for (a = 0; a < civ_count && a < MAX_CIVS; a++) {
-        for (b = 0; b < civ_count && b < MAX_CIVS; b++) {
-            if (!pair_cache[a][b].valid || pair_cache[a][b].key != key) count++;
-        }
-    }
-    return count;
+    int civ_limit = clamp(civ_count, 0, MAX_CIVS);
+    track_pair_key(key, civ_limit * civ_limit);
+    return tracked_pair_dirty;
 }
 
 int render_snapshot_cache_dirty_count(void) {
@@ -293,6 +314,14 @@ int render_snapshot_cache_dirty_count(void) {
     if (world_generated && (!lane_cache_valid || lane_cache_key != lane_key)) count++;
     if (world_generated && (!plague_cache_valid || plague_cache_key != plague_key)) count++;
     return count;
+}
+
+int render_snapshot_cache_city_ready(int key) {
+    return city_dirty_count(key) <= 0;
+}
+
+int render_snapshot_cache_diplomacy_ready(int key) {
+    return pair_dirty_count(key) <= 0;
 }
 
 int render_snapshot_cache_city_summary(int city_id, int key, RegionSummary *region,

@@ -250,6 +250,9 @@ typedef struct {
     int event_count;
     int event_total_entries;
     int tiles_revision;
+    int terrain_revision;
+    int coast_revision;
+    int hydrology_revision;
     int civs_revision;
     int cities_revision;
     int city_visual_revision;

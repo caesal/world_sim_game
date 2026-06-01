@@ -5,6 +5,7 @@
 #include "ui/ui_types.h"
 #include "ui/ui_widgets.h"
 
+int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view);
 void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
                                   int other_id, DiplomacyView view);
 

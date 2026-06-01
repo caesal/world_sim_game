@@ -20,6 +20,9 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
     if (mask & RENDER_SNAPSHOT_SECTION_TILES) {
         memcpy(dst->tiles, src->tiles, sizeof(dst->tiles));
         dst->tiles_revision = src->tiles_revision;
+        dst->terrain_revision = src->terrain_revision;
+        dst->coast_revision = src->coast_revision;
+        dst->hydrology_revision = src->hydrology_revision;
     }
     if (mask & RENDER_SNAPSHOT_SECTION_CIVS) {
         memcpy(dst->civs, src->civs, sizeof(dst->civs));
@@ -75,6 +78,9 @@ void render_snapshot_seed_from_front(RenderSnapshot *dst, const RenderSnapshot *
     dst->year = src->year;
     dst->month = src->month;
     dst->world_generated = src->world_generated;
+    dst->terrain_revision = src->terrain_revision;
+    dst->coast_revision = src->coast_revision;
+    dst->hydrology_revision = src->hydrology_revision;
     dst->civ_alive_count = src->civ_alive_count;
     dst->civ_independent_alive_count = src->civ_independent_alive_count;
     dst->civ_reusable_slot_count = src->civ_reusable_slot_count;

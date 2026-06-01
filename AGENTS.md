@@ -172,6 +172,25 @@ toward a unified Claymorphism / clay UI visual style.
      Country panel, World panel, Population panel, Plague panel, Debug /
      Performance panel, pause menu, top bar, bottom bar, and that no existing
      controls disappeared.
+   - UI/UX validation must inspect the concrete visual states affected by the
+     task, not only click through panels. For shell, map-display, legend,
+     setup, or country-panel styling, capture and check: world-generation
+     progress overlay while generation is active; generated-map political
+     colors immediately after generation; map-display modes including route
+     potential; route-potential legend content; selected-tile/country highlight
+     visibility near viewport edges and lower corners; bottom-bar play/speed
+     buttons at every speed with icons/text fully visible; and diplomacy cards
+     for empty vertical space, clipping, and density.
+   - If a UI/UX validation screenshot shows missing progress UI, delayed or
+     stale political colors after generation, legend entries unrelated to the
+     active map mode, clipped button glyphs, incorrect highlight color/coverage,
+     excessive empty card space, missing controls, clipped labels, stale hover
+     or selected states, or square artifacts behind rounded controls, the
+     validation fails and the work must not be recommended for acceptance.
+   - UI/UX final reports must include enough screenshot or capture evidence to
+     substantiate claims about changed controls and any user-reported visual
+     regressions. A text checklist alone is not sufficient when visual
+     correctness is the task.
    - Confirm no gameplay files were modified except allowed compile-only
      include or build-list necessities. Do not claim broad gameplay safety
      unless the required project regression was actually run and checked.

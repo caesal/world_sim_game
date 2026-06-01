@@ -1,5 +1,43 @@
 # Version Log
 
+## Ver0.2.12.d
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.2.12.d.
+2. Recorded the current combined UI/UX Phase 2B, route-display, province-shape,
+   render-cache, and max-speed responsiveness work as a recoverable checkpoint.
+3. Preserved the successful stutter, year-jump, and UI click responsiveness
+   improvements from the current dirty worktree before starting the next
+   city/harbor marker visual follow-up.
+4. Kept the new render layer cache source files in the build lists so the
+   render cache split is part of the archived checkpoint.
+5. Documented that city and harbor map markers currently use simplified
+   lightweight glyphs; restoring recognizable marker visuals is the next
+   intended follow-up and should not reintroduce per-marker GDI+ stutter.
+
+Known follow-up:
+
+- Restore recognizable city and harbor marker visuals using cached original
+  icons or similarly lightweight recognizable vector/sprite rendering.
+- The current checkpoint is intentionally archival: it prioritizes preserving
+  the successful responsiveness state before the marker-icon follow-up.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.2.12.d uses `WORLD_SIM_VERSION "0.2.12.d"`.
+- `MAP_SAVE_VERSION` remains 10 because this release does not intentionally
+  change the binary save layout.
+- The user confirmed a major real-play improvement in stutter, year jumps, and
+  UI click responsiveness after the performance pass.
+- The performance pass reported strict AGENTS regression with a Large map, 26
+  initial civilizations, 751 natural regions, randomized physical and advanced
+  terrain settings, max speed, final Year 579 Month 7, five distinct
+  civilizations at technology stage 5 or beyond, and deep-sea route
+  hidden-before/revealed-after evidence.
+
 ## Ver0.2.12.c
 
 Implemented fixes:

@@ -96,8 +96,42 @@ static void clay_draw_inset_surface(HDC hdc, RECT rect, UiClaySurface surface, U
     clay_inner_shadow(hdc, rect, &style);
 }
 
+static void clay_draw_bar_surface(HDC hdc, RECT rect) {
+    UiClayStyle style = ui_clay_style(UI_CLAY_SURFACE_SHELL, UI_CLAY_STATE_NORMAL);
+    HBRUSH brush;
+    HPEN highlight_pen;
+    HPEN shadow_pen;
+    HGDIOBJ old_pen;
+
+    if (clay_rect_width(rect) <= 0 || clay_rect_height(rect) <= 0) return;
+    brush = CreateSolidBrush(style.fill);
+    highlight_pen = CreatePen(PS_SOLID, 1, style.highlight);
+    shadow_pen = CreatePen(PS_SOLID, 1, style.shadow);
+    if (!brush || !highlight_pen || !shadow_pen) {
+        if (brush) DeleteObject(brush);
+        if (highlight_pen) DeleteObject(highlight_pen);
+        if (shadow_pen) DeleteObject(shadow_pen);
+        return;
+    }
+    FillRect(hdc, &rect, brush);
+    old_pen = SelectObject(hdc, highlight_pen);
+    MoveToEx(hdc, rect.left, rect.top, NULL);
+    LineTo(hdc, rect.right, rect.top);
+    SelectObject(hdc, shadow_pen);
+    MoveToEx(hdc, rect.left, rect.bottom - 1, NULL);
+    LineTo(hdc, rect.right, rect.bottom - 1);
+    SelectObject(hdc, old_pen);
+    DeleteObject(shadow_pen);
+    DeleteObject(highlight_pen);
+    DeleteObject(brush);
+}
+
 void ui_clay_draw_shell(HDC hdc, RECT rect) {
     clay_draw_surface(hdc, rect, UI_CLAY_SURFACE_SHELL, UI_CLAY_STATE_NORMAL);
+}
+
+void ui_clay_draw_bar_shell(HDC hdc, RECT rect) {
+    clay_draw_bar_surface(hdc, rect);
 }
 
 void ui_clay_draw_panel(HDC hdc, RECT rect, UiClayState state) {
