@@ -124,25 +124,44 @@ static RECT centered_rect(int cx, int cy, int size) {
 static void draw_city_stage_glyph(HDC hdc, RECT rect, IconId icon) {
     int w = rect.right - rect.left;
     int h = rect.bottom - rect.top;
-    int inset = max(1, min(w, h) / 5);
+    int stroke = clamp(min(w, h) / 7, 1, 3);
+    int inset = max(1, min(w, h) / 6);
     RECT body = {rect.left + inset, rect.top + inset, rect.right - inset, rect.bottom - inset};
-    HPEN old_pen = SelectObject(hdc, GetStockObject(BLACK_PEN));
-    HBRUSH old_brush = SelectObject(hdc, GetStockObject(BLACK_BRUSH));
+    HPEN pen = CreatePen(PS_SOLID, stroke, RGB(31, 28, 20));
+    HBRUSH brush = CreateSolidBrush(RGB(36, 32, 22));
+    HPEN old_pen = SelectObject(hdc, pen);
+    HBRUSH old_brush = SelectObject(hdc, brush);
 
     if (icon == ICON_CITY_OUTPOST) {
-        Ellipse(hdc, body.left + w / 5, body.top + h / 5, body.right - w / 5, body.bottom - h / 5);
+        POINT tent[3] = {{body.left + w / 5, body.bottom},
+                         {(body.left + body.right) / 2, body.top},
+                         {body.right - w / 5, body.bottom}};
+        Polygon(hdc, tent, 3);
     } else if (icon == ICON_CITY_VILLAGE) {
-        Ellipse(hdc, body.left, body.top + h / 6, body.right, body.bottom - h / 6);
+        POINT roof[3] = {{body.left, body.top + h / 2},
+                         {(body.left + body.right) / 2, body.top},
+                         {body.right, body.top + h / 2}};
+        Polygon(hdc, roof, 3);
+        Rectangle(hdc, body.left + w / 8, body.top + h / 2, body.right - w / 8, body.bottom);
     } else if (icon == ICON_CITY_TOWN) {
-        Rectangle(hdc, body.left, body.top + h / 6, body.right, body.bottom);
+        POINT left_roof[3] = {{body.left, body.top + h / 2}, {body.left + w / 4, body.top + h / 5},
+                              {body.left + w / 2, body.top + h / 2}};
+        POINT right_roof[3] = {{body.left + w / 2, body.top + h / 2}, {body.right - w / 4, body.top},
+                               {body.right, body.top + h / 2}};
+        Polygon(hdc, left_roof, 3);
+        Polygon(hdc, right_roof, 3);
+        Rectangle(hdc, body.left + w / 12, body.top + h / 2, body.right - w / 12, body.bottom);
     } else {
-        Rectangle(hdc, body.left, body.top, body.right, body.bottom);
-        MoveToEx(hdc, body.left, body.top, NULL);
-        LineTo(hdc, (body.left + body.right) / 2, rect.top);
-        LineTo(hdc, body.right, body.top);
+        Rectangle(hdc, body.left, body.top + h / 3, body.right, body.bottom);
+        Rectangle(hdc, body.left, body.top + h / 5, body.left + w / 5, body.top + h / 2);
+        Rectangle(hdc, (body.left + body.right) / 2 - w / 10, body.top,
+                  (body.left + body.right) / 2 + w / 10, body.top + h / 2);
+        Rectangle(hdc, body.right - w / 5, body.top + h / 5, body.right, body.top + h / 2);
     }
     SelectObject(hdc, old_brush);
     SelectObject(hdc, old_pen);
+    DeleteObject(brush);
+    DeleteObject(pen);
 }
 
 static void draw_harbor_glyph(HDC hdc, RECT rect) {
@@ -152,8 +171,9 @@ static void draw_harbor_glyph(HDC hdc, RECT rect) {
     int top = cy - s / 3;
     int bottom = cy + s / 3;
     int arm = s / 3;
-    HPEN old_pen = SelectObject(hdc, GetStockObject(BLACK_PEN));
-    HBRUSH old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    HPEN pen = CreatePen(PS_SOLID, clamp(s / 7, 1, 3), RGB(20, 38, 38));
+    HBRUSH brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    HPEN old_pen = SelectObject(hdc, pen);
 
     Ellipse(hdc, cx - s / 8, top - s / 8, cx + s / 8, top + s / 8);
     MoveToEx(hdc, cx, top + s / 8, NULL);
@@ -163,8 +183,9 @@ static void draw_harbor_glyph(HDC hdc, RECT rect) {
     MoveToEx(hdc, cx - arm, bottom - s / 7, NULL);
     LineTo(hdc, cx, bottom);
     LineTo(hdc, cx + arm, bottom - s / 7);
-    SelectObject(hdc, old_brush);
     SelectObject(hdc, old_pen);
+    SelectObject(hdc, brush);
+    DeleteObject(pen);
 }
 
 static void draw_city_icon(HDC hdc, int cx, int cy, int size, IconId icon, int capital) {

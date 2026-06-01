@@ -1,5 +1,40 @@
 # Version Log
 
+## Ver0.3.0
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.0.
+2. Restored recognizable lightweight city and settlement glyphs without
+   returning map markers to the old per-marker PNG/GDI+ draw path.
+3. Restored a distinct anchor-style harbor marker while preserving capital
+   rings, neutral visibility rules, one-marker port behavior, and marker
+   counters.
+4. Stabilized sea-lane visual offset keys so route screen-side shifts no longer
+   depend on `lanes_revision`, lane index, or route-potential edge index.
+5. Derived route visual identity from stable render geometry inputs such as
+   route type, regions, endpoint ports, map size, point count, and sampled path
+   points.
+6. Kept the Ver0.2.12.d stutter, year-jump, stale-snapshot, and UI click
+   responsiveness improvements intact.
+
+Known follow-up:
+
+- Continue to watch marker and route rendering performance on dense Large maps.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.3.0 uses `WORLD_SIM_VERSION "0.3.0"`.
+- `MAP_SAVE_VERSION` remains 10 because this release does not change the binary
+  save layout.
+- Build/static validation passed for the render-only cleanup.
+- Strict AGENTS regression was reported complete with a Large map, 26 initial
+  civilizations, 748 natural regions, 748 cities, randomized map parameters,
+  max speed, final Year 505 Month 1, five distinct civilizations at technology
+  stage 5 or beyond, and deep-sea route hidden-before/revealed-after evidence.
+
 ## Ver0.2.12.d
 
 Implemented fixes:

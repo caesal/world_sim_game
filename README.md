@@ -7,14 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.2.12.d is a Windows graphical sandbox prototype written in C.
+Ver0.3.0 is a Windows graphical sandbox prototype written in C.
 
-Ver0.2.12.d is a recoverable performance and UI/UX checkpoint over
-Ver0.2.12.c. It records the combined Claymorphism Phase 2B polish, province
-shape and route display follow-ups, and the successful max-speed stutter /
-year-jump responsiveness fixes before the next city/harbor marker visual pass.
-The checkpoint keeps the improved interaction behavior while preserving an
-explicit rollback point for the marker-icon follow-up.
+Ver0.3.0 is a render-visual and max-speed responsiveness checkpoint over
+Ver0.2.12.d. It keeps the successful stutter, year-jump, and UI click
+responsiveness improvements while restoring recognizable lightweight city and
+harbor marker glyphs and stabilizing sea-lane visual offsets so route lines no
+longer depend on transient lane revision or list ordering for their screen-side
+shift.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -25,13 +25,9 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: Ver0.2.12.d intentionally preserves the current simplified
-city and harbor map marker rendering as an archival checkpoint. The next pass
-should restore recognizable city/harbor icon visuals through cached or
-otherwise lightweight drawing without reintroducing the old marker-rendering
-stutter. Broader performance work may still continue, but future claims must
-remain evidence-based and pass the strict validation gate for the specific
-performance or UI scope involved.
+Known follow-up: future marker, route, performance, UI, map-display, or
+simulation-speed changes must remain evidence-based and pass the strict
+validation gate for the specific scope involved.
 
 You can:
 

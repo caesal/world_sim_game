@@ -37,16 +37,34 @@ static const char *lane_last_reason = "none";
 static unsigned int mix_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
 }
+static unsigned int mix_point_key(unsigned int key, MapPoint point) { return mix_key(mix_key(key, point.x), point.y); }
+static unsigned int stable_route_key(int type, int from_region, int to_region, MapPoint from_port,
+                                     MapPoint to_port, const MapPoint *points, int count, int map_w, int map_h) {
+    int reversed = from_region > to_region ||
+                   (from_region == to_region && (from_port.x > to_port.x ||
+                    (from_port.x == to_port.x && from_port.y > to_port.y)));
+    int a_region = reversed ? to_region : from_region, b_region = reversed ? from_region : to_region;
+    MapPoint a_port = reversed ? to_port : from_port, b_port = reversed ? from_port : to_port;
+    unsigned int key = 2166136261u; int i;
+    key = mix_key(mix_key(mix_key(key, type), map_w), map_h);
+    key = mix_key(mix_key(key, a_region), b_region); key = mix_point_key(mix_point_key(key, a_port), b_port);
+    key = mix_key(key, count);
+    for (i = 0; points && count > 0 && i < 6 && i < count; i++) {
+        int idx = count == 1 ? 0 : i * (count - 1) / 5;
+        key = mix_point_key(key, points[reversed ? count - 1 - idx : idx]);
+    }
+    return key;
+}
 static unsigned int lane_layout_key(const RenderSnapshot *snapshot, const SnapshotSeaLane *lane,
                                     int lane_index, int deep, MapLayout layout) {
-    unsigned int key = snapshot ? (unsigned int)snapshot->lanes_revision : 0;
     (void)layout;
-    key = mix_key(key, lane_index);
-    key = mix_key(key, lane ? lane->point_count : 0);
-    key = mix_key(key, deep);
-    key = mix_key(key, snapshot ? snapshot->map_w : 0);
-    key = mix_key(key, snapshot ? snapshot->map_h : 0);
-    return key;
+    (void)lane_index;
+    return stable_route_key(lane ? lane->type : deep,
+                            lane ? lane->from_region : -1, lane ? lane->to_region : -1,
+                            lane ? lane->from_port : (MapPoint){-1, -1},
+                            lane ? lane->to_port : (MapPoint){-1, -1},
+                            lane ? lane->points : NULL, lane ? lane->point_count : 0,
+                            snapshot ? snapshot->map_w : 0, snapshot ? snapshot->map_h : 0);
 }
 static POINT tile_point(const RenderSnapshot *snapshot, MapPoint tile, MapLayout layout) {
     POINT point;
@@ -300,14 +318,13 @@ static COLORREF route_node_color(const RenderSnapshot *snapshot, int region_id) 
     return RGB(132, 140, 146);
 }
 
-static unsigned int potential_edge_key(const RenderSnapshot *snapshot, const RoutePotentialEdge *edge, int index) {
-    unsigned int key = snapshot ? (unsigned int)snapshot->lanes_revision : 0;
-    key = mix_key(key, index);
-    key = mix_key(key, edge ? edge->point_count : 0);
-    key = mix_key(key, edge ? edge->type : 0);
-    key = mix_key(key, edge ? edge->from_region : -1);
-    key = mix_key(key, edge ? edge->to_region : -1);
-    return key;
+static unsigned int potential_edge_key(const RenderSnapshot *snapshot, const RoutePotentialEdge *edge) {
+    MapPoint from = edge && edge->point_count > 0 ? edge->points[0] : (MapPoint){-1, -1};
+    MapPoint to = edge && edge->point_count > 0 ? edge->points[edge->point_count - 1] : (MapPoint){-1, -1};
+    return stable_route_key(edge ? edge->type : 0,
+                            edge ? edge->from_region : -1, edge ? edge->to_region : -1,
+                            from, to, edge ? edge->points : NULL, edge ? edge->point_count : 0,
+                            snapshot ? snapshot->map_w : 0, snapshot ? snapshot->map_h : 0);
 }
 
 static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot,
@@ -353,7 +370,7 @@ static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot
                 dash = SHALLOW_LANE_DASH_UNITS;
                 gap = SHALLOW_LANE_GAP_UNITS;
             }
-            key = potential_edge_key(snapshot, edge, i);
+            key = potential_edge_key(snapshot, edge);
             visual_shift = route_visual_shift(key, edge->type == ROUTE_POTENTIAL_DEEP);
             draw_lane_stroke_shifted(hdc, SEA_LANE_DASH_CACHE_POTENTIAL_BASE + i,
                                      key, map_points, points, count, outline,
