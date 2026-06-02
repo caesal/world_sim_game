@@ -7,13 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.1 is a Windows graphical sandbox prototype written in C.
+Ver0.3.1.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.1 is a fragmentation-control checkpoint over Ver0.3.0. It keeps the
-successful render, route, and max-speed responsiveness work while adding
-weighted enclave outcomes, capping collapse successor creation by owned-region
-count, resetting post-collapse total disorder with grace protection, and
-surfacing fragmentation diagnostics in the Debug / Performance panel.
+Ver0.3.1.a is a plague-cooldown and high-load presentation checkpoint over
+Ver0.3.1. It keeps the fragmentation-control release while adding a persistent
+432-month city reinfection cooldown after plague recovery, safe v10-to-v11
+plague save conversion, and tighter max-speed map presentation coalescing for
+large-map overload cases.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed

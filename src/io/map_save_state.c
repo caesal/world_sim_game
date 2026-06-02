@@ -2,6 +2,7 @@
 
 #include "core/game_types.h"
 #include "sim/diplomacy.h"
+#include "io/map_save_legacy.h"
 #include "sim/plague.h"
 #include "sim/war.h"
 
@@ -49,6 +50,41 @@ static int read_header(FILE *file, SaveBlockHeader *header, const char *tag, int
            header->count >= 0 && header->count <= max_count;
 }
 
+static int read_header_any_size(FILE *file, SaveBlockHeader *header, const char *tag, int max_count) {
+    return read_all(file, header, sizeof(*header), 1) &&
+           strncmp(header->tag, tag, sizeof(header->tag)) == 0 &&
+           header->version == 1 && header->count >= 0 && header->count <= max_count;
+}
+
+static int read_plague_city_state(FILE *file, int save_version, int *last_plague_city) {
+    SaveBlockHeader header;
+    int i;
+
+    if (!read_header_any_size(file, &header, "PLGC", MAX_CITIES)) return 0;
+    memset(save_plague_cities, 0, sizeof(save_plague_cities));
+    if (last_plague_city) *last_plague_city = header.aux_a;
+    if (header.item_size == sizeof(PlagueState)) {
+        return read_all(file, save_plague_cities, sizeof(PlagueState), (size_t)header.count);
+    }
+    if (save_version <= 10 && header.item_size == sizeof(LegacyPlagueStateV10)) {
+        LegacyPlagueStateV10 legacy[MAX_CITIES];
+        if (!read_all(file, legacy, sizeof(LegacyPlagueStateV10), (size_t)header.count)) return 0;
+        for (i = 0; i < header.count; i++) {
+            save_plague_cities[i].active = legacy[i].active;
+            save_plague_cities[i].infected = legacy[i].infected;
+            save_plague_cities[i].severity = legacy[i].severity;
+            save_plague_cities[i].months_left = legacy[i].months_left;
+            save_plague_cities[i].immunity = legacy[i].immunity;
+            save_plague_cities[i].deaths_total = legacy[i].deaths_total;
+            save_plague_cities[i].origin_city = legacy[i].origin_city;
+            save_plague_cities[i].age_months = legacy[i].age_months;
+            save_plague_cities[i].reinfection_cooldown_months = 0;
+        }
+        return 1;
+    }
+    return 0;
+}
+
 int map_save_write_dynamic_state(FILE *file) {
     int total_started = 0, last_plague_city = -1, event_count = 0, event_next = 0, event_total = 0;
     int a, b;
@@ -81,9 +117,7 @@ int map_save_read_dynamic_state(FILE *file, int save_version) {
         !read_all(file, save_wars, sizeof(ActiveWar), (size_t)header.count)) return -1;
     total_started = header.aux_a;
     if (!read_header(file, &header, "WSUP", sizeof(int), MAX_CIVS) || !read_all(file, save_support, sizeof(int), (size_t)header.count)) return -1;
-    if (!read_header(file, &header, "PLGC", sizeof(PlagueState), MAX_CITIES) ||
-        !read_all(file, save_plague_cities, sizeof(PlagueState), (size_t)header.count)) return -1;
-    last_plague_city = header.aux_a;
+    if (!read_plague_city_state(file, save_version, &last_plague_city)) return -1;
     if (!read_header(file, &header, "PLGR", sizeof(int), MAX_MARITIME_ROUTES) ||
         !read_all(file, save_route_exposure, sizeof(int), (size_t)header.count)) return -1;
     if (!read_header(file, &header, "ELOG", sizeof(EventLogEntry), EVENT_LOG_COUNT) ||

@@ -278,16 +278,18 @@ static int blit_cached_window(HDC hdc, int width, int height) {
 }
 
 static int should_defer_presentation_map_paint(DWORD now) {
+    int interval;
     if (!auto_run || !world_generated || speed_index < SPEED_COUNT - 1) return 0;
     if (map_interaction_preview) return 0;
     if (!simulation_worker_presentation_throttled() && !simulation_worker_overloaded()) return 0;
-    return last_full_map_paint_tick > 0 && (int)(now - last_full_map_paint_tick) < 1000;
+    interval = simulation_worker_overloaded() ? 3000 : 1500;
+    return last_full_map_paint_tick > 0 && (int)(now - last_full_map_paint_tick) < interval;
 }
 
 static int static_continue_interval_ms(void) {
     if (auto_run && world_generated && speed_index >= SPEED_COUNT - 1 &&
         (simulation_worker_presentation_throttled() || simulation_worker_overloaded())) {
-        return 500;
+        return simulation_worker_overloaded() ? 3000 : 1500;
     }
     if (auto_run && world_generated && speed_index >= SPEED_COUNT - 1) return 250;
     return 33;

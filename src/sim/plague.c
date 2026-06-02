@@ -15,6 +15,7 @@
 #define PLAGUE_MAX_DURATION 18
 #define PLAGUE_LOCAL_RADIUS 88
 #define PLAGUE_RANDOM_IMMUNITY_MONTHS (50 * 12)
+#define PLAGUE_CITY_RECOVERY_COOLDOWN_MONTHS (36 * 12)
 
 static PlagueState city_plagues[MAX_CITIES];
 static int route_exposure[MAX_MARITIME_ROUTES];
@@ -33,6 +34,16 @@ static void raise_city_immunity(int city_id, int amount) {
     city_plagues[city_id].immunity = clamp(city_plagues[city_id].immunity + amount, 0, 10);
 }
 
+static int city_plague_cooldown_active(int city_id) {
+    return valid_city(city_id) && !city_plagues[city_id].active &&
+           city_plagues[city_id].reinfection_cooldown_months > 0;
+}
+
+static void set_city_recovery_cooldown(int city_id) {
+    if (!valid_city(city_id)) return;
+    city_plagues[city_id].reinfection_cooldown_months = PLAGUE_CITY_RECOVERY_COOLDOWN_MONTHS;
+}
+
 int plague_seed_city(int city_id, int severity, int months) {
     PlagueState *state;
 
@@ -44,6 +55,7 @@ int plague_seed_city(int city_id, int severity, int months) {
         dirty_mark_plague();
         return 1;
     }
+    if (state->reinfection_cooldown_months > 0) return 0;
     state->active = 1;
     state->infected = 1;
     state->severity = clamp(severity - state->immunity / 3, 1, 10);
@@ -76,6 +88,7 @@ static int city_outbreak_risk(int city_id) {
     int risk;
 
     if (!valid_city(city_id) || city_plagues[city_id].active) return 0;
+    if (city_plague_cooldown_active(city_id)) return 0;
     city = &cities[city_id];
     if (city->owner >= 0 && city->owner < civ_count &&
         civs[city->owner].plague_random_immunity_months > 0) return 0;
@@ -149,6 +162,7 @@ static void try_infect_city(int source_city, int target_city, int chance, int ro
     int immunity;
 
     if (!valid_city(source_city) || !valid_city(target_city) || city_plagues[target_city].active) return;
+    if (city_plague_cooldown_active(target_city)) return;
     immunity = city_plagues[target_city].immunity;
     chance = clamp(chance - immunity * 6, 0, 65);
     if (rnd(100) >= chance) return;
@@ -223,6 +237,16 @@ static void decay_city_immunity(void) {
     }
 }
 
+static void decay_city_reinfection_cooldowns(void) {
+    int i;
+
+    for (i = 0; i < city_count; i++) {
+        if (!valid_city(i) || city_plagues[i].active ||
+            city_plagues[i].reinfection_cooldown_months <= 0) continue;
+        city_plagues[i].reinfection_cooldown_months--;
+    }
+}
+
 static void update_active_city(int city_id, int active_by_civ[MAX_CIVS],
                                int severity_by_civ[MAX_CIVS], int deaths_by_civ[MAX_CIVS],
                                int *any_change) {
@@ -251,6 +275,8 @@ static void update_active_city(int city_id, int active_by_civ[MAX_CIVS],
         state->severity = 0;
         state->months_left = 0;
         raise_city_immunity(city_id, 3 + state->age_months / 4);
+        set_city_recovery_cooldown(city_id);
+        *any_change = 1;
     }
 }
 
@@ -305,6 +331,7 @@ int plague_update_month_step(PlagueUpdateState *state, int batch_size) {
         state->initialized = 1;
         if (decay_route_exposure()) dirty_mark_plague();
         decay_city_immunity();
+        decay_city_reinfection_cooldowns();
     }
     while (state->city_cursor < city_count && processed < batch_size) {
         update_active_city(state->city_cursor, state->active_by_civ, state->severity_by_civ,
@@ -347,6 +374,7 @@ void plague_notify_war_casualties(int civ_id, int casualties) {
         int city_id = rnd(city_count);
         int chance;
         if (!valid_city(city_id) || cities[city_id].owner != civ_id) continue;
+        if (city_plague_cooldown_active(city_id)) continue;
         chance = clamp(casualties / 2 + civs[civ_id].disorder / 2 + city_outbreak_risk(city_id) / 4, 0, 55);
         if (rnd(100) < chance) {
             plague_seed_city(city_id, 3 + rnd(4), PLAGUE_MIN_DURATION + rnd(8));
@@ -369,6 +397,10 @@ int plague_city_deaths_total(int city_id) {
 
 int plague_city_months_left(int city_id) {
     return plague_city_active(city_id) ? city_plagues[city_id].months_left : 0;
+}
+
+int plague_city_reinfection_cooldown_months(int city_id) {
+    return valid_city(city_id) ? city_plagues[city_id].reinfection_cooldown_months : 0;
 }
 
 int plague_tile_severity(int x, int y) {

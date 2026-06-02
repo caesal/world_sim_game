@@ -12,6 +12,7 @@ typedef struct {
     int deaths_total;
     int origin_city;
     int age_months;
+    int reinfection_cooldown_months;
 } PlagueState;
 
 typedef struct {
@@ -37,6 +38,7 @@ int plague_city_active(int city_id);
 int plague_city_severity(int city_id);
 int plague_city_deaths_total(int city_id);
 int plague_city_months_left(int city_id);
+int plague_city_reinfection_cooldown_months(int city_id);
 int plague_tile_severity(int x, int y);
 int plague_civ_active_count(int civ_id);
 int plague_active_for_civ(int civ_id);

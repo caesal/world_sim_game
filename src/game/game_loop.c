@@ -61,7 +61,8 @@ static int presentation_throttle_interval_ms(int redraw) {
         perf.render_avg_ms <= 34 && perf.render_peak_ms <= 80) {
         return 0;
     }
-    if (overloaded || actual_ms > target_ms * 6 || perf.render_avg_ms > 40) return 500;
+    if (overloaded || actual_ms > target_ms * 12 || perf.render_avg_ms > 180) return 3000;
+    if (actual_ms > target_ms * 6 || perf.render_avg_ms > 40) return 1500;
     return 250;
 }
 

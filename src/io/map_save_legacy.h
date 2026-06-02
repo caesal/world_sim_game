@@ -158,4 +158,15 @@ typedef struct {
     int disorder_last_migration_decay;
 } LegacyCivilizationV5;
 
+typedef struct {
+    int active;
+    int infected;
+    int severity;
+    int months_left;
+    int immunity;
+    int deaths_total;
+    int origin_city;
+    int age_months;
+} LegacyPlagueStateV10;
+
 #endif

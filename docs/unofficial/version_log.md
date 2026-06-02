@@ -1,5 +1,44 @@
 # Version Log
 
+## Ver0.3.1.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.1.a.
+2. Added a persistent 432-month hard reinfection cooldown for cities after
+   plague recovery.
+3. Centralized the cooldown gate through `plague_seed_city()` so direct seeding,
+   random outbreak selection, local spread, maritime spread, migration spread,
+   and war-casualty plague seeding cannot reinfect a cooling city.
+4. Bumped `MAP_SAVE_VERSION` from 10 to 11 and added v10 `PLGC` plague-state
+   conversion with new city cooldown initialized to 0.
+5. Tightened max-speed overloaded presentation coalescing so large-map
+   rendering pressure does not stall UI interaction as aggressively.
+
+Known follow-up:
+
+- The high-load presentation coalescing is intentionally visual-only and should
+  continue to be monitored for stale map color, route, city-marker, and plague
+  overlay delays on Large maps.
+- Future plague tuning should distinguish random-outbreak immunity, city
+  reinfection cooldown, and plague-pressure accumulation in reports.
+- `docs/official` was not regenerated for this checkpoint; this release is
+  recorded in the unofficial version log and side doc.
+
+Validation notes:
+
+- Ver0.3.1.a uses `WORLD_SIM_VERSION "0.3.1.a"`.
+- `MAP_SAVE_VERSION` is 11 because the `PLGC` dynamic save block now includes
+  city reinfection cooldown state.
+- Build/static validation was reported passing for the plague cooldown and
+  presentation coalescing implementation.
+- Focused probes reported that active plague can extend, recovery sets cooldown
+  432, direct/local/maritime/migration/war reinfection paths are blocked,
+  cooldown decrements, infection works again at 0, new saves preserve cooldown,
+  and legacy v10 saves load cooldown as 0.
+- The user manually validated the resulting executable experience and approved
+  this checkpoint for push.
+
 ## Ver0.3.1
 
 Implemented fixes:
