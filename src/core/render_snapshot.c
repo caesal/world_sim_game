@@ -14,6 +14,7 @@
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
 #include "sim/population.h"
@@ -308,6 +309,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     snapshot->world_generated = world_generated;
     snapshot->civ_alive_count = civilization_alive_count();
     snapshot->civ_reusable_slot_count = civilization_reusable_slot_count();
+    fragmentation_diag_snapshot(&snapshot->fragmentation);
     snapshot->terrain_revision = dirty_revision_terrain();
     snapshot->coast_revision = dirty_revision_coast();
     snapshot->hydrology_revision = dirty_revision_hydrology();

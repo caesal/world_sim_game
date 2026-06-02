@@ -25,13 +25,8 @@ typedef struct {
     POINT screen_points[SEA_LANE_SCREEN_POINTS];
 } CachedLanePath;
 static CachedLanePath lane_path_cache[MAX_SEA_LANES];
-static int lane_cache_hits;
-static int lane_cache_misses;
-static int lane_last_render_ms;
-static int lane_dash_segments;
-static int lane_visible_routes;
-static int lane_infected_routes;
-static int lane_infected_draw_ms;
+static int lane_cache_hits, lane_cache_misses, lane_last_render_ms, lane_dash_segments;
+static int lane_visible_routes, lane_infected_routes, lane_infected_draw_ms;
 static int lane_miss_initial, lane_miss_route, lane_miss_other;
 static const char *lane_last_reason = "none";
 static unsigned int mix_key(unsigned int key, int value) {
@@ -204,7 +199,6 @@ static const CachedLanePath *cached_lane_path(const RenderSnapshot *snapshot,
     lane_cache_misses++;
     return cache->count >= 2 ? cache : NULL;
 }
-
 static void draw_harbor_connector(HDC hdc, const RenderSnapshot *snapshot, MapPoint port_tile,
                                   MapPoint sea_entry, MapLayout layout) {
     POINT port;
@@ -219,11 +213,9 @@ static void draw_harbor_connector(HDC hdc, const RenderSnapshot *snapshot, MapPo
         LineTo(hdc, sea.x, sea.y);
     }
 }
-
 static unsigned int dash_route_key(unsigned int route_key, int style) {
     return mix_key(route_key, style);
 }
-
 static void draw_lane_stroke(HDC hdc, int cache_id, unsigned int route_key,
                              const MapPoint *map_points, const POINT *screen_points,
                              int count, COLORREF color, int width, int dash_units, int gap_units) {
@@ -234,7 +226,6 @@ static void draw_lane_stroke(HDC hdc, int cache_id, unsigned int route_key,
     SelectObject(hdc, old_pen);
     DeleteObject(pen);
 }
-
 static void offset_points(const POINT *src, POINT *dst, int count, int shift) {
     int dx;
     int dy;
@@ -255,12 +246,10 @@ static void offset_points(const POINT *src, POINT *dst, int count, int shift) {
         dst[i].y = src[i].y + oy;
     }
 }
-
 static int route_visual_shift(unsigned int key, int deep) {
     static const int shifts[4] = {-3, -1, 1, 3};
     return shifts[(key ^ (deep ? 0x9e37u : 0x51edu)) & 3u];
 }
-
 static void draw_lane_stroke_shifted(HDC hdc, int cache_id, unsigned int route_key,
                                      const MapPoint *map_points, const POINT *screen_points,
                                      int count, COLORREF color, int width,
@@ -273,7 +262,6 @@ static void draw_lane_stroke_shifted(HDC hdc, int cache_id, unsigned int route_k
     draw_lane_stroke(hdc, cache_id, route_key, map_points, screen_points,
                      count, color, width, dash_units, gap_units);
 }
-
 static void draw_lane_infection_overlay(HDC hdc, const MapPoint *map_points,
                                         const POINT *screen_points, int count,
                                         int cache_id, unsigned int route_key, int deep,
@@ -294,18 +282,15 @@ static void draw_lane_infection_overlay(HDC hdc, const MapPoint *map_points,
     draw_lane_stroke(hdc, cache_id, route_key, map_points, shifted, count,
                      color, width, dash_units, gap_units);
 }
-
 static void draw_lane_branches(HDC hdc, const RenderSnapshot *snapshot,
                                const SnapshotSeaLane *lane, MapLayout layout) {
     if (!lane->active || lane->point_count < 2) return;
     draw_harbor_connector(hdc, snapshot, lane->from_port, lane->from_sea_entry, layout);
     draw_harbor_connector(hdc, snapshot, lane->to_port, lane->to_sea_entry, layout);
 }
-
 static COLORREF color32_to_ref(Color32 color) {
     return RGB((int)(color & 0xff), (int)((color >> 8) & 0xff), (int)((color >> 16) & 0xff));
 }
-
 static COLORREF route_node_color(const RenderSnapshot *snapshot, int region_id) {
     const SnapshotRegion *region;
     int owner;
@@ -317,7 +302,6 @@ static COLORREF route_node_color(const RenderSnapshot *snapshot, int region_id) 
     }
     return RGB(132, 140, 146);
 }
-
 static unsigned int potential_edge_key(const RenderSnapshot *snapshot, const RoutePotentialEdge *edge) {
     MapPoint from = edge && edge->point_count > 0 ? edge->points[0] : (MapPoint){-1, -1};
     MapPoint to = edge && edge->point_count > 0 ? edge->points[edge->point_count - 1] : (MapPoint){-1, -1};
@@ -326,7 +310,6 @@ static unsigned int potential_edge_key(const RenderSnapshot *snapshot, const Rou
                             from, to, edge ? edge->points : NULL, edge ? edge->point_count : 0,
                             snapshot ? snapshot->map_w : 0, snapshot ? snapshot->map_h : 0);
 }
-
 static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot,
                                          MapLayout layout, RECT content) {
     const RoutePotentialEdge *potential_edges;
@@ -400,7 +383,6 @@ static void draw_route_potential_overlay(HDC hdc, const RenderSnapshot *snapshot
         DeleteObject(brush);
     }
 }
-
 void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     DWORD start = GetTickCount();
@@ -499,7 +481,6 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
     lane_dash_segments = sea_lane_dash_cache_segments_drawn();
     lane_last_render_ms = (int)(GetTickCount() - start);
 }
-
 int sea_lane_render_cache_hits(void) { return lane_cache_hits; }
 int sea_lane_render_cache_misses(void) { return lane_cache_misses; }
 int sea_lane_render_last_ms(void) { return lane_last_render_ms; }

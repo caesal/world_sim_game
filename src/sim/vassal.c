@@ -2,6 +2,8 @@
 
 #include "core/game_state.h"
 #include "sim/diplomacy.h"
+#include "sim/disorder.h"
+#include "sim/fragmentation_diag.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
@@ -186,6 +188,7 @@ void vassal_release(int vassal) {
     int overlord = vassal_overlord(vassal);
     if (overlord < 0) return;
     diplomacy_start_truce(overlord, vassal, 0, 50);
+    fragmentation_diag_record_vassal_release();
 }
 
 void vassal_release_all(int overlord) {
@@ -232,6 +235,7 @@ int vassal_make(int overlord, int vassal, int relation_score) {
     }
     clear_direct_wars_for_vassal(vassal);
     diplomacy_start_vassal(overlord, vassal, relation_score);
+    if (vassal_is_direct(overlord, vassal)) disorder_pacify_vassalization(vassal);
     if (old_overlord >= 0 && old_overlord != overlord) {
         event_log_push_structured(EVENT_TYPE_VASSAL_TRANSFERRED, EVENT_SEVERITY_INFO,
                                   vassal, old_overlord, -1, -1, overlord, 0, "");
@@ -288,14 +292,17 @@ void vassal_update_year(void) {
             vassal_release(vassal);
             event_log_push_structured(EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE, EVENT_SEVERITY_INFO,
                                       vassal, overlord, -1, -1, 0, 0, "");
+            fragmentation_diag_record_vassal_peaceful_independence();
         } else if (vassal_army * 100 > overlord_army * 65) {
             vassal_release(vassal);
             if (war_start_independence(vassal, overlord)) {
                 event_log_push_structured(EVENT_TYPE_VASSAL_INDEPENDENCE_WAR, EVENT_SEVERITY_WARNING,
                                           vassal, overlord, -1, -1, 0, 0, "");
+                fragmentation_diag_record_vassal_independence_war();
             } else {
                 event_log_push_structured(EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE, EVENT_SEVERITY_INFO,
                                           vassal, overlord, -1, -1, 0, 0, "");
+                fragmentation_diag_record_vassal_peaceful_independence();
             }
         }
     }

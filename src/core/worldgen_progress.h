@@ -25,6 +25,7 @@ typedef struct {
     int stage_total;
     int stage_progress_units;
     int overall_progress_units;
+    int displayed_overall_progress_units;
     char message_en[128];
     char message_zh[128];
     int stage_ms[WORLDGEN_STAGE_COUNT];

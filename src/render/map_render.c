@@ -310,18 +310,18 @@ void draw_selected_tile(HDC hdc, MapLayout layout) {
     rect.bottom = tile_bottom(layout, selected_y);
     cx = (rect.left + rect.right) / 2;
     cy = (rect.top + rect.bottom) / 2;
-    marker_size = clamp(layout.tile_size * 4, 18, 34);
+    marker_size = clamp(layout.tile_size * 3, 14, 26);
     marker = centered_rect(cx, cy, marker_size);
 
-    fill_rect_alpha(hdc, rect, RGB(162, 96, 226), 88);
-    fill_rect_alpha(hdc, marker, RGB(162, 96, 226), 54);
-    pen = CreatePen(PS_SOLID, 3, RGB(218, 172, 255));
+    fill_rect_alpha(hdc, rect, RGB(162, 96, 226), 68);
+    fill_rect_alpha(hdc, marker, RGB(162, 96, 226), 46);
+    pen = CreatePen(PS_SOLID, 2, RGB(218, 172, 255));
     old_pen = SelectObject(hdc, pen);
     old_brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
     Rectangle(hdc, marker.left, marker.top, marker.right, marker.bottom);
     SelectObject(hdc, old_pen);
     DeleteObject(pen);
-    pen = CreatePen(PS_SOLID, 2, RGB(92, 54, 150));
+    pen = CreatePen(PS_SOLID, 1, RGB(92, 54, 150));
     old_pen = SelectObject(hdc, pen);
     Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
     SelectObject(hdc, old_brush);

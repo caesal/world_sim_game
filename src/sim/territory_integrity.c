@@ -3,16 +3,13 @@
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "core/profiler.h"
-#include "sim/civ_colors.h"
-#include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
-#include "sim/disorder.h"
+#include "sim/enclave_resolution.h"
 #include "sim/expansion.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/ports.h"
 #include "sim/regions.h"
-#include "sim/regions_settlement.h"
 #include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
@@ -20,7 +17,7 @@
 
 #include <string.h>
 
-#define ENCLAVE_LIMIT_MONTHS 300
+#define ENCLAVE_LIMIT_MONTHS 360
 
 static TerritoryIntegrityStats stats_cache[MAX_CIVS];
 static unsigned char capital_connected[MAX_CIVS][MAX_NATURAL_REGIONS];
@@ -220,25 +217,6 @@ static int best_component_candidate(int owner, const int *regions, int count, in
     return best;
 }
 
-static int best_component_city(const int *regions, int count, int owner) {
-    int best = -1;
-    int best_pop = -1;
-    int i;
-    for (i = 0; i < city_count; i++) {
-        int r;
-        int k;
-        if (!cities[i].alive || cities[i].owner != owner) continue;
-        r = regions_region_for_city(i);
-        for (k = 0; k < count; k++) {
-            if (regions[k] == r && cities[i].population > best_pop) {
-                best_pop = cities[i].population;
-                best = i;
-            }
-        }
-    }
-    return best;
-}
-
 static void refresh_after_integrity_change(void) {
     territory_integrity_repair_capitals();
     world_recalculate_territory();
@@ -248,90 +226,6 @@ static void refresh_after_integrity_change(void) {
     maritime_mark_routes_dirty();
     diplomacy_mark_contacts_dirty();
     dirty_mark_territory();
-}
-
-static int claim_component_to(int owner, const int *regions, int count, int preferred_city) {
-    int i;
-    for (i = 0; i < count; i++) {
-        int city = i == 0 ? preferred_city : -1;
-        if (!regions_claim_for_civ(regions[i], owner, city, 1)) return 0;
-        natural_regions[regions[i]].disconnected_months = 0;
-        natural_regions[regions[i]].disconnected_component_id = -1;
-    }
-    return 1;
-}
-
-static int create_independent_component(int owner, const int *regions, int count, int months) {
-    Civilization parent = civs[owner];
-    int child_id = civilization_allocate_slot(1);
-    int seed_region = regions[0];
-    int city_id;
-    if (child_id < 0) {
-        event_log_push_structured(EVENT_TYPE_ENCLAVE_FAILED, EVENT_SEVERITY_DANGER,
-                                  owner, -1, seed_region, -1, months, count, "country limit reached");
-        return 0;
-    }
-    civilization_assign_generated_name_for_heritage(&civs[child_id], parent.heritage,
-                                                    civilization_pick_unused_name_id_for_heritage(parent.heritage));
-    civs[child_id].symbol = (char)('a' + (child_id % 26));
-    civs[child_id].color = civilization_pick_distinct_color(child_id, 0, owner, seed_region);
-    civs[child_id].alive = 1;
-    civs[child_id].aggression = parent.aggression;
-    civs[child_id].expansion = parent.expansion;
-    civs[child_id].defense = parent.defense;
-    civs[child_id].culture = parent.culture;
-    civs[child_id].governance = parent.governance;
-    civs[child_id].cohesion = parent.cohesion;
-    civs[child_id].production = parent.production;
-    civs[child_id].military = parent.military;
-    civs[child_id].commerce = parent.commerce;
-    civs[child_id].logistics = parent.logistics;
-    civs[child_id].innovation = parent.innovation;
-    civs[child_id].adaptation = parent.adaptation;
-    civs[child_id].tech_stage = clamp(parent.tech_stage, 0, 10);
-    civs[child_id].tech_progress = parent.tech_progress;
-    civs[child_id].disorder = 35;
-    civs[child_id].disorder_plague = clamp(parent.disorder_plague / 3, 0, 15);
-    civs[child_id].disorder_migration = 15;
-    civs[child_id].disorder_stability = 12;
-    civs[child_id].collapse_grace_months = 300;
-    city_id = regions_activate_local_city(seed_region, child_id,
-                                          max(900, natural_regions[seed_region].average_stats.pop_capacity * 450),
-                                          1, 1);
-    if (city_id >= 0) {
-        cities[city_id].capital = 1;
-        dirty_mark_city();
-        civs[child_id].capital_city = city_id;
-    }
-    if (!claim_component_to(child_id, regions, count, city_id)) {
-        event_log_push_structured(EVENT_TYPE_ENCLAVE_FAILED, EVENT_SEVERITY_DANGER,
-                                  owner, -1, seed_region, -1, months, count, "claim failed");
-        civs[child_id].alive = 0;
-        return 0;
-    }
-    disorder_add_war_pressure(owner, 8 + count / 2);
-    event_log_push_structured(EVENT_TYPE_ENCLAVE_INDEPENDENT, EVENT_SEVERITY_WARNING,
-                              child_id, owner, seed_region, city_id, months, count, NULL);
-    return 1;
-}
-
-static int separate_component(int owner, const int *regions, int count, int months) {
-    int score = 0;
-    int target = best_component_candidate(owner, regions, count, &score);
-    if (target >= 0) {
-        int city = best_component_city(regions, count, owner);
-        if (!claim_component_to(target, regions, count, city)) {
-            event_log_push_structured(EVENT_TYPE_ENCLAVE_FAILED, EVENT_SEVERITY_DANGER,
-                                      owner, target, regions[0], -1, months, count, "claim failed");
-            return 0;
-        }
-        disorder_add_war_pressure(owner, 8 + count / 2);
-        disorder_add_migration_pressure(target, 3 + count / 3);
-        event_log_push_structured(EVENT_TYPE_ENCLAVE_JOINED, EVENT_SEVERITY_WARNING,
-                                  owner, target, regions[0], city, months, count, NULL);
-        return 1;
-    }
-    return create_independent_component(owner, regions, count, months);
 }
 
 static int process_disconnected_components(int civ_id, int elapsed_months, int apply) {
@@ -368,7 +262,8 @@ static int process_disconnected_components(int civ_id, int elapsed_months, int a
         stats_cache[civ_id].longest_disconnected_months =
             max(stats_cache[civ_id].longest_disconnected_months, max_months);
         component_id++;
-        if (apply && max_months >= ENCLAVE_LIMIT_MONTHS && separate_component(civ_id, component, count, max_months)) return 1;
+        if (apply && max_months >= ENCLAVE_LIMIT_MONTHS &&
+            enclave_resolve_component(civ_id, component, count, max_months)) return 1;
     }
     return 0;
 }

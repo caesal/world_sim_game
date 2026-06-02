@@ -18,6 +18,7 @@
 #include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
 #include "sim/decision_snapshot.h"
+#include "sim/fragmentation_diag.h"
 #include "sim/sea_lanes.h"
 #include "ui/ui_theme.h"
 #include <stdio.h>
@@ -109,6 +110,26 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
               render_snapshot_civ_decision_fallback_count() > 0 ? RGB(218, 178, 78) :
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
+    if (render_context_snapshot()) {
+        const FragmentationDiagnostics *frag = &render_context_snapshot()->fragmentation;
+        snprintf(text, sizeof(text), "alive %d / ind %d / vas %d / one %d / slots %d/%d",
+                 frag->alive_civs, frag->independent_civs, frag->vassal_civs,
+                 frag->one_province_civs, frag->used_slots, frag->max_civs);
+        perf_row(hdc, cursor, tr("Fragmentation civs", "碎裂国家"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+        snprintf(text, sizeof(text), "I %d / V %d / J %d / U %d / fb slot %d no-land %d",
+                 frag->enclave_independent, frag->enclave_original_vassal,
+                 frag->enclave_joined_land_neighbor, frag->enclave_unowned_collapse,
+                 frag->enclave_fallback_slot_full, frag->enclave_fallback_no_land_neighbor);
+        perf_row(hdc, cursor, tr("Enclave outcomes", "飞地结果"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+        snprintf(text, sizeof(text), "try %d / ok %d / fail %d / succ %d / claimfail %d",
+                 frag->collapse_attempts, frag->collapse_successes, frag->collapse_failures,
+                 frag->collapse_successors_created, frag->enclave_claim_failures);
+        perf_row(hdc, cursor, tr("Collapse diag", "崩溃诊断"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+        snprintf(text, sizeof(text), "release %d / peace %d / war %d",
+                 frag->vassal_releases, frag->vassal_peaceful_independence,
+                 frag->vassal_independence_wars);
+        perf_row(hdc, cursor, tr("Vassal breaks", "附庸脱离"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    }
     perf_row(hdc, cursor, tr("Snapshot city cache", "快照城市缓存"),
               render_snapshot_cache_city_summary_debug(), ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Snapshot diplomacy cache", "快照外交缓存"),

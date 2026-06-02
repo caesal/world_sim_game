@@ -3,6 +3,7 @@
 
 #include "core/game_types.h"
 #include "sim/decision_snapshot.h"
+#include "sim/fragmentation_diag.h"
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
@@ -249,6 +250,7 @@ typedef struct {
     int lane_count;
     int event_count;
     int event_total_entries;
+    FragmentationDiagnostics fragmentation;
     int tiles_revision;
     int terrain_revision;
     int coast_revision;

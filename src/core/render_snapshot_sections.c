@@ -81,6 +81,7 @@ void render_snapshot_seed_from_front(RenderSnapshot *dst, const RenderSnapshot *
     dst->terrain_revision = src->terrain_revision;
     dst->coast_revision = src->coast_revision;
     dst->hydrology_revision = src->hydrology_revision;
+    dst->fragmentation = src->fragmentation;
     dst->civ_alive_count = src->civ_alive_count;
     dst->civ_independent_alive_count = src->civ_independent_alive_count;
     dst->civ_reusable_slot_count = src->civ_reusable_slot_count;

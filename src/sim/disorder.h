@@ -6,6 +6,7 @@ void disorder_reset_runtime(void);
 void disorder_set(int civ_id, int value);
 void disorder_set_civil_unrest(int civ_id);
 void disorder_relieve(int civ_id, int amount);
+void disorder_pacify_vassalization(int civ_id);
 void disorder_add_war_pressure(int civ_id, int amount);
 void disorder_add_plague_pressure(int civ_id, int amount);
 void disorder_add_migration_pressure(int civ_id, int amount);

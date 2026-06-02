@@ -122,14 +122,14 @@ static int candidate_neighbor_count(int region_id) {
 }
 
 static int region_port_chance(const NaturalRegion *region, int best_score, int candidate_neighbors) {
-    int chance = 35;
+    int chance = 45;
     int strong = region->average_stats.money >= 5 || region->development_score >= 48 ||
                  region->average_stats.water >= 6 || best_score >= 84;
     int weak = region->dominant_geography == GEO_MOUNTAIN || region->dominant_geography == GEO_CANYON ||
                region->dominant_geography == GEO_VOLCANO || region->habitability <= 3 || best_score < 45;
 
-    if (strong) chance = 50;
-    if (weak) chance = 20;
+    if (strong) chance = 55;
+    if (weak) chance = 25;
     if (candidate_neighbors >= 4) chance -= 15;
     else if (candidate_neighbors >= 2) chance -= 8;
     return clamp(chance, 15, 55);

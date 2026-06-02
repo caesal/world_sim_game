@@ -9,6 +9,7 @@
 #include "sim/civ_colors.h"
 #include "sim/disorder.h"
 #include "sim/expansion.h"
+#include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
 #include "sim/population.h"
@@ -404,6 +405,7 @@ void simulation_reset_state(void) {
     civilization_uid_reset();
     event_log_clear();
     disorder_reset_runtime();
+    fragmentation_diag_reset();
     expansion_reset();
     stability_decision_reset();
     maritime_reset();

@@ -9,6 +9,10 @@
 #include "sim/technology.h"
 #include <stdlib.h>
 #include <string.h>
+
+#define SHALLOW_DIRECT_PERCENT 11
+#define SHALLOW_DIAMETER_PERCENT 215
+
 typedef struct {
     int node;
     int city;
@@ -55,10 +59,10 @@ static int union_ports(int a, int b) {
     return ra;
 }
 static int shallow_max_direct_distance(void) {
-    return clamp(min(MAP_W, MAP_H) * 9 / 100, 14, 72);
+    return clamp(min(MAP_W, MAP_H) * SHALLOW_DIRECT_PERCENT / 100, 14, 72);
 }
 static int shallow_max_network_diameter(void) {
-    return shallow_max_direct_distance() * 2;
+    return shallow_max_direct_distance() * SHALLOW_DIAMETER_PERCENT / 100;
 }
 static int cache_key(void) {
     int key = maritime_route_revision() * 31 + maritime_ownership_revision() * 17;

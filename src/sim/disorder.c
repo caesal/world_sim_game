@@ -19,6 +19,8 @@ static int wartime_pressure_carry_x10[MAX_CIVS];
 static int wartime_last_gain_x10[MAX_CIVS];
 static int wartime_last_decay_x10[MAX_CIVS];
 
+#define VASSAL_PACIFICATION_GRACE_MONTHS 120
+
 static int disorder_soft_effect_percent(int disorder) {
     disorder = clamp(disorder, 0, 100);
     if (disorder <= 25) return 100;
@@ -219,6 +221,45 @@ void disorder_reset_runtime(void) {
     memset(wartime_pressure_carry_x10, 0, sizeof(wartime_pressure_carry_x10));
     memset(wartime_last_gain_x10, 0, sizeof(wartime_last_gain_x10));
     memset(wartime_last_decay_x10, 0, sizeof(wartime_last_decay_x10));
+}
+
+void disorder_pacify_vassalization(int civ_id) {
+    Civilization *civ;
+    int old_disorder;
+    int floor;
+
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
+    civ = &civs[civ_id];
+    old_disorder = civ->disorder;
+    floor = vassal_governance_disorder(civ_id);
+    civ->disorder = clamp(floor, 0, 100);
+    civ->disorder_resource = 0;
+    civ->disorder_plague = 0;
+    civ->disorder_migration = 0;
+    civ->disorder_stability = 0;
+    civ->disorder_carry_x10 = 0;
+    civ->disorder_last_pressure = 0;
+    civ->disorder_last_recovery = 0;
+    civ->disorder_last_net = 0;
+    civ->disorder_last_pressure_x10 = 0;
+    civ->disorder_last_recovery_x10 = 0;
+    civ->disorder_last_net_x10 = 0;
+    civ->disorder_last_base_recovery_x10 = 0;
+    civ->disorder_last_governance_recovery_x10 = 0;
+    civ->disorder_last_cohesion_recovery_x10 = 0;
+    civ->disorder_last_peace_recovery_x10 = 0;
+    civ->disorder_last_condition_recovery_x10 = 0;
+    civ->disorder_last_plague_decay = 0;
+    civ->disorder_last_war_decay = 0;
+    civ->disorder_last_migration_decay = 0;
+    civ->collapse_grace_months = VASSAL_PACIFICATION_GRACE_MONTHS;
+    wartime_pressure[civ_id] = 0;
+    wartime_pressure_carry_x10[civ_id] = 0;
+    wartime_last_gain_x10[civ_id] = 0;
+    wartime_last_decay_x10[civ_id] = 0;
+    finish_disorder_change(civ_id, old_disorder, 0);
+    world_invalidate_country_summary_cache();
+    dirty_mark_civ_stats();
 }
 
 void disorder_set(int civ_id, int value) {

@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define SHALLOW_DIRECT_PERCENT 11
+#define SHALLOW_DIAMETER_PERCENT 215
+
 typedef struct {
     int a;
     int b;
@@ -45,12 +48,12 @@ static void report_route_progress(WorldGenStage stage, int current, int total) {
 }
 
 static int shallow_direct_limit(void) {
-    int base = rp_min(MAP_W, MAP_H) * 9 / 100;
+    int base = rp_min(MAP_W, MAP_H) * SHALLOW_DIRECT_PERCENT / 100;
     return rp_clamp(base, 14, 72);
 }
 
 static int shallow_diameter_limit(void) {
-    return shallow_direct_limit() * 2;
+    return shallow_direct_limit() * SHALLOW_DIAMETER_PERCENT / 100;
 }
 
 static int deep_direct_limit(void) {

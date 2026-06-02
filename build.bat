@@ -57,6 +57,9 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\route_potential.c ^
   src\sim\sea_lanes.c ^
   src\sim\territory_integrity.c ^
+  src\sim\enclave_resolution.c ^
+  src\sim\enclave_weights.c ^
+  src\sim\fragmentation_diag.c ^
   src\sim\vassal.c ^
   src\sim\civilization_slots.c ^
   src\sim\civilization_uid.c ^

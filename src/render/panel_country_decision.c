@@ -198,7 +198,7 @@ static void draw_integrity_dashboard(HDC hdc, UiCursor *cursor, const DecisionSn
     RECT panel = ui_take_rect(cursor, 58 + rows * (card_h + gap));
     RECT status = {panel.left, panel.top, panel.right, panel.top + 50};
     COLORREF accent = integrity_status_color(snap);
-    const int enclave_limit_months = 300;
+    const int enclave_limit_months = 360;
     int i;
     fill_rect(hdc, status, ui_theme_color(UI_COLOR_PANEL));
     fill_rect(hdc, (RECT){status.left, status.top, status.left + 4, status.bottom}, accent);

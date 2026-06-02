@@ -7,14 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.0 is a Windows graphical sandbox prototype written in C.
+Ver0.3.1 is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.0 is a render-visual and max-speed responsiveness checkpoint over
-Ver0.2.12.d. It keeps the successful stutter, year-jump, and UI click
-responsiveness improvements while restoring recognizable lightweight city and
-harbor marker glyphs and stabilizing sea-lane visual offsets so route lines no
-longer depend on transient lane revision or list ordering for their screen-side
-shift.
+Ver0.3.1 is a fragmentation-control checkpoint over Ver0.3.0. It keeps the
+successful render, route, and max-speed responsiveness work while adding
+weighted enclave outcomes, capping collapse successor creation by owned-region
+count, resetting post-collapse total disorder with grace protection, and
+surfacing fragmentation diagnostics in the Debug / Performance panel.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -25,9 +24,10 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: future marker, route, performance, UI, map-display, or
-simulation-speed changes must remain evidence-based and pass the strict
-validation gate for the specific scope involved.
+Known follow-up: future marker, route, performance, UI, map-display,
+simulation-speed, collapse, enclave, or diplomacy changes must remain
+evidence-based and pass the strict validation gate for the specific scope
+involved.
 
 You can:
 

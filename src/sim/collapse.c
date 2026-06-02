@@ -5,7 +5,7 @@
 #include "sim/civ_colors.h"
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
-#include "sim/disorder.h"
+#include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/ports.h"
@@ -149,7 +149,8 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     child->tech_stage = clamp(parent_state.tech_stage, 0, 10);
     child->tech_progress = parent_state.tech_progress;
     child->deep_sea_route_unlocked_event_done = parent_state.deep_sea_route_unlocked_event_done;
-    child->disorder = clamp(parent_state.disorder / 2, 20, 40);
+    child->disorder = 0;
+    child->disorder_carry_x10 = 0;
     child->disorder_resource = 0;
     child->disorder_plague = clamp(parent_state.disorder_plague / 2, 0, 30);
     child->disorder_migration = clamp(parent_state.disorder_migration / 2, 0, 30);
@@ -172,14 +173,12 @@ static int create_successor_civ(int parent, int index, int seed_region) {
 }
 
 static void apply_post_collapse_grace(int civ_id) {
-    int floor;
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
-    floor = vassal_governance_disorder(civ_id);
-    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague, 0, 30);
-    civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration, 0, 30);
-    civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability, 0, 30);
-    civs[civ_id].disorder = max(floor, clamp(civs[civ_id].disorder, 0, 40));
+    civs[civ_id].disorder = 0;
+    civs[civ_id].disorder_carry_x10 = 0;
     civs[civ_id].collapse_grace_months = COLLAPSE_GRACE_MONTHS;
+    world_invalidate_country_summary_cache();
+    dirty_mark_civ_stats();
 }
 
 static void claim_region_direct(int region_id, int owner) {
@@ -223,14 +222,25 @@ static int add_neighbor_regions(int parent, int child, int seed_region, int cap_
 
 static int collapse_civ(int civ_id, CollapseCause cause) {
     int cap_region;
+    int owned_regions;
+    int successor_limit;
     int formed = 0;
     int i;
     int former_overlord = -1;
     CollapseBlockReason block;
 
+    fragmentation_diag_record_collapse_attempt();
     if (civ_id < 0 || civ_id >= MAX_CIVS) {
         event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, -1, -1, 0, 0, "Collapse blocked: invalid country.");
+        fragmentation_diag_record_collapse_failure();
+        return 0;
+    }
+    if (cause == COLLAPSE_CAUSE_PRESSURE && civs[civ_id].collapse_grace_months > 0) {
+        snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
+                 "Collapse grace: %d years %d months left; pressure collapse skipped.",
+                 civs[civ_id].collapse_grace_months / 12, civs[civ_id].collapse_grace_months % 12);
+        fragmentation_diag_record_collapse_failure();
         return 0;
     }
     cap_region = capital_region_for_civ(civ_id);
@@ -240,14 +250,20 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
                  "Collapse blocked: %s", collapse_format_block_reason(civ_id, block));
         event_log_push_structured(EVENT_TYPE_COLLAPSE_FAILED, EVENT_SEVERITY_WARNING,
                                   civ_id, -1, -1, -1, 0, 0, collapse_reasons[civ_id]);
+        fragmentation_diag_record_collapse_failure();
         return 0;
     }
     if (collapse_single_province_preview(civ_id, NULL) != COLLAPSE_SINGLE_NONE) {
-        return collapse_single_province_execute(civ_id, cause);
+        int collapsed = collapse_single_province_execute(civ_id, cause);
+        if (collapsed) fragmentation_diag_record_collapse_success(0);
+        else fragmentation_diag_record_collapse_failure();
+        return collapsed;
     }
     former_overlord = vassal_overlord(civ_id);
     collapse_release_vassal_relations(civ_id);
-    for (i = 0; i < region_count && formed < 4 && civilization_slot_capacity_left() > 0; i++) {
+    owned_regions = owned_region_count_for_civ(civ_id, NULL);
+    successor_limit = owned_regions <= 35 ? 1 : 2;
+    for (i = 0; i < region_count && formed < successor_limit && civilization_slot_capacity_left() > 0; i++) {
         int child;
         if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id || i == cap_region) continue;
         if (cause == COLLAPSE_CAUSE_PRESSURE &&
@@ -261,8 +277,7 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
         diplomacy_start_truce(civ_id, child, 45, 20);
         formed++;
     }
-    if (cause == COLLAPSE_CAUSE_PRESSURE) disorder_relieve(civ_id, 25);
-    else disorder_set_civil_unrest(civ_id);
+    (void)cause;
     if (formed > 0) {
         apply_post_collapse_grace(civ_id);
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
@@ -275,11 +290,13 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
         }
         civilization_colors_debug_check();
         collapse_refresh_world();
+        fragmentation_diag_record_collapse_success(formed);
     } else {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse failed: no splittable non-capital region.");
         event_log_push_structured(EVENT_TYPE_COLLAPSE_FAILED, EVENT_SEVERITY_WARNING,
                                   civ_id, -1, -1, -1, 0, 0, collapse_reasons[civ_id]);
+        fragmentation_diag_record_collapse_failure();
     }
     return formed > 0;
 }
@@ -313,6 +330,12 @@ int collapse_check_immediate(int civ_id, CollapseCause cause) {
     int now = collapse_month_index();
 
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive || civs[civ_id].disorder < 100) return 0;
+    if (civs[civ_id].collapse_grace_months > 0) {
+        snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
+                 "Collapse grace: %d years %d months left; immediate collapse skipped.",
+                 civs[civ_id].collapse_grace_months / 12, civs[civ_id].collapse_grace_months % 12);
+        return 0;
+    }
     if (immediate_attempt_month[civ_id] == now + 1 && cause != COLLAPSE_CAUSE_CIVIL_UNREST) return 0;
     immediate_attempt_month[civ_id] = now + 1;
     collapsed = collapse_civ(civ_id, cause);

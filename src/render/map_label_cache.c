@@ -330,8 +330,7 @@ static int source_to_placement(HDC hdc, const RenderSnapshot *snapshot, MapLayou
     if (source->kind == LABEL_COUNTRY && !selected &&
         source->weight < (layout.tile_size < 4 ? 18 : 7)) return 0;
     if (source->kind == LABEL_PROVINCE) {
-        if (display_mode != DISPLAY_REGIONS &&
-            !label_visible_for_zoom(LABEL_PROVINCE, layout.tile_size, selected)) return 0;
+        if (display_mode != DISPLAY_REGIONS && !selected) return 0;
         if (!selected && source->tile_count < (layout.tile_size >= 10 ? 42 : 80)) return 0;
     }
     style = map_label_style_for(source->kind, layout.tile_size, source->large, selected);

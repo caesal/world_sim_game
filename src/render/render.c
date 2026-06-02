@@ -110,9 +110,16 @@ static int draw_route_overlay_presentation(HDC hdc, RECT client, MapLayout layou
     if (!snapshot) return 0;
     key = route_overlay_key(snapshot);
     if (map_interaction_preview) {
-        return draw_preview_layer(hdc, client, layout, &route_overlay_cache,
-                                  &route_overlay_preview_reuses,
-                                  "route preview reuse", "route preview skip");
+        if (render_layer_cache_matches(&route_overlay_cache, client, layout, key, display_mode)) {
+            route_overlay_preview_reuses++;
+            snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text),
+                     "%s", "route preview exact");
+            render_layer_cache_transparent_viewport(hdc, client, &route_overlay_cache);
+            return 1;
+        }
+        snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text),
+                 "%s", "route preview skip dirty");
+        return 0;
     }
     if (display_mode == DISPLAY_ROUTE_POTENTIAL || (plague_perf_visuals_allowed() &&
          (snapshot->plague_active || plague_visual_infected_lane_count() > 0))) {

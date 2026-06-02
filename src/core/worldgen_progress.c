@@ -72,10 +72,33 @@ static int stage_index_for(WorldGenStage stage) {
     return index;
 }
 
+static void ease_displayed_overall(void) {
+    int target = progress_state.overall_progress_units;
+    int current = progress_state.displayed_overall_progress_units;
+    int delta;
+    int step;
+
+    if (target < current) target = current;
+    if (target >= 100000) {
+        progress_state.displayed_overall_progress_units =
+            progress_state.stage == WORLDGEN_DONE ? 100000 : current;
+        return;
+    }
+    delta = target - current;
+    if (delta <= 0) return;
+    if (delta < 1000) {
+        progress_state.displayed_overall_progress_units = target;
+        return;
+    }
+    step = clamp_int(delta / 3, 1000, 9000);
+    progress_state.displayed_overall_progress_units = clamp_int(current + step, 0, target);
+}
+
 static void maybe_repaint(void) {
     DWORD now = GetTickCount();
     if (!repaint_fn) return;
-    if (now - last_repaint_ms < 28 && progress_state.overall_progress_units < 100000) return;
+    if (now - last_repaint_ms < 28 &&
+        progress_state.displayed_overall_progress_units < 100000) return;
     last_repaint_ms = now;
     repaint_fn(repaint_user_data);
 }
@@ -117,6 +140,7 @@ static void set_progress_from_counts(WorldGenStage stage, int current, int total
     progress_state.stage_total = total;
     progress_state.stage_progress_units = clamp_int(stage_units, 0, 100000);
     progress_state.overall_progress_units = clamp_int(overall_units, 0, 100000);
+    ease_displayed_overall();
     if (total > 0) {
         snprintf(progress_state.message_en, sizeof(progress_state.message_en),
                  "%s: %d / %d", worldgen_stage_name_en(stage), current, total);
@@ -147,6 +171,7 @@ void worldgen_progress_begin(void) {
     progress_state.stage = WORLDGEN_IDLE;
     progress_state.stage_count = 7;
     progress_state.stage_total = 1;
+    progress_state.displayed_overall_progress_units = 0;
     last_repaint_ms = 0;
     snprintf(progress_state.message_en, sizeof(progress_state.message_en), "%s", "Preparing world generation");
     snprintf(progress_state.message_zh, sizeof(progress_state.message_zh), "%s", "准备生成世界");
@@ -190,6 +215,7 @@ void worldgen_progress_record_route_stats(int candidates, int shallow_edges, int
 void worldgen_progress_finish(void) {
     worldgen_progress_update(WORLDGEN_DONE, 100, 1, 1);
     progress_state.overall_progress_units = 100000;
+    progress_state.displayed_overall_progress_units = 100000;
     progress_state.stage_progress_units = 100000;
     progress_state.active = 0;
     maybe_repaint();

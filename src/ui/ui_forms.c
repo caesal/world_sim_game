@@ -391,6 +391,25 @@ static void layout_control(HWND control, RECT viewport, RECT rect, int show_worl
     if (changed && should_show) redraw_control(control);
 }
 
+static void hide_control(HWND control) {
+    if (control && IsWindowVisible(control)) ShowWindow(control, SW_HIDE);
+}
+
+static void hide_all_worldgen_controls(void) {
+    hide_control(form.initial_civs_edit);
+    hide_control(form.name_edit);
+    hide_control(form.symbol_edit);
+    hide_control(form.military_edit);
+    hide_control(form.logistics_edit);
+    hide_control(form.governance_edit);
+    hide_control(form.cohesion_edit);
+    hide_control(form.production_edit);
+    hide_control(form.commerce_edit);
+    hide_control(form.innovation_edit);
+    hide_control(form.add_button);
+    hide_control(form.apply_button);
+}
+
 void ui_forms_layout(HWND hwnd) {
     RECT client;
     WorldgenLayout layout;
@@ -398,6 +417,10 @@ void ui_forms_layout(HWND hwnd) {
 
     GetClientRect(hwnd, &client);
     ui_side_panel_apply_state(client);
+    if (!show_world) {
+        hide_all_worldgen_controls();
+        return;
+    }
     worldgen_scroll_offset = worldgen_layout_clamp_scroll(client, side_panel_w, worldgen_scroll_offset);
     worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
     layout_control(form.initial_civs_edit, layout.viewport, layout.initial_input, show_world);
@@ -415,7 +438,7 @@ void ui_forms_layout(HWND hwnd) {
 }
 
 static HWND create_edit(HWND parent, const char *text, int id, int number_only, int max_chars) {
-    DWORD style = WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | ES_AUTOHSCROLL;
+    DWORD style = WS_CHILD | WS_CLIPSIBLINGS | ES_AUTOHSCROLL;
     HWND edit;
 
     if (number_only) style |= ES_NUMBER;
@@ -437,9 +460,9 @@ void ui_forms_create(HWND hwnd) {
     form.commerce_edit = create_edit(hwnd, "5", ID_COMMERCE_EDIT, 1, 2);
     form.innovation_edit = create_edit(hwnd, "5", ID_INNOVATION_EDIT, 1, 2);
     form.initial_civs_edit = create_edit(hwnd, "0", ID_INITIAL_CIVS_EDIT, 1, 2);
-    form.add_button = CreateWindowA("BUTTON", "Add Civilization", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
+    form.add_button = CreateWindowA("BUTTON", "Add Civilization", WS_CHILD | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
                                     0, 0, 140, 30, hwnd, (HMENU)ID_ADD_BUTTON, GetModuleHandle(NULL), NULL);
-    form.apply_button = CreateWindowA("BUTTON", "Apply Selected", WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
+    form.apply_button = CreateWindowA("BUTTON", "Apply Selected", WS_CHILD | WS_CLIPSIBLINGS | BS_PUSHBUTTON,
                                       0, 0, 150, 30, hwnd, (HMENU)ID_APPLY_BUTTON, GetModuleHandle(NULL), NULL);
     ui_forms_layout(hwnd);
 }
