@@ -5,6 +5,7 @@
 #include "sim/civ_colors.h"
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
+#include "sim/collapse_partition.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
@@ -197,33 +198,11 @@ static void collapse_release_vassal_relations(int civ_id) {
     }
 }
 
-static int add_neighbor_regions(int parent, int child, int seed_region, int cap_region) {
-    int claimed = 0;
-    int frontier[MAX_REGION_NEIGHBORS + 1];
-    int front_count = 1;
-    int i;
-
-    frontier[0] = seed_region;
-    for (i = 0; i < front_count && claimed < 6; i++) {
-        NaturalRegion *region = &natural_regions[frontier[i]];
-        int n;
-        if (frontier[i] == cap_region || region->owner_civ != parent) continue;
-        claim_region_direct(frontier[i], child);
-        claimed++;
-        for (n = 0; n < region->neighbor_count && front_count < MAX_REGION_NEIGHBORS + 1; n++) {
-            int neighbor = region->neighbors[n];
-            if (neighbor >= 0 && neighbor < region_count && natural_regions[neighbor].owner_civ == parent) {
-                frontier[front_count++] = neighbor;
-            }
-        }
-    }
-    return claimed;
-}
-
 static int collapse_civ(int civ_id, CollapseCause cause) {
     int cap_region;
     int owned_regions;
     int successor_limit;
+    CollapsePartitionResult partition;
     int formed = 0;
     int i;
     int former_overlord = -1;
@@ -262,22 +241,31 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     former_overlord = vassal_overlord(civ_id);
     collapse_release_vassal_relations(civ_id);
     owned_regions = owned_region_count_for_civ(civ_id, NULL);
-    successor_limit = owned_regions <= 35 ? 1 : 2;
-    for (i = 0; i < region_count && formed < successor_limit && civilization_slot_capacity_left() > 0; i++) {
+    successor_limit = collapse_successor_count_for_owned_regions(owned_regions);
+    successor_limit = min(successor_limit, civilization_slot_capacity_left());
+    successor_limit = min(successor_limit, owned_regions - 1);
+    if (collapse_partition_build(civ_id, cap_region, successor_limit, &partition) <= 0) {
+        successor_limit = 0;
+    }
+    for (i = 0; i < partition.successor_count && formed < successor_limit; i++) {
         int child;
-        if (!natural_regions[i].alive || natural_regions[i].owner_civ != civ_id || i == cap_region) continue;
-        if (cause == COLLAPSE_CAUSE_PRESSURE &&
-            natural_regions[i].development_score < 30 && natural_regions[i].tile_count < 40) continue;
-        child = create_successor_civ(civ_id, formed, i);
+        int claimed = 0;
+        int r;
+        child = create_successor_civ(civ_id, formed, partition.successor_capital_region[i]);
         if (child < 0) break;
-        if (add_neighbor_regions(civ_id, child, i, cap_region) <= 0) {
+        for (r = 0; r < partition.successor_region_count[i]; r++) {
+            int region_id = partition.successor_regions[i][r];
+            if (natural_regions[region_id].owner_civ != civ_id) continue;
+            claim_region_direct(region_id, child);
+            claimed++;
+        }
+        if (claimed <= 0) {
             civilization_reset_slot_state(child);
             continue;
         }
         diplomacy_start_truce(civ_id, child, 45, 20);
         formed++;
     }
-    (void)cause;
     if (formed > 0) {
         apply_post_collapse_grace(civ_id);
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),

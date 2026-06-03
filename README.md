@@ -7,13 +7,12 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.1.b is a Windows graphical sandbox prototype written in C.
+Ver0.3.1.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.1.b is an interaction and war-cadence checkpoint over Ver0.3.1.a. It
-keeps the plague-cooldown and fragmentation-control work while adding batched
-large-country highlight fills, Civil Unrest action fixes that preserve the
-current pause/run state, a manual Civil Unrest exception to collapse grace, and
-a 2-year / 24-month battle cadence with matching UI countdowns.
+Ver0.3.1.c is a collapse-partition checkpoint over Ver0.3.1.b. It keeps the
+interaction, plague-cooldown, and war-cadence fixes while replacing the old
+small-fragment collapse scan with banded successor counts, capital-core
+retention, farthest-first rebel seeds, and balanced connected successor blocks.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed

@@ -1,5 +1,35 @@
 # Version Log
 
+## Ver0.3.1.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.1.c.
+2. Added `src/sim/collapse_partition.c/.h` and included it in both build
+   lists.
+3. Replaced the old multi-province collapse behavior that scanned natural
+   regions by id and capped each successor at 6 neighboring regions.
+4. Added owned-region successor count bands: 1/2/3/4/5 successors for
+   2-35 / 36-72 / 73-128 / 129-172 / >172 owned regions, with slot shortage
+   reducing the requested successor count safely.
+5. Added capital-core retention, farthest-first successor seeding, balanced
+   multi-source region assignment, and internal successor-capital selection.
+6. Kept single-province collapse behavior unchanged.
+
+Validation notes:
+
+- Ver0.3.1.c uses `WORLD_SIM_VERSION "0.3.1.c"`.
+- Build/static validation was reported passing for the implementation and was
+  rerun before push.
+- Focused probes reported that single-province collapse was unchanged and that
+  20/50/100/150/180+ region partition cases produced expected successor counts
+  and connected balanced blocks.
+- The implementation agent's GUI automation was stopped by the user, so full
+  automated GUI validation and strict AGENTS regression were not completed by
+  that agent.
+- The user manually validated the executable result and approved this
+  checkpoint for push.
+
 ## Ver0.3.1.b
 
 Implemented fixes:

@@ -66,6 +66,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\civ_colors.c ^
   src\sim\disorder.c ^
   src\sim\collapse.c ^
+  src\sim\collapse_partition.c ^
   src\sim\collapse_single.c ^
   src\sim\population.c ^
   src\sim\plague.c ^
