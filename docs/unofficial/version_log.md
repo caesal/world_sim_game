@@ -1,5 +1,34 @@
 # Version Log
 
+## Ver0.3.1.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.1.b.
+2. Batched large-country highlight fill into a single transparent overlay blend
+   per pass, avoiding per-tile DIB/DC churn during country selection.
+3. Populated Civil Unrest snapshot button state from collapse blockers and made
+   the Civil Unrest command preserve the current pause/run state.
+4. Added a manual Civil Unrest exception to collapse grace: grace still blocks
+   pressure/natural collapse, but the player action may collapse again while
+   grace remains active.
+5. Changed active war battle cadence from 3 years / 36 months to 2 years / 24
+   months and aligned diplomacy and decision-panel battle countdown displays.
+6. Kept Release Vassal behavior unchanged after audit and user validation.
+
+Validation notes:
+
+- Ver0.3.1.b uses `WORLD_SIM_VERSION "0.3.1.b"`.
+- Build/static validation was reported passing for the implementation, and the
+  release build/static checks were rerun before push.
+- Focused GUI validation used a Large map with randomized physical and advanced
+  terrain settings and 5 civilizations, per the focused exception for this
+  follow-up. It verified large-country highlight responsiveness, Civil Unrest
+  without forced pause, repeated manual Civil Unrest during collapse grace, and
+  24-month battle countdown alignment.
+- Full 26-civilization strict game-flow regression was not rerun for this
+  focused interaction checkpoint.
+
 ## Ver0.3.1.a
 
 Implemented fixes:

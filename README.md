@@ -7,13 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.1.a is a Windows graphical sandbox prototype written in C.
+Ver0.3.1.b is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.1.a is a plague-cooldown and high-load presentation checkpoint over
-Ver0.3.1. It keeps the fragmentation-control release while adding a persistent
-432-month city reinfection cooldown after plague recovery, safe v10-to-v11
-plague save conversion, and tighter max-speed map presentation coalescing for
-large-map overload cases.
+Ver0.3.1.b is an interaction and war-cadence checkpoint over Ver0.3.1.a. It
+keeps the plague-cooldown and fragmentation-control work while adding batched
+large-country highlight fills, Civil Unrest action fixes that preserve the
+current pause/run state, a manual Civil Unrest exception to collapse grace, and
+a 2-year / 24-month battle cadence with matching UI countdowns.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -123,7 +123,7 @@ You can:
 89. Launch with `--no-activate` for validation runs that must not steal focus from the user's foreground app
 90. Draw the collapsed side-panel handle without an opaque square cache artifact over the map
 87. Use 0-100 disorder with monthly recovery/pressure drift, war-death and plague-death disorder impacts, and decade collapse checks
-88. Rework wars into 3-year battles using current soldiers, technology modifiers, real population casualties, peace pressure, and 20% bordering-province cession
+88. Rework wars into 2-year battles using current soldiers, technology modifiers, real population casualties, peace pressure, and 20% bordering-province cession
 89. Keep normal expansion focused on neighboring unowned natural regions before considering overseas targets
 90. Add a Country Dashboard back-to-list control so selected-country detail no longer traps the user away from all countries
 91. Smooth maritime route rendering so sea lanes curve through existing route points instead of exposing every pathfinding bend

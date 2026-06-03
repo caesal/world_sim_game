@@ -330,7 +330,7 @@ int collapse_check_immediate(int civ_id, CollapseCause cause) {
     int now = collapse_month_index();
 
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive || civs[civ_id].disorder < 100) return 0;
-    if (civs[civ_id].collapse_grace_months > 0) {
+    if (cause != COLLAPSE_CAUSE_CIVIL_UNREST && civs[civ_id].collapse_grace_months > 0) {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse grace: %d years %d months left; immediate collapse skipped.",
                  civs[civ_id].collapse_grace_months / 12, civs[civ_id].collapse_grace_months % 12);

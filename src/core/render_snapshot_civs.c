@@ -125,6 +125,8 @@ static void copy_raw_fields(SnapshotCiv *dst, Civilization *src, int i) {
     dst->disorder_last_wartime_pressure_x10 = disorder_last_wartime_pressure_x10(i);
     dst->disorder_last_wartime_decay_x10 = disorder_last_wartime_decay_x10(i);
     dst->collapse_grace_months = src->collapse_grace_months;
+    dst->collapse_block_reason = src->alive ? collapse_block_reason(i) : COLLAPSE_BLOCK_NOT_ALIVE;
+    dst->collapse_can_trigger = dst->collapse_block_reason == COLLAPSE_BLOCK_NONE;
     dst->plague_random_immunity_months = src->plague_random_immunity_months;
     dst->war_active = war_active_for_civ(i); dst->war_deployed_soldiers = war_deployed_soldiers_for_civ(i);
     dst->war_front_count = war_front_count_for_civ(i);

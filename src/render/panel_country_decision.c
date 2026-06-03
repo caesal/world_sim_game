@@ -2,6 +2,7 @@
 #include "render/render_common.h"
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
+#include "sim/war.h"
 #include "ui/ui_types.h"
 #include "ui/ui_widgets.h"
 #include <stdio.h>
@@ -465,7 +466,8 @@ void draw_country_decision_tab(HDC hdc, UiCursor *cursor, int civ_id) {
         ui_section(hdc, cursor, tr("Countdowns", "倒计时"));
         countdown_chip(hdc, cursor, tr("Expansion attempt", "扩张尝试"), snap.next_expansion_months, 36);
         countdown_chip(hdc, cursor, tr("Diplomacy eval", "外交评估"), snap.next_diplomacy_months, 12);
-        countdown_chip(hdc, cursor, tr("Next battle", "下次战斗"), snap.next_battle_months, 36);
+        countdown_chip(hdc, cursor, tr("Next battle", "下次战斗"),
+                       snap.next_battle_months, WAR_BATTLE_INTERVAL_MONTHS);
         countdown_chip(hdc, cursor, tr("Collapse check", "崩溃判定"), snap.next_collapse_years * 12, 300);
     }
     if (country_decision_subtab != COUNTRY_DECISION_EXPANSION && has_last_result(&snap)) {

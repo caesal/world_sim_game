@@ -6,6 +6,8 @@
 #include "render/render_map_internal.h"
 #include "sim/diplomacy.h"
 
+#include <string.h>
+
 static const RenderSnapshot *highlight_snapshot(void) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     return snapshot && snapshot->world_generated ? snapshot : NULL;
@@ -94,6 +96,91 @@ static int visible_bounds_snapshot(const RenderSnapshot *snapshot, RECT client, 
     *min_y = clamp((top - layout.map_y) * snapshot->map_h / layout.draw_h - 1, 0, snapshot->map_h - 1);
     *max_y = clamp((bottom - layout.map_y) * snapshot->map_h / layout.draw_h + 1, 0, snapshot->map_h - 1);
     return 1;
+}
+
+static unsigned int premultiplied_pixel(COLORREF color, BYTE alpha) {
+    unsigned int a = alpha;
+    unsigned int r = (unsigned int)GetRValue(color) * a / 255u;
+    unsigned int g = (unsigned int)GetGValue(color) * a / 255u;
+    unsigned int b = (unsigned int)GetBValue(color) * a / 255u;
+    return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+static void fill_overlay_rect(unsigned int *pixels, int width, int height, RECT rect, unsigned int pixel) {
+    int x;
+    int y;
+    rect.left = clamp(rect.left, 0, width);
+    rect.right = clamp(rect.right, 0, width);
+    rect.top = clamp(rect.top, 0, height);
+    rect.bottom = clamp(rect.bottom, 0, height);
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
+    for (y = rect.top; y < rect.bottom; y++) {
+        unsigned int *row = pixels + y * width;
+        for (x = rect.left; x < rect.right; x++) row[x] = pixel;
+    }
+}
+
+static int overlay_matches_tile(const RenderSnapshot *snapshot, int x, int y,
+                                int civ_id, int primary, int secondary, int dim) {
+    int owner = tile_owner(snapshot, x, y);
+    if (dim) return owner >= 0 && owner != primary && owner != secondary;
+    return owner == civ_id;
+}
+
+static void blend_tile_overlay(HDC hdc, RECT client, MapLayout layout, const RenderSnapshot *snapshot,
+                               int min_x, int max_x, int min_y, int max_y,
+                               int civ_id, int primary, int secondary, int dim,
+                               COLORREF color, BYTE alpha) {
+    RECT viewport = get_map_viewport_rect(client);
+    RECT overlay = {max(viewport.left, layout.map_x), max(viewport.top, layout.map_y),
+                    min(viewport.right, layout.map_x + layout.draw_w),
+                    min(viewport.bottom, layout.map_y + layout.draw_h)};
+    BITMAPINFO info;
+    void *bits = NULL;
+    HBITMAP bitmap;
+    HDC memory_dc;
+    HBITMAP old_bitmap;
+    BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    unsigned int pixel = premultiplied_pixel(color, alpha);
+    int width = overlay.right - overlay.left;
+    int height = overlay.bottom - overlay.top;
+    int drew = 0;
+    int x;
+    int y;
+
+    if (width <= 0 || height <= 0) return;
+    memset(&info, 0, sizeof(info));
+    info.bmiHeader.biSize = sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth = width;
+    info.bmiHeader.biHeight = -height;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    bitmap = CreateDIBSection(hdc, &info, DIB_RGB_COLORS, &bits, NULL, 0);
+    if (!bitmap || !bits) {
+        if (bitmap) DeleteObject(bitmap);
+        return;
+    }
+    memset(bits, 0, (size_t)width * (size_t)height * sizeof(unsigned int));
+
+    for (y = min_y; y <= max_y; y++) {
+        for (x = min_x; x <= max_x; x++) {
+            RECT tile;
+            if (!overlay_matches_tile(snapshot, x, y, civ_id, primary, secondary, dim)) continue;
+            tile = (RECT){sx(layout, snapshot, x) - overlay.left, sy(layout, snapshot, y) - overlay.top,
+                          sx(layout, snapshot, x + 1) - overlay.left, sy(layout, snapshot, y + 1) - overlay.top};
+            fill_overlay_rect((unsigned int *)bits, width, height, tile, pixel);
+            drew = 1;
+        }
+    }
+    if (drew) {
+        memory_dc = CreateCompatibleDC(hdc);
+        old_bitmap = SelectObject(memory_dc, bitmap);
+        AlphaBlend(hdc, overlay.left, overlay.top, width, height, memory_dc, 0, 0, width, height, blend);
+        SelectObject(memory_dc, old_bitmap);
+        DeleteDC(memory_dc);
+    }
+    DeleteObject(bitmap);
 }
 
 static void draw_ring(HDC hdc, int cx, int cy, int r, int width, COLORREF color) {
@@ -199,8 +286,6 @@ static void draw_country_highlight_one(HDC hdc, RECT client, MapLayout layout,
     int max_x;
     int min_y;
     int max_y;
-    int x;
-    int y;
     HPEN outer_pen;
     HPEN inner_pen;
     COLORREF fill = civ_highlight_color(snapshot, civ_id, strong);
@@ -208,15 +293,8 @@ static void draw_country_highlight_one(HDC hdc, RECT client, MapLayout layout,
     COLORREF outer = mix_color(inner, RGB(18, 16, 14), 72);
     if (!valid_civ(snapshot, civ_id)) return;
     if (!visible_bounds_snapshot(snapshot, client, layout, &min_x, &max_x, &min_y, &max_y)) return;
-    for (y = min_y; y <= max_y; y++) {
-        for (x = min_x; x <= max_x; x++) {
-            RECT tile;
-            if (!tile_owned_by(snapshot, x, y, civ_id)) continue;
-            tile = (RECT){sx(layout, snapshot, x), sy(layout, snapshot, y),
-                          sx(layout, snapshot, x + 1), sy(layout, snapshot, y + 1)};
-            fill_rect_alpha(hdc, tile, fill, (BYTE)(strong ? 112 : 58));
-        }
-    }
+    blend_tile_overlay(hdc, client, layout, snapshot, min_x, max_x, min_y, max_y,
+                       civ_id, -1, -1, 0, fill, (BYTE)(strong ? 112 : 58));
     outer_pen = CreatePen(PS_SOLID, strong ? 5 : 3, outer);
     inner_pen = CreatePen(PS_SOLID, strong ? 3 : 2, inner);
     draw_country_edges_with_pen(hdc, layout, snapshot, civ_id, min_x, max_x, min_y, max_y, outer_pen);
@@ -232,19 +310,9 @@ static void dim_other_countries(HDC hdc, RECT client, MapLayout layout,
     int max_x;
     int min_y;
     int max_y;
-    int x;
-    int y;
     if (!visible_bounds_snapshot(snapshot, client, layout, &min_x, &max_x, &min_y, &max_y)) return;
-    for (y = min_y; y <= max_y; y++) {
-        for (x = min_x; x <= max_x; x++) {
-            int owner = tile_owner(snapshot, x, y);
-            RECT tile;
-            if (owner < 0 || owner == primary || owner == secondary) continue;
-            tile = (RECT){sx(layout, snapshot, x), sy(layout, snapshot, y),
-                          sx(layout, snapshot, x + 1), sy(layout, snapshot, y + 1)};
-            fill_rect_alpha(hdc, tile, RGB(0, 0, 0), 18);
-        }
-    }
+    blend_tile_overlay(hdc, client, layout, snapshot, min_x, max_x, min_y, max_y,
+                       -1, primary, secondary, 1, RGB(0, 0, 0), 18);
 }
 
 static void draw_vassal_relation_highlights(HDC hdc, RECT client, MapLayout layout,

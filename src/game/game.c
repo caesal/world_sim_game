@@ -216,7 +216,6 @@ void game_request_after_load_map(int restored_dynamic_state) {
 }
 int game_request_trigger_civil_unrest(int civ_id) {
     int collapsed;
-    game_pause_for_modal_or_action();
     if (!world_generated || civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) {
         event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, -1, -1, 0, 0, "Civil unrest failed: invalid country.");
@@ -239,7 +238,7 @@ int game_request_trigger_civil_unrest(int civ_id) {
     render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
-    return collapsed;
+    return 1;
 }
 int game_request_release_vassal(int vassal_id) {
     int overlord;

@@ -432,7 +432,7 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
         finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 3);
         return;
     }
-    if (war->years % 3 != 0) return;
+    if (war->years % WAR_BATTLE_INTERVAL_YEARS != 0) return;
     update_supply_state(war);
     effective_a = scaled_soldiers_for_battle(war->attacker,
                                              war->soldiers_a + side_support_soldiers(war->attacker), 0);

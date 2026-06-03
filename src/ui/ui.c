@@ -125,7 +125,6 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
         if (hit == COUNTRY_PANEL_HIT_CIVIL_UNREST) {
-            game_pause_for_modal_or_action();
             if (selected_civ >= 0 && !game_request_trigger_civil_unrest(selected_civ)) MessageBeep(MB_ICONWARNING);
             country_detail_scroll_offsets[clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)] = 0;
             ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |

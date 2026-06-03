@@ -128,7 +128,8 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     out->collapse_single_result = collapse_single_province_preview(civ_id, &out->collapse_single_candidate);
     out->next_expansion_months = out->expansion.months_until_next_claim;
     out->next_diplomacy_months = 12 - ((month - 1) % 12);
-    out->next_battle_months = 36 - (((year * 12 + month) - 1) % 36);
+    out->next_battle_months = WAR_BATTLE_INTERVAL_MONTHS -
+                              (((year * 12 + month) - 1) % WAR_BATTLE_INTERVAL_MONTHS);
     out->next_collapse_years = civs[civ_id].disorder >= 100 ? 0 : years_to_decade_check();
     out->expansion_reason = expansion_last_reason(civ_id);
     out->war_reason = diplomacy_last_war_reason(civ_id);

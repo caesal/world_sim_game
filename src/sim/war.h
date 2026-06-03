@@ -32,6 +32,8 @@ typedef struct {
 } ActiveWar;
 
 #define WAR_SAVE_SLOT_COUNT (MAX_CIVS * MAX_CIVS / 2)
+#define WAR_BATTLE_INTERVAL_YEARS 2
+#define WAR_BATTLE_INTERVAL_MONTHS (WAR_BATTLE_INTERVAL_YEARS * 12)
 
 void war_reset(void);
 int war_start(int attacker, int defender);

@@ -3,6 +3,7 @@
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
 #include "sim/diplomacy.h"
+#include "sim/war.h"
 #include "sim/war_front.h"
 
 #include <stdio.h>
@@ -237,14 +238,14 @@ static const char *peace_status_text(int own, int enemy) {
 static int battle_months_remaining(SnapshotWar war) {
     const RenderSnapshot *snapshot = cards_snapshot();
     int current_month = snapshot ? snapshot->month : 1;
-    int ticks_left = 3 - (war.years % 3);
+    int ticks_left = WAR_BATTLE_INTERVAL_YEARS - (war.years % WAR_BATTLE_INTERVAL_YEARS);
     int months_to_year_tick = 13 - clamp(current_month, 1, 12);
-    if (ticks_left <= 0) ticks_left = 3;
-    return clamp((ticks_left - 1) * 12 + months_to_year_tick, 1, 36);
+    if (ticks_left <= 0) ticks_left = WAR_BATTLE_INTERVAL_YEARS;
+    return clamp((ticks_left - 1) * 12 + months_to_year_tick, 1, WAR_BATTLE_INTERVAL_MONTHS);
 }
 
 static int battle_progress_percent(int remaining_months) {
-    return clamp(100 - remaining_months * 100 / 36, 0, 100);
+    return clamp(100 - remaining_months * 100 / WAR_BATTLE_INTERVAL_MONTHS, 0, 100);
 }
 
 static void draw_peace_tense(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
