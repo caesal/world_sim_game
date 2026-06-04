@@ -38,13 +38,11 @@ typedef struct {
 } CountryListEntry;
 
 static int displayed_country(void) {
-    if (snapshot_ui_civ_visible(selected_civ, country_show_fallen)) return selected_civ;
-    return -1;
+    const SnapshotCiv *civ = snapshot_ui_civ(selected_civ);
+    return civ && (country_show_fallen ? !civ->alive : civ->alive) ? selected_civ : -1;
 }
 
-static int country_province_count(int civ_id) {
-    return snapshot_ui_province_count(civ_id);
-}
+static int country_province_count(int civ_id) { return snapshot_ui_province_count(civ_id); }
 
 static void draw_scrollbar(HDC hdc, RECT viewport, int scroll, int max_scroll);
 
@@ -65,7 +63,8 @@ static void country_panel_snapshot_end(int owned, const RenderSnapshot *snapshot
 }
 
 static int include_country_in_list(int civ_id) {
-    return snapshot_ui_civ_visible(civ_id, country_show_fallen);
+    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    return civ && (country_show_fallen ? !civ->alive : civ->alive);
 }
 
 static int country_sort_value(int civ_id, int column) {
@@ -304,7 +303,9 @@ static void draw_country_list(HDC hdc, const CountryPanelLayout *layout) {
     draw_text_rect(hdc, layout->sort_label, text, ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     fill_rect(hdc, layout->fallen_toggle, country_show_fallen ? RGB(87, 93, 78) : RGB(43, 49, 52));
-    draw_center_text(hdc, layout->fallen_toggle, tr("Show Fallen Countries", "显示已灭亡国家"), ui_theme_color(UI_COLOR_TEXT));
+    draw_center_text(hdc, layout->fallen_toggle, country_show_fallen ?
+                     tr("Show Active Countries", "显示活跃国家") : tr("Show Fallen Countries", "显示已灭亡国家"),
+                     ui_theme_color(UI_COLOR_TEXT));
     if (layout->selected_detail) {
         fill_rect(hdc, layout->back_to_list, RGB(43, 49, 52));
         draw_center_text(hdc, layout->back_to_list, tr("All Countries / Back to list", "全部国家 / 返回列表"),
@@ -327,9 +328,8 @@ static void draw_country_list(HDC hdc, const CountryPanelLayout *layout) {
     }
     draw_scrollbar(hdc, layout->list_viewport, layout->list_scroll, layout->list_max_scroll);
     if (layout->card_count == 0) {
-        draw_text_rect(hdc, layout->detail_viewport,
-                       tr("No alive countries. Toggle fallen countries for historical entries.",
-                          "没有存活国家。可切换显示已灭亡国家查看历史条目。"),
+        draw_text_rect(hdc, layout->detail_viewport, country_show_fallen ?
+                       tr("No fallen countries.", "没有已灭亡国家。") : tr("No active countries.", "没有活跃国家。"),
                        ui_theme_color(UI_COLOR_TEXT_MUTED), DT_WORDBREAK | DT_END_ELLIPSIS);
     }
 }

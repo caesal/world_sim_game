@@ -19,11 +19,56 @@ static int pending_delta = 0;
 static POINT pending_screen_point = {0, 0};
 static int pending_active = 0;
 
+static int wheel_steps_from_delta(int delta) {
+    int steps = delta / WHEEL_DELTA;
+    if (steps == 0) steps = delta > 0 ? 1 : -1;
+    return steps;
+}
+
+static int ui_wheel_handle_side_panel(HWND hwnd, RECT client, POINT point, int steps) {
+    if (side_panel_collapsed && side_panel_handle_hit_test(client, point.x, point.y)) return 1;
+    if (side_panel_collapsed || point.x < client.right - side_panel_w) return 0;
+    if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+        if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW &&
+            country_recent_events_scroll_hit_test(point.x, point.y)) {
+            if (country_recent_events_scroll(-steps * LOG_SCROLL_ITEMS_PER_WHEEL_NOTCH)) {
+                ui_invalidate_side_panel(hwnd);
+            }
+            return 1;
+        }
+        if (country_panel_scroll(client, -steps * 72)) ui_invalidate_side_panel(hwnd);
+        return 1;
+    }
+    if (panel_tab == PANEL_WORLD && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+        int old_scroll = worldgen_scroll_offset;
+        worldgen_scroll_offset = worldgen_layout_clamp_scroll(
+            client, side_panel_w, worldgen_scroll_offset - steps * 72);
+        if (worldgen_scroll_offset != old_scroll) {
+            ui_forms_layout(hwnd);
+            ui_invalidate_side_panel(hwnd);
+        }
+        return 1;
+    }
+    if (panel_tab == PANEL_DEBUG && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+        ui_handle_debug_panel_wheel(hwnd, client, point, steps);
+        return 1;
+    }
+    return 1;
+}
+
 void ui_wheel_invalidate_map_viewport(HWND hwnd) {
     ui_invalidate_map_viewport(hwnd);
 }
 
 void ui_wheel_accumulate(HWND hwnd, int screen_x, int screen_y, int delta) {
+    RECT client;
+    POINT point = {screen_x, screen_y};
+
+    if (color_picker_active() || pause_menu_open || delta == 0) return;
+    ScreenToClient(hwnd, &point);
+    GetClientRect(hwnd, &client);
+    if (ui_wheel_handle_side_panel(hwnd, client, point, wheel_steps_from_delta(delta))) return;
+
     pending_delta += delta;
     pending_screen_point.x = screen_x;
     pending_screen_point.y = screen_y;
@@ -48,41 +93,12 @@ void ui_wheel_process_pending(HWND hwnd) {
     KillTimer(hwnd, WHEEL_INPUT_TIMER_ID);
     if (color_picker_active() || pause_menu_open || delta == 0) return;
 
-    steps = delta / WHEEL_DELTA;
-    if (steps == 0) steps = delta > 0 ? 1 : -1;
+    steps = wheel_steps_from_delta(delta);
     point = pending_screen_point;
     ScreenToClient(hwnd, &point);
     GetClientRect(hwnd, &client);
 
-    if (side_panel_collapsed && side_panel_handle_hit_test(client, point.x, point.y)) return;
-    if (!side_panel_collapsed && point.x >= client.right - side_panel_w) {
-        if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
-            if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW &&
-                country_recent_events_scroll_hit_test(point.x, point.y)) {
-                if (country_recent_events_scroll(-steps * LOG_SCROLL_ITEMS_PER_WHEEL_NOTCH)) {
-                    ui_invalidate_side_panel(hwnd);
-                }
-                return;
-            }
-            if (country_panel_scroll(client, -steps * 72)) ui_invalidate_side_panel(hwnd);
-            return;
-        }
-        if (panel_tab == PANEL_WORLD && point.y >= TOP_BAR_H && point.y <= client.bottom) {
-            int old_scroll = worldgen_scroll_offset;
-            worldgen_scroll_offset = worldgen_layout_clamp_scroll(
-                client, side_panel_w, worldgen_scroll_offset - steps * 72);
-            if (worldgen_scroll_offset != old_scroll) {
-                ui_forms_layout(hwnd);
-                ui_invalidate_side_panel(hwnd);
-            }
-            return;
-        }
-        if (panel_tab == PANEL_DEBUG && point.y >= TOP_BAR_H && point.y <= client.bottom) {
-            ui_handle_debug_panel_wheel(hwnd, client, point, steps);
-            return;
-        }
-        return;
-    }
+    if (ui_wheel_handle_side_panel(hwnd, client, point, steps)) return;
 
     if (point.y < TOP_BAR_H || point.y > client.bottom - BOTTOM_BAR_H) return;
     before = get_map_layout(client);

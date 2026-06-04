@@ -35,7 +35,6 @@ static void refresh_after_vassal_annex(void) {
 int game_request_release_vassal(int vassal_id) {
     int overlord;
 
-    game_pause_for_modal_or_action();
     if (!world_generated || vassal_id < 0 || vassal_id >= civ_count || !civs[vassal_id].alive) return 0;
     state_write_lock();
     overlord = vassal_overlord(vassal_id);
@@ -57,7 +56,6 @@ int game_request_release_vassal(int vassal_id) {
 int game_request_annex_vassal(int overlord_id, int vassal_id) {
     int annexed;
 
-    game_pause_for_modal_or_action();
     if (!world_generated ||
         overlord_id < 0 || overlord_id >= civ_count || !civs[overlord_id].alive ||
         vassal_id < 0 || vassal_id >= civ_count || !civs[vassal_id].alive) {

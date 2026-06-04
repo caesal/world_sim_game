@@ -7,13 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2 is a Windows graphical sandbox prototype written in C.
+Ver0.3.2.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2 is a vassal-action and map-marker checkpoint over Ver0.3.1.c. It keeps
-the collapse-partition, interaction, plague-cooldown, and war-cadence fixes
-while adding direct-vassal overview rows with colored clickable name cells,
-Release/Annex actions, updated city/harbor marker stages, and a political map
-legend glyph column that stays separate from the route-potential legend.
+Ver0.3.2.a is a hotfix checkpoint over Ver0.3.2. It keeps the vassal-action and
+map-marker checkpoint while correcting the vassal Release/Annex/Independence
+pause regression, making right-side Country/World/Debug wheel scrolling
+immediate again, and switching the country-list toggle between active-only and
+fallen-only views.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed

@@ -1,5 +1,41 @@
 # Version Log
 
+## Ver0.3.2.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.a.
+2. Preserved the current run state when clicking direct-vassal Release and
+   Annex actions.
+3. Preserved the current run state when clicking the selected-country
+   Independence action, which uses the same vassal release request path.
+4. Made right-side Country, World, and Debug panel mouse-wheel scrolling handle
+   wheel input immediately instead of waiting behind map-zoom batching.
+5. Limited the country-list toggle to two exclusive views: active countries
+   only, or fallen countries only.
+6. Changed the country-list toggle label so the fallen-only view offers
+   `Show Active Countries` and the active-only view offers
+   `Show Fallen Countries`.
+7. Clear the selected country when it no longer matches the active/fallen list
+   filter.
+
+Validation notes:
+
+- Ver0.3.2.a uses `WORLD_SIM_VERSION "0.3.2.a"`.
+- Canonical `make -B world_sim.exe` was attempted first and reached the link
+  step, but the running `world_sim.exe` was locked by the operating system.
+- A temporary-target build with `TARGET=tmp_worldsim_ver032a_verify.exe`
+  succeeded, string checks found `World Sim Game Ver 0.3.2.a`,
+  `Show Active Countries`, and `Show Fallen Countries`, and the temporary
+  executable was deleted.
+- `build.bat` was attempted and reached the link step, but was blocked by the
+  same locked canonical executable.
+- Static and text checks were rerun before push; touched source/header files
+  were at or below 500 lines, while the pre-existing unrelated
+  `src/sim/plague.c` remains 515 lines.
+- Full strict AGENTS Large-map regression was not rerun for this hotfix
+  checkpoint.
+
 ## Ver0.3.2
 
 Implemented fixes:

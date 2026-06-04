@@ -85,13 +85,15 @@ int ui_handle_debug_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y
 int ui_handle_debug_panel_wheel(HWND hwnd, RECT client, POINT point, int steps) {
     if (debug_subtab == DEBUG_SUBTAB_MAP_LOG &&
         debug_panel_event_log_hit_test(client, point.x, point.y)) {
+        int old_offset = debug_event_log_scroll_offset;
         debug_panel_event_log_scroll(-steps * LOG_SCROLL_ITEMS_PER_WHEEL_NOTCH);
-        invalidate_debug_panel(hwnd, client);
+        if (debug_event_log_scroll_offset != old_offset) invalidate_debug_panel(hwnd, client);
         return 1;
     }
     if (debug_subtab == DEBUG_SUBTAB_PERFORMANCE_SYSTEM) {
+        int old_offset = debug_system_scroll_offset;
         debug_system_scroll_offset = clamp(debug_system_scroll_offset - steps * 72, 0, 2400);
-        invalidate_debug_panel(hwnd, client);
+        if (debug_system_scroll_offset != old_offset) invalidate_debug_panel(hwnd, client);
         return 1;
     }
     return 1;
