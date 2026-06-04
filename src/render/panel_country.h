@@ -3,6 +3,8 @@
 
 #include <windows.h>
 
+#include "render/panel_country_actions.h"
+
 #define COUNTRY_PANEL_HIT_NONE -1
 #define COUNTRY_PANEL_HIT_TOGGLE_FALLEN -2
 #define COUNTRY_PANEL_HIT_BACK_TO_LIST -3
@@ -20,7 +22,7 @@
 #define COUNTRY_PANEL_HIT_DECISION_VIEW_BASE -80
 
 int country_panel_hit_test(RECT client, int mouse_x, int mouse_y);
-int country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y);
+CountryVassalActionHit country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y);
 int country_panel_scroll(RECT client, int delta);
 
 #endif

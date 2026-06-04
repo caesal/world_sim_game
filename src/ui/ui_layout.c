@@ -246,19 +246,21 @@ static RECT map_legend_collapsed_rect(RECT frame) {
     return box;
 }
 
-static int map_legend_full_height(int show_geography, int show_climate, int show_routes) {
+static int map_legend_full_height(int show_geography, int show_climate, int show_routes, int show_city_glyphs) {
     int geo_count = 11;
     int climate_count = CLIMATE_COUNT;
     int line_h = 20;
     int left_bottom = 0;
     int right_bottom = 0;
+    int city_bottom = 0;
     if (show_routes && !show_geography && !show_climate) return 30 + line_h * 3 + 12;
     if (show_geography) left_bottom = 30 + line_h + line_h * 3 + geo_count * line_h;
     if (show_climate) {
         right_bottom = 30 + line_h + climate_count * line_h;
         if (show_routes) right_bottom += line_h * 4;
     }
-    return max(left_bottom, right_bottom) + 12;
+    if (show_city_glyphs) city_bottom = 30 + line_h * 6;
+    return max(max(left_bottom, right_bottom), city_bottom) + 12;
 }
 
 RECT get_map_legend_box_rect(RECT client) {
@@ -270,12 +272,17 @@ RECT get_map_legend_box_rect(RECT client) {
                        display_mode == DISPLAY_ALL ||
                        display_mode == DISPLAY_CLIMATE;
     int show_routes = route_only;
+    int show_city_glyphs = display_mode == DISPLAY_POLITICAL;
     int box_w = show_routes && !show_geography && !show_climate ? 230 :
+                show_city_glyphs ? 540 :
                 show_geography && show_climate ? 390 : 210;
-    int full_h = map_legend_full_height(show_geography, show_climate, show_routes);
+    int full_h = map_legend_full_height(show_geography, show_climate, show_routes, show_city_glyphs);
 
     if (map_legend_collapsed) return map_legend_collapsed_rect(frame);
     if (!map_legend_collapsed && full_h + 180 > frame.bottom - frame.top) {
+        return map_legend_collapsed_rect(frame);
+    }
+    if (!map_legend_collapsed && box_w + 24 > frame.right - frame.left) {
         return map_legend_collapsed_rect(frame);
     }
     box.right = frame.right - 8;

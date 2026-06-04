@@ -132,9 +132,25 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
         if (hit == COUNTRY_PANEL_HIT_VASSAL_ACTION) {
-            int vassal_id = country_panel_vassal_action_target(client, mouse_x, mouse_y);
+            CountryVassalActionHit action = country_panel_vassal_action_target(client, mouse_x, mouse_y);
+            int ok = 0;
+            if (action.action == COUNTRY_VASSAL_ACTION_SELECT) {
+                if (ui_snapshot_civ_alive(action.vassal_id)) {
+                    ui_select_civ_preserve_view(action.vassal_id, UI_SELECT_SOURCE_VASSAL_ROW);
+                    ui_locate_civ(hwnd, action.vassal_id);
+                } else {
+                    MessageBeep(MB_ICONWARNING);
+                }
+                ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+                return;
+            }
             game_pause_for_modal_or_action();
-            if (vassal_id < 0 || !game_request_release_vassal(vassal_id)) MessageBeep(MB_ICONWARNING);
+            if (action.action == COUNTRY_VASSAL_ACTION_RELEASE) {
+                ok = game_request_release_vassal(action.vassal_id);
+            } else if (action.action == COUNTRY_VASSAL_ACTION_ANNEX && selected_civ >= 0) {
+                ok = game_request_annex_vassal(selected_civ, action.vassal_id);
+            }
+            if (!ok) MessageBeep(MB_ICONWARNING);
             ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
                                       GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL); return; }
         if (hit == COUNTRY_PANEL_HIT_COLOR) {

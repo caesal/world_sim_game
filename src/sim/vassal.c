@@ -1,10 +1,12 @@
 #include "sim/vassal.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/regions.h"
+#include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
 
@@ -161,27 +163,90 @@ int vassal_annex_remaining_years(int overlord, int vassal_years) {
     return max(0, vassal_annex_threshold_years(overlord) - max(0, vassal_years));
 }
 
-int vassal_try_auto_annex(DiplomacyRelation *relation) {
+static void transfer_remaining_vassal_cities(int overlord, int vassal) {
     int i;
+    int changed = 0;
+
+    for (i = 0; i < city_count; i++) {
+        if (!cities[i].alive || cities[i].owner != vassal) continue;
+        cities[i].owner = overlord;
+        if (cities[i].capital) cities[i].capital = 0;
+        changed = 1;
+    }
+    if (changed) dirty_mark_city();
+}
+
+static int collect_vassal_regions(int vassal, int *out_regions, int max_regions) {
+    int i;
+    int count = 0;
+
+    for (i = 0; i < region_count; i++) {
+        if (!natural_regions[i].alive || natural_regions[i].owner_civ != vassal) continue;
+        if (count < max_regions) out_regions[count] = i;
+        count++;
+    }
+    return count;
+}
+
+static int annex_region_city_slots_available(const int *regions, int count) {
+    int i;
+    int needed = 0;
+
+    for (i = 0; i < count; i++) {
+        if (regions_local_city_id(regions[i]) < 0) needed++;
+    }
+    return city_count + needed <= MAX_CITIES;
+}
+
+static int annex_direct_vassal(int overlord, int vassal, int vassal_years, int clear_diplomacy) {
+    int owned_regions[MAX_NATURAL_REGIONS];
+    int owned_count;
+    int i;
+
+    if (!vassal_is_direct(overlord, vassal)) return 0;
+    owned_count = collect_vassal_regions(vassal, owned_regions, MAX_NATURAL_REGIONS);
+    if (!annex_region_city_slots_available(owned_regions, owned_count)) return 0;
+    for (i = 0; i < owned_count; i++) {
+        int region_id = owned_regions[i];
+        if (!regions_claim_for_civ(region_id, overlord, natural_regions[region_id].city_id, 1)) return 0;
+    }
+    transfer_remaining_vassal_cities(overlord, vassal);
+    event_log_push_structured(EVENT_TYPE_VASSAL_ANNEXED, EVENT_SEVERITY_DANGER,
+                              vassal, overlord, -1, -1, vassal_years, 0, "");
+    war_end_direct_for_civ(vassal);
+    civs[vassal].alive = 0;
+    civs[vassal].capital_city = -1;
+    if (clear_diplomacy) diplomacy_clear_civ(vassal);
+    world_invalidate_country_summary_cache();
+    return 1;
+}
+
+int vassal_try_auto_annex(DiplomacyRelation *relation) {
     int overlord;
     int vassal;
+
     if (!relation || relation->state != DIPLOMACY_VASSAL) return 0;
     overlord = relation->overlord;
     vassal = relation->vassal;
     if (!valid_alive_civ(overlord) || !valid_alive_civ(vassal)) return 0;
     if (relation->vassal_years < vassal_annex_threshold_years(overlord)) return 0;
-    for (i = 0; i < region_count; i++) {
-        if (natural_regions[i].owner_civ == vassal) regions_claim_for_civ(i, overlord, -1, 0);
-    }
-    event_log_push_structured(EVENT_TYPE_VASSAL_ANNEXED, EVENT_SEVERITY_DANGER,
-                              vassal, overlord, -1, -1, relation->vassal_years, 0, "");
-    civs[vassal].alive = 0;
-    civs[vassal].capital_city = -1;
+    if (!annex_direct_vassal(overlord, vassal, relation->vassal_years, 0)) return 0;
     relation->state = DIPLOMACY_PEACE;
     relation->overlord = -1;
     relation->vassal = -1;
-    world_invalidate_country_summary_cache();
     return 1;
+}
+
+int vassal_annex_direct(int overlord, int vassal) {
+    DiplomacyRelation relation;
+
+    if (!valid_alive_civ(overlord) || !valid_alive_civ(vassal)) return 0;
+    relation = diplomacy_relation(overlord, vassal);
+    if (relation.state != DIPLOMACY_VASSAL ||
+        relation.overlord != overlord || relation.vassal != vassal) {
+        return 0;
+    }
+    return annex_direct_vassal(overlord, vassal, relation.vassal_years, 1);
 }
 
 void vassal_release(int vassal) {

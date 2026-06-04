@@ -1,5 +1,44 @@
 # Version Log
 
+## Ver0.3.2
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.
+2. Added `src/game/game_vassal_actions.c` and included it in both build lists.
+3. Moved vassal release request handling out of `src/game/game.c` and added a
+   direct-vassal annex request path.
+4. Added compact direct-vassal overview rows with colored clickable vassal name
+   cells plus Release and Annex actions.
+5. Made vassal name-cell clicks select and locate the vassal without entering
+   the modal/action pause path.
+6. Updated ordinary city marker thresholds to Outpost below 800, Village from
+   800-5399, Town from 5400-9499, and City from 9500 upward while keeping
+   capital override first.
+7. Kept city and harbor markers lightweight GDI drawings while slightly
+   thickening harbor strokes.
+8. Added a political-map legend glyph column with icon + name only for Outpost,
+   Village, Town, City, Capital, Harbor, and Harbor Capital.
+9. Kept route-potential legend output route-only with shallow and deep route
+   entries.
+
+Validation notes:
+
+- Ver0.3.2 uses `WORLD_SIM_VERSION "0.3.2"`.
+- Canonical `make -B world_sim.exe` and `build.bat` were attempted before push;
+  both reached the link step and were blocked by a locked `world_sim.exe`.
+- A temporary-target release verification build succeeded and the temporary
+  executable was deleted.
+- Static and text checks were rerun before push.
+- Focused GUI evidence covered the political legend glyph column, route-only
+  route-potential legend, marker zoom display, and legend collapse/expand.
+- Focused vassal probes covered row hit targets, bright/dark name-cell contrast,
+  Release, and Annex command behavior.
+- The user confirmed the focused-only validation and approved this checkpoint
+  for push.
+- Full strict AGENTS Large-map regression was not rerun for this focused
+  vassal/UI/map-display checkpoint.
+
 ## Ver0.3.1.c
 
 Implemented fixes:

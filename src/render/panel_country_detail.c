@@ -100,7 +100,7 @@ int country_detail_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y) {
            point_in_rect_local(last_civil_unrest_button, mouse_x, mouse_y);
 }
 
-int country_detail_vassal_action_hit(RECT viewport, int mouse_x, int mouse_y) {
+CountryVassalActionHit country_detail_vassal_action_hit(RECT viewport, int mouse_x, int mouse_y) {
     return country_overview_vassal_action_hit(viewport, mouse_x, mouse_y);
 }
 

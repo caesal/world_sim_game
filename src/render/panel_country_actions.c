@@ -9,8 +9,10 @@
 
 static RECT last_civil_unrest_button;
 static int last_civil_unrest_enabled;
-static RECT last_vassal_buttons[MAX_CIVS];
-static int last_vassal_ids[MAX_CIVS];
+#define VASSAL_HIT_RECTS_MAX (MAX_CIVS * 3)
+static RECT last_vassal_buttons[VASSAL_HIT_RECTS_MAX];
+static int last_vassal_ids[VASSAL_HIT_RECTS_MAX];
+static CountryVassalActionType last_vassal_actions[VASSAL_HIT_RECTS_MAX];
 static int last_vassal_count;
 
 static int actions_overlord(int civ_id) {
@@ -90,10 +92,19 @@ static const char *collapse_block_reason_ui(int civ_id) {
 static void reset_vassal_hits(void) {
     int i;
     last_vassal_count = 0;
-    for (i = 0; i < MAX_CIVS; i++) {
+    for (i = 0; i < VASSAL_HIT_RECTS_MAX; i++) {
         SetRectEmpty(&last_vassal_buttons[i]);
         last_vassal_ids[i] = -1;
+        last_vassal_actions[i] = COUNTRY_VASSAL_ACTION_NONE;
     }
+}
+
+static void record_vassal_hit(RECT button, int vassal_id, CountryVassalActionType action) {
+    if (last_vassal_count >= VASSAL_HIT_RECTS_MAX) return;
+    last_vassal_buttons[last_vassal_count] = button;
+    last_vassal_ids[last_vassal_count] = vassal_id;
+    last_vassal_actions[last_vassal_count] = action;
+    last_vassal_count++;
 }
 
 void country_overview_actions_reset_hit(void) {
@@ -121,19 +132,62 @@ int country_overview_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y) {
            point_in_rect_local(last_civil_unrest_button, mouse_x, mouse_y);
 }
 
-int country_overview_vassal_action_hit(RECT viewport, int mouse_x, int mouse_y) {
+CountryVassalActionHit country_overview_vassal_action_hit(RECT viewport, int mouse_x, int mouse_y) {
     int i;
-    if (!point_in_rect_local(viewport, mouse_x, mouse_y)) return -1;
+    CountryVassalActionHit result = {COUNTRY_VASSAL_ACTION_NONE, -1};
+    if (!point_in_rect_local(viewport, mouse_x, mouse_y)) return result;
     for (i = 0; i < last_vassal_count; i++) {
-        if (point_in_rect_local(last_vassal_buttons[i], mouse_x, mouse_y)) return last_vassal_ids[i];
+        if (point_in_rect_local(last_vassal_buttons[i], mouse_x, mouse_y)) {
+            result.action = last_vassal_actions[i];
+            result.vassal_id = last_vassal_ids[i];
+            return result;
+        }
     }
-    return -1;
+    return result;
 }
 
 static void draw_button(HDC hdc, RECT button, const char *text, int enabled) {
     fill_rect(hdc, button, enabled ? RGB(82, 92, 78) : RGB(58, 62, 64));
     draw_text_rect(hdc, button, text, enabled ? RGB(244, 248, 238) : ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+}
+
+static COLORREF colorref_from_color32(Color32 color) {
+    return RGB((int)(color & 0xff),
+               (int)((color >> 8) & 0xff),
+               (int)((color >> 16) & 0xff));
+}
+
+static int perceived_luminance(COLORREF color) {
+    return (GetRValue(color) * 299 + GetGValue(color) * 587 + GetBValue(color) * 114) / 1000;
+}
+
+static COLORREF readable_text_for_fill(COLORREF fill) {
+    return perceived_luminance(fill) >= 150 ? RGB(16, 20, 22) : RGB(248, 246, 232);
+}
+
+static COLORREF border_for_fill(COLORREF fill) {
+    return perceived_luminance(fill) >= 150 ? blend_color(fill, RGB(20, 24, 26), 38)
+                                            : blend_color(fill, RGB(246, 242, 220), 30);
+}
+
+static void draw_cell_border(HDC hdc, RECT rect, COLORREF color) {
+    HBRUSH brush = CreateSolidBrush(color);
+    if (!brush) return;
+    FrameRect(hdc, &rect, brush);
+    DeleteObject(brush);
+}
+
+static void draw_vassal_name_cell(HDC hdc, RECT rect, int vassal_id) {
+    const SnapshotCiv *civ = snapshot_ui_civ(vassal_id);
+    COLORREF fill = civ ? colorref_from_color32(civ->color) : ui_theme_color(UI_COLOR_PANEL_SOFT);
+    COLORREF text = readable_text_for_fill(fill);
+    fill_rect(hdc, rect, fill);
+    draw_cell_border(hdc, rect, border_for_fill(fill));
+    rect.left += 8;
+    rect.right -= 6;
+    draw_text_rect(hdc, rect, snapshot_ui_civ_name(vassal_id), text,
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
 static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
@@ -161,9 +215,7 @@ static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
     if (overlord >= 0) {
         RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 32};
         snprintf(text, sizeof(text), "%s", tr("Independence", "独立"));
-        last_vassal_buttons[0] = button;
-        last_vassal_ids[0] = civ_id;
-        last_vassal_count = 1;
+        record_vassal_hit(button, civ_id, COUNTRY_VASSAL_ACTION_RELEASE);
         draw_button(hdc, button, text, 1);
         cursor->y += 36;
         return;
@@ -176,11 +228,34 @@ static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
         return;
     }
     for (i = 0; i < count && i < MAX_CIVS; i++) {
-        RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 32};
-        snprintf(text, sizeof(text), "%s %.96s", tr("Release", "释放"), snapshot_ui_civ_name(ids[i]));
-        last_vassal_buttons[last_vassal_count] = button;
-        last_vassal_ids[last_vassal_count++] = ids[i];
-        draw_button(hdc, button, text, 1);
+        int gap = 4;
+        int min_action_w = 62;
+        int min_name_w;
+        int name_w = cursor->width * 52 / 100;
+        int max_name_w = cursor->width - min_action_w * 2 - gap * 2;
+        int action_w;
+        RECT name_rect;
+        RECT release_button;
+        RECT annex_button;
+        if (max_name_w < 48) max_name_w = 48;
+        min_name_w = max_name_w < 82 ? max_name_w : 82;
+        if (name_w < min_name_w) name_w = min_name_w;
+        if (name_w > max_name_w) name_w = max_name_w;
+        action_w = (cursor->width - name_w - gap * 2) / 2;
+        if (action_w < 44) action_w = 44;
+        name_rect = (RECT){cursor->x, cursor->y + 4, cursor->x + name_w, cursor->y + 32};
+        release_button = (RECT){name_rect.right + gap, cursor->y + 4,
+                                name_rect.right + gap + action_w, cursor->y + 32};
+        annex_button = (RECT){release_button.right + gap, cursor->y + 4,
+                              cursor->x + cursor->width, cursor->y + 32};
+        draw_vassal_name_cell(hdc, name_rect, ids[i]);
+        record_vassal_hit(name_rect, ids[i], COUNTRY_VASSAL_ACTION_SELECT);
+        snprintf(text, sizeof(text), "%s", tr("Release", "释放"));
+        record_vassal_hit(release_button, ids[i], COUNTRY_VASSAL_ACTION_RELEASE);
+        draw_button(hdc, release_button, text, 1);
+        snprintf(text, sizeof(text), "%s", tr("Annex", "吞并"));
+        record_vassal_hit(annex_button, ids[i], COUNTRY_VASSAL_ACTION_ANNEX);
+        draw_button(hdc, annex_button, text, 1);
         cursor->y += 36;
     }
 }

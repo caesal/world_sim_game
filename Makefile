@@ -10,6 +10,7 @@ SOURCES := \
 	src/main.c \
 	src/game/game.c \
 	src/game/game_loop.c \
+	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
 	src/io/map_save.c \
 	src/io/map_save_regions.c \

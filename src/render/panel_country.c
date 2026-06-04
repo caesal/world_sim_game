@@ -423,7 +423,7 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
         country_panel_snapshot_end(owned, snapshot);
         return COUNTRY_PANEL_HIT_CIVIL_UNREST;
     }
-    if (country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y) >= 0) {
+    if (country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y).action != COUNTRY_VASSAL_ACTION_NONE) {
         country_panel_snapshot_end(owned, snapshot);
         return COUNTRY_PANEL_HIT_VASSAL_ACTION;
     }
@@ -451,16 +451,16 @@ int country_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
     return COUNTRY_PANEL_HIT_NONE;
 }
 
-int country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y) {
+CountryVassalActionHit country_panel_vassal_action_target(RECT client, int mouse_x, int mouse_y) {
     CountryPanelLayout layout;
     const RenderSnapshot *snapshot;
     int owned;
-    int result;
+    CountryVassalActionHit result = {COUNTRY_VASSAL_ACTION_NONE, -1};
     snapshot = country_panel_snapshot_begin(&owned);
     country_panel_layout_build(client, &layout);
     if (!snapshot || !layout.selected_detail) {
         country_panel_snapshot_end(owned, snapshot);
-        return -1;
+        return result;
     }
     result = country_detail_vassal_action_hit(layout.detail_viewport, mouse_x, mouse_y);
     country_panel_snapshot_end(owned, snapshot);

@@ -81,9 +81,9 @@ static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int
 
 static IconId city_stage_icon(int capital, int population) {
     if (capital) return ICON_CITY_CAPITAL;
-    if (population >= 520) return ICON_CITY_STAGE;
-    if (population >= 240) return ICON_CITY_TOWN;
-    if (population >= 100) return ICON_CITY_VILLAGE;
+    if (population >= 9500) return ICON_CITY_STAGE;
+    if (population >= 5400) return ICON_CITY_TOWN;
+    if (population >= 800) return ICON_CITY_VILLAGE;
     return ICON_CITY_OUTPOST;
 }
 
@@ -171,7 +171,7 @@ static void draw_harbor_glyph(HDC hdc, RECT rect) {
     int top = cy - s / 3;
     int bottom = cy + s / 3;
     int arm = s / 3;
-    HPEN pen = CreatePen(PS_SOLID, clamp(s / 7, 1, 3), RGB(20, 38, 38));
+    HPEN pen = CreatePen(PS_SOLID, clamp(s / 6, 2, 4), RGB(20, 38, 38));
     HBRUSH brush = SelectObject(hdc, GetStockObject(NULL_BRUSH));
     HPEN old_pen = SelectObject(hdc, pen);
 

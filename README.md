@@ -7,12 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.1.c is a Windows graphical sandbox prototype written in C.
+Ver0.3.2 is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.1.c is a collapse-partition checkpoint over Ver0.3.1.b. It keeps the
-interaction, plague-cooldown, and war-cadence fixes while replacing the old
-small-fragment collapse scan with banded successor counts, capital-core
-retention, farthest-first rebel seeds, and balanced connected successor blocks.
+Ver0.3.2 is a vassal-action and map-marker checkpoint over Ver0.3.1.c. It keeps
+the collapse-partition, interaction, plague-cooldown, and war-cadence fixes
+while adding direct-vassal overview rows with colored clickable name cells,
+Release/Annex actions, updated city/harbor marker stages, and a political map
+legend glyph column that stays separate from the route-potential legend.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -155,6 +156,9 @@ You can:
 116. Make port cities a subtype of that one city slot, with island landmasses guaranteed at least one port city
 117. Transfer war cessions by natural region rather than by legacy city-index province ids
 118. Show neutral generated settlement slots on the Regions map layer while hiding them on normal gameplay layers
+119. Show direct vassals in compact overview rows with colored name cells plus Release and Annex actions
+120. Select and locate a direct vassal by clicking its colored name cell without pausing the simulation
+121. Keep route-potential legend entries route-only while political mode shows city, capital, harbor, and harbor-capital glyph names
 
 ## Controls
 

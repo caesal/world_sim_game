@@ -28,7 +28,6 @@
 #include "sim/simulation_month.h"
 #include "sim/simulation_worker.h"
 #include "sim/technology.h"
-#include "sim/vassal.h"
 #include "sim/war.h"
 #include "ui/ui.h"
 #include "world/ports.h"
@@ -232,33 +231,6 @@ int game_request_trigger_civil_unrest(int civ_id) {
     maritime_mark_routes_dirty();
     diplomacy_mark_contacts_dirty();
     diplomacy_update_contacts();
-    dirty_mark_territory();
-    decision_snapshot_cache_mark_all_dirty();
-    world_visual_revision++;
-    render_snapshot_cache_update_all();
-    state_write_unlock();
-    render_snapshot_publish_from_live_state();
-    return 1;
-}
-int game_request_release_vassal(int vassal_id) {
-    int overlord;
-    game_pause_for_modal_or_action();
-    if (!world_generated || vassal_id < 0 || vassal_id >= civ_count || !civs[vassal_id].alive) return 0;
-    state_write_lock();
-    overlord = vassal_overlord(vassal_id);
-    if (overlord < 0 || overlord >= civ_count || !civs[overlord].alive) {
-        state_write_unlock();
-        event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_WARNING,
-                                  vassal_id, -1, -1, -1, 0, 0, "VASSAL_RELEASE_FAILED_NO_OVERLORD");
-        return 0;
-    }
-    vassal_release(vassal_id);
-    event_log_push_structured(EVENT_TYPE_VASSAL_RELEASED, EVENT_SEVERITY_INFO,
-                              vassal_id, overlord, -1, -1, 0, 0, "");
-    world_invalidate_country_summary_cache();
-    diplomacy_mark_contacts_dirty();
-    diplomacy_update_contacts();
-    maritime_mark_routes_dirty();
     dirty_mark_territory();
     decision_snapshot_cache_mark_all_dirty();
     world_visual_revision++;

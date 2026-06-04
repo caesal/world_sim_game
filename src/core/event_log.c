@@ -284,7 +284,7 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
                                         "%s collapsed; successor states became sovereign.", civ);
             return;
         case EVENT_TYPE_VASSAL_ANNEXED:
-            snprintf(out, out_size, zh ? "%s吞并长期附庸%s。" : "%s annexed long-term vassal %s.", target, civ);
+            snprintf(out, out_size, zh ? "%s吞并附庸%s。" : "%s annexed vassal %s.", target, civ);
             return;
         case EVENT_TYPE_COLLAPSE_SUCCEEDED:
             if (entry->civ_uid <= 0) break;
