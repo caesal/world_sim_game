@@ -1,5 +1,45 @@
 # Version Log
 
+## Ver0.3.2.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.b.
+2. Revalidated the existing Phase 1, Phase 2A, and Phase 2B clay presentation
+   baseline before applying Phase 3.
+3. Added reusable clay widget helpers for section headers, input frames,
+   sliders, and color swatches.
+4. Applied clay presentation styling to World Setup section headers, map-size
+   buttons, random buttons, slider tracks and knobs, input frames, civilization
+   color previews, and color swatches.
+5. Applied clay panel/button styling to the color picker and added narrow
+   hover/pressed state handling for Auto, Apply, and Cancel.
+6. Preserved native Win32 edit fields and Add/Apply child buttons to avoid
+   changing text-input and focus behavior.
+7. Preserved world-generation rules, simulation behavior, map-display rules,
+   vassal behavior, route behavior, diplomacy, plague, population, economy,
+   technology, saves, and balance constants.
+
+Validation notes:
+
+- Ver0.3.2.b uses `WORLD_SIM_VERSION "0.3.2.b"`.
+- Canonical `make -B world_sim.exe` succeeded.
+- `cmd /c build.bat` succeeded.
+- `make check-text` passed.
+- `git diff --check` passed with only CRLF conversion warnings.
+- Static checks found no `.c` file includes another `.c`, and all `.c` / `.h`
+  files are at or below 500 lines.
+- Root executable inventory contains exactly `world_sim.exe`.
+- String checks found `World Sim Game Ver 0.3.2.b` in `world_sim.exe`.
+- Focused UI/UX evidence covered World Setup controls, color picker
+  hover/pressed states, active world-generation progress overlay, generated
+  political colors after generation, route-potential route-only legend, native
+  child-control lifecycle, side-panel scrolling, pause menu, and Debug /
+  Performance readability.
+- The user approved the focused Phase 3 UI/UX checkpoint for push.
+- Full strict AGENTS Large-map regression was not rerun for this focused UI/UX
+  presentation checkpoint.
+
 ## Ver0.3.2.a
 
 Implemented fixes:

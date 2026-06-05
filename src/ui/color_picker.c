@@ -2,6 +2,7 @@
 
 #include "game/game.h"
 #include "render/render_common.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_types.h"
 
@@ -17,6 +18,13 @@ typedef enum {
     PICKER_CONTEXT_SETUP,
     PICKER_CONTEXT_CIV
 } PickerContext;
+
+typedef enum {
+    PICKER_BUTTON_NONE,
+    PICKER_BUTTON_AUTO,
+    PICKER_BUTTON_APPLY,
+    PICKER_BUTTON_CANCEL
+} PickerButton;
 
 typedef struct {
     HDC dc;
@@ -37,6 +45,8 @@ typedef struct {
     double sat;
     double value;
     int dragging;
+    PickerButton hover_button;
+    PickerButton pressed_button;
 } ColorPickerState;
 
 static ColorPickerState picker;
@@ -191,6 +201,13 @@ static RECT cancel_rect(RECT panel) {
     return r;
 }
 
+static PickerButton picker_button_at(RECT panel, int x, int y) {
+    if (point_in_rect_local(auto_rect(panel), x, y)) return PICKER_BUTTON_AUTO;
+    if (point_in_rect_local(apply_rect(panel), x, y)) return PICKER_BUTTON_APPLY;
+    if (point_in_rect_local(cancel_rect(panel), x, y)) return PICKER_BUTTON_CANCEL;
+    return PICKER_BUTTON_NONE;
+}
+
 static RECT picker_dirty_rect(RECT client) {
     RECT dirty = picker_rect(client);
     InflateRect(&dirty, 10, 10);
@@ -271,14 +288,10 @@ static void rebuild_slider(int width, int height) {
     }
 }
 
-static void draw_button(HDC hdc, RECT rect, const char *label) {
-    HBRUSH border;
-    fill_rect(hdc, rect, RGB(52, 59, 62));
-    border = CreateSolidBrush(RGB(92, 104, 110));
-    FrameRect(hdc, &rect, border);
-    DeleteObject(border);
-    draw_text_rect(hdc, rect, label, ui_theme_color(UI_COLOR_TEXT),
-                   DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+static void draw_button(HDC hdc, RECT rect, const char *label, PickerButton button) {
+    UiClayState state = ui_clay_state_from_flags(picker.hover_button == button,
+                                                 picker.pressed_button == button, 0, 0);
+    ui_clay_draw_pill_button(hdc, rect, label, state);
 }
 
 static void draw_marker(HDC hdc, RECT wheel, Color32 color, int filled) {
@@ -314,17 +327,13 @@ static void draw_rgb_row(HDC hdc, RECT row, const char *label, int value) {
 
 void color_picker_draw(HDC hdc, RECT client) {
     RECT panel, wheel, slider, preview, row, original, current, knob;
-    HBRUSH border;
     if (!picker.active) return;
     panel = picker_rect(client);
     wheel = wheel_rect(panel);
     slider = slider_rect(panel);
     preview = preview_rect(panel);
     fill_rect_alpha(hdc, client, RGB(0, 0, 0), 90);
-    fill_rect(hdc, panel, RGB(31, 37, 41));
-    border = CreateSolidBrush(RGB(94, 106, 114));
-    FrameRect(hdc, &panel, border);
-    DeleteObject(border);
+    ui_clay_draw_menu_panel(hdc, panel);
     draw_text_rect(hdc, (RECT){panel.left + 18, panel.top + 14, panel.right - 18, panel.top + 40},
                    tr("Color Picker", "颜色选择器"), ui_theme_color(UI_COLOR_TEXT),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
@@ -368,9 +377,9 @@ void color_picker_draw(HDC hdc, RECT client) {
     row.top += 18; row.bottom += 18;
     draw_text_rect(hdc, row, tr("Filled: current", "实心：当前"),
                    ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_button(hdc, auto_rect(panel), tr("Auto avoid neighbors", "自动避让邻国"));
-    draw_button(hdc, apply_rect(panel), tr("Apply", "应用"));
-    draw_button(hdc, cancel_rect(panel), tr("Cancel", "取消"));
+    draw_button(hdc, auto_rect(panel), tr("Auto avoid neighbors", "自动避让邻国"), PICKER_BUTTON_AUTO);
+    draw_button(hdc, apply_rect(panel), tr("Apply", "应用"), PICKER_BUTTON_APPLY);
+    draw_button(hdc, cancel_rect(panel), tr("Cancel", "取消"), PICKER_BUTTON_CANCEL);
 }
 
 static void update_from_wheel(RECT wheel, int x, int y) {
@@ -397,8 +406,12 @@ int color_picker_mouse_down(HWND hwnd, RECT client, int x, int y) {
     RECT panel = picker_rect(client);
     RECT wheel = wheel_rect(panel);
     RECT slider = slider_rect(panel);
+    PickerButton button;
     if (!picker.active) return 0;
-    if (point_in_rect_local(apply_rect(panel), x, y)) {
+    button = picker_button_at(panel, x, y);
+    picker.hover_button = button;
+    picker.pressed_button = button;
+    if (button == PICKER_BUTTON_APPLY) {
         if (picker.context == PICKER_CONTEXT_CIV) {
             game_request_set_civilization_color_exact(picker.civ_id, picker.pending);
         } else {
@@ -409,12 +422,12 @@ int color_picker_mouse_down(HWND hwnd, RECT client, int x, int y) {
         InvalidateRect(hwnd, NULL, FALSE);
         return 1;
     }
-    if (point_in_rect_local(cancel_rect(panel), x, y)) {
+    if (button == PICKER_BUTTON_CANCEL) {
         color_picker_close();
         InvalidateRect(hwnd, NULL, FALSE);
         return 1;
     }
-    if (point_in_rect_local(auto_rect(panel), x, y)) {
+    if (button == PICKER_BUTTON_AUTO) {
         set_pending(game_preview_civilization_color_auto_avoid(
             picker.context == PICKER_CONTEXT_CIV ? picker.civ_id : -1, picker.pending));
         wheel_value = -1.0;
@@ -422,6 +435,7 @@ int color_picker_mouse_down(HWND hwnd, RECT client, int x, int y) {
         invalidate_picker(hwnd, client);
         return 1;
     }
+    picker.pressed_button = PICKER_BUTTON_NONE;
     if (point_in_rect_local(wheel, x, y)) {
         picker.dragging = 1;
         update_from_wheel(wheel, x, y);
@@ -442,8 +456,15 @@ int color_picker_mouse_down(HWND hwnd, RECT client, int x, int y) {
 
 int color_picker_mouse_move(HWND hwnd, RECT client, int x, int y) {
     RECT panel = picker_rect(client);
+    PickerButton old_hover;
+
     if (!picker.active) return 0;
-    if (!picker.dragging) return 1;
+    old_hover = picker.hover_button;
+    picker.hover_button = picker_button_at(panel, x, y);
+    if (!picker.dragging) {
+        if (old_hover != picker.hover_button) invalidate_picker(hwnd, client);
+        return 1;
+    }
     if (picker.dragging == 1) {
         update_from_wheel(wheel_rect(panel), x, y);
         slider_hue = -1.0;
@@ -455,9 +476,10 @@ int color_picker_mouse_move(HWND hwnd, RECT client, int x, int y) {
 }
 
 int color_picker_mouse_up(HWND hwnd) {
-    (void)hwnd;
-    if (!picker.active || !picker.dragging) return 0;
+    if (!picker.active || (!picker.dragging && picker.pressed_button == PICKER_BUTTON_NONE)) return 0;
     picker.dragging = 0;
-    ReleaseCapture();
+    picker.pressed_button = PICKER_BUTTON_NONE;
+    if (GetCapture() == hwnd) ReleaseCapture();
+    InvalidateRect(hwnd, NULL, FALSE);
     return 1;
 }

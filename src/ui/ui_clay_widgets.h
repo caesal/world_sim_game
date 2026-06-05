@@ -10,5 +10,9 @@ void ui_clay_draw_button(HDC hdc, RECT rect, const char *label, UiClayState stat
 void ui_clay_draw_pill_button(HDC hdc, RECT rect, const char *label, UiClayState state);
 void ui_clay_draw_icon_button(HDC hdc, RECT rect, const char *label, UiClayState state);
 void ui_clay_draw_menu_panel(HDC hdc, RECT rect);
+void ui_clay_draw_section_header(HDC hdc, RECT rect, const char *label);
+void ui_clay_draw_input_frame(HDC hdc, RECT rect, UiClayState state);
+void ui_clay_draw_slider(HDC hdc, RECT track, int value, UiClayState state);
+void ui_clay_draw_swatch(HDC hdc, RECT rect, COLORREF color, UiClayState state);
 
 #endif

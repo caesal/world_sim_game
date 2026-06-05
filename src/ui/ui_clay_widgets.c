@@ -42,3 +42,65 @@ void ui_clay_draw_icon_button(HDC hdc, RECT rect, const char *label, UiClayState
 void ui_clay_draw_menu_panel(HDC hdc, RECT rect) {
     ui_clay_draw_panel(hdc, rect, UI_CLAY_STATE_NORMAL);
 }
+
+void ui_clay_draw_section_header(HDC hdc, RECT rect, const char *label) {
+    UiClayStyle style = ui_clay_style(UI_CLAY_SURFACE_CARD, UI_CLAY_STATE_NORMAL);
+    RECT text = rect;
+    RECT rule = rect;
+
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
+    InflateRect(&text, -2, 0);
+    draw_text_rect(hdc, text, label, style.text,
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    rule.top = rect.bottom - 2;
+    rule.bottom = rule.top + 1;
+    fill_rect(hdc, rule, style.border);
+    rule.top = rect.bottom - 1;
+    rule.bottom = rect.bottom;
+    fill_rect(hdc, rule, style.highlight);
+}
+
+void ui_clay_draw_input_frame(HDC hdc, RECT rect, UiClayState state) {
+    RECT inner = rect;
+
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
+    ui_clay_draw_card(hdc, rect, state);
+    InflateRect(&inner, -3, -3);
+    if (inner.right > inner.left && inner.bottom > inner.top) {
+        fill_rect(hdc, inner, RGB(31, 38, 42));
+    }
+}
+
+void ui_clay_draw_slider(HDC hdc, RECT track, int value, UiClayState state) {
+    RECT inner = track;
+    RECT fill;
+    RECT knob;
+    int width;
+    int knob_x;
+
+    if (track.right <= track.left || track.bottom <= track.top) return;
+    value = clamp(value, 0, 100);
+    width = track.right - track.left;
+    knob_x = track.left + width * value / 100;
+    ui_clay_draw_pill_inset(hdc, track, UI_CLAY_STATE_NORMAL);
+    InflateRect(&inner, -3, -3);
+    if (inner.right > inner.left && inner.bottom > inner.top) {
+        fill_rect(hdc, inner, RGB(47, 58, 63));
+        fill = inner;
+        fill.right = clamp(knob_x, inner.left, inner.right);
+        if (fill.right > fill.left) fill_rect(hdc, fill, RGB(86, 146, 176));
+    }
+    knob = (RECT){knob_x - 8, track.top - 6, knob_x + 8, track.bottom + 6};
+    ui_clay_draw_pill(hdc, knob, state);
+}
+
+void ui_clay_draw_swatch(HDC hdc, RECT rect, COLORREF color, UiClayState state) {
+    RECT inner = rect;
+
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
+    ui_clay_draw_card(hdc, rect, state);
+    InflateRect(&inner, -5, -5);
+    if (inner.right > inner.left && inner.bottom > inner.top) {
+        fill_rect(hdc, inner, color);
+    }
+}

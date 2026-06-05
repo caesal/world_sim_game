@@ -1,25 +1,21 @@
 #include "render_panel_internal.h"
 
 #include "sim/regions.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
 static void draw_section_rect(HDC hdc, RECT rect, const char *title) {
-    RECT rule = rect;
-    draw_text_rect(hdc, rect, title, ui_theme_color(UI_COLOR_TEXT),
-                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    rule.top = rect.bottom - 2;
-    rule.bottom = rule.top + 1;
-    fill_rect(hdc, rule, ui_theme_color(UI_COLOR_PANEL_LINE));
+    ui_clay_draw_section_header(hdc, rect, title);
 }
 
 static void draw_input_frame(HDC hdc, const WorldgenLayout *layout, RECT rect) {
-    HBRUSH border;
+    UiClayState state;
+
     if (!worldgen_rect_visible(layout->viewport, rect)) return;
-    fill_rect(hdc, rect, RGB(32, 39, 43));
-    border = CreateSolidBrush(RGB(86, 104, 113));
-    FrameRect(hdc, &rect, border);
-    DeleteObject(border);
+    state = ui_clay_state_for_rect(rect, hover_x, hover_y, 0, 0);
+    ui_clay_draw_input_frame(hdc, rect, state);
 }
 
 static void draw_text_rect_clipped(HDC hdc, RECT rect, const char *text, COLORREF color, unsigned int format) {
@@ -34,15 +30,11 @@ static void draw_random_button(HDC hdc, RECT rect) {
     RECT text = {rect.left + 22, rect.top, rect.right - 6, rect.bottom};
     int hover = point_in_rect_local(rect, hover_x, hover_y);
     int pressed = hover && (GetKeyState(VK_LBUTTON) & 0x8000);
-    COLORREF bg = pressed ? RGB(34, 42, 47) : hover ? RGB(55, 66, 72) : RGB(39, 48, 53);
-    COLORREF border = hover ? RGB(115, 139, 148) : RGB(72, 88, 96);
-    HBRUSH brush;
-    fill_rect(hdc, rect, bg);
-    brush = CreateSolidBrush(border);
-    FrameRect(hdc, &rect, brush);
-    DeleteObject(brush);
+    UiClayState state = ui_clay_state_from_flags(hover, pressed, 0, 0);
+
+    ui_clay_draw_pill_inset(hdc, rect, state);
     draw_icon(hdc, ICON_ADAPTATION, icon, RGB(190, 206, 214));
-    draw_text_rect(hdc, text, tr("Random", "随机"), RGB(232, 238, 244),
+    draw_text_rect(hdc, text, tr("Random", "随机"), ui_clay_text_color(state),
                    DT_SINGLELINE | DT_VCENTER | DT_CENTER | DT_END_ELLIPSIS);
 }
 
@@ -92,9 +84,11 @@ static void draw_map_size_selector(HDC hdc, const WorldgenLayout *layout) {
     const char *size_zh[3] = {"小", "中", "大"};
     for (int i = 0; i < MAP_SIZE_COUNT; i++) {
         RECT button = layout->map_size_buttons[i];
+        UiClayState state;
+
         if (!worldgen_rect_visible(layout->viewport, button)) continue;
-        fill_rect(hdc, button, i == pending_map_size ? RGB(87, 93, 78) : ui_theme_color(UI_COLOR_PANEL_SOFT));
-        draw_center_text(hdc, button, ui_language == UI_LANG_ZH ? size_zh[i] : size_en[i], ui_theme_color(UI_COLOR_TEXT));
+        state = ui_clay_state_for_rect(button, hover_x, hover_y, i == pending_map_size, 0);
+        ui_clay_draw_button(hdc, button, ui_language == UI_LANG_ZH ? size_zh[i] : size_en[i], state);
     }
 }
 
@@ -127,22 +121,18 @@ static const char *slider_help(int index) {
 static void draw_worldgen_slider(HDC hdc, const WorldgenLayout *layout, int index,
                                  const char *name, int value, const char **active_tooltip) {
     const WorldgenSliderLayout *slider = &layout->sliders[index];
-    RECT fill = slider->track;
-    int knob_x = slider->track.left + (slider->track.right - slider->track.left) * value / 100;
-    RECT knob = {knob_x - 7, slider->track.top - 8, knob_x + 7, slider->track.top + 18};
     char value_text[24];
     const char *help = slider_help(index);
+    UiClayState state;
 
     if (!worldgen_rect_visible(layout->viewport, slider->hit)) return;
+    state = ui_clay_state_for_rect(slider->hit, hover_x, hover_y, 0, 0);
     snprintf(value_text, sizeof(value_text), "%d / 0-100", value);
-    draw_text_rect(hdc, slider->label, name, RGB(205, 214, 222),
+    draw_text_rect(hdc, slider->label, name, ui_clay_muted_text_color(),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, slider->value, value_text, RGB(232, 238, 244),
+    draw_text_rect(hdc, slider->value, value_text, ui_clay_text_color(state),
                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    fill_rect(hdc, slider->track, RGB(82, 94, 104));
-    fill.right = knob_x;
-    fill_rect(hdc, fill, RGB(82, 136, 171));
-    fill_rect(hdc, knob, RGB(232, 238, 244));
+    ui_clay_draw_slider(hdc, slider->track, value, state);
     draw_text_rect_clipped(hdc, slider->help, help, ui_theme_color(UI_COLOR_TEXT_DIM),
                            DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     maybe_tooltip(slider->hit, help, active_tooltip);
@@ -197,15 +187,12 @@ void draw_civ_color_palette(HDC hdc, const WorldgenLayout *layout) {
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     for (int i = 0; i < CIV_COLOR_PALETTE_COUNT; i++) {
         RECT swatch = layout->civ_color_swatch[i];
-        RECT inner = swatch;
-        HBRUSH outline;
+        UiClayState state;
+
         if (!worldgen_rect_visible(layout->viewport, swatch)) continue;
-        fill_rect(hdc, swatch, RGB(24, 29, 34));
-        inner.left += 3; inner.top += 3; inner.right -= 3; inner.bottom -= 3;
-        fill_rect(hdc, inner, color32_to_colorref(UI_CIV_COLOR_PALETTE[i]));
-        outline = CreateSolidBrush(i == selected_civ_color_index ? RGB(238, 228, 181) : RGB(82, 94, 104));
-        FrameRect(hdc, &swatch, outline);
-        DeleteObject(outline);
+        state = ui_clay_state_for_rect(swatch, hover_x, hover_y,
+                                       i == selected_civ_color_index, 0);
+        ui_clay_draw_swatch(hdc, swatch, color32_to_colorref(UI_CIV_COLOR_PALETTE[i]), state);
     }
 }
 
@@ -213,16 +200,14 @@ static void draw_civ_color_picker_preview(HDC hdc, const WorldgenLayout *layout)
     RECT preview = layout->civ_color_preview;
     RECT swatch = {preview.left + 8, preview.top + 6, preview.left + 34, preview.bottom - 6};
     RECT label = {swatch.right + 10, preview.top, preview.right - 10, preview.bottom};
-    HBRUSH outline;
+    UiClayState state;
+
     draw_text_rect(hdc, layout->civ_color_label, tr("Civilization Color", "文明颜色"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     if (!worldgen_rect_visible(layout->viewport, preview)) return;
-    fill_rect(hdc, preview, RGB(35, 42, 46));
-    fill_rect(hdc, swatch, color32_to_colorref(selected_civ_color));
-    outline = CreateSolidBrush(RGB(122, 136, 144));
-    FrameRect(hdc, &preview, outline);
-    FrameRect(hdc, &swatch, outline);
-    DeleteObject(outline);
+    state = ui_clay_state_for_rect(preview, hover_x, hover_y, 0, 0);
+    ui_clay_draw_input_frame(hdc, preview, state);
+    ui_clay_draw_swatch(hdc, swatch, color32_to_colorref(selected_civ_color), state);
     draw_text_rect(hdc, label, tr("Click to choose with HSV wheel", "点击打开 HSV 色轮"),
                    ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
