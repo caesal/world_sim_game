@@ -5,6 +5,7 @@
 #include "sim/diplomacy.h"
 #include "sim/war.h"
 #include "sim/war_front.h"
+#include "ui/ui_clay_primitives.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -65,10 +66,18 @@ static int card_peace_pressure(int civ_id, int other_id) {
 }
 
 static const char *last_war_result_text(int civ_id, SnapshotDiplomacyRelation relation) {
-    if (relation.last_war_result == DIP_LAST_WAR_INTERRUPTED) return tr("Interrupted", "中断");
-    if (relation.last_war_result == DIP_LAST_WAR_DECISIVE) {
-        if (relation.last_war_winner == civ_id) return tr("Won", "胜利");
-        if (relation.last_war_loser == civ_id) return tr("Lost", "战败");
+    if (relation.last_war_result == DIP_LAST_WAR_INTERRUPTED ||
+        relation.last_war_result == DIP_LAST_WAR_FRONT_SEVERED) return tr("Front Severed", "战线中断");
+    if (relation.last_war_result == DIP_LAST_WAR_NEGOTIATED_TRUCE) return tr("Negotiated Truce", "议和停战");
+    if (relation.last_war_result == DIP_LAST_WAR_OFFENSIVE_HALTED) return tr("Offensive Halted", "攻势中止");
+    if (relation.last_war_result == DIP_LAST_WAR_SURRENDER) {
+        if (relation.last_war_winner == civ_id) return tr("Surrender Win", "受降胜利");
+        if (relation.last_war_loser == civ_id) return tr("Surrender", "投降战败");
+    }
+    if (relation.last_war_result == DIP_LAST_WAR_DECISIVE ||
+        relation.last_war_result == DIP_LAST_WAR_MILITARY) {
+        if (relation.last_war_winner == civ_id) return tr("Military Win", "军事胜利");
+        if (relation.last_war_loser == civ_id) return tr("Military Defeat", "军事战败");
     }
     return tr("-", "-");
 }
@@ -101,23 +110,27 @@ static const char *status_label(int civ_id, int other_id, SnapshotDiplomacyRelat
     }
 }
 
-static COLORREF status_color(int civ_id, int other_id, SnapshotDiplomacyRelation relation) {
-    if (card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id)) return RGB(154, 105, 178);
+static UiClaySemanticStyle status_style(int civ_id, int other_id, SnapshotDiplomacyRelation relation) {
+    if (card_is_direct_vassal(civ_id, other_id)) return ui_clay_semantic_style(UI_CLAY_TONE_VASSAL);
+    if (card_is_direct_vassal(other_id, civ_id)) return ui_clay_semantic_style(UI_CLAY_TONE_TRIBUTE);
     if ((card_overlord(civ_id) >= 0 && other_id != card_overlord(civ_id)) ||
-        (card_overlord(other_id) >= 0 && civ_id != card_overlord(other_id))) return RGB(104, 112, 120);
+        (card_overlord(other_id) >= 0 && civ_id != card_overlord(other_id))) {
+        return ui_clay_semantic_style(UI_CLAY_TONE_MUTED);
+    }
     switch (relation.state) {
-        case DIPLOMACY_PEACE: return RGB(86, 150, 96);
-        case DIPLOMACY_TENSE: return RGB(196, 154, 72);
-        case DIPLOMACY_TRUCE: return RGB(196, 172, 92);
-        case DIPLOMACY_WAR: return RGB(176, 72, 62);
-        case DIPLOMACY_VASSAL: return RGB(154, 105, 178);
-        default: return RGB(104, 112, 120);
+        case DIPLOMACY_PEACE: return ui_clay_semantic_style(UI_CLAY_TONE_PEACE);
+        case DIPLOMACY_TENSE: return ui_clay_semantic_style(UI_CLAY_TONE_TENSE);
+        case DIPLOMACY_TRUCE: return ui_clay_semantic_style(UI_CLAY_TONE_TRUCE);
+        case DIPLOMACY_WAR: return ui_clay_semantic_style(UI_CLAY_TONE_WAR);
+        case DIPLOMACY_VASSAL: return ui_clay_semantic_style(UI_CLAY_TONE_VASSAL);
+        default: return ui_clay_semantic_style(UI_CLAY_TONE_NEUTRAL);
     }
 }
 
 static void draw_header(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                         SnapshotDiplomacyRelation relation) {
     const SnapshotCiv *other = card_civ(other_id);
+    UiClaySemanticStyle style = status_style(civ_id, other_id, relation);
     RECT row = ui_take_rect(cursor, 28);
     RECT swatch = {row.left, row.top + 7, row.left + 14, row.top + 21};
     RECT name_rect = {row.left + 22, row.top, row.right - 90, row.bottom};
@@ -127,8 +140,9 @@ static void draw_header(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
     snprintf(title, sizeof(title), "%c %.80s", other ? other->symbol : '?', snapshot_ui_civ_name(other_id));
     draw_text_rect(hdc, name_rect, title, ui_theme_color(UI_COLOR_TEXT),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, tag, status_color(civ_id, other_id, relation));
-    draw_center_text(hdc, tag, status_label(civ_id, other_id, relation), RGB(246, 248, 250));
+    fill_rect(hdc, tag, style.tag_fill);
+    fill_rect(hdc, (RECT){tag.left, tag.top, tag.left + 4, tag.bottom}, style.accent);
+    draw_center_text(hdc, tag, status_label(civ_id, other_id, relation), style.tag_text);
 }
 
 static void bar_row(HDC hdc, UiCursor *cursor, const char *label, const char *value,
@@ -146,22 +160,21 @@ static void bar_row(HDC hdc, UiCursor *cursor, const char *label, const char *va
 
 static void metric_chip(HDC hdc, RECT rect, IconId icon, const char *label, const char *value, COLORREF accent) {
     RECT icon_rect = {rect.left + 6, rect.top + 5, rect.left + 22, rect.bottom - 5};
-    RECT label_rect = {rect.left + 27, rect.top, rect.left + 68, rect.bottom};
-    RECT sep = {label_rect.right + 2, rect.top + 6, label_rect.right + 3, rect.bottom - 6};
-    RECT value_rect = {sep.right + 6, rect.top, rect.right - 5, rect.bottom};
-    fill_rect(hdc, rect, RGB(42, 47, 50));
+    int mid = rect.top + (rect.bottom - rect.top) / 2;
+    RECT label_rect = {rect.left + 27, rect.top + 3, rect.right - 6, mid + 1};
+    RECT value_rect = {rect.left + 27, mid - 1, rect.right - 6, rect.bottom - 3};
+    ui_clay_draw_card(hdc, rect, UI_CLAY_STATE_NORMAL);
     fill_rect(hdc, (RECT){rect.left, rect.top, rect.left + 4, rect.bottom}, accent);
     draw_icon(hdc, icon, icon_rect, accent);
     draw_text_rect(hdc, label_rect, label, ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, sep, RGB(88, 94, 96));
-    draw_text_rect(hdc, value_rect, value, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, value_rect, value, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
 static void chip_row3(HDC hdc, UiCursor *cursor,
                       IconId ia, const char *a, const char *av,
                       IconId ib, const char *b, const char *bv,
                       IconId ic, const char *c, const char *cv) {
-    RECT row = ui_take_rect(cursor, 28);
+    RECT row = ui_take_rect(cursor, 34);
     int w = (row.right - row.left - 12) / 3;
     metric_chip(hdc, (RECT){row.left, row.top, row.left + w, row.bottom}, ia, a, av, RGB(88, 134, 190));
     metric_chip(hdc, (RECT){row.left + w + 6, row.top, row.left + 2 * w + 6, row.bottom}, ib, b, bv, RGB(196, 154, 72));
@@ -171,7 +184,7 @@ static void chip_row3(HDC hdc, UiCursor *cursor,
 static void chip_row2(HDC hdc, UiCursor *cursor,
                       IconId ia, const char *a, const char *av,
                       IconId ib, const char *b, const char *bv) {
-    RECT row = ui_take_rect(cursor, 28);
+    RECT row = ui_take_rect(cursor, 34);
     int w = (row.right - row.left - 6) / 2;
     metric_chip(hdc, (RECT){row.left, row.top, row.left + w, row.bottom}, ia, a, av, RGB(88, 134, 190));
     metric_chip(hdc, (RECT){row.left + w + 6, row.top, row.right, row.bottom}, ib, b, bv, RGB(132, 148, 126));
@@ -184,19 +197,37 @@ static const char *annex_status_text(int remaining_years) {
     return text;
 }
 
+static const char *war_role_label(int is_attacker) {
+    return is_attacker ? tr("Attacker", "进攻方") : tr("Defender", "防御方");
+}
+
+static void draw_strength_side(HDC hdc, RECT rect, const char *name, const char *soldiers,
+                               const char *role, COLORREF color, unsigned int align) {
+    RECT name_rect = {rect.left, rect.top, rect.right, rect.top + 16};
+    RECT soldier_rect = {rect.left, name_rect.bottom, rect.right, name_rect.bottom + 18};
+    RECT role_rect = {rect.left, soldier_rect.bottom, rect.right, rect.bottom};
+    unsigned int flags = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | align;
+    draw_text_rect(hdc, name_rect, name, color, flags);
+    draw_text_rect(hdc, soldier_rect, soldiers, color, flags);
+    draw_text_rect(hdc, role_rect, role, ui_theme_color(UI_COLOR_TEXT_MUTED), flags);
+}
+
 static void draw_strength_compare(HDC hdc, UiCursor *cursor, int own, int enemy,
-                                  COLORREF own_color, COLORREF enemy_color) {
-    RECT row = ui_take_rect(cursor, 28);
-    RECT bar = {row.left + 58, row.top + 8, row.right - 58, row.bottom - 8};
+                                  const char *own_name, const char *enemy_name,
+                                  int own_is_attacker, COLORREF own_color, COLORREF enemy_color) {
+    RECT row = ui_take_rect(cursor, 50);
+    RECT own_side = {row.left, row.top, row.left + 86, row.bottom};
+    RECT enemy_side = {row.right - 86, row.top, row.right, row.bottom};
+    RECT bar = {own_side.right + 8, row.top + 20, enemy_side.left - 8, row.top + 35};
     int total = max(1, own + enemy);
     int split = bar.left + (bar.right - bar.left) * own / total;
     char left[32], right[32];
     format_metric_value(own, left, sizeof(left));
     format_metric_value(enemy, right, sizeof(right));
-    draw_text_rect(hdc, (RECT){row.left, row.top, row.left + 54, row.bottom}, left,
-                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    draw_text_rect(hdc, (RECT){row.right - 54, row.top, row.right, row.bottom}, right,
-                   ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER);
+    draw_strength_side(hdc, own_side, own_name, left, war_role_label(own_is_attacker),
+                       own_color, DT_RIGHT);
+    draw_strength_side(hdc, enemy_side, enemy_name, right, war_role_label(!own_is_attacker),
+                       enemy_color, DT_LEFT);
     fill_rect(hdc, bar, RGB(45, 50, 52));
     fill_rect(hdc, (RECT){bar.left, bar.top, split, bar.bottom}, own_color);
     fill_rect(hdc, (RECT){split, bar.top, bar.right, bar.bottom}, enemy_color);
@@ -228,10 +259,16 @@ static void draw_peace_compare(HDC hdc, UiCursor *cursor, int own, int enemy) {
     draw_center_text(hdc, right, text, ui_theme_color(UI_COLOR_TEXT));
 }
 
-static const char *peace_status_text(int own, int enemy) {
-    if (own >= 70 && enemy >= 70) return tr("Both willing; peace can resolve at next battle.", "双方愿意，下次战斗结算时议和。");
-    if (own >= 70) return tr("We are willing; enemy continues.", "我方愿意，对方继续。");
-    if (enemy >= 70) return tr("Enemy is willing; we continue.", "对方愿意，我方继续。");
+static const char *peace_status_text(int own, int enemy, int own_is_attacker) {
+    if (own >= 70 && enemy >= 70) return tr("Both willing: 25y truce at next battle.", "双方愿和：下次结算停战。");
+    if (own >= 70) {
+        return own_is_attacker ? tr("Attacker willing: offensive halts next battle.", "进攻方愿和：下次结算攻势中止。") :
+               tr("Defender willing: attacker wins next battle.", "防御方愿和：下次结算进攻方胜。");
+    }
+    if (enemy >= 70) {
+        return own_is_attacker ? tr("Defender willing: attacker wins next battle.", "防御方愿和：下次结算进攻方胜。") :
+               tr("Attacker willing: offensive halts next battle.", "进攻方愿和：下次结算攻势中止。");
+    }
     return tr("War can end when both sides reach 70.", "等双方达到 70 门槛。");
 }
 
@@ -251,22 +288,25 @@ static int battle_progress_percent(int remaining_months) {
 static void draw_peace_tense(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                              SnapshotDiplomacyRelation relation) {
     char num[32], border[32];
+    UiClaySemanticStyle peace = ui_clay_semantic_style(UI_CLAY_TONE_PEACE);
+    UiClaySemanticStyle tense = ui_clay_semantic_style(UI_CLAY_TONE_TENSE);
+    UiClaySemanticStyle war = ui_clay_semantic_style(UI_CLAY_TONE_WAR);
     int spark = clamp((relation.border_tension + relation.resource_conflict) / 2, 0, 100);
     (void)other_id;
     if (relation.state == DIPLOMACY_TENSE) {
         snprintf(num, sizeof(num), "%d", relation.border_tension);
-        bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, RGB(206, 126, 64));
+        bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, tense.accent);
         snprintf(num, sizeof(num), "%d", spark);
-        bar_row(hdc, cursor, tr("War spark", "战争火花"), num, spark, RGB(188, 76, 66));
+        bar_row(hdc, cursor, tr("War spark", "战争火花"), num, spark, war.accent);
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_TERRITORY, tr("Border", "边界"), border,
                   ICON_ATTACK, tr("Conflict", "冲突"), level_label(relation.resource_conflict),
                   ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
     } else {
         bar_row(hdc, cursor, tr("Relation temp", "关系温度"), level_label(relation.relation_score),
-                relation.relation_score, RGB(92, 156, 108));
+                relation.relation_score, peace.accent);
         snprintf(num, sizeof(num), "%d", relation.border_tension);
-        bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, RGB(196, 154, 72));
+        bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, tense.accent);
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_COMMERCE, tr("Trade", "贸易"), level_label(relation.trade_fit),
                   ICON_TERRITORY, tr("Border", "边界"), border,
@@ -279,43 +319,61 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
     const SnapshotCiv *own_civ = card_civ(civ_id);
     const SnapshotCiv *enemy_civ = card_civ(other_id);
     SnapshotWar war = card_war(civ_id, other_id);
-    char a[48], b[48], c[48], span[48], losses[128];
+    UiClaySemanticStyle war_style = ui_clay_semantic_style(UI_CLAY_TONE_WAR);
+    UiClaySemanticStyle truce_style = ui_clay_semantic_style(UI_CLAY_TONE_TRUCE);
+    char a[48], b[48], c[48], span[48], losses[128], front[80], disorder[48];
     int flags = card_front_flags(civ_id, other_id);
     if (war.active) {
-        int own = civ_id == war.attacker ? war.soldiers_a : war.soldiers_b;
-        int enemy = civ_id == war.attacker ? war.soldiers_b : war.soldiers_a;
-        int own_loss = civ_id == war.attacker ? war.casualties_a + war.support_casualties_a :
+        int own_is_attacker = civ_id == war.attacker;
+        int own = own_is_attacker ? war.soldiers_a : war.soldiers_b;
+        int enemy = own_is_attacker ? war.soldiers_b : war.soldiers_a;
+        int own_loss = own_is_attacker ? war.casualties_a + war.support_casualties_a :
                        war.casualties_b + war.support_casualties_b;
-        int enemy_loss = civ_id == war.attacker ? war.casualties_b + war.support_casualties_b :
+        int enemy_loss = own_is_attacker ? war.casualties_b + war.support_casualties_b :
                          war.casualties_a + war.support_casualties_a;
-        int own_wins = civ_id == war.attacker ? war.wins_a : war.wins_b;
-        int enemy_wins = civ_id == war.attacker ? war.wins_b : war.wins_a;
+        int own_wins = own_is_attacker ? war.wins_a : war.wins_b;
+        int enemy_wins = own_is_attacker ? war.wins_b : war.wins_a;
+        int own_disorder = own_civ ? own_civ->disorder : 0;
+        int enemy_disorder = enemy_civ ? enemy_civ->disorder : 0;
         int own_peace = card_peace_pressure(civ_id, other_id);
         int enemy_peace = card_peace_pressure(other_id, civ_id);
         int battle_left = battle_months_remaining(war);
         draw_strength_compare(hdc, cursor, own, enemy,
+                              snapshot_ui_civ_name(civ_id), snapshot_ui_civ_name(other_id),
+                              own_is_attacker,
                               own_civ ? own_civ->color : RGB(120, 140, 160),
                               enemy_civ ? enemy_civ->color : RGB(160, 120, 120));
         ui_format_months(span, sizeof(span), battle_left, UI_MONTH_ZERO_NOW);
-        bar_row(hdc, cursor, tr("Next battle", "下次战斗"), span, battle_progress_percent(battle_left), RGB(188, 84, 74));
+        bar_row(hdc, cursor, tr("Next battle", "下次战斗"), span, battle_progress_percent(battle_left), war_style.accent);
         draw_peace_compare(hdc, cursor, own_peace, enemy_peace);
-        draw_text_rect(hdc, ui_take_rect(cursor, 20), peace_status_text(own_peace, enemy_peace),
+        draw_text_rect(hdc, ui_take_rect(cursor, 20), peace_status_text(own_peace, enemy_peace, own_is_attacker),
                        ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
         format_metric_value(own_loss, a, sizeof(a));
         format_metric_value(enemy_loss, b, sizeof(b));
         snprintf(losses, sizeof(losses), "%s / %s", a, b);
         snprintf(c, sizeof(c), "%d - %d", own_wins, enemy_wins);
-        chip_row3(hdc, cursor, ICON_BATTLE, tr("Casualties", "阵亡"), losses,
-                  ICON_ATTACK, tr("Wins", "胜场"), c,
-                  ICON_HARBOR, tr("Front", "战线"), ui_language ? war_front_reason_zh(flags) : war_front_reason_en(flags));
+        chip_row2(hdc, cursor, ICON_BATTLE, tr("Casualties", "阵亡"), losses,
+                  ICON_ATTACK, tr("Wins", "胜场"), c);
+        snprintf(front, sizeof(front), "%s", ui_language ? war_front_reason_zh(flags) : war_front_reason_en(flags));
+        snprintf(disorder, sizeof(disorder), "%d / %d", own_disorder, enemy_disorder);
+        chip_row2(hdc, cursor, ICON_HARBOR, tr("Front", "战线"), front,
+                  ICON_DISORDER, tr("Disorder", "混乱"), disorder);
     } else {
         int truce_denom = relation.truce_initial_years > 0 ? relation.truce_initial_years : relation.truce_years_left;
+        RECT chip_row;
+        int chip_w;
         ui_format_months(span, sizeof(span), relation.truce_years_left * 12, UI_MONTH_ZERO_DONE);
         bar_row(hdc, cursor, tr("Truce left", "停战剩余"), span,
-                clamp(relation.truce_years_left * 100 / max(1, truce_denom), 0, 100), RGB(196, 154, 72));
-        chip_row3(hdc, cursor, ICON_DISORDER, tr("Risk", "再战风险"), level_label(relation.border_tension),
-                  ICON_GOVERNANCE, tr("After truce", "停战结束后"), truce_after_text(relation),
-                  ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
+                clamp(relation.truce_years_left * 100 / max(1, truce_denom), 0, 100), truce_style.accent);
+        chip_row = ui_take_rect(cursor, 34);
+        chip_w = (chip_row.right - chip_row.left - 8) / 2;
+        metric_chip(hdc, (RECT){chip_row.left, chip_row.top, chip_row.left + chip_w, chip_row.bottom},
+                    ICON_DISORDER, tr("Risk", "再战风险"), level_label(relation.border_tension), RGB(88, 134, 190));
+        metric_chip(hdc, (RECT){chip_row.left + chip_w + 8, chip_row.top, chip_row.right, chip_row.bottom},
+                    ICON_GOVERNANCE, tr("Status", "停战状态"), truce_after_text(relation), RGB(132, 148, 126));
+        cursor->y += 5;
+        metric_chip(hdc, ui_take_rect(cursor, 34), ICON_BATTLE, tr("History", "历史"),
+                    last_war_result_text(civ_id, relation), RGB(132, 148, 126));
     }
 }
 
@@ -335,6 +393,8 @@ static void format_metric_pair(int a, int b, char *out, size_t size) {
 static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id) {
     const SnapshotCiv *selected = card_civ(civ_id);
     const SnapshotCiv *other = card_civ(other_id);
+    UiClaySemanticStyle vassal_style = ui_clay_semantic_style(UI_CLAY_TONE_VASSAL);
+    UiClaySemanticStyle tribute_style = ui_clay_semantic_style(UI_CLAY_TONE_TRIBUTE);
     char a[96], b[96], c[96];
     if (card_is_direct_vassal(civ_id, other_id)) {
         int tribute = other ? other->vassal_resource_tribute : 0;
@@ -343,12 +403,12 @@ static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id
         format_signed_metric(tribute, 1, a, sizeof(a));
         format_signed_metric(tribute, -1, b, sizeof(b));
         snprintf(c, sizeof(c), "+%d", selected ? selected->vassal_governance_disorder : 0);
-        bar_row(hdc, cursor, tr("Tribute", "贡赋"), "40%", 40, RGB(154, 105, 178));
+        bar_row(hdc, cursor, tr("Tribute", "贡赋"), "40%", 40, tribute_style.accent);
         chip_row3(hdc, cursor, ICON_FOOD, tr("Gain", "获得"), a,
                   ICON_COMMERCE, tr("Paid", "上缴"), b,
                   ICON_GOVERNANCE, tr("Burden", "负担"), c);
         format_metric_pair(callable, total, a, sizeof(a));
-        bar_row(hdc, cursor, tr("Call-up", "军调"), "70%", 70, RGB(188, 88, 154));
+        bar_row(hdc, cursor, tr("Call-up", "军调"), "70%", 70, vassal_style.accent);
         chip_row2(hdc, cursor, ICON_MILITARY, tr("Callable", "可调"), a,
                   ICON_GOVERNANCE, tr("Annex", "吞并"),
                   annex_status_text(other ? other->vassal_annex_remaining_years : 0));
@@ -358,12 +418,12 @@ static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id
         int tribute = selected ? selected->vassal_resource_tribute : 0;
         format_signed_metric(tribute, -1, a, sizeof(a));
         format_signed_metric(tribute, 1, b, sizeof(b));
-        bar_row(hdc, cursor, tr("Tribute", "上缴"), "40%", 40, RGB(154, 105, 178));
+        bar_row(hdc, cursor, tr("Tribute", "上缴"), "40%", 40, tribute_style.accent);
         chip_row3(hdc, cursor, ICON_FOOD, tr("Paid", "上缴"), a,
                   ICON_COMMERCE, tr("Overlord", "宗主"), b,
                   ICON_GOVERNANCE, tr("Autonomy", "自主"), tr("None", "无"));
         format_metric_pair(callable, total, a, sizeof(a));
-        bar_row(hdc, cursor, tr("Call-up", "军调"), "70%", 70, RGB(188, 88, 154));
+        bar_row(hdc, cursor, tr("Call-up", "军调"), "70%", 70, vassal_style.accent);
         chip_row2(hdc, cursor, ICON_MILITARY, tr("Callable", "可调"), a,
                   ICON_GOVERNANCE, tr("Annex", "吞并"),
                   annex_status_text(selected ? selected->vassal_annex_remaining_years : 0));
@@ -383,11 +443,11 @@ int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view)
                       card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
     int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
-    if (relation.state == DIPLOMACY_WAR) return 194;
-    if (relation.state == DIPLOMACY_TRUCE) return 126;
-    if (direct_vassal) return 150;
-    if (vassal_like) return 104;
-    return 126;
+    if (relation.state == DIPLOMACY_WAR) return 244;
+    if (relation.state == DIPLOMACY_TRUCE) return 150;
+    if (direct_vassal) return 162;
+    if (vassal_like) return 110;
+    return 132;
 }
 
 void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
@@ -396,10 +456,13 @@ void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
     int vassal_like = view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
                       card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
+    UiClaySemanticStyle style = status_style(civ_id, other_id, relation);
     RECT card = {cursor->x, cursor->y, cursor->x + cursor->width,
                  cursor->y + diplomacy_relation_card_height(civ_id, other_id, view)};
     UiCursor inner = ui_cursor(card.left + 10, card.top + 8, card.right - card.left - 20, card.bottom - 8);
-    fill_rect(hdc, card, RGB(34, 39, 42));
+    ui_clay_draw_card(hdc, card, UI_CLAY_STATE_NORMAL);
+    fill_rect(hdc, (RECT){card.left, card.top + 8, card.left + 4, card.bottom - 8}, style.accent);
+    fill_rect(hdc, (RECT){card.left + 8, card.top, card.right - 8, card.top + 2}, style.border);
     draw_header(hdc, &inner, civ_id, other_id, relation);
     if (view == DIPLOMACY_VIEW_WAR_TRUCE || relation.state == DIPLOMACY_WAR || relation.state == DIPLOMACY_TRUCE) {
         draw_war_truce(hdc, &inner, civ_id, other_id, relation);

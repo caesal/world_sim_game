@@ -7,6 +7,8 @@
 #include "render/ui_format.h"
 #include "render_panel_internal.h"
 #include "sim/diplomacy.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_types.h"
 #include "ui/ui_widgets.h"
 
@@ -233,19 +235,33 @@ static void sort_ids_by_army_desc(int *ids, int count) {
 
 static void draw_vassal_subrow(HDC hdc, UiCursor *cursor, int selected_id, int vassal_id, int overlord_id) {
     const SnapshotCiv *vassal = dip_civ(vassal_id);
-    RECT row = ui_take_rect(cursor, 46);
-    RECT swatch = {row.left + 22, row.top + 6, row.left + 34, row.top + 18};
-    RECT name_rect = {row.left + 40, row.top, row.right - 92, row.top + 22};
-    RECT tag_rect = {row.right - 86, row.top, row.right, row.top + 22};
-    RECT note_rect = {row.left + 40, row.top + 22, row.right, row.bottom};
+    RECT outer;
+    RECT row;
+    RECT swatch;
+    RECT name_rect;
+    RECT tag_rect;
+    RECT note_rect;
     char title[160], note[192];
     int own_vassal = dip_is_direct_vassal(selected_id, vassal_id);
-    fill_rect(hdc, row, RGB(34, 40, 43));
+    COLORREF accent = own_vassal ? RGB(154, 105, 178) : RGB(104, 112, 120);
+    if (cursor->y >= 4) cursor->y -= 4;
+    outer = ui_take_rect(cursor, 40);
+    row = (RECT){outer.left + 18, outer.top, outer.right - 4, outer.bottom};
+    swatch = (RECT){row.left + 18, row.top + 7, row.left + 30, row.top + 19};
+    name_rect = (RECT){row.left + 36, row.top, row.right - 112, row.top + 20};
+    tag_rect = (RECT){row.right - 106, row.top + 2, row.right - 4, row.top + 22};
+    note_rect = (RECT){row.left + 36, row.top + 20, row.right - 4, row.bottom};
+    fill_rect(hdc, (RECT){outer.left + 8, outer.top - 4, outer.left + 10, outer.top + 18}, accent);
+    fill_rect(hdc, (RECT){outer.left + 8, outer.top + 17, row.left, outer.top + 19}, accent);
+    fill_rect(hdc, row, RGB(35, 41, 43));
+    fill_rect(hdc, (RECT){row.left, row.top, row.right, row.top + 1}, RGB(66, 73, 75));
+    fill_rect(hdc, (RECT){row.left, row.bottom - 1, row.right, row.bottom}, RGB(24, 29, 31));
+    fill_rect(hdc, (RECT){row.left, row.top, row.left + 3, row.bottom}, accent);
     country_diplomacy_hit_add(row, vassal_id);
     fill_rect(hdc, swatch, vassal ? vassal->color : RGB(96, 100, 104));
     snprintf(title, sizeof(title), "sub %c %.80s", vassal ? vassal->symbol : '?', snapshot_ui_civ_name(vassal_id));
     draw_text_rect(hdc, name_rect, title, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, tag_rect, own_vassal ? RGB(154, 105, 178) : RGB(104, 112, 120));
+    fill_rect(hdc, tag_rect, accent);
     draw_center_text(hdc, tag_rect, own_vassal ? tr("Vassal", "附庸") : tr("No autonomy", "无自主权"),
                      RGB(246, 248, 250));
     if (own_vassal) {
@@ -259,7 +275,7 @@ static void draw_vassal_subrow(HDC hdc, UiCursor *cursor, int selected_id, int v
     }
     draw_text_rect(hdc, note_rect, note, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    cursor->y += 6;
+    cursor->y += 3;
 }
 
 static void draw_relation(HDC hdc, UiCursor *cursor, int civ_id, int other_id) {
@@ -296,7 +312,7 @@ static DiplomacyEntry make_entry(int civ_id, int other_id, DiplomacyDisplayGroup
         e.secondary = rel.state == DIPLOMACY_TENSE ? -rel.border_tension : -rel.relation_score;
     } else if (group == DIP_DISPLAY_WAR_TRUCE) {
         e.primary = rel.state == DIPLOMACY_WAR ? 0 : 1;
-        e.secondary = rel.state == DIPLOMACY_WAR ? -relation_war_scale(civ_id, other_id) : rel.truce_years_left;
+        e.secondary = rel.state == DIPLOMACY_WAR ? -relation_war_scale(civ_id, other_id) : -rel.truce_years_left;
     } else if (group == DIP_DISPLAY_VASSAL) {
         e.primary = dip_is_direct_vassal(civ_id, other_id) ? 0 : 1;
         e.secondary = -(dip_civ(other_id) ? dip_civ(other_id)->current_soldiers : 0);
@@ -355,9 +371,10 @@ static void draw_diplomacy_view_tabs(HDC hdc, UiCursor *cursor, int civ_id) {
         RECT tab = {cursor->x + i * (width + DIPLOMACY_VIEW_TAB_GAP), cursor->y,
                     cursor->x + i * (width + DIPLOMACY_VIEW_TAB_GAP) + width,
                     cursor->y + DIPLOMACY_VIEW_TAB_H};
-        fill_rect(hdc, tab, view == active ? RGB(87, 93, 78) : RGB(43, 49, 52));
-        draw_center_text(hdc, tab, display_group_label(selected_is_vassal, view),
-                         view == active ? RGB(255, 238, 190) : ui_theme_color(UI_COLOR_TEXT));
+        UiClayState state = ui_clay_state_for_rect(tab, hover_x, hover_y, view == active, 0);
+        ui_clay_draw_tab(hdc, tab, state);
+        draw_text_rect(hdc, tab, display_group_label(selected_is_vassal, view), ui_clay_text_color(state),
+                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
     }
     cursor->y += DIPLOMACY_VIEW_TAB_H + 8;
 }
@@ -389,10 +406,10 @@ int country_diplomacy_tab_height(int civ_id) {
     for (i = 0; i < count; i++) {
         int id = entries[i].id;
         if (selected_is_vassal && view == DIPLOMACY_VIEW_OTHER) {
-            height += 52;
+            height += 40;
         } else {
             height += diplomacy_relation_card_height(civ_id, id, view) + 8;
-            if (!selected_is_vassal && dip_overlord(id) < 0) height += dip_direct_count(id) * 52;
+            if (!selected_is_vassal && dip_overlord(id) < 0) height += dip_direct_count(id) * 40;
         }
     }
     if (count == 0) height += 42;

@@ -23,6 +23,8 @@
 #include "sim/technology.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
@@ -109,29 +111,17 @@ static void draw_metric_row(HDC hdc, UiCursor *cursor, int a, int b, int c,
                             const char *la, const char *lb, const char *lc) {
     int w = (cursor->width - 16) / 3;
     RECT r = {cursor->x, cursor->y, cursor->x + w, cursor->y + 28};
-    ui_metric_chip(hdc, r, ia, la, a, RGB(118, 143, 95));
+    ui_clay_draw_metric_chip_int(hdc, r, ia, la, a, RGB(118, 143, 95));
     r.left += w + 8; r.right += w + 8;
-    ui_metric_chip(hdc, r, ib, lb, b, RGB(83, 123, 166));
+    ui_clay_draw_metric_chip_int(hdc, r, ib, lb, b, RGB(83, 123, 166));
     r.left += w + 8; r.right += w + 8;
-    ui_metric_chip(hdc, r, ic, lc, c, RGB(188, 154, 88));
+    ui_clay_draw_metric_chip_int(hdc, r, ic, lc, c, RGB(188, 154, 88));
     cursor->y += 36;
 }
 
 static void draw_text_chip(HDC hdc, RECT rect, IconId icon, const char *label,
                            const char *value, COLORREF accent) {
-    RECT stripe = rect;
-    RECT icon_rect = {rect.left + 6, rect.top + 5, rect.left + 24, rect.top + 23};
-    RECT label_rect = {rect.left + 29, rect.top + 3, rect.right - 8, rect.top + 15};
-    RECT value_rect = {rect.left + 29, rect.top + 14, rect.right - 8, rect.bottom - 2};
-
-    fill_rect(hdc, rect, ui_theme_color(UI_COLOR_PANEL_SOFT));
-    stripe.right = stripe.left + 3;
-    fill_rect(hdc, stripe, accent);
-    draw_icon(hdc, icon, icon_rect, accent);
-    draw_text_rect(hdc, label_rect, label, ui_theme_color(UI_COLOR_TEXT_DIM),
-                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, value_rect, value, ui_theme_color(UI_COLOR_TEXT),
-                   DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS);
+    ui_clay_draw_metric_chip_text(hdc, rect, icon, label, value, accent);
 }
 
 static void draw_overview_text_row(HDC hdc, UiCursor *cursor,
@@ -152,9 +142,9 @@ static __attribute__((unused)) void draw_metric_pair(HDC hdc, UiCursor *cursor, 
                                                      IconId ia, IconId ib, const char *la, const char *lb) {
     int w = (cursor->width - 8) / 2;
     RECT r = {cursor->x, cursor->y, cursor->x + w, cursor->y + 28};
-    ui_metric_chip(hdc, r, ia, la, a, RGB(118, 143, 95));
+    ui_clay_draw_metric_chip_int(hdc, r, ia, la, a, RGB(118, 143, 95));
     r.left += w + 8; r.right += w + 8;
-    ui_metric_chip(hdc, r, ib, lb, b, RGB(83, 123, 166));
+    ui_clay_draw_metric_chip_int(hdc, r, ib, lb, b, RGB(83, 123, 166));
     cursor->y += 36;
 }
 
@@ -350,12 +340,14 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
     char army_deployed[32];
     char army_reserve[32];
     char army_deployment[96];
-    char front_text[24];
+    const char *front_type;
 
     format_metric_value(civ ? civ->war_deployed_soldiers : 0, army_deployed, sizeof(army_deployed));
     format_metric_value(civ ? civ->war_available_reserve : 0, army_reserve, sizeof(army_reserve));
     snprintf(army_deployment, sizeof(army_deployment), "%s / %s", army_deployed, army_reserve);
-    snprintf(front_text, sizeof(front_text), "%d", civ ? civ->war_front_count : 0);
+    front_type = !civ || civ->war_front_count <= 0 ? tr("None", "无") :
+                 civ->war_front_count == 1 ? tr("Single", "单线") :
+                 tr("Multi-front", "多线");
 
     switch (clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)) {
         case COUNTRY_DETAIL_TECHNOLOGY:
@@ -389,7 +381,7 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
                                    heritage_label(civ ? civ->heritage : CIV_HERITAGE_WESTERN),
                                    ICON_TERRITORY,
                                    tr("Deployment", "军队部署"), army_deployment, ICON_MILITARY,
-                                   tr("Fronts", "战线"), front_text, ICON_BATTLE);
+                                   tr("Front type", "战线类型"), front_type, ICON_BATTLE);
             draw_overview_mini_blocks(hdc, cursor, civ_id);
             if ((civ ? civ->plague_active_count : 0) > 0) {
                 ui_section(hdc, cursor, tr("Plague", "瘟疫"));

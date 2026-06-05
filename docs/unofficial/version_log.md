@@ -1,5 +1,58 @@
 # Version Log
 
+## Ver0.3.2.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.c.
+2. Fixed peace-pressure war settlement so attacker and defender roles determine
+   the outcome: defender-only willingness becomes attacker victory/surrender,
+   attacker-only willingness becomes an offensive halt, and both-willing
+   willingness becomes a no-winner negotiated truce.
+3. Preserved the 25-year truce cooldown for offensive halts, severed-front
+   interruptions, and negotiated truces, while decisive cession outcomes keep
+   the 55-year truce cooldown.
+4. Added visible last-war result kinds for military win/loss, surrender,
+   negotiated truce, offensive halt, and severed-front interruption.
+5. Added defeated-country vassalization when no region is actually transferred,
+   or when post-settlement disorder/cohesion meet the severe-instability
+   thresholds.
+6. Deducted one cohesion when a civilization loses its capital.
+7. Changed collapse and enclave successor cohesion to parent cohesion plus a
+   bounded 1-3 random bonus, capped at 10.
+8. Applied Claymorphism Phase 4 presentation to Country list cards, selected
+   summaries, action buttons, overview metric chips, diplomacy tabs, diplomacy
+   cards, semantic relation accents, truce spacing, and vassal hierarchy rows.
+9. Updated active-war cards to show country names above troop numbers,
+   attacker/defender roles beneath troop numbers, existing peace-pressure bars,
+   casualties and wins on the first metric row, and front/disorder on the
+   second row.
+10. Sorted the War & Truce list with active wars first, then truces by remaining
+    years descending.
+11. Ignored the local `logs/uiux_phase4_evidence/` validation screenshot folder
+    so release commits do not include large local evidence artifacts.
+
+Validation notes:
+
+- Ver0.3.2.c uses `WORLD_SIM_VERSION "0.3.2.c"`.
+- Canonical `make -B world_sim.exe` was attempted first and reached the link
+  step, but the running `world_sim.exe` was locked by the operating system.
+- A temporary-target build with `TARGET=tmp_worldsim_ver032c_verify.exe`
+  succeeded, string checks found `World Sim Game Ver 0.3.2.c`, and the
+  temporary executable was deleted.
+- `cmd /c build.bat` was attempted and reached the link step, but was blocked
+  by the same locked canonical executable.
+- Static and text checks were rerun before push, and all scanned source/header
+  files were at or below 500 lines.
+- Focused validation evidence from the Software Engineer and UIUX passes
+  covered the war peace-pressure probe, active-war diplomacy card render probe,
+  Country overview metric grid, route-potential route-only legend, real
+  diplomacy cards, truce sorting, vassal hierarchy rows, speed buttons,
+  generated political map, world-generation progress overlay, and Debug /
+  Performance readability.
+- Full strict AGENTS Large-map regression was not rerun for this mixed
+  gameplay/UIUX checkpoint.
+
 ## Ver0.3.2.b
 
 Implemented fixes:

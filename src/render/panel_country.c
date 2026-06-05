@@ -6,9 +6,9 @@
 #include "render/panel_country_diplomacy.h"
 #include "render/render_context.h"
 #include "render/snapshot_ui.h"
-
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_widgets.h"
-
 #include <string.h>
 
 typedef struct {
@@ -250,9 +250,9 @@ static void draw_detail_tabs(HDC hdc, const CountryPanelLayout *layout) {
     int i;
     for (i = 0; i < COUNTRY_DETAIL_TAB_COUNT; i++) {
         int active = i == country_detail_subtab;
-        fill_rect(hdc, layout->detail_tabs[i], active ? RGB(87, 93, 78) : RGB(43, 49, 52));
-        draw_center_text(hdc, layout->detail_tabs[i], country_detail_tab_label(i),
-                         active ? RGB(255, 238, 190) : ui_theme_color(UI_COLOR_TEXT));
+        UiClayState state = ui_clay_state_for_rect(layout->detail_tabs[i], hover_x, hover_y, active, 0);
+        ui_clay_draw_tab(hdc, layout->detail_tabs[i], state);
+        draw_text_rect(hdc, layout->detail_tabs[i], country_detail_tab_label(i), ui_clay_text_color(state), DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
     }
 }
 
@@ -263,10 +263,11 @@ static void draw_sort_columns(HDC hdc, const CountryPanelLayout *layout) {
     for (i = 0; i < COUNTRY_SORT_COUNT; i++) {
         RECT rect = layout->sort_columns[i];
         int active = i == country_sort_column;
-        fill_rect(hdc, rect, active ? RGB(87, 93, 78) : RGB(43, 49, 52));
+        UiClayState state = ui_clay_state_for_rect(rect, hover_x, hover_y, active, 0);
+        ui_clay_draw_tab(hdc, rect, state);
         snprintf(text, sizeof(text), "%s%s", sort_column_label(i),
                  active ? (country_sort_descending ? " ↓" : " ↑") : "");
-        draw_center_text(hdc, rect, text, active ? RGB(255, 238, 190) : ui_theme_color(UI_COLOR_TEXT));
+        draw_text_rect(hdc, rect, text, ui_clay_text_color(state), DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
     }
 }
 
@@ -280,7 +281,7 @@ static void draw_country_count_cards(HDC hdc, const CountryPanelLayout *layout) 
     for (i = 0; i < 2; i++) {
         char text[32];
         RECT r = layout->count_cards[i];
-        fill_rect(hdc, r, ui_theme_color(UI_COLOR_PANEL_SOFT));
+        ui_clay_draw_card(hdc, r, UI_CLAY_STATE_NORMAL);
         draw_text_rect(hdc, (RECT){r.left + 8, r.top + 3, r.right - 8, r.top + 18},
                        tr(labels_en[i], labels_zh[i]), ui_theme_color(UI_COLOR_TEXT_DIM),
                        DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
@@ -302,14 +303,13 @@ static void draw_country_list(HDC hdc, const CountryPanelLayout *layout) {
              country_sort_descending ? tr("desc", "降序") : tr("asc", "升序"));
     draw_text_rect(hdc, layout->sort_label, text, ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, layout->fallen_toggle, country_show_fallen ? RGB(87, 93, 78) : RGB(43, 49, 52));
-    draw_center_text(hdc, layout->fallen_toggle, country_show_fallen ?
-                     tr("Show Active Countries", "显示活跃国家") : tr("Show Fallen Countries", "显示已灭亡国家"),
-                     ui_theme_color(UI_COLOR_TEXT));
+    ui_clay_draw_pill_button(hdc, layout->fallen_toggle,
+                             country_show_fallen ? tr("Show Active Countries", "显示活跃国家") :
+                                                   tr("Show Fallen Countries", "显示已灭亡国家"),
+                             ui_clay_state_for_rect(layout->fallen_toggle, hover_x, hover_y, country_show_fallen, 0));
     if (layout->selected_detail) {
-        fill_rect(hdc, layout->back_to_list, RGB(43, 49, 52));
-        draw_center_text(hdc, layout->back_to_list, tr("All Countries / Back to list", "全部国家 / 返回列表"),
-                         ui_theme_color(UI_COLOR_TEXT));
+        ui_clay_draw_pill_button(hdc, layout->back_to_list, tr("All Countries / Back to list", "全部国家 / 返回列表"),
+                                 ui_clay_state_for_rect(layout->back_to_list, hover_x, hover_y, 0, 0));
         draw_country_selected_summary(hdc, layout->selected_summary, displayed_country());
         draw_detail_tabs(hdc, layout);
         return;

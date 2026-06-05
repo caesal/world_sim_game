@@ -3,6 +3,7 @@
 #include "render/render_common.h"
 #include "render/snapshot_ui.h"
 #include "sim/collapse.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 
 #include <stdio.h>
@@ -147,9 +148,8 @@ CountryVassalActionHit country_overview_vassal_action_hit(RECT viewport, int mou
 }
 
 static void draw_button(HDC hdc, RECT button, const char *text, int enabled) {
-    fill_rect(hdc, button, enabled ? RGB(82, 92, 78) : RGB(58, 62, 64));
-    draw_text_rect(hdc, button, text, enabled ? RGB(244, 248, 238) : ui_theme_color(UI_COLOR_TEXT_DIM),
-                   DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+    ui_clay_draw_pill_button(hdc, button, text,
+                             ui_clay_state_for_rect(button, hover_x, hover_y, 0, !enabled));
 }
 
 static COLORREF colorref_from_color32(Color32 color) {

@@ -35,6 +35,13 @@ static DiplomacyRelation default_relation(DiplomacyStatus state, int score) {
     relation.last_war_result = DIP_LAST_WAR_NONE;
     return relation;
 }
+static int last_war_result_valid(int result) {
+    return result >= DIP_LAST_WAR_NONE && result <= DIP_LAST_WAR_FRONT_SEVERED;
+}
+static int last_war_result_has_winner(int result) {
+    return result == DIP_LAST_WAR_DECISIVE || result == DIP_LAST_WAR_MILITARY ||
+           result == DIP_LAST_WAR_SURRENDER;
+}
 static void apply_tension_easing(DiplomacyRelation *relation, int desire_a, int desire_b) {
     int calm = relation->trade_fit >= 40 && relation->border_tension < 45 &&
                relation->resource_conflict < 55 && desire_a < 45 && desire_b < 45;
@@ -309,25 +316,33 @@ DiplomacyRelation diplomacy_relation(int civ_a, int civ_b) {
     }
     return diplomacy_matrix[civ_a][civ_b];
 }
-void diplomacy_record_war_result(int winner, int loser) {
+void diplomacy_record_war_result_kind(int winner, int loser, DiplomacyLastWarResult result) {
     DiplomacyRelation relation;
     if (winner < 0 || winner >= MAX_CIVS || loser < 0 || loser >= MAX_CIVS || winner == loser) return;
+    if (!last_war_result_has_winner(result)) result = DIP_LAST_WAR_MILITARY;
     relation = diplomacy_matrix[winner][loser];
     if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
     relation.last_war_winner = winner;
     relation.last_war_loser = loser;
-    relation.last_war_result = DIP_LAST_WAR_DECISIVE;
+    relation.last_war_result = result;
     set_relation_pair(winner, loser, relation);
 }
-void diplomacy_record_war_interrupted(int civ_a, int civ_b) {
+void diplomacy_record_war_result(int winner, int loser) {
+    diplomacy_record_war_result_kind(winner, loser, DIP_LAST_WAR_MILITARY);
+}
+void diplomacy_record_war_no_winner(int civ_a, int civ_b, DiplomacyLastWarResult result) {
     DiplomacyRelation relation;
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
+    if (last_war_result_has_winner(result) || result == DIP_LAST_WAR_NONE) result = DIP_LAST_WAR_NEGOTIATED_TRUCE;
     relation = diplomacy_matrix[civ_a][civ_b];
     if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
     relation.last_war_winner = -1;
     relation.last_war_loser = -1;
-    relation.last_war_result = DIP_LAST_WAR_INTERRUPTED;
+    relation.last_war_result = result;
     set_relation_pair(civ_a, civ_b, relation);
+}
+void diplomacy_record_war_interrupted(int civ_a, int civ_b) {
+    diplomacy_record_war_no_winner(civ_a, civ_b, DIP_LAST_WAR_FRONT_SEVERED);
 }
 int diplomacy_last_war_desire(int civ_id) { return war_desire_last_final(civ_id); }
 const char *diplomacy_last_war_reason(int civ_id) {
@@ -413,6 +428,14 @@ void diplomacy_sanitize_loaded(void) {
     for (a = 0; a < MAX_CIVS; a++) for (b = 0; b < MAX_CIVS; b++) {
         if (a == b || a >= civ_count || b >= civ_count || !civs[a].alive || !civs[b].alive)
             diplomacy_matrix[a][b] = default_relation(a == b ? DIPLOMACY_PEACE : DIPLOMACY_NONE, 50);
+        else if (!last_war_result_valid(diplomacy_matrix[a][b].last_war_result)) {
+            diplomacy_matrix[a][b].last_war_result = DIP_LAST_WAR_NONE;
+            diplomacy_matrix[a][b].last_war_winner = -1;
+            diplomacy_matrix[a][b].last_war_loser = -1;
+        } else if (!last_war_result_has_winner(diplomacy_matrix[a][b].last_war_result)) {
+            diplomacy_matrix[a][b].last_war_winner = -1;
+            diplomacy_matrix[a][b].last_war_loser = -1;
+        }
     }
     diplomacy_mark_contacts_dirty();
 }

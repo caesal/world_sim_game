@@ -19,6 +19,17 @@ typedef enum {
     UI_CLAY_SURFACE_TAB
 } UiClaySurface;
 
+typedef enum {
+    UI_CLAY_TONE_NEUTRAL,
+    UI_CLAY_TONE_PEACE,
+    UI_CLAY_TONE_TENSE,
+    UI_CLAY_TONE_TRUCE,
+    UI_CLAY_TONE_WAR,
+    UI_CLAY_TONE_TRIBUTE,
+    UI_CLAY_TONE_VASSAL,
+    UI_CLAY_TONE_MUTED
+} UiClaySemanticTone;
+
 typedef struct {
     COLORREF fill;
     COLORREF border;
@@ -32,7 +43,16 @@ typedef struct {
     int shadow_offset;
 } UiClayStyle;
 
+typedef struct {
+    COLORREF accent;
+    COLORREF tag_fill;
+    COLORREF tag_text;
+    COLORREF soft_fill;
+    COLORREF border;
+} UiClaySemanticStyle;
+
 UiClayStyle ui_clay_style(UiClaySurface surface, UiClayState state);
+UiClaySemanticStyle ui_clay_semantic_style(UiClaySemanticTone tone);
 COLORREF ui_clay_text_color(UiClayState state);
 COLORREF ui_clay_muted_text_color(void);
 

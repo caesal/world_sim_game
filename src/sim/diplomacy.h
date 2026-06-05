@@ -24,7 +24,12 @@ typedef enum {
 typedef enum {
     DIP_LAST_WAR_NONE = 0,
     DIP_LAST_WAR_DECISIVE,
-    DIP_LAST_WAR_INTERRUPTED
+    DIP_LAST_WAR_INTERRUPTED,
+    DIP_LAST_WAR_MILITARY,
+    DIP_LAST_WAR_SURRENDER,
+    DIP_LAST_WAR_NEGOTIATED_TRUCE,
+    DIP_LAST_WAR_OFFENSIVE_HALTED,
+    DIP_LAST_WAR_FRONT_SEVERED
 } DiplomacyLastWarResult;
 
 typedef struct {
@@ -67,7 +72,9 @@ DiplomacyContactKind diplomacy_direct_contact_kind(int civ_a, int civ_b);
 DiplomacyContactKind diplomacy_current_contact_kind(int civ_a, int civ_b);
 void diplomacy_force_war(int civ_a, int civ_b);
 void diplomacy_record_war_result(int winner, int loser);
+void diplomacy_record_war_result_kind(int winner, int loser, DiplomacyLastWarResult result);
 void diplomacy_record_war_interrupted(int civ_a, int civ_b);
+void diplomacy_record_war_no_winner(int civ_a, int civ_b, DiplomacyLastWarResult result);
 void diplomacy_start_truce(int civ_a, int civ_b, int years, int relation_score);
 void diplomacy_start_vassal(int overlord, int vassal, int relation_score);
 void diplomacy_restore_relation(int civ_a, int civ_b, DiplomacyRelation relation);

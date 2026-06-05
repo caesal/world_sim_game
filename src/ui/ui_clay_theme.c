@@ -89,6 +89,48 @@ UiClayStyle ui_clay_style(UiClaySurface surface, UiClayState state) {
     return style;
 }
 
+UiClaySemanticStyle ui_clay_semantic_style(UiClaySemanticTone tone) {
+    UiClaySemanticStyle style = {
+        RGB(126, 136, 138), RGB(59, 68, 70), RGB(238, 242, 240),
+        RGB(51, 59, 61), RGB(92, 104, 106)
+    };
+
+    switch (tone) {
+        case UI_CLAY_TONE_PEACE:
+            style = (UiClaySemanticStyle){RGB(88, 164, 134), RGB(43, 70, 63),
+                                          RGB(222, 248, 238), RGB(48, 63, 60), RGB(78, 124, 111)};
+            break;
+        case UI_CLAY_TONE_TENSE:
+            style = (UiClaySemanticStyle){RGB(210, 143, 70), RGB(77, 58, 38),
+                                          RGB(255, 232, 204), RGB(63, 55, 45), RGB(136, 105, 62)};
+            break;
+        case UI_CLAY_TONE_TRUCE:
+            style = (UiClaySemanticStyle){RGB(205, 174, 86), RGB(76, 66, 43),
+                                          RGB(255, 239, 198), RGB(63, 59, 47), RGB(139, 122, 68)};
+            break;
+        case UI_CLAY_TONE_WAR:
+            style = (UiClaySemanticStyle){RGB(190, 88, 78), RGB(69, 45, 45),
+                                          RGB(255, 226, 220), RGB(61, 49, 49), RGB(142, 72, 67)};
+            break;
+        case UI_CLAY_TONE_TRIBUTE:
+            style = (UiClaySemanticStyle){RGB(112, 143, 194), RGB(47, 56, 82),
+                                          RGB(226, 235, 255), RGB(50, 56, 70), RGB(83, 101, 146)};
+            break;
+        case UI_CLAY_TONE_VASSAL:
+            style = (UiClaySemanticStyle){RGB(130, 126, 185), RGB(53, 52, 79),
+                                          RGB(232, 228, 255), RGB(53, 55, 70), RGB(95, 93, 143)};
+            break;
+        case UI_CLAY_TONE_MUTED:
+            style = (UiClaySemanticStyle){RGB(108, 116, 118), RGB(52, 58, 60),
+                                          RGB(196, 204, 202), RGB(48, 54, 56), RGB(76, 84, 86)};
+            break;
+        case UI_CLAY_TONE_NEUTRAL:
+        default:
+            break;
+    }
+    return style;
+}
+
 COLORREF ui_clay_text_color(UiClayState state) {
     return ui_clay_style(UI_CLAY_SURFACE_PANEL, state).text;
 }

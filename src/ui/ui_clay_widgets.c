@@ -104,3 +104,30 @@ void ui_clay_draw_swatch(HDC hdc, RECT rect, COLORREF color, UiClayState state) 
         fill_rect(hdc, inner, color);
     }
 }
+
+void ui_clay_draw_metric_chip_text(HDC hdc, RECT rect, int icon, const char *label,
+                                   const char *value, COLORREF accent) {
+    RECT stripe = rect;
+    int mid = rect.top + (rect.bottom - rect.top) / 2;
+    RECT icon_rect = {rect.left + 6, rect.top + 5, rect.left + 24, rect.bottom - 5};
+    RECT label_rect = {rect.left + 29, rect.top + 3, rect.right - 8, mid + 1};
+    RECT value_rect = {rect.left + 29, mid - 1, rect.right - 8, rect.bottom - 3};
+
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
+    ui_clay_draw_card(hdc, rect, UI_CLAY_STATE_NORMAL);
+    stripe.right = stripe.left + 3;
+    fill_rect(hdc, stripe, accent);
+    draw_icon(hdc, (IconId)icon, icon_rect, accent);
+    draw_text_rect(hdc, label_rect, label, ui_clay_muted_text_color(),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, value_rect, value, ui_clay_text_color(UI_CLAY_STATE_NORMAL),
+                   DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS);
+}
+
+void ui_clay_draw_metric_chip_int(HDC hdc, RECT rect, int icon, const char *label,
+                                  int value, COLORREF accent) {
+    char text[32];
+
+    format_metric_value(value, text, sizeof(text));
+    ui_clay_draw_metric_chip_text(hdc, rect, icon, label, text, accent);
+}

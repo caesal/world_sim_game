@@ -2,6 +2,8 @@
 
 #include "render/render_common.h"
 #include "render/snapshot_ui.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_types.h"
 
@@ -98,7 +100,7 @@ void draw_country_summary_card(HDC hdc, RECT rect, int civ_id, int selected) {
     COLORREF text_color = civ && civ->alive ? ui_theme_color(UI_COLOR_TEXT) : ui_theme_color(UI_COLOR_TEXT_DIM);
 
     if (!civ) return;
-    fill_rect(hdc, rect, selected ? RGB(54, 61, 58) : ui_theme_color(UI_COLOR_PANEL_SOFT));
+    ui_clay_draw_card(hdc, rect, selected ? UI_CLAY_STATE_SELECTED : UI_CLAY_STATE_NORMAL);
     fill_rect(hdc, swatch, civ->color);
     snprintf(title, sizeof(title), "%c  %.80s", civ->symbol, snapshot_ui_civ_name(civ_id));
     draw_text_rect(hdc, name_rect, title, text_color, DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
@@ -133,7 +135,7 @@ void draw_country_selected_summary(HDC hdc, RECT rect, int civ_id) {
     char status_text[64];
 
     if (!civ) return;
-    fill_rect(hdc, rect, RGB(54, 61, 58));
+    ui_clay_draw_card(hdc, rect, UI_CLAY_STATE_SELECTED);
     fill_rect(hdc, swatch, civ->color);
     snprintf(title, sizeof(title), "%c  %.80s", civ->symbol, snapshot_ui_civ_name(civ_id));
     status_summary_text(civ, status_text, sizeof(status_text));
@@ -146,8 +148,8 @@ void draw_country_selected_summary(HDC hdc, RECT rect, int civ_id) {
              tr("Status", "状态"), status_text,
              tr("Intent", "意图"), intent_label(civ->main_intent));
     draw_text_rect(hdc, name_rect, title, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, locate_rect, RGB(87, 93, 78));
-    draw_center_text(hdc, locate_rect, tr("Locate", "定位"), RGB(255, 238, 190));
+    ui_clay_draw_pill_button(hdc, locate_rect, tr("Locate", "定位"),
+                             ui_clay_state_for_rect(locate_rect, hover_x, hover_y, 0, 0));
     draw_text_rect(hdc, summary_rect, summary, ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }

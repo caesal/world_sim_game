@@ -1,28 +1,244 @@
 World Sim expansion probe seed=1234567 map=720x500 initial_civs=20
 Technology sanity initial_stage0=yes stage0_expansion=100 stage0_resource=100 stage0_deep=0 stage0_defense=100 stage0_battle=0 stage1_expansion=110 stage2_expansion=120
 year=1 active_owned_regions=41 owned_regions=41 land_regions=579 active_ownership=7% wars=0
-  civ=0 name=Mingyue Court regions=2 land_adj=9 land_near=5 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=155 threshold=79 war_desire=0
-  civ=1 name=TsukiSora Jade Dominion regions=2 land_adj=10 land_near=20 shallow=4 route=4 deep=0 port_candidates=79 global=92% desire=147 threshold=84 war_desire=0
-  civ=2 name=Kingdom of Maerwyn regions=2 land_adj=7 land_near=12 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=157 threshold=75 war_desire=0
-  civ=3 name=Covenant of Eryndor regions=2 land_adj=8 land_near=8 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=160 threshold=75 war_desire=0
-  civ=4 name=Whiteharbor League regions=2 land_adj=12 land_near=24 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=149 threshold=80 war_desire=0
-  civ=5 name=Celestial TengriHana Realm regions=2 land_adj=9 land_near=7 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=146 threshold=84 war_desire=0
-  civ=6 name=YinShen Banner State regions=3 land_adj=6 land_near=4 shallow=2 route=2 deep=0 port_candidates=79 global=92% desire=160 threshold=75 war_desire=0
-  civ=7 name=Heian Shogunate regions=2 land_adj=4 land_near=7 shallow=3 route=3 deep=0 port_candidates=79 global=92% desire=160 threshold=79 war_desire=0
-  civ=8 name=Western LuoLong Protectorate regions=2 land_adj=5 land_near=3 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=142 threshold=75 war_desire=0
-  civ=9 name=Nightspire Realm regions=2 land_adj=11 land_near=4 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=144 threshold=88 war_desire=0
-  civ=10 name=Free Cities of Orvain regions=2 land_adj=3 land_near=4 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=135 threshold=70 war_desire=0
-  civ=11 name=ChunXuan High Kingdom regions=2 land_adj=9 land_near=11 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=160 threshold=71 war_desire=0
-  civ=12 name=Ashenmoor Kingdom regions=2 land_adj=3 land_near=3 shallow=1 route=1 deep=0 port_candidates=79 global=92% desire=144 threshold=79 war_desire=0
-  civ=13 name=Embervale Dominion regions=2 land_adj=9 land_near=6 shallow=2 route=2 deep=0 port_candidates=79 global=92% desire=160 threshold=84 war_desire=0
-  civ=14 name=JingMei Mountain Kingdom regions=2 land_adj=12 land_near=17 shallow=4 route=4 deep=0 port_candidates=79 global=92% desire=160 threshold=75 war_desire=0
-  civ=15 name=Marches of Duskfall regions=2 land_adj=8 land_near=11 shallow=4 route=4 deep=0 port_candidates=79 global=92% desire=160 threshold=75 war_desire=0
-  civ=16 name=The Moonlit Compact regions=2 land_adj=6 land_near=3 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=160 threshold=70 war_desire=0
-  civ=17 name=Court of SelenCheong regions=2 land_adj=3 land_near=4 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=149 threshold=84 war_desire=0
-  civ=18 name=Greystone Dominion regions=2 land_adj=6 land_near=7 shallow=0 route=0 deep=0 port_candidates=79 global=92% desire=160 threshold=70 war_desire=0
-  civ=19 name=The ZhaoLan Mandate regions=2 land_adj=10 land_near=13 shallow=4 route=4 deep=0 port_candidates=79 global=92% desire=157 threshold=75 war_desire=0
-  total_reachable_unowned_sum=323
-year=10 active_owned_regions=160 owned_regions=160 land_regions=579 active_ownership=27% wars=0
-  civ=0 name=Mingyue Court regions=8 land_adj=5 land_near=1 shallow=0 route=0 deep=0 port_candidates=49 global=72% desire=137 threshold=79 war_desire=0
-  civ=1 name=TsukiSora Jade Dominion regions=8 land_adj=11 land_near=10 shallow=2 route=2 deep=0 port_candidates=49 global=72% desire=140 threshold=84 war_desire=0
-  civ=2 name=Kingdom of Maerwyn regions=8 land_adj=8 land_near=12 shallow=0 route=0 deep=0 port_candidates=49 global=72% desire=
+  civ=0 name=Mingyue Court regions=2 land_adj=10 land_near=5 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=155 threshold=79 war_desire=0
+  civ=1 name=TsukiSora Jade Dominion regions=2 land_adj=10 land_near=19 shallow=4 route=4 deep=0 port_candidates=86 global=92% desire=147 threshold=84 war_desire=0
+  civ=2 name=Kingdom of Maerwyn regions=2 land_adj=7 land_near=12 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=157 threshold=75 war_desire=0
+  civ=3 name=Covenant of Eryndor regions=2 land_adj=8 land_near=10 shallow=1 route=1 deep=0 port_candidates=86 global=92% desire=160 threshold=75 war_desire=0
+  civ=4 name=Whiteharbor League regions=2 land_adj=11 land_near=19 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=149 threshold=80 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=2 land_adj=9 land_near=8 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=146 threshold=84 war_desire=0
+  civ=6 name=YinShen Banner State regions=3 land_adj=6 land_near=4 shallow=2 route=2 deep=0 port_candidates=86 global=92% desire=160 threshold=75 war_desire=0
+  civ=7 name=Heian Shogunate regions=2 land_adj=11 land_near=4 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=147 threshold=84 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=2 land_adj=6 land_near=8 shallow=3 route=3 deep=0 port_candidates=86 global=92% desire=159 threshold=75 war_desire=0
+  civ=9 name=Moonvale Compact regions=2 land_adj=12 land_near=17 shallow=4 route=4 deep=0 port_candidates=86 global=92% desire=159 threshold=84 war_desire=0
+  civ=10 name=Solmere Crownlands regions=2 land_adj=8 land_near=11 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=160 threshold=70 war_desire=0
+  civ=11 name=Ruihua Commonwealth regions=2 land_adj=9 land_near=11 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=160 threshold=75 war_desire=0
+  civ=12 name=Whitevale League regions=2 land_adj=10 land_near=13 shallow=4 route=4 deep=0 port_candidates=86 global=92% desire=154 threshold=79 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=2 land_adj=5 land_near=4 shallow=2 route=2 deep=0 port_candidates=86 global=92% desire=160 threshold=80 war_desire=0
+  civ=14 name=SongHan Kingdom regions=2 land_adj=11 land_near=8 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=156 threshold=75 war_desire=0
+  civ=15 name=Nightspire Realm regions=2 land_adj=9 land_near=16 shallow=2 route=2 deep=0 port_candidates=86 global=92% desire=160 threshold=75 war_desire=0
+  civ=16 name=Stormfall Empire regions=2 land_adj=6 land_near=13 shallow=0 route=0 deep=0 port_candidates=86 global=92% desire=160 threshold=75 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=2 land_adj=3 land_near=3 shallow=3 route=3 deep=0 port_candidates=86 global=92% desire=160 threshold=79 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=2 land_adj=14 land_near=22 shallow=1 route=1 deep=0 port_candidates=86 global=92% desire=160 threshold=70 war_desire=0
+  civ=19 name=MingCang Banner State regions=2 land_adj=5 land_near=10 shallow=1 route=1 deep=0 port_candidates=86 global=92% desire=160 threshold=75 war_desire=0
+  total_reachable_unowned_sum=387
+year=10 active_owned_regions=163 owned_regions=163 land_regions=579 active_ownership=28% wars=0
+  civ=0 name=Mingyue Court regions=8 land_adj=7 land_near=1 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=159 threshold=79 war_desire=0
+  civ=1 name=TsukiSora Jade Dominion regions=8 land_adj=9 land_near=12 shallow=3 route=3 deep=0 port_candidates=51 global=71% desire=140 threshold=84 war_desire=0
+  civ=2 name=Kingdom of Maerwyn regions=8 land_adj=13 land_near=8 shallow=3 route=3 deep=0 port_candidates=51 global=71% desire=151 threshold=75 war_desire=0
+  civ=3 name=Covenant of Eryndor regions=8 land_adj=9 land_near=11 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=156 threshold=75 war_desire=0
+  civ=4 name=Whiteharbor League regions=9 land_adj=13 land_near=6 shallow=2 route=2 deep=0 port_candidates=51 global=71% desire=152 threshold=76 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=8 land_adj=4 land_near=1 shallow=2 route=2 deep=0 port_candidates=51 global=71% desire=130 threshold=84 war_desire=0
+  civ=6 name=YinShen Banner State regions=9 land_adj=4 land_near=0 shallow=2 route=2 deep=0 port_candidates=51 global=71% desire=149 threshold=71 war_desire=0
+  civ=7 name=Heian Shogunate regions=8 land_adj=10 land_near=1 shallow=5 route=5 deep=0 port_candidates=51 global=71% desire=144 threshold=84 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=9 land_adj=8 land_near=5 shallow=3 route=3 deep=0 port_candidates=51 global=71% desire=150 threshold=75 war_desire=0
+  civ=9 name=Moonvale Compact regions=8 land_adj=14 land_near=11 shallow=3 route=3 deep=0 port_candidates=51 global=71% desire=154 threshold=84 war_desire=0
+  civ=10 name=Solmere Crownlands regions=8 land_adj=15 land_near=16 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=160 threshold=70 war_desire=0
+  civ=11 name=Ruihua Commonwealth regions=8 land_adj=14 land_near=7 shallow=5 route=5 deep=0 port_candidates=51 global=71% desire=156 threshold=75 war_desire=0
+  civ=12 name=Whitevale League regions=8 land_adj=12 land_near=15 shallow=5 route=5 deep=0 port_candidates=51 global=71% desire=160 threshold=79 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=8 land_adj=2 land_near=1 shallow=1 route=1 deep=0 port_candidates=51 global=71% desire=117 threshold=80 war_desire=0
+  civ=14 name=SongHan Kingdom regions=8 land_adj=9 land_near=3 shallow=1 route=1 deep=0 port_candidates=51 global=71% desire=160 threshold=71 war_desire=0
+  civ=15 name=Nightspire Realm regions=8 land_adj=13 land_near=20 shallow=1 route=1 deep=0 port_candidates=51 global=71% desire=160 threshold=75 war_desire=0
+  civ=16 name=Stormfall Empire regions=8 land_adj=7 land_near=11 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=160 threshold=71 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=8 land_adj=5 land_near=10 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=153 threshold=75 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=8 land_adj=22 land_near=19 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=160 threshold=70 war_desire=0
+  civ=19 name=MingCang Banner State regions=8 land_adj=7 land_near=6 shallow=0 route=0 deep=0 port_candidates=51 global=71% desire=159 threshold=75 war_desire=0
+  total_reachable_unowned_sum=361
+year=50 active_owned_regions=504 owned_regions=504 land_regions=579 active_ownership=87% wars=33
+  civ=0 name=Mingyue Court regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=108 threshold=79 war_desire=44
+  civ=1 name=TsukiSora Jade Dominion regions=26 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=77 threshold=80 war_desire=0
+  civ=2 name=Kingdom of Maerwyn regions=32 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=91 threshold=63 war_desire=58
+  civ=3 name=Covenant of Eryndor regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=89 threshold=75 war_desire=49
+  civ=4 name=Whiteharbor League regions=30 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=90 threshold=72 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=86 threshold=72 war_desire=47
+  civ=6 name=YinShen Banner State regions=27 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=107 threshold=63 war_desire=59
+  civ=7 name=Heian Shogunate regions=33 land_adj=15 land_near=8 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=160 threshold=76 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=26 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=83 threshold=75 war_desire=64
+  civ=9 name=Moonvale Compact regions=25 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=90 threshold=84 war_desire=0
+  civ=10 name=Solmere Crownlands regions=25 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=105 threshold=70 war_desire=87
+  civ=11 name=Ruihua Commonwealth regions=35 land_adj=3 land_near=1 shallow=3 route=3 deep=0 port_candidates=13 global=12% desire=84 threshold=71 war_desire=14
+  civ=12 name=Whitevale League regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=45 threshold=79 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=108 threshold=80 war_desire=45
+  civ=14 name=SongHan Kingdom regions=36 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=95 threshold=67 war_desire=63
+  civ=15 name=Nightspire Realm regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=96 threshold=63 war_desire=0
+  civ=16 name=Stormfall Empire regions=26 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=0 threshold=63 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=0 threshold=71 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=29 land_adj=2 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=60 threshold=70 war_desire=0
+  civ=19 name=MingCang Banner State regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=83 threshold=75 war_desire=0
+  civ=20 name=Brightwater Republic regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=94 threshold=79 war_desire=55
+  civ=21 name=Southern BoranLong Kingdom regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=13 global=12% desire=84 threshold=71 war_desire=0
+  total_reachable_unowned_sum=29
+year=100 active_owned_regions=540 owned_regions=540 land_regions=579 active_ownership=93% wars=70
+  civ=0 name=Mingyue Court regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=64 war_desire=53
+  civ=1 name=TsukiSora Jade Dominion regions=25 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=127 threshold=72 war_desire=67
+  civ=2 name=Kingdom of Maerwyn regions=37 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=134 threshold=58 war_desire=63
+  civ=3 name=Covenant of Eryndor regions=21 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=140 threshold=68 war_desire=20
+  civ=4 name=Whiteharbor League regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=145 threshold=61 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=135 threshold=61 war_desire=61
+  civ=6 name=YinShen Banner State regions=27 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=7 name=Heian Shogunate regions=64 land_adj=2 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=149 threshold=61 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=29 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=138 threshold=60 war_desire=0
+  civ=9 name=Moonvale Compact regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=113 threshold=76 war_desire=0
+  civ=10 name=Solmere Crownlands regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=60 war_desire=0
+  civ=11 name=Ruihua Commonwealth regions=56 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=113 threshold=60 war_desire=0
+  civ=12 name=Whitevale League regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=137 threshold=64 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=61 war_desire=0
+  civ=14 name=SongHan Kingdom regions=37 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=65 threshold=60 war_desire=27
+  civ=15 name=Nightspire Realm regions=29 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=144 threshold=58 war_desire=0
+  civ=16 name=Stormfall Empire regions=34 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=132 threshold=58 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=140 threshold=60 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=140 threshold=60 war_desire=0
+  civ=19 name=MingCang Banner State regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=121 threshold=68 war_desire=0
+  civ=20 name=Brightwater Republic regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=143 threshold=71 war_desire=0
+  civ=21 name=Southern BoranLong Kingdom regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=88 threshold=64 war_desire=0
+  civ=22 name=Blackwater League regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=132 threshold=60 war_desire=0
+  total_reachable_unowned_sum=2
+year=200 active_owned_regions=542 owned_regions=542 land_regions=579 active_ownership=93% wars=174
+  civ=0 name=Mingyue Court regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=1 name=TsukiSora Jade Dominion regions=27 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=2 name=Kingdom of Maerwyn regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=3 name=Covenant of Eryndor regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=4 name=Whiteharbor League regions=39 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=105 threshold=58 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=6 name=YinShen Banner State regions=35 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=7 name=Heian Shogunate regions=66 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=34 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=9 name=Moonvale Compact regions=21 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=10 name=Solmere Crownlands regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=11 name=Ruihua Commonwealth regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=12 name=Whitevale League regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=14 name=SongHan Kingdom regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=15 name=Nightspire Realm regions=32 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=16 name=Stormfall Empire regions=46 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=19 name=MingCang Banner State regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=20 name=Brightwater Republic regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=21 name=Southern BoranLong Kingdom regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=108 threshold=58 war_desire=0
+  civ=22 name=Blackwater League regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=23 name=Northern KiriFeng Realm regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=24 name=Aurelian Empire regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=25 name=Starhaven Republic regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=110 threshold=58 war_desire=0
+  civ=26 name=MingGaram Banner State regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=27 name=Realm of Veyr regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=28 name=Crownlands of Arken regions=24 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=29 name=The HeiKaze Mandate regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=112 threshold=58 war_desire=0
+  civ=30 name=Ashthorn Dominion regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=31 name=Wolfmere Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=124 threshold=58 war_desire=0
+  civ=32 name=Marches of Duskfall regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=100 threshold=58 war_desire=0
+  total_reachable_unowned_sum=0
+year=300 active_owned_regions=542 owned_regions=542 land_regions=579 active_ownership=93% wars=339
+  civ=0 name=Mingyue Court regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=1 name=TsukiSora Jade Dominion regions=37 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=101 threshold=58 war_desire=35
+  civ=2 name=Kingdom of Maerwyn regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=111 threshold=58 war_desire=0
+  civ=3 name=Covenant of Eryndor regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=4 name=Whiteharbor League regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=6 name=YinShen Banner State regions=12 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=7 name=Heian Shogunate regions=66 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=44 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=104 threshold=58 war_desire=35
+  civ=9 name=Moonvale Compact regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=55
+  civ=10 name=The Ivory Realm regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=11 name=Ruihua Commonwealth regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=114 threshold=58 war_desire=0
+  civ=12 name=Whitevale League regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=55
+  civ=14 name=SongHan Kingdom regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=15 name=Nightspire Realm regions=36 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=16 name=Stormfall Empire regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=19 name=MingCang Banner State regions=23 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=20 name=Brightwater Republic regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=21 name=Southern BoranLong Kingdom regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=22 name=Ravenhold Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=23 name=Northern KiriFeng Realm regions=21 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=24 name=MuChun Mountain Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=48
+  civ=25 name=Starhaven Republic regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=26 name=MingGaram Banner State regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=27 name=Realm of Veyr regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=115 threshold=58 war_desire=0
+  civ=28 name=Crownlands of Arken regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=30 name=Ashthorn Dominion regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=31 name=Wolfmere Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=124 threshold=58 war_desire=0
+  civ=33 name=Dawnmere Republic regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=34 name=Principality of Westvale regions=6 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=36 name=KumoBaek Sea Kingdom regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=45 threshold=58 war_desire=0
+  civ=37 name=Northern GuangMori Realm regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=48 threshold=58 war_desire=0
+  civ=38 name=Frostmarch Kingdom regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=0 threshold=58 war_desire=0
+  civ=39 name=Crown of Emberlyn regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=130 threshold=58 war_desire=55
+  civ=40 name=Moonspire Compact regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=60 threshold=58 war_desire=0
+  total_reachable_unowned_sum=0
+year=400 active_owned_regions=542 owned_regions=542 land_regions=579 active_ownership=93% wars=479
+  civ=0 name=Thornmere Dominion regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=110 threshold=58 war_desire=0
+  civ=1 name=TsukiSora Jade Dominion regions=46 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=98 threshold=58 war_desire=35
+  civ=2 name=Kingdom of Maerwyn regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=100
+  civ=3 name=Western KazeHana Protectorate regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=108 threshold=58 war_desire=0
+  civ=4 name=Whiteharbor League regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=6 name=YinShen Banner State regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=7 name=Heian Shogunate regions=66 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=48 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=100
+  civ=9 name=Moonvale Compact regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=10 name=The Ivory Realm regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=11 name=Ruihua Commonwealth regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=12 name=Whitevale League regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=55
+  civ=13 name=Grand Duchy of Ravenspire regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=55
+  civ=14 name=SongHan Kingdom regions=11 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=15 name=Nightspire Realm regions=38 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=16 name=Stormfall Empire regions=17 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=23 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=55
+  civ=19 name=MingCang Banner State regions=31 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=20 name=Brightwater Republic regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=21 name=Southern BoranLong Kingdom regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=108 threshold=58 war_desire=0
+  civ=22 name=Sunspire Empire regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=110 threshold=58 war_desire=0
+  civ=23 name=Northern KiriFeng Realm regions=24 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=24 name=MuChun Mountain Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=48
+  civ=27 name=Realm of Veyr regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=96 threshold=58 war_desire=0
+  civ=28 name=Crownlands of Arken regions=18 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=91 threshold=58 war_desire=0
+  civ=30 name=Ashthorn Dominion regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=33 name=Dawnmere Republic regions=20 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=100
+  civ=34 name=Principality of Westvale regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=55
+  civ=36 name=KumoBaek Sea Kingdom regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=110 threshold=58 war_desire=0
+  civ=37 name=Northern GuangMori Realm regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=86 threshold=58 war_desire=0
+  civ=38 name=Frostmarch Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=160 threshold=58 war_desire=0
+  civ=39 name=Crown of Emberlyn regions=14 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=110 threshold=58 war_desire=0
+  civ=40 name=Moonspire Compact regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=7 global=6% desire=147 threshold=58 war_desire=55
+  total_reachable_unowned_sum=0
+year=500 active_owned_regions=574 owned_regions=574 land_regions=579 active_ownership=99% wars=618
+  civ=0 name=Thornmere Dominion regions=22 land_adj=0 land_near=0 shallow=0 route=2 deep=2 port_candidates=2 global=0% desire=134 threshold=58 war_desire=0
+  civ=1 name=TsukiSora Jade Dominion regions=46 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=2 name=Kingdom of Maerwyn regions=17 land_adj=0 land_near=0 shallow=0 route=2 deep=2 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=3 name=Baekrim Mountain Realm regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=4 name=Frostgate Realm regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=115 threshold=58 war_desire=0
+  civ=5 name=Celestial TengriHana Realm regions=22 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=75
+  civ=6 name=YinShen Banner State regions=9 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=7 name=Heian Shogunate regions=66 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=8 name=JinKiri High Kingdom regions=48 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=96
+  civ=9 name=Moonvale Compact regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=10 name=The Ivory Realm regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=55
+  civ=11 name=Ruihua Commonwealth regions=26 land_adj=0 land_near=0 shallow=0 route=2 deep=2 port_candidates=2 global=0% desire=154 threshold=58 war_desire=0
+  civ=12 name=Whitevale League regions=3 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=13 name=Grand Duchy of Ravenspire regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=55
+  civ=14 name=SongHan Kingdom regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=55
+  civ=15 name=Nightspire Realm regions=50 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=16 name=Stormfall Empire regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=17 name=Celestial QiuMori Realm regions=16 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=18 name=Dominion of Kaelor regions=25 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=100
+  civ=19 name=MingCang Banner State regions=44 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=20 name=Brightwater Republic regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=21 name=Southern BoranLong Kingdom regions=15 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=108 threshold=58 war_desire=0
+  civ=22 name=Sunspire Empire regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=96 threshold=58 war_desire=0
+  civ=23 name=Northern KiriFeng Realm regions=19 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=24 name=Ivory Covenant regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=105 threshold=58 war_desire=0
+  civ=25 name=KiriTengri River League regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=28 name=Crownlands of Arken regions=10 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=105 threshold=58 war_desire=0
+  civ=30 name=Ashthorn Dominion regions=4 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=33 name=Dawnmere Republic regions=17 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=34 name=Principality of Westvale regions=7 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=36 name=KumoBaek Sea Kingdom regions=2 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=120 threshold=58 war_desire=0
+  civ=37 name=Northern GuangMori Realm regions=5 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=81 threshold=58 war_desire=0
+  civ=38 name=Frostmarch Kingdom regions=1 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  civ=39 name=Crown of Emberlyn regions=13 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=115 threshold=58 war_desire=0
+  civ=40 name=Moonspire Compact regions=8 land_adj=0 land_near=0 shallow=0 route=0 deep=0 port_candidates=2 global=0% desire=160 threshold=58 war_desire=0
+  total_reachable_unowned_sum=0

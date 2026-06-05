@@ -143,7 +143,7 @@ static void init_child_from_parent(int child_id, int parent_id, int seed_region)
     child->defense = parent.defense;
     child->culture = parent.culture;
     child->governance = parent.governance;
-    child->cohesion = parent.cohesion;
+    child->cohesion = clamp(parent.cohesion + 1 + rnd(3), 0, 10);
     child->production = parent.production;
     child->military = parent.military;
     child->commerce = parent.commerce;

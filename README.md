@@ -7,12 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2.b is a Windows graphical sandbox prototype written in C.
+Ver0.3.2.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2.b is a focused UI/UX presentation checkpoint over Ver0.3.2.a. It keeps
-the vassal-action hotfix baseline while applying the Phase 3 clay presentation
-pass to World Setup section headers, setup buttons, sliders, input frames, color
-preview controls, and the color picker panel/buttons.
+Ver0.3.2.c combines the active war/diplomacy settlement cleanup with the Phase 4
+Country and Diplomacy clay presentation checkpoint. It keeps the accepted
+vassal-action and Phase 3 UIUX baselines while clarifying surrender, offensive
+halt, negotiated truce, severed-front truce, military win/loss, vassalization
+after failed cession or severe instability, and the Country/Diplomacy card
+presentation.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -159,6 +161,12 @@ You can:
 119. Show direct vassals in compact overview rows with colored name cells plus Release and Annex actions
 120. Select and locate a direct vassal by clicking its colored name cell without pausing the simulation
 121. Keep route-potential legend entries route-only while political mode shows city, capital, harbor, and harbor-capital glyph names
+122. Resolve active wars by attacker/defender peace-pressure roles instead of letting higher disorder invert the winner
+123. Record visible post-war history labels for surrender, military victory/defeat, negotiated truce, offensive halt, and severed-front interruption
+124. Vassalize a defeated country when no regions are actually ceded or when post-settlement disorder and cohesion cross the severe-instability thresholds
+125. Deduct cohesion when any civilization loses its capital, and give collapse/enclave successor countries parent cohesion plus a bounded random bonus
+126. Apply Claymorphism Phase 4 presentation to Country lists, selected summaries, overview metric chips, action pills, diplomacy tabs, diplomacy cards, semantic relation accents, truce spacing, and vassal hierarchy rows
+127. Sort War & Truce relations with active wars first, then truces by remaining duration from longest to shortest
 
 ## Controls
 

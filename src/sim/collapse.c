@@ -140,7 +140,7 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     child->defense = parent_state.defense;
     child->culture = parent_state.culture;
     child->governance = parent_state.governance;
-    child->cohesion = parent_state.cohesion;
+    child->cohesion = clamp(parent_state.cohesion + 1 + rnd(3), 0, 10);
     child->production = parent_state.production;
     child->military = parent_state.military;
     child->commerce = parent_state.commerce;

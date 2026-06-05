@@ -298,8 +298,8 @@ int war_owned_province_count(int civ_id) {
     return regions_owned_count_for_civ(civ_id);
 }
 
-void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margin,
-                       int loser_casualties, int loser_initial_soldiers) {
+void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcome, int margin,
+                                   int loser_casualties, int loser_initial_soldiers, int last_war_result) {
     int winner = -1;
     int loser = -1;
 
@@ -313,17 +313,25 @@ void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margi
     if (winner >= 0 && loser >= 0 && is_valid_civ_id(winner) && is_valid_civ_id(loser)) {
         int cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
         int transferred;
-        diplomacy_record_war_result(winner, loser);
+        diplomacy_record_war_result_kind(winner, loser, (DiplomacyLastWarResult)last_war_result);
         transferred = transfer_side_border_regions(loser, winner, cession_count);
         if (transferred == 0) disorder_add_war_pressure(loser, 10);
-        if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3)) {
+        if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3) ||
+            (civs[loser].disorder >= 92 && civs[loser].cohesion <= 4)) {
             vassal_make(winner, loser, margin >= 3 ? 18 : 25);
         } else {
             diplomacy_start_truce(winner, loser, 55, margin >= 3 ? 20 : 30);
         }
     } else if (is_valid_civ_id(attacker) && is_valid_civ_id(defender)) {
+        diplomacy_record_war_no_winner(attacker, defender, DIP_LAST_WAR_NEGOTIATED_TRUCE);
         diplomacy_start_truce(attacker, defender, 25, 45);
     }
     world_recalculate_territory();
     world_invalidate_region_cache();
+}
+
+void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margin,
+                       int loser_casualties, int loser_initial_soldiers) {
+    war_apply_outcome_with_result(attacker, defender, outcome, margin,
+                                  loser_casualties, loser_initial_soldiers, DIP_LAST_WAR_MILITARY);
 }
