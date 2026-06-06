@@ -7,14 +7,15 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2.c is a Windows graphical sandbox prototype written in C.
+Ver0.3.2.d is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2.c combines the active war/diplomacy settlement cleanup with the Phase 4
-Country and Diplomacy clay presentation checkpoint. It keeps the accepted
-vassal-action and Phase 3 UIUX baselines while clarifying surrender, offensive
-halt, negotiated truce, severed-front truce, military win/loss, vassalization
-after failed cession or severe instability, and the Country/Diplomacy card
-presentation.
+Ver0.3.2.d combines the accepted vassal highlight pulse hotfix, Phase 5 UIUX
+presentation polish, lighter centralized clay shadows, and diplomacy map-event
+animation cleanup. It keeps the Ver0.3.2.c war/diplomacy settlement baseline
+while making overlord/vassal map pulses consistent, preserving Phase 4
+Country/Diplomacy presentation, improving Population/Plague/Map/Info/Debug
+clay presentation, clipping diplomacy event animations to the map area, and
+showing war-start map animation as a single red arrow from attacker to defender.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed

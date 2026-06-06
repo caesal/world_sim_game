@@ -297,21 +297,18 @@ void draw_map_legend(HDC hdc, RECT client) {
     int show_city_glyphs = display_mode == DISPLAY_POLITICAL;
     RECT box = get_map_legend_box_rect(client);
     RECT toggle = get_map_legend_toggle_rect(client);
-    HBRUSH border_brush;
+    UiClayState toggle_state;
     int saved_dc;
     int collapsed;
 
     if (IsRectEmpty(&box)) return;
     collapsed = map_legend_collapsed || (box.bottom - box.top <= 40);
 
-    fill_rect_alpha(hdc, box, RGB(31, 37, 43), 188);
-    border_brush = CreateSolidBrush(RGB(76, 92, 104));
-    FrameRect(hdc, &box, border_brush);
-    DeleteObject(border_brush);
+    ui_clay_draw_card(hdc, box, UI_CLAY_STATE_NORMAL);
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, box.left, box.top, box.right, box.bottom);
-    fill_rect_alpha(hdc, toggle, RGB(47, 58, 68), 236);
-    draw_center_text(hdc, toggle, collapsed ? "^" : "v", RGB(236, 242, 246));
+    toggle_state = ui_clay_state_for_rect(toggle, hover_x, hover_y, 0, 0);
+    ui_clay_draw_icon_button(hdc, toggle, collapsed ? "^" : "v", toggle_state);
     if (collapsed) {
         RestoreDC(hdc, saved_dc);
         return;

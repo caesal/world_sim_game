@@ -2,6 +2,7 @@
 
 #include "render/snapshot_ui.h"
 #include "render_panel_internal.h"
+#include "ui/ui_clay_widgets.h"
 
 static COLORREF pressure_color(int pressure) {
     if (pressure < 50) return RGB(83, 143, 98);
@@ -40,7 +41,8 @@ void draw_country_population_tab(HDC hdc, RECT client, UiCursor *cursor,
     snprintf(text, sizeof(text), "%d / %d   %s",
              summary.total, summary.carrying_capacity, pressure_label(summary.pressure));
     ui_row_text(hdc, cursor, tr("Population / Capacity", "人口 / 承载"), text);
-    ui_progress_bar(hdc, ui_take_rect(cursor, 12), summary.pressure, 140, pressure_color(summary.pressure));
+    ui_clay_draw_progress_bar(hdc, ui_take_rect(cursor, 12), summary.pressure, 140,
+                              pressure_color(summary.pressure));
     ui_row_int(hdc, cursor, tr("Male", "男性"), summary.male);
     ui_row_int(hdc, cursor, tr("Female", "女性"), summary.female);
     ui_row_int(hdc, cursor, tr("Fertile population", "育龄人口"), summary.fertile);

@@ -9,9 +9,9 @@ static COLORREF clay_mix(COLORREF a, COLORREF b, int b_percent) {
 
 static UiClayStyle clay_base_style(UiClaySurface surface) {
     UiClayStyle style = {
-        RGB(50, 59, 61), RGB(88, 101, 104), RGB(24, 29, 31),
+        RGB(50, 59, 61), RGB(88, 101, 104), RGB(27, 32, 34), RGB(36, 41, 43),
         RGB(104, 118, 119), RGB(244, 244, 236), RGB(196, 204, 202),
-        18, 12, 8, 4
+        18, 12, 8, 2, 1
     };
 
     switch (surface) {
@@ -21,6 +21,7 @@ static UiClayStyle clay_base_style(UiClaySurface surface) {
             style.radius = 16;
             style.padding_x = 10;
             style.padding_y = 8;
+            style.shadow_offset = 2;
             break;
         case UI_CLAY_SURFACE_PANEL:
             style.fill = RGB(49, 58, 60);
@@ -28,11 +29,13 @@ static UiClayStyle clay_base_style(UiClaySurface surface) {
             style.radius = 22;
             style.padding_x = 14;
             style.padding_y = 12;
+            style.shadow_offset = 2;
             break;
         case UI_CLAY_SURFACE_CARD:
             style.fill = RGB(58, 67, 68);
             style.border = RGB(104, 117, 117);
             style.radius = 18;
+            style.shadow_offset = 2;
             break;
         case UI_CLAY_SURFACE_PILL:
             style.fill = RGB(72, 82, 84);
@@ -40,6 +43,7 @@ static UiClayStyle clay_base_style(UiClaySurface surface) {
             style.radius = 28;
             style.padding_x = 14;
             style.padding_y = 6;
+            style.shadow_offset = 2;
             break;
         case UI_CLAY_SURFACE_TAB:
             style.fill = RGB(58, 67, 69);
@@ -47,7 +51,7 @@ static UiClayStyle clay_base_style(UiClaySurface surface) {
             style.radius = 14;
             style.padding_x = 12;
             style.padding_y = 6;
-            style.shadow_offset = 3;
+            style.shadow_offset = 1;
             break;
         default:
             break;
@@ -65,13 +69,14 @@ UiClayStyle ui_clay_style(UiClaySurface surface, UiClayState state) {
             break;
         case UI_CLAY_STATE_PRESSED:
             style.fill = clay_mix(style.fill, style.shadow, 24);
-            style.shadow_offset = max(1, style.shadow_offset - 2);
+            style.shadow_offset = max(1, style.shadow_offset - 1);
             break;
         case UI_CLAY_STATE_SELECTED:
             style.fill = RGB(112, 105, 138);
             style.border = RGB(174, 164, 202);
             style.highlight = RGB(148, 139, 176);
             style.shadow = RGB(39, 36, 50);
+            style.shadow_soft = RGB(48, 44, 60);
             style.text = RGB(255, 248, 226);
             break;
         case UI_CLAY_STATE_DISABLED:
@@ -80,7 +85,7 @@ UiClayStyle ui_clay_style(UiClaySurface surface, UiClayState state) {
             style.highlight = clay_mix(style.highlight, style.fill, 70);
             style.text = RGB(132, 142, 142);
             style.text_muted = RGB(106, 116, 116);
-            style.shadow_offset = 2;
+            style.shadow_offset = 1;
             break;
         case UI_CLAY_STATE_NORMAL:
         default:

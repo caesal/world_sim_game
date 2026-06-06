@@ -2,7 +2,28 @@
 
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_widgets.h"
+
+static void plague_summary_chips(HDC hdc, UiCursor *cursor, int countries, int cities,
+                                 int peak, int deaths) {
+    int gap = 6;
+    int w = (cursor->width - gap * 3) / 4;
+    RECT r = {cursor->x, cursor->y, cursor->x + w, cursor->y + 30};
+
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_COUNTRY_DEFENSE, metric_label("Countries", "国家"),
+                                 countries, RGB(88, 164, 134));
+    r.left += w + gap; r.right += w + gap;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_CITY_VILLAGE, metric_label("Cities", "城市"),
+                                 cities, RGB(73, 143, 102));
+    r.left += w + gap; r.right += w + gap;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_DISORDER, metric_label("Peak", "最高"),
+                                 peak, RGB(196, 154, 72));
+    r.left += w + gap; r.right += w + gap;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_POPULATION, metric_label("Deaths", "死亡"),
+                                 deaths, RGB(120, 130, 122));
+    cursor->y += 38;
+}
 
 void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font) {
     UiCursor cursor = ui_cursor(x, TOP_BAR_H + 62, side_panel_w - FORM_X_PAD * 2, client.bottom - 64);
@@ -34,6 +55,7 @@ void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body
         total_deaths += civ->plague_deaths_total;
     }
     ui_section(hdc, &cursor, tr("Outbreak Summary", "爆发摘要"));
+    plague_summary_chips(hdc, &cursor, active_countries, active_cities, peak_severity, total_deaths);
     snprintf(text, sizeof(text), "%s %d   %s %d   %s %d   %s %d",
              tr("Countries", "国家"), active_countries,
              tr("Cities", "城市"), active_cities,

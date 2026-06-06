@@ -332,7 +332,7 @@ static void draw_vassal_relation_highlights(HDC hdc, RECT client, MapLayout layo
     }
     for (i = 0; i < snapshot->civ_count; i++) {
         if (snapshot->civs[i].overlord == selected_civ) {
-            draw_country_highlight_one(hdc, client, layout, snapshot, i, 0, 0);
+            draw_country_highlight_one(hdc, client, layout, snapshot, i, 0, selected_civ_pulse_start_ms);
         }
     }
 }

@@ -34,6 +34,7 @@ typedef struct {
     COLORREF fill;
     COLORREF border;
     COLORREF shadow;
+    COLORREF shadow_soft;
     COLORREF highlight;
     COLORREF text;
     COLORREF text_muted;
@@ -41,6 +42,7 @@ typedef struct {
     int padding_x;
     int padding_y;
     int shadow_offset;
+    int shadow_soft_offset;
 } UiClayStyle;
 
 typedef struct {

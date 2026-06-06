@@ -1,5 +1,55 @@
 # Version Log
 
+## Ver0.3.2.d
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.d.
+2. Made selected-overlord vassal relation highlights pulse direct vassal focus
+   points immediately, matching the already-working selected-vassal behavior.
+3. Applied focused Phase 5 clay presentation polish to Population, Plague,
+   Map/Info, Debug / Performance, and shared progress/metric widgets while
+   preserving dense diagnostic rows and existing visible content.
+4. Removed the `render_common -> ui_clay_widgets` dependency introduced during
+   Phase 5 work by moving Info metric clay rendering into the concrete Info
+   panel path.
+5. Centralized lighter clay soft-shadow tokens with reduced offsets so controls
+   keep more visual body and rely less on heavy shadows.
+6. Added active Plague presentation evidence in English and Chinese, in addition
+   to the no-active-outbreak state.
+7. Fixed diplomacy/event map animations so lines, glow, arrowheads, and markers
+   clip to the actual map viewport/map rectangle.
+8. Stored and validated snapshot map dimensions for queued diplomacy map
+   animations, skipping stale or invalid endpoints instead of remapping old
+   coordinates through current global map dimensions.
+9. Reduced long-distance diplomacy animation bowing so orange/gold event arcs do
+   not look like large route lines crossing outside the map.
+10. Changed war-start map animation to a single red arrow from attacker to
+    defender instead of a red bidirectional arrow.
+
+Validation notes:
+
+- Ver0.3.2.d uses `WORLD_SIM_VERSION "0.3.2.d"`.
+- Canonical `make -B world_sim.exe` succeeded.
+- `cmd /c build.bat` succeeded.
+- `make check-text` passed.
+- `git diff --check` passed with only CRLF conversion warnings.
+- Static checks found no `.c` file includes another `.c`, and all touched
+  `.c` / `.h` files are at or below 500 lines.
+- The repo-wide line-count scan still reports the pre-existing untouched
+  `src/sim/plague.c` at 515 lines.
+- Root executable inventory contains exactly `world_sim.exe`.
+- Focused UIUX evidence covered lighter shadows, Population English/Chinese,
+  Plague no-active and active states in English/Chinese, route-potential
+  route-only legend, Debug Map & Log ampersand rendering, Debug / Performance
+  lower rows, selected lower-edge highlight, pause menu, speed buttons, and
+  Phase 4 diplomacy card preservation.
+- Focused diplomacy animation evidence covered long orange animation clipping,
+  red war-start attacker-to-defender direction, political map sanity, and
+  route-potential route-only legend sanity.
+- Full strict AGENTS Large-map regression was not rerun for this focused
+  render/UIUX checkpoint.
+
 ## Ver0.3.2.c
 
 Implemented fixes:

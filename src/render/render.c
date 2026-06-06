@@ -344,7 +344,7 @@ static void render_world(HDC hdc, RECT client) {
         }
         if (static_ready) diplomacy_map_anim_consume_events(snapshot);
         else diplomacy_map_anim_delay_for_snapshot(snapshot);
-        draw_diplomacy_map_animations(hdc, client, layout);
+        draw_diplomacy_map_animations(hdc, client, layout, snapshot);
         draw_selected_tile(hdc, layout);
     } else {
         dirty_clear_render_maritime();

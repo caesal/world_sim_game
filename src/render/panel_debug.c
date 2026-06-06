@@ -9,6 +9,8 @@
 #include "game/game_loop.h"
 #include "sim/expansion.h"
 #include "sim/sea_lanes.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_widgets.h"
 #include <stdio.h>
 #include <string.h>
@@ -207,10 +209,12 @@ static void draw_event_filters(HDC hdc, UiCursor *cursor) {
         RECT button = {cursor->x + i * (w + gap), row.top,
                        i == DEBUG_EVENT_FILTER_COUNT - 1 ? cursor->x + cursor->width :
                        cursor->x + i * (w + gap) + w, row.bottom};
+        UiClayState state = ui_clay_state_for_rect(button, hover_x, hover_y,
+                                                   i == debug_event_filter, 0);
         event_filter_rects[i] = button;
-        fill_rect(hdc, button, i == debug_event_filter ? RGB(87, 93, 78) : ui_theme_color(UI_COLOR_PANEL_SOFT));
+        ui_clay_draw_tab(hdc, button, state);
         draw_text_rect(hdc, button, filter_label(i), ui_theme_color(UI_COLOR_TEXT),
-                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
     cursor->y += 8;
 }
@@ -226,10 +230,11 @@ static void draw_debug_subtabs(HDC hdc, UiCursor *cursor) {
         RECT r = {cursor->x + i * (w + gap), row.top,
                   i == DEBUG_SUBTAB_COUNT - 1 ? cursor->x + cursor->width : cursor->x + i * (w + gap) + w,
                   row.bottom};
+        UiClayState state = ui_clay_state_for_rect(r, hover_x, hover_y, i == debug_subtab, 0);
         debug_subtab_rects[i] = r;
-        fill_rect(hdc, r, i == debug_subtab ? RGB(77, 80, 68) : ui_theme_color(UI_COLOR_PANEL_SOFT));
+        ui_clay_draw_tab(hdc, r, state);
         draw_text_rect(hdc, r, tr(en[i], zh[i]), ui_theme_color(UI_COLOR_TEXT),
-                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
     cursor->y += 10;
 }
@@ -247,10 +252,12 @@ static void draw_debug_map_layers(HDC hdc, UiCursor *cursor) {
         RECT button = {cursor->x + i * (w + gap), row.top,
                        i == MAP_DISPLAY_MODE_COUNT - 1 ? cursor->x + cursor->width : cursor->x + i * (w + gap) + w,
                        row.bottom};
+        UiClayState state = ui_clay_state_for_rect(button, hover_x, hover_y,
+                                                   MAP_DISPLAY_MODES[i] == display_mode, 0);
         debug_mode_rects[i] = button;
-        fill_rect(hdc, button, MAP_DISPLAY_MODES[i] == display_mode ? RGB(87, 93, 78) : ui_theme_color(UI_COLOR_PANEL_SOFT));
+        ui_clay_draw_tab(hdc, button, state);
         draw_text_rect(hdc, button, tr(names_en[i], names_zh[i]), ui_theme_color(UI_COLOR_TEXT),
-                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
     cursor->y += 10;
 }
@@ -320,7 +327,7 @@ static int draw_event_card(HDC hdc, UiCursor *cursor, int index) {
     debug_event_entry(index, &entry);
     if (cursor->y > cursor->bottom - h) return 0;
     card = ui_take_rect(cursor, h);
-    fill_rect(hdc, card, ui_theme_color(UI_COLOR_PANEL_SOFT));
+    ui_clay_draw_card(hdc, card, UI_CLAY_STATE_NORMAL);
     body = (RECT){card.left + 8, card.top + 30, card.right - 8, card.bottom - 5};
     draw_event_country_chips(hdc, (RECT){card.left + 8, card.top + 5, card.right - 8, card.top + 27}, &entry);
     draw_text_rect(hdc, body, text, ui_theme_color(UI_COLOR_TEXT),
@@ -360,8 +367,9 @@ static void draw_recent_events(HDC hdc, UiCursor *cursor) {
     event_top_rect = (RECT){cursor->x + cursor->width - 58, cursor->y - 29,
                             cursor->x + cursor->width, cursor->y - 7};
     event_top_rect_valid = 1;
-    fill_rect(hdc, event_top_rect, debug_event_log_frozen ? RGB(87, 93, 78) : ui_theme_color(UI_COLOR_PANEL_SOFT));
-    draw_center_text(hdc, event_top_rect, tr("Top", "顶部"), ui_theme_color(UI_COLOR_TEXT));
+    ui_clay_draw_pill_button(hdc, event_top_rect, tr("Top", "顶部"),
+                             ui_clay_state_for_rect(event_top_rect, hover_x, hover_y,
+                                                    debug_event_log_frozen, 0));
     if (!debug_event_log_frozen) {
         debug_event_log_scroll_offset = 0;
         debug_event_log_seen_total = debug_event_total_entries();
@@ -380,8 +388,8 @@ static void draw_recent_events(HDC hdc, UiCursor *cursor) {
                  ui_language == UI_LANG_ZH ? highlight->name_zh : highlight->name_en);
         draw_text_rect(hdc, (RECT){row.left, row.top, clear.left - 6, row.bottom}, status,
                        RGB(255, 238, 190), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-        fill_rect(hdc, clear, RGB(87, 93, 78));
-        draw_center_text(hdc, clear, tr("Clear", "清除"), ui_theme_color(UI_COLOR_TEXT));
+        ui_clay_draw_pill_button(hdc, clear, tr("Clear", "清除"),
+                                 ui_clay_state_for_rect(clear, hover_x, hover_y, 0, 0));
         event_clear_highlight_rect = clear;
         event_clear_highlight_valid = 1;
     }

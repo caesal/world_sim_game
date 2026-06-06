@@ -1,6 +1,7 @@
 #include "render_panel_internal.h"
 
 #include "render/snapshot_ui.h"
+#include "ui/ui_clay_widgets.h"
 #include "ui/ui_widgets.h"
 
 static void metric3(HDC hdc, UiCursor *cursor, int a, int b, int c,
@@ -8,11 +9,11 @@ static void metric3(HDC hdc, UiCursor *cursor, int a, int b, int c,
                     const char *la, const char *lb, const char *lc) {
     int w = (cursor->width - 16) / 3;
     RECT r = {cursor->x, cursor->y, cursor->x + w, cursor->y + 28};
-    ui_metric_chip(hdc, r, ia, la, a, RGB(83, 123, 166));
+    ui_clay_draw_metric_chip_int(hdc, r, ia, la, a, RGB(83, 123, 166));
     r.left += w + 8; r.right += w + 8;
-    ui_metric_chip(hdc, r, ib, lb, b, RGB(118, 143, 95));
+    ui_clay_draw_metric_chip_int(hdc, r, ib, lb, b, RGB(118, 143, 95));
     r.left += w + 8; r.right += w + 8;
-    ui_metric_chip(hdc, r, ic, lc, c, RGB(188, 154, 88));
+    ui_clay_draw_metric_chip_int(hdc, r, ic, lc, c, RGB(188, 154, 88));
     cursor->y += 36;
 }
 
@@ -103,8 +104,8 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
     ui_row_int(hdc, &cursor, tr("Fertile population", "育龄人口"), world.fertile);
     ui_row_int(hdc, &cursor, tr("Recruitable population", "可征召人口"), world.recruitable);
     ui_row_int(hdc, &cursor, tr("Carrying capacity", "人口承载力"), world.carrying_capacity);
-    ui_progress_bar(hdc, ui_take_rect(&cursor, 12), world.pressure, 140,
-                    world.pressure > 100 ? ui_theme_color(UI_COLOR_DANGER) : ui_theme_color(UI_COLOR_GOOD));
+    ui_clay_draw_progress_bar(hdc, ui_take_rect(&cursor, 12), world.pressure, 140,
+                              world.pressure > 100 ? ui_theme_color(UI_COLOR_DANGER) : ui_theme_color(UI_COLOR_GOOD));
     ui_section(hdc, &cursor, tr("Global Loss / Pressure", "全球损失 / 压力"));
     ui_row_int(hdc, &cursor, tr("Plague deaths", "瘟疫死亡"), plague_deaths);
     ui_row_int(hdc, &cursor, tr("Active war fronts", "活跃战线"), active_fronts);

@@ -13,8 +13,10 @@ void draw_mode_buttons(HDC hdc, RECT client) {
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);
         int mode = MAP_DISPLAY_MODES[i];
-        fill_rect(hdc, button, mode == display_mode ? RGB(49, 63, 76) : RGB(36, 46, 56));
-        draw_center_text(hdc, button, tr(names_en[i], names_zh[i]), RGB(238, 243, 247));
+        UiClayState state = ui_clay_state_for_rect(button, hover_x, hover_y,
+                                                   mode == display_mode, 0);
+        ui_clay_draw_tab(hdc, button, state);
+        draw_center_text(hdc, button, tr(names_en[i], names_zh[i]), ui_clay_text_color(state));
     }
 }
 
@@ -104,9 +106,8 @@ static WorldgenSliderLayout plague_slider_layout(RECT client) {
 void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int value) {
     WorldgenLayout layout;
     WorldgenSliderLayout slider;
-    RECT fill;
-    int knob_x;
-    RECT knob;
+    int hot;
+    UiClayState state;
     char value_text[16];
 
     if (index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
@@ -115,19 +116,21 @@ void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int va
         worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
         slider = layout.sliders[index];
     }
-    fill = slider.track;
-    knob_x = slider.track.left + (slider.track.right - slider.track.left) * value / 100;
-    knob.left = knob_x - 7;
-    knob.top = slider.track.top - 8;
-    knob.right = knob_x + 7;
-    knob.bottom = slider.track.top + 18;
+    hot = point_in_rect_local(slider.hit, hover_x, hover_y);
+    state = ui_clay_state_from_flags(hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), 0, 0);
     snprintf(value_text, sizeof(value_text), "%d", value);
-    draw_text_rect(hdc, slider.label, name, RGB(205, 214, 222), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, slider.value, value_text, RGB(232, 238, 244), DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    fill_rect(hdc, slider.track, RGB(82, 94, 104));
-    fill.right = knob_x;
-    fill_rect(hdc, fill, RGB(82, 136, 171));
-    fill_rect(hdc, knob, RGB(232, 238, 244));
+    draw_text_rect(hdc, slider.label, name, ui_clay_muted_text_color(),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, slider.value, value_text, ui_clay_text_color(UI_CLAY_STATE_NORMAL),
+                   DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
+    ui_clay_draw_slider(hdc, slider.track, value, state);
+}
+
+static void draw_info_metric_box(HDC hdc, RECT rect, IconId icon, const char *label,
+                                 int value, COLORREF accent, const char *tooltip_text,
+                                 const char **active_tooltip) {
+    ui_clay_draw_metric_chip_int(hdc, rect, icon, label, value, accent);
+    if (point_in_rect_local(rect, hover_x, hover_y)) *active_tooltip = tooltip_text;
 }
 
 void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT body_font) {
@@ -157,29 +160,29 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         y += 22;
         {
             RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-            draw_metric_box(hdc, m, ICON_POPULATION, metric_label("POP", "人口"), country.population, RGB(74, 112, 160), tr("Country population", "国家总人口"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_POPULATION, metric_label("POP", "人口"), country.population, RGB(74, 112, 160), tr("Country population", "国家总人口"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-            draw_metric_box(hdc, m, ICON_TERRITORY, metric_label("LAND", "土地"), country.territory, RGB(88, 137, 83), tr("Total owned land tiles", "国家拥有土地格数"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_TERRITORY, metric_label("LAND", "土地"), country.territory, RGB(88, 137, 83), tr("Total owned land tiles", "国家拥有土地格数"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-            draw_metric_box(hdc, m, ICON_CITY_CAPITAL, metric_label("CITY", "城市"), country.cities, RGB(154, 128, 74), tr("Total cities", "国家城市数量"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_CITY_CAPITAL, metric_label("CITY", "城市"), country.cities, RGB(154, 128, 74), tr("Total cities", "国家城市数量"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_metric_box(hdc, m, ICON_DISORDER, metric_label("DIS", "混乱"), civ->disorder, RGB(170, 73, 73), tr("Total disorder", "总混乱度"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("DIS", "混乱"), civ->disorder, RGB(170, 73, 73), tr("Total disorder", "总混乱度"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 4);
-            draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("GOV", "治理"), civ->governance, RGB(82, 114, 153), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_GOVERNANCE].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("GOV", "治理"), civ->governance, RGB(82, 114, 153), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_GOVERNANCE].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 5);
-            draw_metric_box(hdc, m, ICON_CULTURE, metric_label("COH", "凝聚"), civ->cohesion, RGB(147, 105, 167), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COHESION].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_CULTURE, metric_label("COH", "凝聚"), civ->cohesion, RGB(147, 105, 167), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COHESION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 6);
-            draw_metric_box(hdc, m, ICON_PRODUCTION, metric_label("PROD", "生产"), civ->production, RGB(67, 128, 76), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_PRODUCTION].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_PRODUCTION, metric_label("PROD", "生产"), civ->production, RGB(67, 128, 76), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_PRODUCTION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 7);
-            draw_metric_box(hdc, m, ICON_BATTLE, metric_label("MIL", "军备"), civ->military, RGB(158, 74, 62), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_MILITARY].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_BATTLE, metric_label("MIL", "军备"), civ->military, RGB(158, 74, 62), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_MILITARY].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 8);
-            draw_metric_box(hdc, m, ICON_ECONOMY, metric_label("COM", "贸易"), civ->commerce, RGB(169, 134, 54), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COMMERCE].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_ECONOMY, metric_label("COM", "贸易"), civ->commerce, RGB(169, 134, 54), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_COMMERCE].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 9);
-            draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LOG", "后勤"), civ->logistics, RGB(82, 133, 87), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_LOGISTICS].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_MIGRATION, metric_label("LOG", "后勤"), civ->logistics, RGB(82, 133, 87), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_LOGISTICS].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 10);
-            draw_metric_box(hdc, m, ICON_INNOVATION, metric_label("INN", "技术"), civ->innovation, RGB(102, 128, 180), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_INNOVATION].ability, ui_language), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_INNOVATION, metric_label("INN", "技术"), civ->innovation, RGB(102, 128, 180), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_INNOVATION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 11);
-            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("ADP", "适应"), civ->adaptation, RGB(116, 145, 94), tr("Dynamic adaptation from environment, resources, culture, and disorder", "由环境、资源、文化和混乱度动态决定的适应力"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_HABITABILITY, metric_label("ADP", "适应"), civ->adaptation, RGB(116, 145, 94), tr("Dynamic adaptation from environment, resources, culture, and disorder", "由环境、资源、文化和混乱度动态决定的适应力"), &tooltip_text);
             y += 3 * (metric_h + 6) + 4;
         }
         y = draw_population_pyramid_summary(hdc, client, x, y, inner_w, civ->population_summary, body_font);
@@ -187,34 +190,34 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         y += 22;
         {
             RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-            draw_metric_box(hdc, m, ICON_FOOD, metric_label("FOOD", "粮食"), country.food, RGB(124, 154, 70), tr("Average country food", "国家平均粮食"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_FOOD, metric_label("FOOD", "粮食"), country.food, RGB(124, 154, 70), tr("Average country food", "国家平均粮食"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-            draw_metric_box(hdc, m, ICON_LIVESTOCK, metric_label("HERD", "畜牧"), country.livestock, RGB(126, 104, 70), tr("Average country livestock", "国家平均畜牧"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_LIVESTOCK, metric_label("HERD", "畜牧"), country.livestock, RGB(126, 104, 70), tr("Average country livestock", "国家平均畜牧"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-            draw_metric_box(hdc, m, ICON_WOOD, metric_label("WOOD", "木材"), country.wood, RGB(67, 128, 76), tr("Average country wood", "国家平均木材"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_WOOD, metric_label("WOOD", "木材"), country.wood, RGB(67, 128, 76), tr("Average country wood", "国家平均木材"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_metric_box(hdc, m, ICON_STONE, metric_label("STON", "石料"), country.stone, RGB(130, 120, 104), tr("Average country stone", "国家平均石料"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_STONE, metric_label("STON", "石料"), country.stone, RGB(130, 120, 104), tr("Average country stone", "国家平均石料"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 4);
-            draw_metric_box(hdc, m, ICON_ORE, metric_label("ORE", "矿石"), country.minerals, RGB(130, 120, 104), tr("Average country ore", "国家平均矿石"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_ORE, metric_label("ORE", "矿石"), country.minerals, RGB(130, 120, 104), tr("Average country ore", "国家平均矿石"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 5);
-            draw_metric_box(hdc, m, ICON_WATER, metric_label("WATR", "水源"), country.water, RGB(65, 126, 174), tr("Average country water", "国家平均水"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_WATER, metric_label("WATR", "水源"), country.water, RGB(65, 126, 174), tr("Average country water", "国家平均水"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 6);
-            draw_metric_box(hdc, m, ICON_POPULATION, metric_label("CAP", "承载"), country.pop_capacity, RGB(74, 112, 160), tr("Average population capacity", "平均人口承载"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_POPULATION, metric_label("CAP", "承载"), country.pop_capacity, RGB(74, 112, 160), tr("Average population capacity", "平均人口承载"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 7);
-            draw_metric_box(hdc, m, ICON_ECONOMY, metric_label("CASH", "金钱"), country.money, RGB(169, 134, 54), tr("Average money potential", "平均金钱潜力"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_ECONOMY, metric_label("CASH", "金钱"), country.money, RGB(169, 134, 54), tr("Average money potential", "平均金钱潜力"), &tooltip_text);
             y += 2 * (metric_h + 6) + 6;
         }
         draw_text_line(hdc, x, y, tr("Disorder Factors", "混乱因素"), RGB(205, 214, 222));
         y += 22;
         {
             RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("RES", "资源"), civ->disorder_resource, RGB(170, 73, 73), tr("Resource pressure disorder", "资源压力混乱"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_HABITABILITY, metric_label("RES", "资源"), civ->disorder_resource, RGB(170, 73, 73), tr("Resource pressure disorder", "资源压力混乱"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-            draw_metric_box(hdc, m, ICON_DISORDER, metric_label("PLG", "瘟疫"), civ->disorder_plague, RGB(170, 73, 73), tr("Plague disorder", "瘟疫混乱"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("PLG", "瘟疫"), civ->disorder_plague, RGB(170, 73, 73), tr("Plague disorder", "瘟疫混乱"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-            draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("MIG", "迁徙"), civ->disorder_migration, RGB(170, 73, 73), tr("Migration disorder", "迁徙混乱"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_MIGRATION, metric_label("MIG", "迁徙"), civ->disorder_migration, RGB(170, 73, 73), tr("Migration disorder", "迁徙混乱"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("STAB", "稳定"), civ->disorder_stability, RGB(82, 114, 153), tr("Stability pressure reduction", "稳定因素"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("STAB", "稳定"), civ->disorder_stability, RGB(82, 114, 153), tr("Stability pressure reduction", "稳定因素"), &tooltip_text);
             y += metric_h + 18;
         }
         if (civ->plague_active_count > 0) {
@@ -222,13 +225,13 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             y += 22;
             {
                 RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("ACT", "感染"), civ->plague_active_count, RGB(35, 115, 72), tr("Active plague cities", "正在感染的城市"), &tooltip_text);
+                draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("ACT", "感染"), civ->plague_active_count, RGB(35, 115, 72), tr("Active plague cities", "正在感染的城市"), &tooltip_text);
                 m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-                draw_metric_box(hdc, m, ICON_DISORDER, metric_label("SEV", "烈度"), civ->plague_peak_severity, RGB(22, 96, 62), tr("Peak plague severity", "最高瘟疫烈度"), &tooltip_text);
+                draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("SEV", "烈度"), civ->plague_peak_severity, RGB(22, 96, 62), tr("Peak plague severity", "最高瘟疫烈度"), &tooltip_text);
                 m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-                draw_metric_box(hdc, m, ICON_POPULATION, metric_label("DEAD", "死亡"), civ->plague_deaths_total, RGB(76, 92, 78), tr("Total plague deaths", "瘟疫累计死亡"), &tooltip_text);
+                draw_info_metric_box(hdc, m, ICON_POPULATION, metric_label("DEAD", "死亡"), civ->plague_deaths_total, RGB(76, 92, 78), tr("Total plague deaths", "瘟疫累计死亡"), &tooltip_text);
                 m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-                draw_metric_box(hdc, m, ICON_MIGRATION, metric_label("LEFT", "剩余"), civ->plague_months_left, RGB(56, 128, 78), tr("Longest months remaining", "最长剩余月份"), &tooltip_text);
+                draw_info_metric_box(hdc, m, ICON_MIGRATION, metric_label("LEFT", "剩余"), civ->plague_months_left, RGB(56, 128, 78), tr("Longest months remaining", "最长剩余月份"), &tooltip_text);
                 y += metric_h + 18;
             }
         }
@@ -347,27 +350,27 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
         }
         {
             RECT m = metric_grid_rect(x, y, quad_w, metric_h, 0);
-            draw_metric_box(hdc, m, ICON_HABITABILITY, metric_label("LIVE", "宜居"), metric_live, RGB(116, 145, 94), tr("Habitability factors: food, livestock, wood, stone, ore, water, temperature", "宜居度：粮食、畜牧、木材、石料、矿石、水、温度综合"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_HABITABILITY, metric_label("LIVE", "宜居"), metric_live, RGB(116, 145, 94), tr("Habitability factors: food, livestock, wood, stone, ore, water, temperature", "宜居度：粮食、畜牧、木材、石料、矿石、水、温度综合"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 1);
-            draw_metric_box(hdc, m, ICON_FOOD, metric_label("FOOD", "粮食"), metric_food, RGB(124, 154, 70), region_id >= 0 ? tr("Province average food", "行省平均粮食") : tr("Tile food", "地块粮食"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_FOOD, metric_label("FOOD", "粮食"), metric_food, RGB(124, 154, 70), region_id >= 0 ? tr("Province average food", "行省平均粮食") : tr("Tile food", "地块粮食"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
-            draw_metric_box(hdc, m, ICON_LIVESTOCK, metric_label("HERD", "畜牧"), metric_livestock, RGB(126, 104, 70), region_id >= 0 ? tr("Province average livestock", "行省平均畜牧") : tr("Tile livestock", "地块畜牧"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_LIVESTOCK, metric_label("HERD", "畜牧"), metric_livestock, RGB(126, 104, 70), region_id >= 0 ? tr("Province average livestock", "行省平均畜牧") : tr("Tile livestock", "地块畜牧"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_metric_box(hdc, m, ICON_WOOD, metric_label("WOOD", "木材"), metric_wood, RGB(67, 128, 76), region_id >= 0 ? tr("Province average wood", "行省平均木材") : tr("Tile wood", "地块木材"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_WOOD, metric_label("WOOD", "木材"), metric_wood, RGB(67, 128, 76), region_id >= 0 ? tr("Province average wood", "行省平均木材") : tr("Tile wood", "地块木材"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 4);
-            draw_metric_box(hdc, m, ICON_STONE, metric_label("STON", "石料"), metric_stone, RGB(130, 120, 104), region_id >= 0 ? tr("Province average stone", "行省平均石料") : tr("Tile stone", "地块石料"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_STONE, metric_label("STON", "石料"), metric_stone, RGB(130, 120, 104), region_id >= 0 ? tr("Province average stone", "行省平均石料") : tr("Tile stone", "地块石料"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 5);
-            draw_metric_box(hdc, m, ICON_ORE, metric_label("ORE", "矿石"), metric_ore, RGB(130, 120, 104), region_id >= 0 ? tr("Province average ore", "行省平均矿石") : tr("Tile ore", "地块矿石"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_ORE, metric_label("ORE", "矿石"), metric_ore, RGB(130, 120, 104), region_id >= 0 ? tr("Province average ore", "行省平均矿石") : tr("Tile ore", "地块矿石"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 6);
-            draw_metric_box(hdc, m, ICON_WATER, metric_label("WATR", "水源"), metric_water, RGB(65, 126, 174), region_id >= 0 ? tr("Province average water", "行省平均水") : tr("Tile water", "地块水"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_WATER, metric_label("WATR", "水源"), metric_water, RGB(65, 126, 174), region_id >= 0 ? tr("Province average water", "行省平均水") : tr("Tile water", "地块水"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 7);
-            draw_metric_box(hdc, m, ICON_ECONOMY, metric_label("CASH", "金钱"), metric_money, RGB(169, 134, 54), region_id >= 0 ? tr("Province average money potential", "行省平均金钱潜力") : tr("Tile money potential", "地块金钱潜力"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_ECONOMY, metric_label("CASH", "金钱"), metric_money, RGB(169, 134, 54), region_id >= 0 ? tr("Province average money potential", "行省平均金钱潜力") : tr("Tile money potential", "地块金钱潜力"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 8);
-            draw_metric_box(hdc, m, ICON_POPULATION, metric_label("POP", "人口"), metric_pop, RGB(74, 112, 160), region_id >= 0 ? tr("Province average population potential", "行省平均人口潜力") : tr("Tile population potential", "地块人口潜力"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_POPULATION, metric_label("POP", "人口"), metric_pop, RGB(74, 112, 160), region_id >= 0 ? tr("Province average population potential", "行省平均人口潜力") : tr("Tile population potential", "地块人口潜力"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 9);
-            draw_metric_box(hdc, m, ICON_ATTACK, metric_label("ATK", "攻击"), metric_attack, RGB(158, 74, 62), region_id >= 0 ? tr("Province average attack modifier", "行省平均攻击修正") : tr("Tile attack modifier", "地块攻击修正"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_ATTACK, metric_label("ATK", "攻击"), metric_attack, RGB(158, 74, 62), region_id >= 0 ? tr("Province average attack modifier", "行省平均攻击修正") : tr("Tile attack modifier", "地块攻击修正"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 10);
-            draw_metric_box(hdc, m, ICON_TILE_DEFENSE, metric_label("DEF", "防御"), metric_defense, RGB(80, 101, 148), region_id >= 0 ? tr("Province average defense modifier", "行省平均防御修正") : tr("Tile defense modifier", "地块防御修正"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_TILE_DEFENSE, metric_label("DEF", "防御"), metric_defense, RGB(80, 101, 148), region_id >= 0 ? tr("Province average defense modifier", "行省平均防御修正") : tr("Tile defense modifier", "地块防御修正"), &tooltip_text);
             y += 3 * (metric_h + 6) + 2;
         }
         if (ui_language == UI_LANG_ZH) {

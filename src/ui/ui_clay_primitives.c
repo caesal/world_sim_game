@@ -59,16 +59,16 @@ static void clay_highlight(HDC hdc, RECT rect, const UiClayStyle *style) {
 static void clay_inner_shadow(HDC hdc, RECT rect, const UiClayStyle *style) {
     HPEN pen;
     HGDIOBJ old_pen;
-    int inset = max(2, style->radius / 4);
+    int inset = max(2, style->radius / 5);
 
     if (clay_rect_width(rect) <= 4 || clay_rect_height(rect) <= 4) return;
-    pen = CreatePen(PS_SOLID, 1, style->shadow);
+    pen = CreatePen(PS_SOLID, 1, style->shadow_soft);
     if (!pen) return;
     old_pen = SelectObject(hdc, pen);
-    MoveToEx(hdc, rect.left + inset, rect.bottom - 2, NULL);
-    LineTo(hdc, rect.right - inset, rect.bottom - 2);
-    MoveToEx(hdc, rect.right - 2, rect.top + inset, NULL);
-    LineTo(hdc, rect.right - 2, rect.bottom - inset);
+    MoveToEx(hdc, rect.left + inset, rect.bottom - 1, NULL);
+    LineTo(hdc, rect.right - inset, rect.bottom - 1);
+    MoveToEx(hdc, rect.right - 1, rect.top + inset, NULL);
+    LineTo(hdc, rect.right - 1, rect.bottom - inset);
     SelectObject(hdc, old_pen);
     DeleteObject(pen);
 }
@@ -79,9 +79,10 @@ static void clay_draw_surface(HDC hdc, RECT rect, UiClaySurface surface, UiClayS
     RECT shadow_soft = rect;
 
     if (clay_rect_width(rect) <= 0 || clay_rect_height(rect) <= 0) return;
-    OffsetRect(&shadow_soft, style.shadow_offset + 2, style.shadow_offset + 2);
+    OffsetRect(&shadow_soft, style.shadow_offset + style.shadow_soft_offset,
+               style.shadow_offset + style.shadow_soft_offset);
     OffsetRect(&shadow, style.shadow_offset, style.shadow_offset);
-    clay_round_rect(hdc, shadow_soft, style.radius, RGB(31, 36, 38), RGB(31, 36, 38));
+    clay_round_rect(hdc, shadow_soft, style.radius, style.shadow_soft, style.shadow_soft);
     clay_round_rect(hdc, shadow, style.radius, style.shadow, style.shadow);
     clay_round_rect(hdc, rect, style.radius, style.fill, style.border);
     clay_highlight(hdc, rect, &style);

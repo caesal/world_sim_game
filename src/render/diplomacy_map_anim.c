@@ -2,6 +2,7 @@
 
 #include "render/render_common.h"
 #include "sim/diplomacy.h"
+#include "ui/ui_layout.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +23,8 @@ typedef struct {
     int to_id;
     int to_uid;
     int normal_sign;
+    int map_w;
+    int map_h;
 } DiplomacyMapAnim;
 
 static DiplomacyMapAnim animations[DIPLO_ANIM_MAX];
@@ -73,6 +76,7 @@ static void anim_style(EventLogType type, COLORREF *color, IconId *icon, int *bi
     } else if (type == EVENT_TYPE_WAR_STARTED) {
         *color = RGB(205, 62, 52);
         *icon = ICON_ATTACK;
+        *bidirectional = 0;
     } else if (type == EVENT_TYPE_TRUCE_SIGNED || type == EVENT_TYPE_WAR_FRONT_SEVERED) {
         *color = RGB(220, 178, 72);
         *icon = ICON_COUNTRY_DEFENSE;
@@ -168,6 +172,8 @@ static void enqueue_event_anim(const RenderSnapshot *snapshot, const EventLogEnt
     anim->to_id = to_id;
     anim->to_uid = to_uid;
     anim->normal_sign = ((entry->civ_id * 31 + to_id * 17 + entry->type) & 1) ? 1 : -1;
+    anim->map_w = snapshot->map_w;
+    anim->map_h = snapshot->map_h;
 }
 
 void diplomacy_map_anim_delay_for_snapshot(const RenderSnapshot *snapshot) {
@@ -203,11 +209,30 @@ void diplomacy_map_anim_consume_events(const RenderSnapshot *snapshot) {
     last_consumed_events_revision = snapshot->events_revision;
 }
 
-static POINT map_point(MapLayout layout, int x, int y) {
+static int valid_anim_for_snapshot(const DiplomacyMapAnim *anim, const RenderSnapshot *snapshot) {
+    if (!anim || !anim->active || !snapshot || !snapshot->world_generated) return 0;
+    if (snapshot->map_w <= 0 || snapshot->map_h <= 0) return 0;
+    if (anim->map_w != snapshot->map_w || anim->map_h != snapshot->map_h) return 0;
+    if (anim->x1 < 0 || anim->x1 >= snapshot->map_w || anim->x2 < 0 || anim->x2 >= snapshot->map_w) return 0;
+    if (anim->y1 < 0 || anim->y1 >= snapshot->map_h || anim->y2 < 0 || anim->y2 >= snapshot->map_h) return 0;
+    return 1;
+}
+
+static POINT map_point(MapLayout layout, const RenderSnapshot *snapshot, int x, int y) {
     POINT p;
-    p.x = layout.map_x + (x * 2 + 1) * layout.draw_w / (MAP_W * 2);
-    p.y = layout.map_y + (y * 2 + 1) * layout.draw_h / (MAP_H * 2);
+    p.x = layout.map_x + (x * 2 + 1) * layout.draw_w / (max(1, snapshot->map_w) * 2);
+    p.y = layout.map_y + (y * 2 + 1) * layout.draw_h / (max(1, snapshot->map_h) * 2);
     return p;
+}
+
+static int map_anim_clip_rect(RECT client, MapLayout layout, RECT *out) {
+    RECT viewport = get_map_viewport_rect(client);
+    RECT map_rect = {layout.map_x, layout.map_y, layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
+    RECT clip = {max(viewport.left, map_rect.left), max(viewport.top, map_rect.top),
+                 min(viewport.right, map_rect.right), min(viewport.bottom, map_rect.bottom)};
+    if (clip.right <= clip.left || clip.bottom <= clip.top) return 0;
+    if (out) *out = clip;
+    return 1;
 }
 
 static COLORREF mix_color(COLORREF a, COLORREF b, int percent_b) {
@@ -273,9 +298,15 @@ static void draw_icon_marker(HDC hdc, POINT center, COLORREF color, IconId icon)
     draw_icon(hdc, icon, inner, RGB(250, 244, 220));
 }
 
-static void draw_anim(HDC hdc, MapLayout layout, const DiplomacyMapAnim *anim, DWORD now) {
-    POINT p1 = map_point(layout, anim->x1, anim->y1);
-    POINT p2 = map_point(layout, anim->x2, anim->y2);
+static int clamp_to_span(int value, int lo, int hi) {
+    if (hi < lo) return lo;
+    return clamp(value, lo, hi);
+}
+
+static void draw_anim(HDC hdc, MapLayout layout, const RenderSnapshot *snapshot,
+                      const RECT *clip, const DiplomacyMapAnim *anim, DWORD now) {
+    POINT p1 = map_point(layout, snapshot, anim->x1, anim->y1);
+    POINT p2 = map_point(layout, snapshot, anim->x2, anim->y2);
     POINT pts[24];
     int mx, my, dx, dy, dist, lift, cx, cy;
     int elapsed = (int)(now - anim->start_ms);
@@ -292,9 +323,13 @@ static void draw_anim(HDC hdc, MapLayout layout, const DiplomacyMapAnim *anim, D
     dx = p2.x - p1.x;
     dy = p2.y - p1.y;
     dist = max(1, abs(dx) + abs(dy));
-    lift = clamp(dist * 18 / 100, 24, 90);
+    lift = clamp(dist * 8 / 100, 12, 44);
     cx = mx - dy * lift * anim->normal_sign / dist;
     cy = my + dx * lift * anim->normal_sign / dist;
+    if (clip) {
+        cx = clamp_to_span(cx, clip->left + 2, clip->right - 2);
+        cy = clamp_to_span(cy, clip->top + 2, clip->bottom - 2);
+    }
     for (i = 0; i < 24; i++) {
         int t = i * 1000 / 23;
         int omt = 1000 - t;
@@ -322,18 +357,28 @@ static void draw_anim(HDC hdc, MapLayout layout, const DiplomacyMapAnim *anim, D
     draw_icon_marker(hdc, icon_center, anim->color, anim->icon);
 }
 
-void draw_diplomacy_map_animations(HDC hdc, RECT client, MapLayout layout) {
+void draw_diplomacy_map_animations(HDC hdc, RECT client, MapLayout layout, const RenderSnapshot *snapshot) {
     DWORD now = GetTickCount();
+    RECT clip;
+    int saved;
     int i;
-    (void)client;
+    if (!map_anim_clip_rect(client, layout, &clip)) return;
+    saved = SaveDC(hdc);
+    if (saved <= 0) return;
+    IntersectClipRect(hdc, clip.left, clip.top, clip.right, clip.bottom);
     for (i = 0; i < DIPLO_ANIM_MAX; i++) {
         if (!animations[i].active) continue;
         if ((int)(now - animations[i].start_ms) > DIPLO_ANIM_MS) {
             animations[i].active = 0;
             continue;
         }
-        draw_anim(hdc, layout, &animations[i], now);
+        if (!valid_anim_for_snapshot(&animations[i], snapshot)) {
+            animations[i].active = 0;
+            continue;
+        }
+        draw_anim(hdc, layout, snapshot, &clip, &animations[i], now);
     }
+    RestoreDC(hdc, saved);
 }
 
 int diplomacy_map_anim_active(void) {

@@ -94,6 +94,22 @@ void ui_clay_draw_slider(HDC hdc, RECT track, int value, UiClayState state) {
     ui_clay_draw_pill(hdc, knob, state);
 }
 
+void ui_clay_draw_progress_bar(HDC hdc, RECT rect, int value, int max_value, COLORREF color) {
+    RECT inner = rect;
+    RECT fill;
+
+    if (rect.right <= rect.left || rect.bottom <= rect.top) return;
+    max_value = max(1, max_value);
+    value = clamp(value, 0, max_value);
+    ui_clay_draw_pill_inset(hdc, rect, UI_CLAY_STATE_NORMAL);
+    InflateRect(&inner, -3, -3);
+    if (inner.right <= inner.left || inner.bottom <= inner.top) return;
+    fill_rect(hdc, inner, RGB(47, 58, 63));
+    fill = inner;
+    fill.right = fill.left + (fill.right - fill.left) * value / max_value;
+    if (fill.right > fill.left) fill_rect(hdc, fill, color);
+}
+
 void ui_clay_draw_swatch(HDC hdc, RECT rect, COLORREF color, UiClayState state) {
     RECT inner = rect;
 

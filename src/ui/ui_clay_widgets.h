@@ -13,6 +13,7 @@ void ui_clay_draw_menu_panel(HDC hdc, RECT rect);
 void ui_clay_draw_section_header(HDC hdc, RECT rect, const char *label);
 void ui_clay_draw_input_frame(HDC hdc, RECT rect, UiClayState state);
 void ui_clay_draw_slider(HDC hdc, RECT track, int value, UiClayState state);
+void ui_clay_draw_progress_bar(HDC hdc, RECT rect, int value, int max_value, COLORREF color);
 void ui_clay_draw_swatch(HDC hdc, RECT rect, COLORREF color, UiClayState state);
 void ui_clay_draw_metric_chip_text(HDC hdc, RECT rect, int icon, const char *label,
                                    const char *value, COLORREF accent);

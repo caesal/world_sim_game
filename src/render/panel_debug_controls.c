@@ -2,7 +2,8 @@
 
 #include "core/plague_perf.h"
 #include "render/render_common.h"
-#include "ui/ui_theme.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_widgets.h"
 
 static RECT plague_switch_button_rect(RECT client, int index) {
     int x = client.right - side_panel_w + FORM_X_PAD;
@@ -20,15 +21,21 @@ static const char *on_off_text(int enabled) {
 static void draw_switch_row(HDC hdc, UiCursor *cursor, const char *label, int enabled) {
     RECT row;
     RECT button;
+    RECT accent;
+    UiClaySemanticStyle tone = ui_clay_semantic_style(enabled ? UI_CLAY_TONE_PEACE : UI_CLAY_TONE_WAR);
+    UiClayState state;
 
     if (cursor->y > cursor->bottom - 28) return;
     row = ui_take_rect(cursor, 26);
     button = (RECT){row.right - 88, row.top + 2, row.right, row.bottom - 2};
+    state = ui_clay_state_for_rect(button, hover_x, hover_y, 0, 0);
     draw_text_rect(hdc, (RECT){row.left, row.top, button.left - 8, row.bottom}, label,
-                   ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   ui_clay_muted_text_color(),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    fill_rect(hdc, button, enabled ? RGB(72, 102, 72) : RGB(92, 66, 62));
-    draw_center_text(hdc, button, on_off_text(enabled), ui_theme_color(UI_COLOR_TEXT));
+    ui_clay_draw_pill(hdc, button, state);
+    accent = (RECT){button.left + 8, button.top + 5, button.left + 12, button.bottom - 5};
+    fill_rect(hdc, accent, tone.accent);
+    draw_center_text(hdc, button, on_off_text(enabled), tone.tag_text);
 }
 
 void draw_debug_plague_perf_controls(HDC hdc, UiCursor *cursor) {

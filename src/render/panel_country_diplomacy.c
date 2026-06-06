@@ -374,7 +374,7 @@ static void draw_diplomacy_view_tabs(HDC hdc, UiCursor *cursor, int civ_id) {
         UiClayState state = ui_clay_state_for_rect(tab, hover_x, hover_y, view == active, 0);
         ui_clay_draw_tab(hdc, tab, state);
         draw_text_rect(hdc, tab, display_group_label(selected_is_vassal, view), ui_clay_text_color(state),
-                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
     cursor->y += DIPLOMACY_VIEW_TAB_H + 8;
 }
