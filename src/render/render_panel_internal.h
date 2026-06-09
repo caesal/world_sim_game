@@ -25,6 +25,9 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
 int draw_population_pyramid(HDC hdc, RECT client, int x, int y, int width, int civ_id, HFONT body_font);
 int draw_population_pyramid_summary(HDC hdc, RECT client, int x, int y, int width,
                                     PopulationSummary summary, HFONT body_font);
+int draw_population_pyramid_summary_labeled(HDC hdc, RECT client, int x, int y, int width,
+                                            PopulationSummary summary, HFONT body_font,
+                                            const char *pressure_label);
 void draw_side_panel(HDC hdc, RECT client);
 void draw_bottom_bar(HDC hdc, RECT client);
 void draw_map_frame_overlay(HDC hdc, RECT client);

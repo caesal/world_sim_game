@@ -7,16 +7,16 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2.e is a Windows graphical sandbox prototype written in C.
+Ver0.3.2.f is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2.e accepts the economy/resource-pressure, treasury, population,
-war-economy, map-cache, and selected-detail performance WIP over Ver0.3.2.d.
-It keeps the Ver0.3.2.d UIUX and diplomacy-animation baseline while adding a
-persistent capped treasury, annual economy settlement, resource-pressure-driven
-population diagnostics, war indemnity and mercenary hooks, tighter Population
-and Resource panel presentation, runtime profiling switches, batched/contoured
-country highlights, and a static-scene cache fix that keeps political color
-updates current without reintroducing sustained max-speed stutter.
+Ver0.3.2.f is a focused population formula and World Population presentation
+checkpoint over Ver0.3.2.e. It keeps the Ver0.3.2.e economy, map-cache,
+highlight, and performance baseline while tightening the population pressure
+pipeline: lower high-pressure birth multipliers, a piecewise pressure-death
+curve, and a World Population tab that uses the same age-normalized pyramid
+semantics as the country Population tab. It also separates global carrying
+usage from average country pressure so world-level population pressure is easier
+to read.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -28,9 +28,11 @@ maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
 Known follow-up: isolated late-run frame peaks remain a performance watch item,
-and future marker, route, performance, UI, map-display, simulation-speed,
-collapse, enclave, or diplomacy changes must remain evidence-based and pass the
-strict validation gate for the specific scope involved.
+and the new population curve should be watched in later balance passes because
+focused multi-seed probes ended with negative average monthly net growth. Future
+marker, route, performance, UI, map-display, simulation-speed, collapse,
+enclave, diplomacy, or population-balance changes must remain evidence-based
+and pass the strict validation gate for the specific scope involved.
 
 You can:
 

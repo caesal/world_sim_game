@@ -39,6 +39,8 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
     int id_count = 0;
     int active_civs = 0;
     int high_pressure = 0;
+    int avg_country_pressure = 0;
+    int global_carrying_usage = 0;
     int plague_deaths = 0;
     int active_fronts = 0;
     int i;
@@ -78,15 +80,21 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
         ui_row_text(hdc, &cursor, tr("World", "世界"), tr("No alive countries yet.", "尚无存活国家。"));
         return;
     }
-    world.pressure /= active_civs;
-    metric3(hdc, &cursor, world.total, active_civs, world.pressure,
+    avg_country_pressure = world.pressure / active_civs;
+    global_carrying_usage = world.carrying_capacity > 0 ?
+                            (int)((long long)world.total * 100 / world.carrying_capacity) : 0;
+    world.pressure = global_carrying_usage;
+    metric3(hdc, &cursor, world.total, active_civs, global_carrying_usage,
             ICON_POPULATION, ICON_TERRITORY, ICON_DISORDER,
-            metric_label("World Pop", "世界人口"), metric_label("Countries", "国家"), metric_label("Pressure", "压力"));
+            metric_label("World Pop", "世界人口"), metric_label("Countries", "国家"),
+            metric_label("Global Usage", "全球使用率"));
     metric3(hdc, &cursor, world.children, world.working, world.elder,
             ICON_POPULATION, ICON_PRODUCTION, ICON_POPULATION,
             metric_label("Children", "儿童"), metric_label("Working", "劳力"), metric_label("Elder", "老人"));
     ui_section(hdc, &cursor, tr("Global Structure", "全球结构"));
-    cursor.y = draw_population_pyramid_summary(hdc, client, x, cursor.y + 2, cursor.width, world, body_font);
+    cursor.y = draw_population_pyramid_summary_labeled(hdc, client, x, cursor.y + 2,
+                                                       cursor.width, world, body_font,
+                                                       tr("Global Usage", "全球使用率"));
     if (world.total > 0) {
         snprintf(text, sizeof(text), "%s %d%%   %s %d%%   %s %d%%",
                  tr("Children", "儿童"), world.children * 100 / world.total,
@@ -104,8 +112,13 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
     ui_row_int(hdc, &cursor, tr("Fertile population", "育龄人口"), world.fertile);
     ui_row_int(hdc, &cursor, tr("Recruitable population", "可征召人口"), world.recruitable);
     ui_row_int(hdc, &cursor, tr("Carrying capacity", "人口承载力"), world.carrying_capacity);
-    ui_clay_draw_progress_bar(hdc, ui_take_rect(&cursor, 12), world.pressure, 140,
-                              world.pressure > 100 ? ui_theme_color(UI_COLOR_DANGER) : ui_theme_color(UI_COLOR_GOOD));
+    snprintf(text, sizeof(text), "%d%%", global_carrying_usage);
+    ui_row_text(hdc, &cursor, tr("Global Carrying Usage", "全球承载使用率"), text);
+    ui_clay_draw_progress_bar(hdc, ui_take_rect(&cursor, 12), global_carrying_usage, 140,
+                              global_carrying_usage > 100 ?
+                              ui_theme_color(UI_COLOR_DANGER) : ui_theme_color(UI_COLOR_GOOD));
+    snprintf(text, sizeof(text), "%d", avg_country_pressure);
+    ui_row_text(hdc, &cursor, tr("Avg Country Pressure", "平均国家承载压力"), text);
     ui_section(hdc, &cursor, tr("Global Loss / Pressure", "全球损失 / 压力"));
     ui_row_int(hdc, &cursor, tr("Plague deaths", "瘟疫死亡"), plague_deaths);
     ui_row_int(hdc, &cursor, tr("Active war fronts", "活跃战线"), active_fronts);

@@ -1,5 +1,66 @@
 # Version Log
 
+## Ver0.3.2.f
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.f.
+2. Updated the population birth multiplier curve to the requested pressure
+   nodes: 0=105%, 10=98%, 25=90%, 45=50%, 65=35%, 85=12%, and 100=3%.
+3. Replaced the pressure-death estimate with a piecewise deaths-per-million
+   curve: pressure below 25 produces 0 pressure deaths, then 25=280, 40=480,
+   50=1500, 65=3500, 85=8000, and 100=30000 deaths per million people per
+   month.
+4. Preserved the existing weighted-fertility model, effective-pair cap,
+   9000 monthly birth divisor, proportional pressure-death distribution,
+   old-age natural mortality, and child accidental mortality semantics.
+5. Made the World Population pyramid use the same age-normalized density
+   semantics as country Population views, using display widths 5, 13, 7, 15,
+   15, 10, 10, and 12 years for the existing age cohorts.
+6. Split world-level population pressure presentation into global carrying
+   usage, average country carrying pressure, and high-pressure country count.
+
+Validation notes:
+
+- Ver0.3.2.f uses `WORLD_SIM_VERSION "0.3.2.f"`.
+- Focused formula probes reported exact birth multiplier nodes and pressure
+  death nodes, including 1M-population pressure-death outputs of 0, 0, 280,
+  480, 1500, 3500, 8000, and 30000 for the requested pressure points.
+- Focused scale probes reported about 5023 pressure deaths per month for
+  4.6M people at pressure 46, and about 1878 pressure deaths per month for
+  370K people at pressure 72.
+- Distribution checks confirmed pressure deaths remain proportional across
+  age cohorts, natural deaths remain old-age biased, and child accidental
+  deaths remain limited to the 0-4 cohort.
+- GUI evidence covered World Population in English and Chinese plus low- and
+  high-pressure country Population views.
+- Three Large-map, 26-civilization, >600-region, 240-year tuning probes ended
+  with population/capacity ratios of 99.14%, 93.94%, and 91.78%; final average
+  monthly net growth was negative in all three probes, so the curve remains a
+  watch item for future balance passes.
+- Rule39 validation used a Large map with 26 generated civilizations, 723
+  natural regions, max/5x speed, reached Year 429 Month 7, and ended with
+  35 civilization slots / 31 alive.
+- Rule39 stage-5 examples were `1 Western LuoLong Protectorate`, `2 Realm of
+  Veyr`, `3 LinMing Banner State`, `4 High Kingdom of Solmere`, and `6
+  Redmere Dominion`.
+- Rule39 deep-sea evidence reported official counters changing from 0 total /
+  0 shallow / 0 deep before unlock to 49 total / 48 shallow / 1 deep after
+  unlock.
+- Rule39 final throughput was 11.63 months/sec with queue 0, but the final
+  snapshot recorded a 235 ms frame peak; this remains a performance watch item.
+- Canonical `make -B world_sim.exe` was attempted first and reached the link
+  step, but the running `world_sim.exe` was locked by PID 21228.
+- A temporary-target build with `TARGET=tmp_worldsim_ver032f_verify.exe`
+  succeeded, string checks found `World Sim Game Ver 0.3.2.f`, and the
+  temporary executable was deleted.
+- `cmd /c build.bat` was attempted and reached the link step, but was blocked
+  by the same locked canonical executable.
+- `make check-text` and `git diff --check` passed, with only Git CRLF
+  warnings.
+- Static checks found no `.c` file includes another `.c`, and all touched `.c`
+  / `.h` files are at or below 500 lines.
+
 ## Ver0.3.2.e
 
 Implemented fixes:

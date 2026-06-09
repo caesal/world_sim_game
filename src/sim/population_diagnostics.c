@@ -54,7 +54,7 @@ static TerrainStats terrain_stats_from_country(CountrySummary country) {
 
 int population_birth_multiplier_percent(int pressure) {
     static const int x[] = {0, 10, 25, 45, 65, 85, 100};
-    static const int y[] = {118, 110, 96, 70, 40, 18, 6};
+    static const int y[] = {120, 105, 90, 55, 35, 18, 5};
     return curve_percent(pressure, x, y, 7);
 }
 
@@ -104,8 +104,12 @@ int population_monthly_births_from_summary(int owner, PopulationSummary summary,
 }
 
 int population_pressure_deaths_estimate(PopulationSummary summary, int effective_pressure) {
-    int excess = max(0, effective_pressure - 45);
-    return (int)((long long)summary.total * excess * excess / 900000);
+    static const int x[] = {25, 38, 50, 65, 85, 100};
+    static const int y[] = {280, 480, 1500, 3500, 8000, 30000};
+    int rate_per_million;
+    if (effective_pressure < 25 || summary.total <= 0) return 0;
+    rate_per_million = curve_percent(effective_pressure, x, y, 6);
+    return (int)(((long long)summary.total * rate_per_million + 500000) / 1000000);
 }
 
 int population_natural_age_deaths_estimate(PopulationSummary summary) {
