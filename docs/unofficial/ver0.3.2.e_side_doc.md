@@ -103,8 +103,13 @@ record lives in this side doc and `docs/unofficial/version_log.md`.
   civilizations plus 6 stage-6 civilizations.
 - Deep-sea evidence reported visible deep routes transitioning from 0 before
   unlock to 2 after unlock.
-- Canonical `make -B world_sim.exe` succeeded.
-- `cmd /c build.bat` succeeded.
+- Canonical `make -B world_sim.exe` was attempted first and reached the link
+  step, but the running `world_sim.exe` was locked by PID 48996.
+- A temporary-target build with `TARGET=tmp_worldsim_ver032e_verify.exe`
+  succeeded, string checks found `World Sim Game Ver 0.3.2.e`, and the
+  temporary executable was deleted.
+- `cmd /c build.bat` was attempted and reached the link step, but was blocked
+  by the same locked canonical executable.
 - `make check-text` passed.
 - `git diff --check` passed with only CRLF conversion warnings.
 - Static checks found no `.c` file includes another `.c`.
