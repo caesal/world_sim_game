@@ -3,6 +3,7 @@
 #include "core/dirty_flags.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/regions.h"
 #include "sim/regions_settlement.h"
 #include "sim/sea_lanes.h"
@@ -294,6 +295,27 @@ static int cession_count_from_loss(int loser, int winner, int casualties, int in
     return min(loss_based, min(war_loss_cap, winner_capacity_cap));
 }
 
+static int apply_indemnity_offset(int loser, int winner, int planned_count, int *out_offsets, int *out_spent) {
+    int max_offsets;
+    int cost_per;
+    int offsets;
+    int spent;
+    if (out_offsets) *out_offsets = 0;
+    if (out_spent) *out_spent = 0;
+    if (planned_count <= 1 || !is_valid_civ_id(loser) || !is_valid_civ_id(winner)) return planned_count;
+    max_offsets = planned_count / 2;
+    cost_per = economy_indemnity_cost_per_province(loser, winner);
+    if (cost_per <= 0) return planned_count;
+    offsets = min(max_offsets, max(0, civs[loser].treasury) / cost_per);
+    if (offsets <= 0) return planned_count;
+    spent = economy_spend_treasury(loser, offsets * cost_per);
+    offsets = spent / cost_per;
+    if (offsets <= 0) return planned_count;
+    if (out_offsets) *out_offsets = offsets;
+    if (out_spent) *out_spent = spent;
+    return planned_count - offsets;
+}
+
 int war_owned_province_count(int civ_id) {
     return regions_owned_count_for_civ(civ_id);
 }
@@ -313,8 +335,17 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
     if (winner >= 0 && loser >= 0 && is_valid_civ_id(winner) && is_valid_civ_id(loser)) {
         int cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
         int transferred;
+        int indemnity_offsets = 0;
+        int indemnity_spent = 0;
         diplomacy_record_war_result_kind(winner, loser, (DiplomacyLastWarResult)last_war_result);
+        cession_count = apply_indemnity_offset(loser, winner, cession_count,
+                                               &indemnity_offsets, &indemnity_spent);
         transferred = transfer_side_border_regions(loser, winner, cession_count);
+        if (indemnity_offsets > 0) {
+            event_log_push_structured(EVENT_TYPE_TREASURY_INDEMNITY, EVENT_SEVERITY_WARNING,
+                                      loser, winner, indemnity_spent, -1,
+                                      indemnity_offsets, transferred, "");
+        }
         if (transferred == 0) disorder_add_war_pressure(loser, 10);
         if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3) ||
             (civs[loser].disorder >= 92 && civs[loser].cohesion <= 4)) {

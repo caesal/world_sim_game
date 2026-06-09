@@ -4,6 +4,7 @@
 #include "sim/collapse.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/population.h"
 #include "sim/stability_decision.h"
 #include "sim/territory_integrity.h"
@@ -72,6 +73,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     int expansion;
     int war;
     int stability;
+    int effective_disorder;
     TerritoryIntegrityStats integrity;
 
     if (!out) return;
@@ -92,6 +94,11 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
         out->war_aggression_score = war_breakdown->aggression_score;
         out->war_border_score = war_breakdown->border_score;
         out->war_resource_score = war_breakdown->resource_score;
+        out->war_population_pressure = war_breakdown->population_pressure;
+        out->war_resource_pressure = war_breakdown->resource_pressure;
+        out->war_crisis_score = war_breakdown->crisis_score;
+        out->war_open_target_count = war_breakdown->open_target_count;
+        out->war_global_unowned_percent = war_breakdown->global_unowned_percent;
         out->war_strength_score = war_breakdown->strength_score;
         out->war_trade_penalty = war_breakdown->trade_penalty;
         out->war_truce_penalty = war_breakdown->truce_penalty;
@@ -105,7 +112,8 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
         out->war_result = war_breakdown->result;
     }
     territory_integrity_get_stats(civ_id, &integrity);
-    out->stability_pressure = max(civs[civ_id].disorder, population_pressure_for_civ(civ_id));
+    effective_disorder = economy_effective_disorder_for_civ(civ_id);
+    out->stability_pressure = max(effective_disorder, civs[civ_id].resource_pressure);
     out->stability_mode = stability_mode_for_civ(civ_id);
     out->stability_mode_months = stability_mode_months_for_civ(civ_id);
     out->stability_recovery_months = stability_recovery_months_remaining(civ_id);
@@ -130,7 +138,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     out->next_diplomacy_months = 12 - ((month - 1) % 12);
     out->next_battle_months = WAR_BATTLE_INTERVAL_MONTHS -
                               (((year * 12 + month) - 1) % WAR_BATTLE_INTERVAL_MONTHS);
-    out->next_collapse_years = civs[civ_id].disorder >= 100 ? 0 : years_to_decade_check();
+    out->next_collapse_years = effective_disorder >= 100 ? 0 : years_to_decade_check();
     out->expansion_reason = expansion_last_reason(civ_id);
     out->war_reason = diplomacy_last_war_reason(civ_id);
 
@@ -147,8 +155,14 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
         out->expansion.shallow_sea_reachable_regions > 0) {
         expansion += 20;
     }
-    if (civs[civ_id].disorder >= 70) stability += 30;
-    if (out->expansion.global_unowned_percent > 20) war = war * 65 / 100;
+    if (effective_disorder >= 70) stability += 30;
+    if (out->expansion.global_unowned_percent > 20 &&
+        (out->expansion.nearby_unowned_regions +
+         out->expansion.shallow_sea_reachable_regions +
+         out->expansion.maritime_reachable_regions +
+         out->expansion.deep_sea_reachable_regions) > 0) {
+        war = war * 65 / 100;
+    }
 
     out->expansion_weight = clamp(expansion, 0, 100);
     out->war_weight = clamp(war, 0, 100);
@@ -168,7 +182,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
                  integrity.longest_disconnected_months / 12,
                  integrity.longest_disconnected_months % 12,
                  integrity.capital_connected_percent);
-    } else if (civs[civ_id].disorder >= 70) {
+    } else if (effective_disorder >= 70) {
         snprintf(out->stability_reason, sizeof(out->stability_reason),
                  "Disorder is high; avoid shocks while recovery continues.");
     } else if (war_active_for_civ(civ_id)) {

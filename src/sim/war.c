@@ -3,23 +3,22 @@
 #include "core/dirty_flags.h"
 #include "core/plague_perf.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
 #include "sim/stability_decision.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
+#include "sim/war_economy.h"
 #include "sim/war_front.h"
+#include "sim/war_internal.h"
 #include "sim/war_resolution.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#define MAX_ACTIVE_WARS WAR_SAVE_SLOT_COUNT
 #define WAR_MOBILIZATION_RATE 10
 #define EXTREME_MOBILIZATION_RATE 18
-static ActiveWar active_wars[MAX_ACTIVE_WARS];
-static int support_casualties[MAX_CIVS];
-static int total_started_wars = 0;
 static int total_active_war_casualties(int civ_id);
 static int support_share_for_front(int overlord, int vassal);
 static int peace_desire(int civ_id, int casualties, int initial_soldiers, int initial_national);
@@ -153,11 +152,6 @@ static void rebalance_front_soldiers(ActiveWar *war) {
     rebalance_front_for_civ(war, war->attacker, war->soldiers_b);
     rebalance_front_for_civ(war, war->defender, war->soldiers_a);
 }
-void war_reset(void) {
-    memset(active_wars, 0, sizeof(active_wars));
-    memset(support_casualties, 0, sizeof(support_casualties));
-    total_started_wars = 0;
-}
 static int war_start_internal(int attacker, int defender, int allow_no_border) {
     int slot;
     int direct_target = defender;
@@ -248,16 +242,6 @@ void war_end_direct_for_civ(int civ_id) {
         }
     }
 }
-void war_copy_save_state(ActiveWar *wars, int war_count, int *support, int support_count, int *total_started) {
-    if (wars && war_count > 0) memcpy(wars, active_wars, sizeof(ActiveWar) * min(war_count, MAX_ACTIVE_WARS));
-    if (support && support_count > 0) memcpy(support, support_casualties, sizeof(int) * min(support_count, MAX_CIVS));
-    if (total_started) *total_started = total_started_wars; }
-void war_restore_save_state(const ActiveWar *wars, int war_count, const int *support, int support_count, int total_started) {
-    int i; war_reset(); if (support && support_count > 0) memcpy(support_casualties, support, sizeof(int) * min(support_count, MAX_CIVS));
-    total_started_wars = max(0, total_started); for (i = 0; wars && i < min(war_count, MAX_ACTIVE_WARS); i++) {
-        if (!wars[i].active || !is_valid_civ(wars[i].attacker) || !is_valid_civ(wars[i].defender)) continue;
-        active_wars[i] = wars[i];
-    } }
 static void apply_population_casualties(int civ_id, int soldier_casualties) {
     int population_losses;
     if (soldier_casualties <= 0) return;
@@ -378,7 +362,7 @@ static int peace_desire(int civ_id, int casualties, int initial_soldiers, int in
     desire = civs[civ_id].disorder + (initial_soldiers > 0 ? casualties * 70 / initial_soldiers : 0);
     desire += initial_national > 0 ? total_active_war_casualties(civ_id) * 45 / initial_national : 0;
     desire += max(0, front_count_for_civ(civ_id) - 1) * 8;
-    desire += population_pressure_for_civ(civ_id) > 110 ? 12 : 0;
+    desire += civs[civ_id].resource_pressure / 4;
     desire += stability_peace_pressure_bonus(civ_id);
     return clamp(desire, 0, 100);
 }
@@ -391,6 +375,8 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     int attacker_won;
     int casualties_a;
     int casualties_b;
+    int regular_casualties_a;
+    int regular_casualties_b;
     int peace_a;
     int peace_b;
     if (!is_valid_civ(war->attacker) || !is_valid_civ(war->defender)) {
@@ -406,7 +392,8 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
          stability_should_tail_cut_war(war->defender))) {
         if (stability_should_tail_cut_war(war->attacker) &&
             (!stability_should_tail_cut_war(war->defender) ||
-             civs[war->attacker].disorder >= civs[war->defender].disorder)) {
+             economy_effective_disorder_for_civ(war->attacker) >=
+             economy_effective_disorder_for_civ(war->defender))) {
             finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 1, DIP_LAST_WAR_MILITARY);
         } else {
             finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 1, DIP_LAST_WAR_MILITARY);
@@ -417,12 +404,13 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     rebalance_front_soldiers(war);
     cap_deployed_to_national(war->attacker);
     cap_deployed_to_national(war->defender);
+    war_economy_try_hire_mercenaries(war);
     war->years++;
-    if (war->soldiers_a <= 0) {
+    if (war->soldiers_a + war->temporary_soldiers_a <= 0) {
         finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 3, DIP_LAST_WAR_MILITARY);
         return;
     }
-    if (war->soldiers_b <= 0) {
+    if (war->soldiers_b + war->temporary_soldiers_b <= 0) {
         finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 3, DIP_LAST_WAR_MILITARY);
         return;
     }
@@ -445,9 +433,11 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     if (war->years % WAR_BATTLE_INTERVAL_YEARS != 0) return;
     update_supply_state(war);
     effective_a = scaled_soldiers_for_battle(war->attacker,
-                                             war->soldiers_a + side_support_soldiers(war->attacker), 0);
+                                             war->soldiers_a + war->temporary_soldiers_a +
+                                             side_support_soldiers(war->attacker), 0);
     effective_b = scaled_soldiers_for_battle(war->defender,
-                                             war->soldiers_b + side_support_soldiers(war->defender), 1);
+                                             war->soldiers_b + war->temporary_soldiers_b +
+                                             side_support_soldiers(war->defender), 1);
     chance_a = effective_a * 1000 / max(1, effective_a + effective_b);
     chance_b = 1000 - chance_a;
     chance_a += technology_battle_chance_bonus(war->attacker) * 10;
@@ -456,20 +446,26 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     roll = rnd(1000);
     attacker_won = roll < chance_a;
     if (attacker_won) {
-        casualties_b = casualty_from_initial(war->soldiers_b, war->initial_soldiers_b, 80);
-        casualties_a = winner_casualties_from_loser_loss(war->soldiers_a, casualties_b);
+        casualties_b = casualty_from_initial(war->soldiers_b + war->temporary_soldiers_b,
+                                             war->initial_soldiers_b, 80);
+        casualties_a = winner_casualties_from_loser_loss(war->soldiers_a + war->temporary_soldiers_a,
+                                                         casualties_b);
         war->wins_a++;
     } else {
-        casualties_a = casualty_from_initial(war->soldiers_a, war->initial_soldiers_a, 80);
-        casualties_b = winner_casualties_from_loser_loss(war->soldiers_b, casualties_a);
+        casualties_a = casualty_from_initial(war->soldiers_a + war->temporary_soldiers_a,
+                                             war->initial_soldiers_a, 80);
+        casualties_b = winner_casualties_from_loser_loss(war->soldiers_b + war->temporary_soldiers_b,
+                                                         casualties_a);
         war->wins_b++;
     }
-    war->soldiers_a -= casualties_a;
-    war->soldiers_b -= casualties_b;
+    regular_casualties_a = war_economy_absorb_casualties(war, 1, casualties_a);
+    regular_casualties_b = war_economy_absorb_casualties(war, 0, casualties_b);
+    war->soldiers_a -= regular_casualties_a;
+    war->soldiers_b -= regular_casualties_b;
     war->casualties_a += casualties_a;
     war->casualties_b += casualties_b;
-    apply_population_casualties(war->attacker, casualties_a);
-    apply_population_casualties(war->defender, casualties_b);
+    apply_population_casualties(war->attacker, regular_casualties_a);
+    apply_population_casualties(war->defender, regular_casualties_b);
     war->support_casualties_a += apply_support_casualties(war->attacker);
     war->support_casualties_b += apply_support_casualties(war->defender);
     cap_deployed_to_national(war->attacker);
@@ -478,14 +474,20 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     peace_b = peace_desire(war->defender, war->casualties_b, war->initial_soldiers_b, war->initial_national_b);
     resolve_peace_pressure_outcome(war, peace_a, peace_b);
 }
-void war_update_year(void) {
-    int i;
-    int changed = 0;
-    int tail_cut_done = 0;
-    for (i = 0; i < MAX_ACTIVE_WARS; i++) {
-        if (active_wars[i].active) { run_war_year(&active_wars[i], &tail_cut_done); changed = 1; }
+int war_update_year_step(int *cursor, int max_wars, int *tail_cut_done, int *changed) {
+    int processed = 0;
+    if (!cursor) return 1;
+    if (max_wars <= 0) max_wars = 1;
+    while (*cursor < MAX_ACTIVE_WARS && processed < max_wars) {
+        if (active_wars[*cursor].active) { run_war_year(&active_wars[*cursor], tail_cut_done); processed++; if (changed) *changed = 1; }
+        (*cursor)++;
     }
-    if (changed) dirty_mark_diplomacy();
+    if (*cursor >= MAX_ACTIVE_WARS) { if (changed && *changed) dirty_mark_diplomacy(); return 1; }
+    return 0;
+}
+void war_update_year(void) {
+    int cursor = 0, changed = 0, tail_cut_done = 0;
+    while (!war_update_year_step(&cursor, 8, &tail_cut_done, &changed)) {}
 }
 const char *war_outcome_name(WarOutcome outcome) {
     switch (outcome) {

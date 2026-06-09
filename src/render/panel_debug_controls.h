@@ -5,11 +5,13 @@
 #include <windows.h>
 
 #include "ui/ui_widgets.h"
+#include "render/profiling_switches.h"
 
 enum {
     DEBUG_PLAGUE_SWITCH_SYSTEM,
     DEBUG_PLAGUE_SWITCH_VISUALS,
-    DEBUG_PLAGUE_SWITCH_COUNT
+    DEBUG_FEATURE_SWITCH_PROFILE_FIRST,
+    DEBUG_FEATURE_SWITCH_COUNT = DEBUG_FEATURE_SWITCH_PROFILE_FIRST + PROFILING_SWITCH_COUNT
 };
 
 void draw_debug_plague_perf_controls(HDC hdc, UiCursor *cursor);

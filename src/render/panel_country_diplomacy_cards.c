@@ -327,6 +327,8 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
         int own_is_attacker = civ_id == war.attacker;
         int own = own_is_attacker ? war.soldiers_a : war.soldiers_b;
         int enemy = own_is_attacker ? war.soldiers_b : war.soldiers_a;
+        int own_merc = own_is_attacker ? war.temporary_soldiers_a : war.temporary_soldiers_b;
+        int enemy_merc = own_is_attacker ? war.temporary_soldiers_b : war.temporary_soldiers_a;
         int own_loss = own_is_attacker ? war.casualties_a + war.support_casualties_a :
                        war.casualties_b + war.support_casualties_b;
         int enemy_loss = own_is_attacker ? war.casualties_b + war.support_casualties_b :
@@ -343,6 +345,11 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                               own_is_attacker,
                               own_civ ? own_civ->color : RGB(120, 140, 160),
                               enemy_civ ? enemy_civ->color : RGB(160, 120, 120));
+        if (own_merc > 0 || enemy_merc > 0) {
+            snprintf(a, sizeof(a), "%s +%d / +%d", tr("Merc", "雇佣兵"), own_merc, enemy_merc);
+            draw_text_rect(hdc, ui_take_rect(cursor, 20), a, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                           DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        }
         ui_format_months(span, sizeof(span), battle_left, UI_MONTH_ZERO_NOW);
         bar_row(hdc, cursor, tr("Next battle", "下次战斗"), span, battle_progress_percent(battle_left), war_style.accent);
         draw_peace_compare(hdc, cursor, own_peace, enemy_peace);
@@ -443,7 +450,10 @@ int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view)
                       card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
     int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
-    if (relation.state == DIPLOMACY_WAR) return 244;
+    if (relation.state == DIPLOMACY_WAR) {
+        SnapshotWar war = card_war(civ_id, other_id);
+        return war.temporary_soldiers_a > 0 || war.temporary_soldiers_b > 0 ? 264 : 244;
+    }
     if (relation.state == DIPLOMACY_TRUCE) return 150;
     if (direct_vassal) return 162;
     if (vassal_like) return 110;

@@ -8,6 +8,7 @@
 #include "sim/civilization_metrics.h"
 #include "sim/civ_colors.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/expansion.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
@@ -265,7 +266,7 @@ static void rebuild_country_summary_cache(void) {
     for (i = 0; i < civ_count; i++) {
         CountrySummary *summary = &country_summary_cache[i];
         int resource_percent = technology_resource_percent(i);
-        int disorder_percent = disorder_productivity_percent(civs[i].disorder);
+        int disorder_percent = disorder_productivity_percent(economy_effective_disorder_for_civ(i));
         if (summary->territory <= 0) continue;
         resource_percent = resource_percent * disorder_percent / 100;
         summary->food /= summary->territory;
@@ -377,6 +378,7 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
 
     recalculate_territory();
     population_sync_all();
+    economy_initialize_civ(civ_id);
     ports_refresh_city_regions();
     maritime_mark_ownership_dirty();
     maritime_mark_routes_dirty();

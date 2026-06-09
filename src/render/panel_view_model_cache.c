@@ -1,13 +1,12 @@
 #include "render/panel_view_model_cache.h"
-
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "core/render_snapshot.h"
+#include "render/profiling_switches.h"
 #include "render/render_context.h"
 #include "render/render_panel_internal.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_theme.h"
-
 #include <stdio.h>
 #include <string.h>
 
@@ -74,6 +73,109 @@ static unsigned int snapshot_base_key(const RenderSnapshot *snapshot, PanelCache
 static int selected_civ_uid(const RenderSnapshot *snapshot) {
     if (!snapshot || selected_civ < 0 || selected_civ >= snapshot->civ_count) return 0;
     return snapshot->civs[selected_civ].uid;
+}
+
+static const SnapshotCiv *selected_snapshot_civ(const RenderSnapshot *snapshot) {
+    return (!snapshot || selected_civ < 0 || selected_civ >= snapshot->civ_count) ? NULL : &snapshot->civs[selected_civ];
+}
+static int key_bucket(int value, int bucket) { return bucket <= 1 ? value : (value >= 0 ? value / bucket : -((-value + bucket - 1) / bucket)); }
+
+static unsigned int mix_text_key(unsigned int key, const char *text) {
+    int i;
+    if (!text) return mix_key(key, 0);
+    for (i = 0; text[i]; i++) key = key * 16777619u ^ (unsigned char)text[i];
+    return key;
+}
+
+static unsigned int mix_country_summary_key(unsigned int key, CountrySummary s) {
+    int i, values[] = {s.population, s.territory, s.cities, s.ports, s.food, s.livestock,
+                       s.wood, s.stone, s.minerals, s.water, s.pop_capacity, s.money,
+                       s.habitability, s.resource_score};
+    for (i = 0; i < (int)(sizeof(values) / sizeof(values[0])); i++) key = mix_key(key, values[i]);
+    return key;
+}
+
+static unsigned int mix_population_summary_key(unsigned int key, PopulationSummary s) {
+    int i;
+    key = mix_key(key, s.total); key = mix_key(key, s.male); key = mix_key(key, s.female);
+    key = mix_key(key, s.children); key = mix_key(key, s.working); key = mix_key(key, s.fertile);
+    key = mix_key(key, s.recruitable); key = mix_key(key, s.elder);
+    key = mix_key(key, s.carrying_capacity); key = mix_key(key, s.pressure);
+    for (i = 0; i < POP_COHORT_COUNT; i++) {
+        key = mix_key(key, s.cohorts[i].male);
+        key = mix_key(key, s.cohorts[i].female);
+    }
+    return key;
+}
+
+static unsigned int mix_header_key(unsigned int key, const SnapshotCiv *civ, int exact) {
+    int i;
+    int values[15];
+    if (!civ) return mix_key(key, 0);
+    values[0] = civ->uid; values[1] = civ->alive; values[2] = civ->color; values[3] = civ->symbol;
+    values[4] = civ->name_id; values[5] = civ->heritage; values[6] = civ->overlord; values[7] = civ->vassal_count;
+    values[8] = civ->war_active; values[9] = civ->war_front_count; values[10] = civ->tech_stage;
+    values[11] = civ->tech_stage_progress_percent; values[12] = civ->disorder; values[13] = civ->effective_disorder;
+    values[14] = exact ? civ->summary.population : key_bucket(civ->summary.population, 1000);
+    for (i = 0; i < 15; i++) key = mix_key(key, values[i]);
+    key = mix_key(key, exact ? civ->current_soldiers : key_bucket(civ->current_soldiers, 100));
+    key = mix_key(key, exact ? civ->treasury : key_bucket(civ->treasury, 100));
+    return mix_text_key(key, civ->main_intent);
+}
+
+static unsigned int mix_decision_key(unsigned int key, const SnapshotCiv *civ) {
+    const DecisionSnapshot *d;
+    int i, values[14];
+    if (!civ) return mix_key(key, 0);
+    d = &civ->decision;
+    values[0] = d->expansion_weight; values[1] = d->war_weight; values[2] = d->stability_weight;
+    values[3] = d->next_expansion_months; values[4] = d->war_desire; values[5] = d->war_raw_desire;
+    values[6] = d->war_threshold; values[7] = d->war_readiness_percent; values[8] = d->war_crisis_score;
+    values[9] = d->war_result; values[10] = d->stability_pressure; values[11] = d->stability_mode;
+    values[12] = d->capital_region; values[13] = d->owned_regions;
+    for (i = 0; i < 14; i++) key = mix_key(key, values[i]);
+    key = mix_text_key(key, civ->main_intent);
+    key = mix_text_key(key, civ->decision_expansion_reason);
+    key = mix_text_key(key, civ->decision_war_reason);
+    return mix_text_key(key, d->stability_reason);
+}
+
+static unsigned int mix_top_city_rows_key(unsigned int key, const RenderSnapshot *snapshot,
+                                          const SnapshotCiv *civ) {
+    int i;
+    if (!snapshot || !civ) return mix_key(key, 0);
+    key = mix_key(key, civ->population_city_count);
+    for (i = 0; i < POPULATION_TOP_CITY_COUNT; i++) {
+        int city_id = civ->population_top_city_ids[i];
+        const SnapshotCity *city = city_id >= 0 && city_id < snapshot->city_count ? &snapshot->cities[city_id] : NULL;
+        key = mix_key(key, city_id);
+        if (!city) continue;
+        key = mix_key(key, city->alive); key = mix_key(key, city->owner);
+        key = mix_key(key, city->population); key = mix_key(key, city->capital);
+        key = mix_key(key, city->port); key = mix_key(key, city->population_summary.carrying_capacity);
+        key = mix_text_key(key, city->name);
+    }
+    return key;
+}
+
+static unsigned int mix_diplomacy_rows_key(unsigned int key, const RenderSnapshot *snapshot,
+                                           int civ_id, int all_relations) {
+    int i;
+    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return mix_key(key, 0);
+    for (i = 0; i < snapshot->civ_count; i++) {
+        const SnapshotCiv *other = &snapshot->civs[i];
+        const SnapshotDiplomacyRelation *rel = &snapshot->relations[civ_id][i];
+        const SnapshotWar *war = &snapshot->wars[civ_id][i];
+        int direct = other->alive && (other->overlord == civ_id || snapshot->civs[civ_id].overlord == i);
+        if (i == civ_id || (!all_relations && !direct)) continue;
+        key = mix_key(key, other->uid); key = mix_key(key, other->alive);
+        key = mix_key(key, other->overlord); key = mix_key(key, key_bucket(other->current_soldiers, 100));
+        key = mix_key(key, other->vassal_callable_soldiers); key = mix_key(key, other->vassal_resource_tribute);
+        key = mix_key(key, rel->state); key = mix_key(key, rel->relation_score);
+        key = mix_key(key, rel->truce_years_left); key = mix_key(key, war->active);
+        key = mix_key(key, key_bucket(war->soldiers_a + war->soldiers_b, 100));
+    }
+    return key;
 }
 
 static PanelCacheKind panel_cache_kind(const RenderSnapshot *snapshot) {
@@ -155,36 +257,70 @@ static unsigned int panel_ui_key_for(RECT client, PanelCacheKind kind) {
 
 static unsigned int country_data_key(const RenderSnapshot *snapshot, PanelCacheKind kind) {
     unsigned int key = snapshot_base_key(snapshot, kind);
+    const SnapshotCiv *civ;
     int tab;
     if (!snapshot) return key;
     key = mix_key(key, snapshot->civ_count);
     key = mix_key(key, snapshot->civ_alive_count);
-    key = mix_key(key, snapshot->civs_revision);
-    key = mix_key(key, snapshot->diplomacy_revision);
-    if (kind == PANEL_CACHE_COUNTRY_LIST) return key;
+    if (kind == PANEL_CACHE_COUNTRY_LIST) {
+        key = mix_key(key, snapshot->civs_revision);
+        return mix_key(key, snapshot->diplomacy_revision);
+    }
+    civ = selected_snapshot_civ(snapshot);
     key = mix_key(key, selected_civ_uid(snapshot));
     tab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
     if (tab == COUNTRY_DETAIL_OVERVIEW) {
-        key = mix_key(key, snapshot->cities_revision);
-        key = mix_key(key, snapshot->regions_revision);
-        key = mix_key(key, snapshot->tiles_revision);
+        key = mix_header_key(key, civ, 1);
+        if (civ) key = mix_country_summary_key(key, civ->summary);
+        key = mix_decision_key(key, civ);
+        key = mix_diplomacy_rows_key(key, snapshot, selected_civ, 0);
         key = mix_key(key, snapshot->plague_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_RESOURCES) {
-        key = mix_key(key, snapshot->cities_revision);
+        key = mix_header_key(key, civ, 1);
+        if (civ) {
+            key = mix_country_summary_key(key, civ->summary);
+            key = mix_population_summary_key(key, civ->population_summary);
+        }
+        key = mix_key(key, selected_x);
+        key = mix_key(key, selected_y);
         key = mix_key(key, snapshot->regions_revision);
         key = mix_key(key, snapshot->tiles_revision);
         key = mix_key(key, snapshot->plague_revision);
     } else if (tab == COUNTRY_DETAIL_DECISION) {
+        key = mix_header_key(key, civ, 0);
+        key = mix_decision_key(key, civ);
         key = mix_key(key, snapshot->regions_revision);
         key = mix_key(key, snapshot->lanes_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_POPULATION) {
-        key = mix_key(key, snapshot->cities_revision);
+        key = mix_header_key(key, civ, 1);
+        if (civ) {
+            key = mix_population_summary_key(key, civ->population_summary);
+            key = mix_key(key, civ->population_diagnostics.effective_pressure);
+            key = mix_key(key, civ->population_diagnostics.estimated_monthly_births);
+            key = mix_key(key, civ->population_diagnostics.estimated_total_deaths);
+            key = mix_key(key, civ->population_diagnostics.estimated_net_monthly_change);
+        }
+        key = mix_top_city_rows_key(key, snapshot, civ);
     } else if (tab == COUNTRY_DETAIL_DIPLOMACY) {
+        key = mix_header_key(key, civ, 0);
+        key = mix_diplomacy_rows_key(key, snapshot, selected_civ, 1);
+        key = mix_key(key, snapshot->diplomacy_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_DISORDER) {
+        key = mix_header_key(key, civ, 1);
+        if (civ) {
+            key = mix_key(key, civ->disorder_resource);
+            key = mix_key(key, civ->disorder_plague);
+            key = mix_key(key, civ->disorder_migration);
+            key = mix_key(key, civ->disorder_stability);
+            key = mix_key(key, civ->disorder_wartime);
+            key = mix_key(key, civ->disorder_last_net_x10);
+        }
         key = mix_key(key, snapshot->plague_revision);
+    } else {
+        key = mix_header_key(key, civ, 0);
     }
     return key;
 }
@@ -253,7 +389,7 @@ static int ensure_panel_cache(HDC hdc, PanelViewCache *cache, RECT client) {
 static int should_rebuild(PanelViewCache *cache, PanelCacheKind kind,
                           unsigned int ui_key, unsigned int data_key) {
     DWORD now = GetTickCount();
-    DWORD interval = (kind == PANEL_CACHE_DEBUG_MAP || kind == PANEL_CACHE_DEBUG_PERF) ? 1000u : 125u;
+    DWORD interval = (kind == PANEL_CACHE_DEBUG_MAP || kind == PANEL_CACHE_DEBUG_PERF) ? 1000u : 250u;
     if (force_refresh) { panel_last_reason = 0; return 1; }
     if (!cache->valid) { panel_last_reason = 1; return 1; }
     if (cache->ui_key != ui_key) { panel_last_reason = 2; return 1; }
@@ -307,7 +443,8 @@ void panel_view_model_cache_draw(HDC hdc, RECT client) {
         hover_repaint_pending = 0;
         return;
     }
-    if (should_rebuild(cache, kind, ui_key, data_key)) {
+    if (!profiling_switch_enabled(PROFILING_SWITCH_PANEL_CACHE_REBUILD) && cache->valid) panel_last_reason = 4;
+    else if (should_rebuild(cache, kind, ui_key, data_key)) {
         rebuild_panel_cache(cache, client, panel, ui_key, data_key);
     }
     if (hover_repaint_pending && cache->valid) {

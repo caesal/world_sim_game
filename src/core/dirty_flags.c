@@ -31,6 +31,7 @@ static int population_revision = 1;
 static int ui_revision = 1;
 static int hydrology_revision = 1;
 static int civ_revision = 1;
+static int civ_visual_revision = 1;
 static int city_revision = 1;
 static int diplomacy_revision = 1;
 static int label_country_revision = 1;
@@ -72,6 +73,7 @@ void dirty_mark_world(void) {
     bump(&ui_revision);
     bump(&hydrology_revision);
     bump(&civ_revision);
+    bump(&civ_visual_revision);
     bump(&city_revision);
     bump(&diplomacy_revision);
     bump(&label_country_revision);
@@ -122,6 +124,7 @@ void dirty_mark_labels(void) {
 
 void dirty_mark_civ(void) {
     bump(&civ_revision);
+    bump(&civ_visual_revision);
     mark(DIRTY_RENDER_LABELS);
     bump(&label_country_revision);
 }
@@ -165,6 +168,7 @@ int dirty_revision_population(void) { return population_revision; }
 int dirty_revision_ui(void) { return ui_revision; }
 int dirty_revision_hydrology(void) { return hydrology_revision; }
 int dirty_revision_civ(void) { return civ_revision; }
+int dirty_revision_civ_visual(void) { return civ_visual_revision; }
 int dirty_revision_city(void) { return city_revision; }
 int dirty_revision_diplomacy(void) { return diplomacy_revision; }
 int dirty_revision_label_country(void) { return label_country_revision; }

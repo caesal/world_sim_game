@@ -7,15 +7,16 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2.d is a Windows graphical sandbox prototype written in C.
+Ver0.3.2.e is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2.d combines the accepted vassal highlight pulse hotfix, Phase 5 UIUX
-presentation polish, lighter centralized clay shadows, and diplomacy map-event
-animation cleanup. It keeps the Ver0.3.2.c war/diplomacy settlement baseline
-while making overlord/vassal map pulses consistent, preserving Phase 4
-Country/Diplomacy presentation, improving Population/Plague/Map/Info/Debug
-clay presentation, clipping diplomacy event animations to the map area, and
-showing war-start map animation as a single red arrow from attacker to defender.
+Ver0.3.2.e accepts the economy/resource-pressure, treasury, population,
+war-economy, map-cache, and selected-detail performance WIP over Ver0.3.2.d.
+It keeps the Ver0.3.2.d UIUX and diplomacy-animation baseline while adding a
+persistent capped treasury, annual economy settlement, resource-pressure-driven
+population diagnostics, war indemnity and mercenary hooks, tighter Population
+and Resource panel presentation, runtime profiling switches, batched/contoured
+country highlights, and a static-scene cache fix that keeps political color
+updates current without reintroducing sustained max-speed stutter.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -26,10 +27,10 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: future marker, route, performance, UI, map-display,
-simulation-speed, collapse, enclave, or diplomacy changes must remain
-evidence-based and pass the strict validation gate for the specific scope
-involved.
+Known follow-up: isolated late-run frame peaks remain a performance watch item,
+and future marker, route, performance, UI, map-display, simulation-speed,
+collapse, enclave, or diplomacy changes must remain evidence-based and pass the
+strict validation gate for the specific scope involved.
 
 You can:
 

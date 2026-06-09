@@ -29,6 +29,10 @@ typedef struct {
     int years;
     int supply_fail_a;
     int supply_fail_b;
+    int temporary_soldiers_a;
+    int temporary_soldiers_b;
+    int mercenary_hired_a;
+    int mercenary_hired_b;
 } ActiveWar;
 
 #define WAR_SAVE_SLOT_COUNT (MAX_CIVS * MAX_CIVS / 2)
@@ -38,6 +42,7 @@ typedef struct {
 void war_reset(void);
 int war_start(int attacker, int defender);
 void war_update_year(void);
+int war_update_year_step(int *cursor, int max_wars, int *tail_cut_done, int *changed);
 int war_active_between(int civ_a, int civ_b);
 ActiveWar war_state_between(int civ_a, int civ_b);
 int war_estimated_soldiers(int civ_id);

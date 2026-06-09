@@ -116,7 +116,7 @@ void draw_country_summary_card(HDC hdc, RECT rect, int civ_id, int selected) {
     metric.left += metric_w; metric.right += metric_w;
     draw_card_metric(hdc, metric, metric_label("Army", "军队"), civ->current_soldiers, RGB(204, 172, 112));
     metric.left += metric_w; metric.right += metric_w;
-    draw_card_metric(hdc, metric, metric_label("Money", "经济"), country.money, RGB(207, 184, 104));
+    draw_card_metric(hdc, metric, metric_label("Treas", "国库"), civ->treasury, RGB(207, 184, 104));
     metric.left += metric_w; metric.right += metric_w;
     draw_card_metric(hdc, metric, metric_label("Tech", "科技"), clamp(civ->tech_stage, 0, 10), RGB(147, 176, 214));
     metric.left += metric_w; metric.right += metric_w;
@@ -143,7 +143,7 @@ void draw_country_selected_summary(HDC hdc, RECT rect, int civ_id) {
              tr("Capital", "首都"), snapshot_ui_capital_name(civ_id),
              tr("Pop", "人口"), country.population,
              tr("Army", "军队"), civ->current_soldiers,
-             tr("Money", "经济"), country.money,
+             tr("Treasury", "国库"), civ->treasury,
              tr("Disorder", "混乱"), civ->disorder,
              tr("Status", "状态"), status_text,
              tr("Intent", "意图"), intent_label(civ->main_intent));

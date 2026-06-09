@@ -18,6 +18,8 @@ int sea_lane_render_dash_rebuild_ms(void);
 const char *sea_lane_render_dash_reason(void);
 const char *sea_lane_render_dash_reason_summary(void);
 int sea_lane_render_visible_routes(void);
+int sea_lane_render_visible_shallow_routes(void);
+int sea_lane_render_visible_deep_routes(void);
 int sea_lane_render_infected_routes(void);
 int sea_lane_render_infected_draw_ms(void);
 

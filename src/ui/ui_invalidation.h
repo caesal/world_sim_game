@@ -4,6 +4,7 @@
 #include <windows.h>
 
 void ui_invalidate_side_panel(HWND hwnd);
+void ui_invalidate_side_panel_data(HWND hwnd);
 void ui_invalidate_side_panel_immediate(HWND hwnd);
 void ui_invalidate_side_panel_hover(HWND hwnd);
 void ui_invalidate_side_panel_handle(HWND hwnd);

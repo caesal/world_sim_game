@@ -6,6 +6,7 @@
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
@@ -159,6 +160,7 @@ static void init_child_from_parent(int child_id, int parent_id, int seed_region)
     child->disorder_stability = 12;
     child->collapse_grace_months = ENCLAVE_CHILD_GRACE_MONTHS;
     child->capital_city = -1;
+    economy_initialize_civ(child_id);
 }
 
 static int create_component_country(int owner, const int *regions, int count,
@@ -166,6 +168,8 @@ static int create_component_country(int owner, const int *regions, int count,
     int child_id;
     int seed_region;
     int city_id;
+    int parent_asset_total;
+    int child_asset;
 
     if (slot_full) *slot_full = 0;
     if (count <= 0 || !regions) return -1;
@@ -177,6 +181,8 @@ static int create_component_country(int owner, const int *regions, int count,
         return -1;
     }
     init_child_from_parent(child_id, owner, seed_region);
+    parent_asset_total = economy_owned_region_asset_total(owner);
+    child_asset = economy_region_list_asset(regions, count);
     city_id = regions_activate_local_city(seed_region, child_id,
                                           max(900, natural_regions[seed_region].average_stats.pop_capacity * 450),
                                           1, 1);
@@ -194,6 +200,7 @@ static int create_component_country(int owner, const int *regions, int count,
         civilization_reset_slot_state(child_id);
         return -1;
     }
+    economy_split_treasury_to_child(owner, child_id, child_asset, parent_asset_total);
     if (make_vassal && valid_alive_civ(owner)) {
         diplomacy_start_vassal(owner, child_id, 70);
         disorder_pacify_vassalization(child_id);

@@ -3,6 +3,8 @@
 
 #include "core/render_snapshot.h"
 
+#include <stddef.h>
+
 const RenderSnapshot *snapshot_ui_current(void);
 const SnapshotCiv *snapshot_ui_civ(int civ_id);
 const SnapshotCity *snapshot_ui_city(int city_id);
@@ -20,5 +22,7 @@ int snapshot_ui_province_count(int civ_id);
 const char *snapshot_ui_civ_name(int civ_id);
 const char *snapshot_ui_capital_name(int civ_id);
 const char *snapshot_ui_region_name(int region_id);
+void snapshot_ui_city_display_name(const RenderSnapshot *snapshot, const SnapshotCity *city,
+                                   char *out, size_t out_size);
 
 #endif

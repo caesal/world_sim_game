@@ -5,6 +5,7 @@
 #include "ui/ui_types.h"
 
 #include <stdio.h>
+#include <string.h>
 
 static const char empty_name[] = "";
 
@@ -114,4 +115,45 @@ const char *snapshot_ui_region_name(int region_id) {
     const SnapshotRegion *region = snapshot_ui_region(region_id);
     if (!region) return empty_name;
     return ui_language == UI_LANG_ZH ? region->name_zh : region->name_en;
+}
+
+static int strip_city_suffix(char *text, const char *suffix) {
+    size_t text_len = strlen(text);
+    size_t suffix_len = strlen(suffix);
+    if (suffix_len == 0 || text_len <= suffix_len) return 0;
+    if (strcmp(text + text_len - suffix_len, suffix) != 0) return 0;
+    text[text_len - suffix_len] = '\0';
+    return 1;
+}
+
+void snapshot_ui_city_display_name(const RenderSnapshot *snapshot, const SnapshotCity *city,
+                                   char *out, size_t out_size) {
+    const char *source;
+    const SnapshotTile *tile;
+    if (!out || out_size == 0) return;
+    out[0] = '\0';
+    if (!city) return;
+    source = city->name;
+    tile = snapshot ? render_snapshot_tile_at(snapshot, city->x, city->y) : NULL;
+    if (snapshot && tile && tile->region_id >= 0 && tile->region_id < snapshot->region_count) {
+        const SnapshotRegion *region = &snapshot->regions[tile->region_id];
+        source = ui_language == UI_LANG_ZH ? region->name_zh : region->name_en;
+    }
+    snprintf(out, out_size, "%s", source && source[0] ? source : city->name);
+    if (ui_language == UI_LANG_ZH) {
+        if (strip_city_suffix(out, "行省")) return;
+        if (strip_city_suffix(out, "地区")) return;
+        if (strip_city_suffix(out, "区域")) return;
+        if (strip_city_suffix(out, "边境")) return;
+        if (strip_city_suffix(out, "省")) return;
+        if (strip_city_suffix(out, "郡")) return;
+        strip_city_suffix(out, "州");
+    } else {
+        if (strip_city_suffix(out, " Province")) return;
+        if (strip_city_suffix(out, " Territory")) return;
+        if (strip_city_suffix(out, " District")) return;
+        if (strip_city_suffix(out, " Region")) return;
+        if (strip_city_suffix(out, " March")) return;
+        strip_city_suffix(out, " Coast");
+    }
 }

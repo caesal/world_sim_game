@@ -7,6 +7,7 @@
 #include "core/render_snapshot.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/plague_visual.h"
+#include "render/render_static_scene.h"
 #include "sim/simulation_scheduler.h"
 #include "sim/simulation_worker.h"
 
@@ -51,6 +52,9 @@ static int presentation_throttle_interval_ms(int redraw) {
     int worker_throttled;
     if (!auto_run || speed_index < SPEED_COUNT - 1) return 0;
     if (redraw & GAME_REDRAW_FULL) return 0;
+    if ((redraw & GAME_REDRAW_MAP_STATIC) && !render_static_scene_complete()) {
+        return render_static_scene_presentable() ? 100 : 0;
+    }
     if (map_interaction_preview) return 0;
     profiler_snapshot(&perf);
     actual_ms = simulation_worker_actual_ms_per_month();
@@ -130,7 +134,7 @@ int game_loop_tick_frame(void) {
                           game_loop_pending_months(), game_loop_simulation_overloaded());
     completed_months = simulation_worker_take_visual_tick();
     if (completed_months > 0) redraw |= GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
-                                        GAME_REDRAW_SIDE_PANEL;
+                                        GAME_REDRAW_SIDE_PANEL_DATA;
     if (did_visual && !max_speed_presentation_overloaded()) {
         redraw |= GAME_REDRAW_PLAGUE_OVERLAY;
         append_map_reason(map_reason, sizeof(map_reason), "plague-animation");

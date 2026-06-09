@@ -171,14 +171,14 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             hit > COUNTRY_PANEL_HIT_SUBTAB_BASE - COUNTRY_DETAIL_TAB_COUNT) {
             country_detail_subtab = COUNTRY_PANEL_HIT_SUBTAB_BASE - hit;
             country_detail_subtab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
-            ui_invalidate_side_panel_immediate(hwnd);
+            ui_invalidate_side_panel(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE &&
             hit >= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - DIPLOMACY_VIEW_OTHER) {
             country_diplomacy_view = COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - hit;
             country_detail_scroll_offsets[COUNTRY_DETAIL_DIPLOMACY] = 0;
-            ui_invalidate_side_panel_immediate(hwnd);
+            ui_invalidate_side_panel(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_DECISION_VIEW_BASE &&
@@ -186,7 +186,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             country_decision_subtab = COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - hit;
             country_decision_subtab = clamp(country_decision_subtab, 0, COUNTRY_DECISION_SUBTAB_COUNT - 1);
             country_detail_scroll_offsets[COUNTRY_DETAIL_DECISION] = 0;
-            ui_invalidate_side_panel_immediate(hwnd);
+            ui_invalidate_side_panel(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_SORT_POPULATION && hit >= COUNTRY_PANEL_HIT_SORT_DISORDER) {

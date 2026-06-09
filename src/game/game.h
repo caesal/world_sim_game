@@ -37,5 +37,7 @@ int game_request_annex_vassal(int overlord_id, int vassal_id);
 int game_tick_auto_run(void);
 int run_expansion_probe(void);
 int run_tech10_probe(void);
+int run_economy_probe(void);
+int run_crisis_probe(void);
 
 #endif

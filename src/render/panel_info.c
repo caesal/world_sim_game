@@ -166,7 +166,7 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             m = metric_grid_rect(x, y, quad_w, metric_h, 2);
             draw_info_metric_box(hdc, m, ICON_CITY_CAPITAL, metric_label("CITY", "城市"), country.cities, RGB(154, 128, 74), tr("Total cities", "国家城市数量"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 3);
-            draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("DIS", "混乱"), civ->disorder, RGB(170, 73, 73), tr("Total disorder", "总混乱度"), &tooltip_text);
+            draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("DIS", "混乱"), civ->effective_disorder, RGB(170, 73, 73), tr("Effective disorder", "有效混乱度"), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 4);
             draw_info_metric_box(hdc, m, ICON_COUNTRY_DEFENSE, metric_label("GOV", "治理"), civ->governance, RGB(82, 114, 153), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_GOVERNANCE].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 5);
@@ -183,7 +183,15 @@ void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT b
             draw_info_metric_box(hdc, m, ICON_INNOVATION, metric_label("INN", "技术"), civ->innovation, RGB(102, 128, 180), localized_text(CIVILIZATION_METRIC_RULES[CIV_METRIC_INNOVATION].ability, ui_language), &tooltip_text);
             m = metric_grid_rect(x, y, quad_w, metric_h, 11);
             draw_info_metric_box(hdc, m, ICON_HABITABILITY, metric_label("ADP", "适应"), civ->adaptation, RGB(116, 145, 94), tr("Dynamic adaptation from environment, resources, culture, and disorder", "由环境、资源、文化和混乱度动态决定的适应力"), &tooltip_text);
-            y += 3 * (metric_h + 6) + 4;
+            m = metric_grid_rect(x, y, quad_w, metric_h, 12);
+            draw_info_metric_box(hdc, m, ICON_MONEY, metric_label("TRS", "国库"), civ->treasury, RGB(169, 134, 54), tr("Treasury current wealth", "当前国库"), &tooltip_text);
+            m = metric_grid_rect(x, y, quad_w, metric_h, 13);
+            draw_info_metric_box(hdc, m, ICON_MONEY, metric_label("CAP", "上限"), civ->treasury_cap, RGB(169, 134, 54), tr("Treasury cap", "国库上限"), &tooltip_text);
+            m = metric_grid_rect(x, y, quad_w, metric_h, 14);
+            draw_info_metric_box(hdc, m, ICON_DISORDER, metric_label("RSP", "资压"), civ->resource_pressure, RGB(170, 73, 73), tr("Resource pressure", "资源压力"), &tooltip_text);
+            m = metric_grid_rect(x, y, quad_w, metric_h, 15);
+            draw_info_metric_box(hdc, m, ICON_MILITARY, metric_label("MCD", "佣冷"), civ->mercenary_cooldown_months, RGB(204, 172, 112), tr("Mercenary cooldown months", "雇佣兵冷却月份"), &tooltip_text);
+            y += 4 * (metric_h + 6) + 4;
         }
         y = draw_population_pyramid_summary(hdc, client, x, y, inner_w, civ->population_summary, body_font);
         draw_text_line(hdc, x, y, tr("Country Resources", "国家资源"), RGB(205, 214, 222));

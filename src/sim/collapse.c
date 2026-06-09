@@ -6,6 +6,7 @@
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
 #include "sim/collapse_partition.h"
+#include "sim/economy.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
@@ -78,7 +79,7 @@ CollapseBlockReason collapse_block_reason(int civ_id) {
         return COLLAPSE_BLOCK_NOT_ALIVE;
     }
     owned_regions = owned_region_count_for_civ(civ_id, NULL);
-    if (owned_regions == 1 && civs[civ_id].disorder >= 100) return COLLAPSE_BLOCK_NONE;
+    if (owned_regions == 1 && economy_effective_disorder_for_civ(civ_id) >= 100) return COLLAPSE_BLOCK_NONE;
     if (civilization_slot_capacity_left() <= 0) return COLLAPSE_BLOCK_MAX_CIVS;
     cap_region = capital_region_for_civ(civ_id);
     if (cap_region < 0) return COLLAPSE_BLOCK_NO_CAPITAL_REGION;
@@ -160,6 +161,7 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     child->war_recovery_months = parent_state.war_recovery_months;
     child->collapse_grace_months = COLLAPSE_GRACE_MONTHS;
     child->capital_city = -1;
+    economy_initialize_civ(child_id);
     if (seed_region >= 0 && seed_region < region_count) {
         NaturalRegion *region = &natural_regions[seed_region];
         int city_id = regions_activate_local_city(seed_region, child_id,
@@ -182,8 +184,8 @@ static void apply_post_collapse_grace(int civ_id) {
     dirty_mark_civ_stats();
 }
 
-static void claim_region_direct(int region_id, int owner) {
-    regions_claim_for_civ(region_id, owner, natural_regions[region_id].city_id, 1);
+static int claim_region_direct(int region_id, int owner) {
+    return regions_claim_for_civ(region_id, owner, natural_regions[region_id].city_id, 1);
 }
 
 static void collapse_release_vassal_relations(int civ_id) {
@@ -206,6 +208,8 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     int formed = 0;
     int i;
     int former_overlord = -1;
+    int parent_asset_total;
+    int parent_treasury_snapshot;
     CollapseBlockReason block;
 
     fragmentation_diag_record_collapse_attempt();
@@ -241,6 +245,8 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     former_overlord = vassal_overlord(civ_id);
     collapse_release_vassal_relations(civ_id);
     owned_regions = owned_region_count_for_civ(civ_id, NULL);
+    parent_asset_total = economy_owned_region_asset_total(civ_id);
+    parent_treasury_snapshot = max(0, civs[civ_id].treasury);
     successor_limit = collapse_successor_count_for_owned_regions(owned_regions);
     successor_limit = min(successor_limit, civilization_slot_capacity_left());
     successor_limit = min(successor_limit, owned_regions - 1);
@@ -250,20 +256,24 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     for (i = 0; i < partition.successor_count && formed < successor_limit; i++) {
         int child;
         int claimed = 0;
+        int child_asset = 0;
         int r;
         child = create_successor_civ(civ_id, formed, partition.successor_capital_region[i]);
         if (child < 0) break;
         for (r = 0; r < partition.successor_region_count[i]; r++) {
             int region_id = partition.successor_regions[i][r];
             if (natural_regions[region_id].owner_civ != civ_id) continue;
-            claim_region_direct(region_id, child);
+            if (!claim_region_direct(region_id, child)) continue;
             claimed++;
+            child_asset += economy_region_asset(region_id);
         }
         if (claimed <= 0) {
             civilization_reset_slot_state(child);
             continue;
         }
         diplomacy_start_truce(civ_id, child, 45, 20);
+        economy_split_treasury_snapshot_to_child(civ_id, child, parent_treasury_snapshot,
+                                                 child_asset, parent_asset_total);
         formed++;
     }
     if (formed > 0) {
@@ -317,7 +327,8 @@ int collapse_check_immediate(int civ_id, CollapseCause cause) {
     int collapsed;
     int now = collapse_month_index();
 
-    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive || civs[civ_id].disorder < 100) return 0;
+    if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive ||
+        economy_effective_disorder_for_civ(civ_id) < 100) return 0;
     if (cause != COLLAPSE_CAUSE_CIVIL_UNREST && civs[civ_id].collapse_grace_months > 0) {
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse grace: %d years %d months left; immediate collapse skipped.",
@@ -339,7 +350,7 @@ void collapse_update_immediate(void) {
     int i;
 
     for (i = 0; i < civ_count; i++) {
-        if (civs[i].alive && civs[i].disorder >= 100) {
+        if (civs[i].alive && economy_effective_disorder_for_civ(i) >= 100) {
             collapse_check_immediate(i, COLLAPSE_CAUSE_PRESSURE);
         }
     }
@@ -351,8 +362,10 @@ void collapse_update_decade(void) {
     for (i = 0; i < civ_count; i++) {
         int chance;
         int roll;
+        int effective_disorder;
         if (!civs[i].alive) continue;
-        if (civs[i].disorder >= 100) {
+        effective_disorder = economy_effective_disorder_for_civ(i);
+        if (effective_disorder >= 100) {
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
                      "Immediate collapse path owns disorder 100 checks.");
             continue;
@@ -363,22 +376,22 @@ void collapse_update_decade(void) {
                      civs[i].collapse_grace_months / 12, civs[i].collapse_grace_months % 12);
             continue;
         }
-        chance = collapse_decade_chance_for_disorder(civs[i].disorder);
+        chance = collapse_decade_chance_for_disorder(effective_disorder);
         if (chance <= 0) {
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
-                     "No collapse risk: disorder %d below 75.", civs[i].disorder);
+                     "No collapse risk: effective disorder %d below 75.", effective_disorder);
             continue;
         }
         roll = rnd(100);
         if (roll < chance) {
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
-                     "25-year check triggered: disorder %d, chance %d%%, rolled %d, needed below %d.",
-                     civs[i].disorder, chance, roll, chance);
+                     "25-year check triggered: effective disorder %d, chance %d%%, rolled %d, needed below %d.",
+                     effective_disorder, chance, roll, chance);
             collapse_civ(i, COLLAPSE_CAUSE_PRESSURE);
         } else {
             snprintf(collapse_reasons[i], sizeof(collapse_reasons[i]),
-                     "25-year check failed: disorder %d, chance %d%%, rolled %d, needed below %d.",
-                     civs[i].disorder, chance, roll, chance);
+                     "25-year check failed: effective disorder %d, chance %d%%, rolled %d, needed below %d.",
+                     effective_disorder, chance, roll, chance);
             event_log_push_structured(EVENT_TYPE_COLLAPSE_FAILED, EVENT_SEVERITY_WARNING,
                                       i, -1, -1, -1, chance, roll, collapse_reasons[i]);
         }

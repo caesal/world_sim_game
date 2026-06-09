@@ -11,10 +11,14 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_loop.c ^
   src\game\game_vassal_actions.c ^
   src\game\game_worldgen.c ^
+  src\game\game_crisis_probe.c ^
+  src\game\game_economy_probe.c ^
   src\io\map_save.c ^
+  src\io\map_save_civs.c ^
   src\io\map_save_regions.c ^
   src\io\map_save_state.c ^
   src\core\event_log.c ^
+  src\core\event_log_classify.c ^
   src\core\event_log_history.c ^
   src\core\event_log_store.c ^
   src\core\city_display.c ^
@@ -66,9 +70,11 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\civilization_uid.c ^
   src\sim\civ_colors.c ^
   src\sim\disorder.c ^
+  src\sim\economy.c ^
   src\sim\collapse.c ^
   src\sim\collapse_partition.c ^
   src\sim\collapse_single.c ^
+  src\sim\population_diagnostics.c ^
   src\sim\population.c ^
   src\sim\plague.c ^
   src\sim\civilization_metrics.c ^
@@ -93,11 +99,16 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\diplomacy_names.c ^
   src\sim\war_desire.c ^
   src\sim\war.c ^
+  src\sim\war_economy.c ^
   src\sim\war_front.c ^
   src\sim\war_resolution.c ^
+  src\sim\war_state.c ^
   src\render\render.c ^
   src\render\render_layer_cache.c ^
+  src\render\render_static_map_cache_border.c ^
   src\render\render_static_map_cache.c ^
+  src\render\render_static_map_cache_status.c ^
+  src\render\render_static_scene.c ^
   src\render\render_context.c ^
   src\render\snapshot_ui.c ^
   src\render\render_common.c ^
@@ -111,6 +122,10 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\diplomacy_map_anim.c ^
   src\render\map_render.c ^
   src\render\map_highlight.c ^
+  src\render\map_highlight_batch.c ^
+  src\render\map_highlight_contours.c ^
+  src\render\map_highlight_edge_layer.c ^
+  src\render\map_highlight_segments.c ^
   src\render\terrain_present.c ^
   src\render\region_render.c ^
   src\render\snapshot_map_layers.c ^
@@ -124,6 +139,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\sea_lane_render.c ^
   src\render\plague_render.c ^
   src\render\plague_visual.c ^
+  src\render\profiling_switches.c ^
   src\render\pause_menu_render.c ^
   src\render\panel_country.c ^
   src\render\panel_country_actions.c ^

@@ -29,6 +29,10 @@ void ui_invalidate_side_panel(HWND hwnd) {
     invalidate_side_panel_rect(hwnd);
 }
 
+void ui_invalidate_side_panel_data(HWND hwnd) {
+    invalidate_side_panel_rect(hwnd);
+}
+
 void ui_invalidate_side_panel_immediate(HWND hwnd) {
     ui_invalidate_side_panel(hwnd);
     render_paint_side_panel_now(hwnd);
@@ -85,6 +89,7 @@ void ui_invalidate_game_redraw(HWND hwnd, int redraw_flags) {
     if (redraw_flags & GAME_REDRAW_TOP_BAR) ui_invalidate_top_bar(hwnd);
     if (redraw_flags & GAME_REDRAW_BOTTOM_BAR) ui_invalidate_bottom_bar(hwnd);
     if (redraw_flags & GAME_REDRAW_SIDE_PANEL) ui_invalidate_side_panel(hwnd);
+    if (redraw_flags & GAME_REDRAW_SIDE_PANEL_DATA) ui_invalidate_side_panel_data(hwnd);
 }
 
 void ui_request_panel_state_changed(HWND hwnd) {

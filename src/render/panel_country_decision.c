@@ -357,7 +357,7 @@ static void draw_war_desire_breakdown(HDC hdc, UiCursor *cursor, const DecisionS
     int cols = cursor->width >= 360 ? 4 : 3;
     int gap = 6;
     int chip_h = 28;
-    int rows = (13 + cols - 1) / cols;
+    int rows = (15 + cols - 1) / cols;
     int card_h = 72 + rows * (chip_h + gap) + 4;
     RECT card = ui_take_rect(cursor, card_h);
     RECT inner = {card.left + 10, card.top + 8, card.right - 10, card.bottom - 8};
@@ -389,6 +389,9 @@ static void draw_war_desire_breakdown(HDC hdc, UiCursor *cursor, const DecisionS
     desire_chip_signed(hdc, CHIP_RECT(), tr("Agg", "侵略"), snap->war_aggression_score, 1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Border", "边界"), snap->war_border_score, 1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Res", "资源"), snap->war_resource_score, 1); i++;
+    desire_chip_signed(hdc, CHIP_RECT(), tr("Crisis", "危机"), snap->war_crisis_score, 1); i++;
+    snprintf(text, sizeof(text), "%d", snap->war_open_target_count);
+    desire_chip_plain(hdc, CHIP_RECT(), tr("Targets", "目标"), text, RGB(156, 142, 92), 0); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Power", "兵力"), snap->war_strength_score, 1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Trade", "贸易"), snap->war_trade_penalty, -1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Truce", "停战"), snap->war_truce_penalty, -1); i++;

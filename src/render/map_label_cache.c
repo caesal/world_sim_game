@@ -3,6 +3,7 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "render/map_label_style.h"
+#include "render/snapshot_ui.h"
 #include "ui/ui_types.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -45,6 +46,7 @@ static unsigned int placement_key;
 static MapLabelMeasureEntry measure_cache[LABEL_MEASURE_CACHE_MAX];
 static int source_rebuild_count, placement_rebuild_count, preview_skip_count;
 static int source_last_reason, placement_last_reason, placement_last_ms;
+static int measure_cache_hits, measure_cache_misses;
 static const char *source_reason_names[3] = {"initial", "source", "snapshot"};
 static const char *placement_reason_names[5] = {"initial", "source", "view", "mode", "select"};
 static unsigned int mix_label_key(unsigned int key, int value) {
@@ -68,41 +70,6 @@ static int source_anchor_screen_x(const RenderSnapshot *snapshot, MapLayout layo
 static int source_anchor_screen_y(const RenderSnapshot *snapshot, MapLayout layout,
                                   const MapLabelSource *source) {
     return layout.map_y + source->anchor_y2 * layout.draw_h / max(1, snapshot->map_h * 2);
-}
-
-static int strip_suffix(char *text, const char *suffix) {
-    size_t text_len = strlen(text), suffix_len = strlen(suffix);
-    if (suffix_len == 0 || text_len <= suffix_len) return 0;
-    if (strcmp(text + text_len - suffix_len, suffix) != 0) return 0;
-    text[text_len - suffix_len] = '\0';
-    return 1;
-}
-
-static void city_display_name(const RenderSnapshot *snapshot, const SnapshotCity *city,
-                              char *out, size_t out_size) {
-    const SnapshotTile *tile = render_snapshot_tile_at(snapshot, city->x, city->y);
-    const char *source = city->name;
-    if (tile && tile->region_id >= 0 && tile->region_id < snapshot->region_count) {
-        const SnapshotRegion *region = &snapshot->regions[tile->region_id];
-        source = ui_language == UI_LANG_ZH ? region->name_zh : region->name_en;
-    }
-    snprintf(out, out_size, "%s", source && source[0] ? source : city->name);
-    if (ui_language == UI_LANG_ZH) {
-        if (strip_suffix(out, "行省")) return;
-        if (strip_suffix(out, "地区")) return;
-        if (strip_suffix(out, "区域")) return;
-        if (strip_suffix(out, "边境")) return;
-        if (strip_suffix(out, "省")) return;
-        if (strip_suffix(out, "郡")) return;
-        strip_suffix(out, "州");
-    } else {
-        if (strip_suffix(out, " Province")) return;
-        if (strip_suffix(out, " Territory")) return;
-        if (strip_suffix(out, " District")) return;
-        if (strip_suffix(out, " Region")) return;
-        if (strip_suffix(out, " March")) return;
-        strip_suffix(out, " Coast");
-    }
 }
 
 static int city_is_major(const SnapshotCity *city) {
@@ -211,7 +178,7 @@ static void collect_city_sources(const RenderSnapshot *snapshot) {
                                                 snapshot->map_w, snapshot->map_h,
                                                 &display_x, &display_y);
         if (display_kind == CITY_DISPLAY_POINT_NONE) continue;
-        city_display_name(snapshot, city, display_name, sizeof(display_name));
+        snapshot_ui_city_display_name(snapshot, city, display_name, sizeof(display_name));
         major = city_is_major(city);
         add_source(city->capital ? LABEL_CAPITAL :
                    display_kind == CITY_DISPLAY_POINT_PORT ? LABEL_PORT :
@@ -304,10 +271,12 @@ static int measure_cached(HDC hdc, const MapLabelSource *source, const MapLabelS
             entry->large == source->large && entry->selected == selected &&
             entry->language == ui_language && strcmp(entry->text, source->text) == 0) {
             *out = entry->size;
+            measure_cache_hits++;
             return 1;
         }
     }
     map_label_measure(hdc, style, source->text, out);
+    measure_cache_misses++;
     for (i = 0; i < LABEL_MEASURE_CACHE_MAX; i++) {
         MapLabelMeasureEntry *entry = &measure_cache[i];
         if (entry->valid) continue;
@@ -490,10 +459,17 @@ const char *map_label_cache_placement_last_reason(void) { return placement_reaso
 int map_label_cache_source_rebuild_count(void) { return source_rebuild_count; }
 int map_label_cache_placement_rebuild_count(void) { return placement_rebuild_count; }
 int map_label_cache_preview_skip_count(void) { return preview_skip_count; }
+int map_label_cache_measure_hit_count(void) { return measure_cache_hits; }
+int map_label_cache_measure_miss_count(void) { return measure_cache_misses; }
+void map_label_cache_reset_debug(void) {
+    source_rebuild_count = placement_rebuild_count = preview_skip_count = 0;
+    placement_last_ms = measure_cache_hits = measure_cache_misses = 0;
+}
 const char *map_label_cache_reason_summary(void) {
     static char text[128];
-    snprintf(text, sizeof(text), "source %d/%s placement %d/%s preview skip %d", source_rebuild_count,
+    snprintf(text, sizeof(text), "source %d/%s placement %d/%s measure %d/%d preview %d", source_rebuild_count,
              source_reason_names[source_last_reason], placement_rebuild_count,
-             placement_reason_names[placement_last_reason], preview_skip_count);
+             placement_reason_names[placement_last_reason], measure_cache_hits,
+             measure_cache_misses, preview_skip_count);
     return text;
 }

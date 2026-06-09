@@ -62,6 +62,8 @@ typedef struct {
     int pressure;
 } PopulationSummary;
 
+#define POPULATION_TOP_CITY_COUNT 6
+
 typedef struct {
     char name[NAME_LEN];
     int name_id;
@@ -114,6 +116,16 @@ typedef struct {
     int disorder_last_war_decay;
     int disorder_last_migration_decay;
     int heritage;
+    int treasury;
+    int treasury_cap;
+    int treasury_pending_surplus;
+    int treasury_last_annual_balance;
+    int treasury_last_deficit;
+    int resource_pressure;
+    int treasury_deficit_years;
+    int treasury_stability_months_left;
+    int treasury_stability_cooldown_months;
+    int mercenary_cooldown_months;
 } Civilization;
 
 typedef struct {

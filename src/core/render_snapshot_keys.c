@@ -44,6 +44,12 @@ int render_snapshot_civs_revision_key(void) {
     return combined_key(key, world_generated);
 }
 
+int render_snapshot_civ_visual_revision_key(void) {
+    int key = combined_key(dirty_revision_civ_visual(), dirty_revision_ownership());
+    key = combined_key(key, civ_count * 31 + city_count);
+    return combined_key(key, world_generated);
+}
+
 int render_snapshot_cities_revision_key(void) {
     int key = combined_key(dirty_revision_city(), dirty_revision_population());
     key = combined_key(key, dirty_revision_ownership());

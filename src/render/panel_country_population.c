@@ -3,6 +3,14 @@
 #include "render/snapshot_ui.h"
 #include "render_panel_internal.h"
 #include "ui/ui_clay_widgets.h"
+#include "ui/ui_theme.h"
+
+#include <stdio.h>
+#include <string.h>
+
+#define POPULATION_TAB_FIXED_H 820
+
+static const int cohort_display_width_years[POP_COHORT_COUNT] = {5, 13, 7, 15, 15, 10, 10, 12};
 
 static COLORREF pressure_color(int pressure) {
     if (pressure < 50) return RGB(83, 143, 98);
@@ -11,49 +19,443 @@ static COLORREF pressure_color(int pressure) {
     return RGB(188, 78, 68);
 }
 
-static const char *pressure_label(int pressure) {
-    if (pressure < 50) return tr("Low", "低");
-    if (pressure <= 80) return tr("Normal", "正常");
-    if (pressure <= 105) return tr("High", "偏高");
-    return tr("Overloaded", "过载");
+static int percent_of(int value, int max_value) {
+    if (max_value <= 0) return 0;
+    return (int)((long long)value * 100 / max_value);
+}
+
+static void format_signed(char *out, size_t out_size, int value) {
+    snprintf(out, out_size, "%+d", value);
+}
+
+static void format_percent(char *out, size_t out_size, int value) {
+    snprintf(out, out_size, "%d%%", value);
+}
+
+static void draw_bar_fill(HDC hdc, RECT rect, int value, int max_value, COLORREF color) {
+    RECT inner = rect;
+    RECT fill;
+    ui_clay_draw_progress_bar(hdc, rect, 0, 100, color);
+    InflateRect(&inner, -3, -3);
+    if (inner.right <= inner.left || inner.bottom <= inner.top) return;
+    fill = inner;
+    value = clamp(value, 0, max(1, max_value));
+    fill.right = fill.left + (fill.right - fill.left) * value / max(1, max_value);
+    fill_rect(hdc, inner, RGB(47, 58, 63));
+    if (fill.right > fill.left) fill_rect(hdc, fill, color);
+}
+
+static int draw_capacity_overview(HDC hdc, UiCursor *cursor, PopulationSummary summary) {
+    RECT area = ui_take_rect(cursor, 58);
+    RECT text = {area.left, area.top, area.right, area.top + 22};
+    RECT bar = {area.left, area.top + 27, area.right, area.top + 41};
+    RECT note = {area.left, area.top + 42, area.right, area.bottom};
+    char pop[32];
+    char cap[32];
+    char line[144];
+    int usage = percent_of(summary.total, summary.carrying_capacity);
+    int delta = summary.carrying_capacity - summary.total;
+    format_metric_value(summary.total, pop, sizeof(pop));
+    format_metric_value(summary.carrying_capacity, cap, sizeof(cap));
+    snprintf(line, sizeof(line), "%s / %s  %d%%", pop, cap, usage);
+    draw_text_rect(hdc, text, line, ui_theme_color(UI_COLOR_TEXT),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_bar_fill(hdc, bar, min(usage, 140), 140, pressure_color(usage));
+    format_metric_value(delta >= 0 ? delta : -delta, pop, sizeof(pop));
+    snprintf(line, sizeof(line), "%s %s", delta >= 0 ? tr("Remaining capacity", "剩余承载") :
+             tr("Over capacity by", "超出承载"), pop);
+    draw_text_rect(hdc, note, line, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    return usage;
+}
+
+static int cohort_density_value(int value, int band) {
+    if (band < 0 || band >= POP_COHORT_COUNT) return value;
+    return value / max(1, cohort_display_width_years[band]);
+}
+
+static int max_population_side(PopulationSummary summary) {
+    int max_value = 1;
+    int i;
+    for (i = 0; i < POP_COHORT_COUNT; i++) {
+        int male = cohort_density_value(summary.cohorts[i].male, i);
+        int female = cohort_density_value(summary.cohorts[i].female, i);
+        if (male > max_value) max_value = male;
+        if (female > max_value) max_value = female;
+    }
+    return max_value;
+}
+
+static const char *age_band_label(int band) {
+    static const char *labels[POP_COHORT_COUNT] = {
+        "0-4", "5-17", "18-24", "25-39", "40-54", "55-64", "65-74", "75+"
+    };
+    return labels[band];
+}
+
+static void draw_population_side_bar(HDC hdc, RECT rect, int value, int max_value,
+                                     int left_side, COLORREF color) {
+    RECT bar = rect;
+    int width = (rect.right - rect.left) * value / max(1, max_value);
+    fill_rect(hdc, rect, RGB(34, 42, 50));
+    if (left_side) bar.left = rect.right - width;
+    else bar.right = rect.left + width;
+    fill_rect(hdc, bar, color);
+}
+
+static void draw_compact_pyramid(HDC hdc, UiCursor *cursor, PopulationSummary summary) {
+    RECT area = ui_take_rect(cursor, 124);
+    int center = area.left + (area.right - area.left) / 2;
+    int bar_w = max(32, (area.right - area.left - 112) / 2);
+    int row_h = 9;
+    int max_value = max_population_side(summary);
+    int y = area.top;
+    int i;
+
+    fill_rect(hdc, area, ui_theme_color(UI_COLOR_PANEL));
+    draw_text_rect(hdc, (RECT){center - bar_w - 34, y, center - 36, y + 16}, tr("Male", "男"),
+                   ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    draw_text_rect(hdc, (RECT){center + 36, y, center + bar_w + 34, y + 16}, tr("Female", "女"),
+                   ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_LEFT | DT_VCENTER);
+    y += 18;
+    for (i = POP_AGE_75_PLUS; i >= POP_AGE_0_4; i--) {
+        RECT male = {center - bar_w - 34, y + 1, center - 34, y + row_h};
+        RECT female = {center + 34, y + 1, center + bar_w + 34, y + row_h};
+        RECT label = {center - 31, y, center + 31, y + row_h + 1};
+        draw_population_side_bar(hdc, male, cohort_density_value(summary.cohorts[i].male, i),
+                                 max_value, 1, RGB(83, 123, 166));
+        draw_population_side_bar(hdc, female, cohort_density_value(summary.cohorts[i].female, i),
+                                 max_value, 0, RGB(164, 102, 141));
+        draw_center_text(hdc, label, age_band_label(i), RGB(218, 224, 230));
+        y += row_h + 1;
+    }
+    draw_text_rect(hdc, (RECT){area.left, y + 1, area.right, area.bottom},
+                   tr("Age-normalized density", "按年龄段年均人数"),
+                   ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+}
+
+static void draw_structure_cards(HDC hdc, UiCursor *cursor, PopulationSummary summary, int usage) {
+    int gap = 6;
+    int w = (cursor->width - gap * 2) / 3;
+    int h = 34;
+    RECT area = ui_take_rect(cursor, h * 2 + gap + 4);
+    RECT r = {area.left, area.top, area.left + w, area.top + h};
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_POPULATION, metric_label("Children", "儿童"),
+                                 summary.children, RGB(118, 143, 95));
+    r.left += w + gap; r.right += w + gap;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_PRODUCTION, metric_label("Workers", "劳力"),
+                                 summary.working, RGB(83, 123, 166));
+    r.left += w + gap; r.right = area.right;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_HABITABILITY, metric_label("Elder", "老人"),
+                                 summary.elder, RGB(188, 154, 88));
+    r = (RECT){area.left, area.top + h + gap, area.left + w, area.top + h * 2 + gap};
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_MIGRATION, metric_label("Fertile", "育龄"),
+                                 summary.fertile, RGB(164, 102, 141));
+    r.left += w + gap; r.right += w + gap;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_MILITARY, metric_label("Recruit", "可征召"),
+                                 summary.recruitable, RGB(158, 74, 62));
+    r.left += w + gap; r.right = area.right;
+    ui_clay_draw_metric_chip_int(hdc, r, ICON_DISORDER, metric_label("Usage", "使用率"),
+                                 usage, pressure_color(usage));
+}
+
+static void draw_pressure_bar(HDC hdc, UiCursor *cursor, const char *label, int value,
+                              COLORREF color, int important) {
+    RECT row = ui_take_rect(cursor, important ? 30 : 24);
+    RECT label_rect = {row.left, row.top, row.left + 168, row.bottom};
+    RECT bar = {row.left + 174, row.top + 8, row.right - 42, row.bottom - 7};
+    RECT value_rect = {row.right - 38, row.top, row.right, row.bottom};
+    char text[24];
+    draw_text_rect(hdc, label_rect, label,
+                   important ? ui_theme_color(UI_COLOR_TEXT) : ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_bar_fill(hdc, bar, value, 100, color);
+    format_percent(text, sizeof(text), value);
+    draw_text_rect(hdc, value_rect, text, ui_theme_color(UI_COLOR_TEXT),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+}
+
+static void draw_pressure_section(HDC hdc, UiCursor *cursor, PopulationDiagnostics diag) {
+    RECT formula = ui_take_rect(cursor, 22);
+    draw_text_rect(hdc, formula,
+                   tr("Actual = max(National Resource, Capacity Overload)",
+                      "实际人口压力 = max(国家资源压力, 承载超载压力)"),
+                   ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_pressure_bar(hdc, cursor, tr("Actual Population Pressure", "实际人口压力"),
+                      diag.effective_pressure, pressure_color(diag.effective_pressure), 1);
+    draw_pressure_bar(hdc, cursor, tr("National Resource Pressure", "国家资源压力"),
+                      diag.national_resource_pressure, RGB(106, 158, 186), 0);
+    draw_pressure_bar(hdc, cursor, tr("Capacity Overload Pressure", "承载超载压力"),
+                      diag.local_overcapacity_pressure, RGB(196, 154, 72), 0);
+}
+
+static void draw_centered_net_bar(HDC hdc, UiCursor *cursor, int net, int population) {
+    RECT area = ui_take_rect(cursor, 34);
+    RECT track = {area.left, area.top + 15, area.right, area.top + 27};
+    RECT fill = track;
+    int center = track.left + (track.right - track.left) / 2;
+    int magnitude = net < 0 ? -net : net;
+    int limit = max(1, max(magnitude, max(10, population / 200)));
+    int width = (track.right - track.left) / 2 * magnitude / limit;
+    char text[64];
+
+    ui_clay_draw_progress_bar(hdc, track, 0, 100, RGB(83, 143, 98));
+    InflateRect(&track, -3, -3);
+    fill_rect(hdc, track, RGB(47, 58, 63));
+    fill_rect(hdc, (RECT){center - 1, track.top - 5, center + 1, track.bottom + 5},
+              RGB(220, 224, 210));
+    if (net >= 0) {
+        fill.left = center;
+        fill.right = min(track.right, center + width);
+        fill.top = track.top;
+        fill.bottom = track.bottom;
+        if (fill.right > fill.left) fill_rect(hdc, fill, RGB(83, 143, 98));
+    } else {
+        fill.left = max(track.left, center - width);
+        fill.right = center;
+        fill.top = track.top;
+        fill.bottom = track.bottom;
+        if (fill.right > fill.left) fill_rect(hdc, fill, RGB(188, 78, 68));
+    }
+    format_signed(text, sizeof(text), net);
+    snprintf(text + strlen(text), sizeof(text) - strlen(text), "%s", tr(" / month", " / 月"));
+    draw_text_rect(hdc, (RECT){area.left, area.top, area.right, area.top + 14}, text,
+                   net >= 0 ? RGB(154, 210, 160) : RGB(224, 132, 124),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+}
+
+static void draw_month_card(HDC hdc, RECT rect, int icon, const char *label,
+                            int value, const char *suffix, COLORREF accent,
+                            int signed_value) {
+    char number[32];
+    char text[48];
+
+    if (signed_value) format_signed(number, sizeof(number), value);
+    else format_metric_value(value, number, sizeof(number));
+    snprintf(text, sizeof(text), "%s%s", number, suffix);
+    ui_clay_draw_metric_chip_text(hdc, rect, icon, label, text, accent);
+}
+
+static void draw_month_card_x100(HDC hdc, RECT rect, int icon, const char *label,
+                                 int value_x100, const char *suffix, COLORREF accent) {
+    char text[48];
+    int value = value_x100 < 0 ? -value_x100 : value_x100;
+    snprintf(text, sizeof(text), "%s%d.%02d%s", value_x100 < 0 ? "-" : "",
+             value / 100, value % 100, suffix);
+    ui_clay_draw_metric_chip_text(hdc, rect, icon, label, text, accent);
+}
+
+static void draw_monthly_change_cards(HDC hdc, UiCursor *cursor,
+                                      PopulationDiagnostics diag) {
+    int gap = 6;
+    int w = (cursor->width - gap * 2) / 3;
+    int h = 34;
+    const char *per_month = tr(" /mo", " /月");
+    RECT area = ui_take_rect(cursor, h * 2 + gap + 4);
+    RECT r = {area.left, area.top, area.left + w, area.top + h};
+
+    draw_month_card(hdc, r, ICON_POPULATION, metric_label("Estimated Births", "估算出生"),
+                    diag.estimated_monthly_births, per_month, RGB(83, 143, 98), 1);
+    r.left += w + gap; r.right += w + gap;
+    draw_month_card(hdc, r, ICON_DISORDER, metric_label("Total Deaths", "总死亡"),
+                    -diag.estimated_total_deaths, per_month, RGB(188, 78, 68), 1);
+    r.left += w + gap; r.right = area.right;
+    draw_month_card(hdc, r, ICON_HABITABILITY, metric_label("Birth Multiplier", "出生系数"),
+                    diag.birth_multiplier_percent, "%", pressure_color(100 - diag.birth_multiplier_percent), 0);
+
+    r = (RECT){area.left, area.top + h + gap, area.left + w, area.top + h * 2 + gap};
+    draw_month_card(hdc, r, ICON_DISORDER, metric_label("Pressure Deaths", "压力死亡"),
+                    -diag.estimated_pressure_deaths, per_month, RGB(196, 154, 72), 1);
+    r.left += w + gap; r.right += w + gap;
+    draw_month_card_x100(hdc, r, ICON_HABITABILITY, metric_label("Natural/Age Deaths", "自然年龄死亡"),
+                         -diag.estimated_natural_age_deaths_x100, per_month, RGB(188, 118, 82));
+    r.left += w + gap; r.right = area.right;
+    draw_month_card_x100(hdc, r, ICON_POPULATION, metric_label("Child Accidental Deaths", "儿童意外死亡"),
+                         -diag.estimated_child_accidental_deaths_x100, per_month, RGB(164, 102, 141));
+}
+
+static void draw_monthly_change(HDC hdc, UiCursor *cursor, PopulationSummary summary,
+                                PopulationDiagnostics diag) {
+    draw_monthly_change_cards(hdc, cursor, diag);
+    draw_centered_net_bar(hdc, cursor, diag.estimated_net_monthly_change, summary.total);
+}
+
+static void draw_treasury_buffer(HDC hdc, UiCursor *cursor, const SnapshotCiv *civ) {
+    char current[32];
+    char cap[32];
+    char balance[32];
+    char pair[72];
+    char years[24];
+    int gap = 4;
+    int w = (cursor->width - gap) / 2;
+    int h = 30;
+    RECT area;
+    RECT r;
+    if (!civ) return;
+    format_metric_value(civ->treasury, current, sizeof(current));
+    format_metric_value(civ->treasury_cap, cap, sizeof(cap));
+    format_signed(balance, sizeof(balance), civ->treasury_last_annual_balance);
+    snprintf(pair, sizeof(pair), "%s / %s", current, cap);
+    snprintf(years, sizeof(years), "%d", civ->treasury_deficit_years);
+    area = ui_take_rect(cursor, h * 2 + gap + 4);
+    r = (RECT){area.left, area.top, area.left + w, area.top + h};
+    ui_clay_draw_metric_chip_text(hdc, r, ICON_MONEY, metric_label("Treasury / Cap", "国库 / 上限"),
+                                  pair, RGB(106, 158, 186));
+    r.left += w + gap; r.right = area.right;
+    ui_clay_draw_metric_chip_text(hdc, r, ICON_MONEY, metric_label("Last Year", "上年盈亏"),
+                                  balance, civ->treasury_last_annual_balance < 0 ?
+                                  RGB(188, 78, 68) : RGB(83, 143, 98));
+    r = (RECT){area.left, area.top + h + gap, area.left + w, area.top + h * 2 + gap};
+    ui_clay_draw_metric_chip_text(hdc, r, ICON_DISORDER, metric_label("Deficit Years", "赤字年数"),
+                                  years, RGB(196, 154, 72));
+    r.left += w + gap; r.right = area.right;
+    ui_clay_draw_metric_chip_text(hdc, r, ICON_HABITABILITY, metric_label("Buffer", "缓冲状态"),
+                                  civ->treasury_last_deficit > 0 && civ->treasury > 0 ?
+                                  tr("Buffering", "正在缓冲") :
+                                  (civ->treasury_last_deficit > 0 ? tr("No buffer", "无缓冲") :
+                                   tr("No deficit", "无赤字")),
+                                  civ->treasury_last_deficit > 0 ? RGB(188, 118, 82) :
+                                  RGB(83, 143, 98));
+}
+
+static void draw_city_header(HDC hdc, RECT row) {
+    int total = row.right - row.left;
+    int name_w = total * 22 / 100;
+    int pop_w = total * 13 / 100;
+    int cap_w = total * 13 / 100;
+    int usage_w = total * 12 / 100;
+    int type_w = total * 24 / 100;
+    int x = row.left;
+    draw_text_rect(hdc, (RECT){x, row.top, x + name_w, row.bottom},
+                   tr("City", "城市"), ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER);
+    x += name_w;
+    draw_text_rect(hdc, (RECT){x, row.top, x + pop_w, row.bottom},
+                   tr("Population", "人口"), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    x += pop_w;
+    draw_text_rect(hdc, (RECT){x, row.top, x + cap_w, row.bottom},
+                   tr("Capacity", "承载"), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    x += cap_w;
+    draw_text_rect(hdc, (RECT){x, row.top, x + usage_w - 6, row.bottom},
+                   tr("Usage", "使用率"), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    x += usage_w;
+    draw_text_rect(hdc, (RECT){x + 8, row.top, x + type_w, row.bottom},
+                   tr("Type", "类型"), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    x += type_w;
+    draw_text_rect(hdc, (RECT){x + 3, row.top, row.right, row.bottom},
+                   tr("Status", "状态"), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+}
+
+static const char *city_type_text(const SnapshotCity *city) {
+    if (city->capital && city->port) return tr("Harbor Capital", "港口首都");
+    if (city->capital) return tr("City Capital", "城市首都");
+    if (city->port) return tr("Harbor", "港口");
+    return tr("City", "城市");
+}
+
+static const char *city_status_text(int usage) {
+    if (usage < 80) return tr("Loose", "宽松");
+    if (usage <= 100) return tr("Normal", "正常");
+    if (usage <= 125) return tr("Overloaded", "超载");
+    return tr("Severe", "严重超载");
+}
+
+static void draw_city_row(HDC hdc, RECT row, const SnapshotCity *city) {
+    int total = row.right - row.left;
+    int name_w = total * 22 / 100;
+    int pop_w = total * 13 / 100;
+    int cap_w = total * 13 / 100;
+    int usage_w = total * 12 / 100;
+    int type_w = total * 24 / 100;
+    int x = row.left;
+    int usage = percent_of(city->population_summary.total,
+                           city->population_summary.carrying_capacity);
+    char pop[32];
+    char cap[32];
+    char pct[24];
+    char name[96];
+    fill_rect(hdc, row, RGB(31, 37, 40));
+    snapshot_ui_city_display_name(snapshot_ui_current(), city, name, sizeof(name));
+    format_metric_value(city->population_summary.total, pop, sizeof(pop));
+    format_metric_value(city->population_summary.carrying_capacity, cap, sizeof(cap));
+    format_percent(pct, sizeof(pct), usage);
+    draw_text_rect(hdc, (RECT){x + 4, row.top, x + name_w - 4, row.bottom},
+                   name, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    x += name_w;
+    draw_text_rect(hdc, (RECT){x, row.top, x + pop_w, row.bottom},
+                   pop, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    x += pop_w;
+    draw_text_rect(hdc, (RECT){x, row.top, x + cap_w, row.bottom},
+                   cap, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    x += cap_w;
+    draw_text_rect(hdc, (RECT){x, row.top, x + usage_w, row.bottom},
+                   city->population_summary.carrying_capacity > 0 ? pct : "--",
+                   pressure_color(usage), DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
+    x += usage_w;
+    draw_text_rect(hdc, (RECT){x + 3, row.top, x + type_w, row.bottom},
+                   city_type_text(city), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    x += type_w;
+    draw_text_rect(hdc, (RECT){x + 3, row.top, row.right - 4, row.bottom},
+                   city_status_text(usage), ui_theme_color(UI_COLOR_TEXT_MUTED),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+}
+
+static void draw_top_cities(HDC hdc, UiCursor *cursor, const SnapshotCiv *civ) {
+    int i;
+    int shown = 0;
+    char text[96];
+    RECT header = ui_take_rect(cursor, 18);
+    draw_city_header(hdc, header);
+    for (i = 0; civ && i < POPULATION_TOP_CITY_COUNT; i++) {
+        int city_id = civ->population_top_city_ids[i];
+        const SnapshotCity *city = snapshot_ui_city(city_id);
+        RECT row;
+        if (!city || !city->alive || city->owner != civ->id) continue;
+        row = ui_take_rect(cursor, 18);
+        draw_city_row(hdc, row, city);
+        cursor->y += 1;
+        shown++;
+    }
+    if (civ && civ->population_city_count > shown) {
+        snprintf(text, sizeof(text), "%s %d %s", tr("Other", "其余"),
+                 civ->population_city_count - shown, tr("cities", "座城市"));
+        draw_text_rect(hdc, ui_take_rect(cursor, 16), text, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                       DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    }
 }
 
 int country_population_tab_height(int civ_id) {
-    int owned = 0;
-    int i;
-    for (i = 0; i < snapshot_ui_city_count(); i++) {
-        const SnapshotCity *city = snapshot_ui_city(i);
-        if (city && city->alive && city->owner == civ_id) owned++;
-    }
-    return 365 + owned * 22;
+    (void)civ_id;
+    return POPULATION_TAB_FIXED_H;
 }
 
 void draw_country_population_tab(HDC hdc, RECT client, UiCursor *cursor,
                                  int civ_id, HFONT body_font) {
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     PopulationSummary summary = civ ? civ->population_summary : (PopulationSummary){0};
-    int i;
-    char text[192];
+    PopulationDiagnostics diag = civ ? civ->population_diagnostics : (PopulationDiagnostics){0};
+    int usage;
 
-    ui_section(hdc, cursor, tr("Population", "人口"));
-    cursor->y = draw_population_pyramid_summary(hdc, client, cursor->x, cursor->y + 2,
-                                                cursor->width, summary, body_font);
-    snprintf(text, sizeof(text), "%d / %d   %s",
-             summary.total, summary.carrying_capacity, pressure_label(summary.pressure));
-    ui_row_text(hdc, cursor, tr("Population / Capacity", "人口 / 承载"), text);
-    ui_clay_draw_progress_bar(hdc, ui_take_rect(cursor, 12), summary.pressure, 140,
-                              pressure_color(summary.pressure));
-    ui_row_int(hdc, cursor, tr("Male", "男性"), summary.male);
-    ui_row_int(hdc, cursor, tr("Female", "女性"), summary.female);
-    ui_row_int(hdc, cursor, tr("Fertile population", "育龄人口"), summary.fertile);
-    ui_row_int(hdc, cursor, tr("Recruitable population", "可征召人口"), summary.recruitable);
-    ui_section(hdc, cursor, tr("City Population", "城市人口"));
-    for (i = 0; i < snapshot_ui_city_count(); i++) {
-        const SnapshotCity *city = snapshot_ui_city(i);
-        if (!city || !city->alive || city->owner != civ_id) continue;
-        snprintf(text, sizeof(text), "%s%s%s",
-                 city->capital ? "* " : "", city->name,
-                 city->port ? tr(" Port", " 港口") : "");
-        ui_row_int(hdc, cursor, text, city->population);
-    }
+    (void)client;
+    SelectObject(hdc, body_font);
+    ui_section(hdc, cursor, tr("Population Capacity", "人口承载总览"));
+    usage = draw_capacity_overview(hdc, cursor, summary);
+    ui_section(hdc, cursor, tr("Population Structure", "人口结构"));
+    draw_compact_pyramid(hdc, cursor, summary);
+    draw_structure_cards(hdc, cursor, summary, usage);
+    ui_section(hdc, cursor, tr("Population Pressure Sources", "人口压力来源"));
+    draw_pressure_section(hdc, cursor, diag);
+    ui_section(hdc, cursor, tr("Monthly Population Change", "月度人口变化"));
+    draw_monthly_change(hdc, cursor, summary, diag);
+    ui_section(hdc, cursor, tr("Treasury Buffer", "国库缓冲"));
+    draw_treasury_buffer(hdc, cursor, civ);
+    ui_section(hdc, cursor, tr("City Population Top 6", "城市人口 Top 6"));
+    draw_top_cities(hdc, cursor, civ);
 }

@@ -5,6 +5,7 @@
 #include "sim/collapse.h"
 #include "sim/decision_snapshot.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/expansion.h"
 #include "sim/maritime.h"
 #include "sim/plague.h"
@@ -227,13 +228,15 @@ int simulation_month_begin(SimulationMonthState *state) {
 int simulation_month_run_next(SimulationMonthState *state) {
     DWORD phase_start;
     int phase_before;
+    const char *phase_profile_name;
     ProfilerCallTrace phase_trace;
 
     if (!state || !state->active) return 0;
     phase_before = state->phase;
+    phase_profile_name = simulation_phase_name(phase_before);
     phase_start = GetTickCount();
     phase_trace = profiler_call_begin();
-    profiler_set_current_job(simulation_phase_name(phase_before));
+    profiler_set_current_job(phase_profile_name);
     switch (state->phase) {
         case SIM_MONTH_RESOURCES:
             if (!state->run_quarterly) {
@@ -296,18 +299,18 @@ int simulation_month_run_next(SimulationMonthState *state) {
                     profiler_call_end("expansion_work_step", civ_id, -1, trace);
                 }
                 if (!expansion_work_done(&state->expansion_work)) {
-                    profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
-                    profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
+                    profiler_record_phase(phase_profile_name, (int)(GetTickCount() - phase_start));
+                    profiler_call_end(phase_profile_name, -1, -1, phase_trace);
                     return 1;
                 }
                 state->expansion_civ++;
-                profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
-                profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
+                profiler_record_phase(phase_profile_name, (int)(GetTickCount() - phase_start));
+                profiler_call_end(phase_profile_name, -1, -1, phase_trace);
                 return 1;
             }
             if (state->expansion_civ < civ_count) {
-                profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
-                profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
+                profiler_record_phase(phase_profile_name, (int)(GetTickCount() - phase_start));
+                profiler_call_end(phase_profile_name, -1, -1, phase_trace);
                 return 1;
             }
             if (dirty_revision_ownership() != state->territory_revision_before_expansion ||
@@ -365,16 +368,34 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 state->calendar_started = 1;
                 break;
             }
-            if (state->calendar_year_rollover && state->calendar_step < 5) {
-                switch (state->calendar_step++) {
-                    case 0: profiler_set_current_job("diplomacy-refresh"); diplomacy_update_year(); break;
-                    case 1: profiler_set_current_job("vassal-calendar"); vassal_update_year(); break;
-                    case 2: profiler_set_current_job("war-calendar"); war_update_year(); break;
-                    case 3: profiler_set_current_job("territory-integrity"); territory_integrity_update_year(); break;
-                    case 4: if (year % 25 == 0) { profiler_set_current_job("collapse-check"); collapse_update_decade(); } break;
+            if (state->calendar_year_rollover && state->calendar_step < 6) {
+                switch (state->calendar_step) {
+                    case 0:
+                        phase_profile_name = "Economy Year";
+                        profiler_set_current_job("economy-calendar");
+                        if (!economy_update_year_step(&state->economy_year_cursor, 4)) break;
+                        state->calendar_step++;
+                        break;
+                    case 1: phase_profile_name = "Diplomacy Year"; profiler_set_current_job("diplomacy-refresh"); diplomacy_update_year(); state->calendar_step++; break;
+                    case 2: phase_profile_name = "Vassal Year"; profiler_set_current_job("vassal-calendar"); vassal_update_year(); state->calendar_step++; break;
+                    case 3:
+                        phase_profile_name = "War Year";
+                        profiler_set_current_job("war-calendar");
+                        if (!war_update_year_step(&state->war_year_cursor, 1,
+                                                  &state->war_tail_cut_done,
+                                                  &state->war_year_changed)) break;
+                        state->calendar_step++;
+                        break;
+                    case 4: phase_profile_name = "Territory Year"; profiler_set_current_job("territory-integrity"); territory_integrity_update_year(); state->calendar_step++; break;
+                    case 5:
+                        phase_profile_name = year % 25 == 0 ? "Collapse Check" : "Calendar Year";
+                        if (year % 25 == 0) { profiler_set_current_job("collapse-check"); collapse_update_decade(); }
+                        state->calendar_step++;
+                        break;
                 }
                 break;
             }
+            economy_update_month_all();
             collapse_update_immediate();
             if (state->log[0]) {
                 event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
@@ -398,8 +419,8 @@ int simulation_month_run_next(SimulationMonthState *state) {
             state->active = 0;
             break;
     }
-    profiler_record_phase(simulation_phase_name(phase_before), (int)(GetTickCount() - phase_start));
-    profiler_call_end(simulation_phase_name(phase_before), -1, -1, phase_trace);
+    profiler_record_phase(phase_profile_name, (int)(GetTickCount() - phase_start));
+    profiler_call_end(phase_profile_name, -1, -1, phase_trace);
     return 1;
 }
 

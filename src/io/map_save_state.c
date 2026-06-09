@@ -6,6 +6,7 @@
 #include "sim/plague.h"
 #include "sim/war.h"
 
+#include <stddef.h>
 #include <string.h>
 
 typedef struct {
@@ -85,6 +86,25 @@ static int read_plague_city_state(FILE *file, int save_version, int *last_plague
     return 0;
 }
 
+static int read_war_state(FILE *file, int save_version, int *total_started) {
+    SaveBlockHeader header;
+    size_t old_size = offsetof(ActiveWar, temporary_soldiers_a);
+    int i;
+    if (!read_header_any_size(file, &header, "WAR", WAR_SAVE_SLOT_COUNT)) return 0;
+    memset(save_wars, 0, sizeof(save_wars));
+    if (total_started) *total_started = header.aux_a;
+    if (header.item_size == sizeof(ActiveWar)) {
+        return read_all(file, save_wars, sizeof(ActiveWar), (size_t)header.count);
+    }
+    if (save_version <= 11 && header.item_size == (int)old_size) {
+        for (i = 0; i < header.count; i++) {
+            if (!read_all(file, &save_wars[i], old_size, 1)) return 0;
+        }
+        return 1;
+    }
+    return 0;
+}
+
 int map_save_write_dynamic_state(FILE *file) {
     int total_started = 0, last_plague_city = -1, event_count = 0, event_next = 0, event_total = 0;
     int a, b;
@@ -113,9 +133,7 @@ int map_save_read_dynamic_state(FILE *file, int save_version) {
         !read_all(file, save_relations, sizeof(DiplomacyRelation), (size_t)header.count)) return -1;
     diplomacy_reset();
     for (a = 0; a < MAX_CIVS; a++) for (b = 0; b < MAX_CIVS; b++) diplomacy_restore_relation(a, b, save_relations[a * MAX_CIVS + b]);
-    if (!read_header(file, &header, "WAR", sizeof(ActiveWar), WAR_SAVE_SLOT_COUNT) ||
-        !read_all(file, save_wars, sizeof(ActiveWar), (size_t)header.count)) return -1;
-    total_started = header.aux_a;
+    if (!read_war_state(file, save_version, &total_started)) return -1;
     if (!read_header(file, &header, "WSUP", sizeof(int), MAX_CIVS) || !read_all(file, save_support, sizeof(int), (size_t)header.count)) return -1;
     if (!read_plague_city_state(file, save_version, &last_plague_city)) return -1;
     if (!read_header(file, &header, "PLGR", sizeof(int), MAX_MARITIME_ROUTES) ||

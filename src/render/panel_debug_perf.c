@@ -4,6 +4,7 @@
 #include "render/panel_debug_worldgen.h"
 #include "render/plague_visual.h"
 #include "render/panel_view_model_cache.h"
+#include "render/map_highlight.h"
 #include "render/map_labels.h"
 #include "render/render.h"
 #include "render/render_static_map_cache.h"
@@ -51,6 +52,33 @@ static void draw_phase_timing(HDC hdc, UiCursor *cursor, const RuntimeProfilerSn
              perf->diplomacy_ms, perf->plague_ms, perf->war_ms);
     perf_row(hdc, cursor, tr("Other phases", "其他阶段"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
 }
+
+static void draw_economy_debug_rows(HDC hdc, UiCursor *cursor) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    int i, alive = 0, pressure_sum = 0, pressure_max = 0, projects = 0, merc_cooldowns = 0;
+    long long treasury = 0, cap = 0, pending = 0;
+    char text[180];
+    if (!snapshot) return;
+    for (i = 0; i < snapshot->civ_count; i++) {
+        const SnapshotCiv *civ = &snapshot->civs[i];
+        if (!civ->alive) continue;
+        alive++;
+        treasury += civ->treasury;
+        cap += civ->treasury_cap;
+        pending += civ->treasury_pending_surplus;
+        pressure_sum += civ->resource_pressure;
+        pressure_max = max(pressure_max, civ->resource_pressure);
+        if (civ->treasury_stability_months_left > 0) projects++;
+        if (civ->mercenary_cooldown_months > 0) merc_cooldowns++;
+    }
+    snprintf(text, sizeof(text), "treasury %lld / cap %lld / pending %lld", treasury, cap, pending);
+    perf_row(hdc, cursor, tr("Treasury world", "世界国库"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "pressure avg %d / max %d / stability %d / merc cd %d",
+             alive > 0 ? pressure_sum / alive : 0, pressure_max, projects, merc_cooldowns);
+    perf_row(hdc, cursor, tr("Resource economy", "资源经济"), text,
+             pressure_max >= 85 ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+}
+
 void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     RuntimeProfilerSnapshot perf;
     char text[180];
@@ -130,6 +158,7 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
                  frag->vassal_independence_wars);
         perf_row(hdc, cursor, tr("Vassal breaks", "附庸脱离"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     }
+    draw_economy_debug_rows(hdc, cursor);
     perf_row(hdc, cursor, tr("Snapshot city cache", "快照城市缓存"),
               render_snapshot_cache_city_summary_debug(), ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Snapshot diplomacy cache", "快照外交缓存"),
@@ -190,10 +219,16 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              render_scene_cache_hits(), render_scene_cache_misses(),
              render_scene_cache_last_build_ms());
     perf_row(hdc, cursor, tr("Scene cache", "场景缓存"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%s / %s", render_scene_cache_last_reason(),
+    snprintf(text, sizeof(text), "%s #%d / cur %d / pres %d / safe %d full %d ns %d stale %d / %s",
+             render_scene_cache_last_reason(), render_scene_cache_last_reason_code(),
+             render_static_scene_presented_current(), render_static_scene_presentable(),
+             render_static_scene_complete(), render_static_scene_fully_current(),
+             render_static_scene_no_safe_frames(), render_static_scene_stale_safe_age_ms(),
              render_scene_cache_reason_summary());
     perf_row(hdc, cursor, tr("Scene reason", "场景原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%s / %s", render_static_map_cache_last_reason(),
+    snprintf(text, sizeof(text), "%s / safe %d full %d / %s", render_static_map_cache_last_reason(),
+             render_static_map_cache_presented_boundary_safe(),
+             render_static_map_cache_presented_fully_current(),
              render_static_map_cache_reason_summary());
     perf_row(hdc, cursor, tr("Static reason", "静态原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "source %s / delayed %s / prevented %d",
@@ -218,6 +253,23 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
         perf_row(hdc, cursor, tr("Map revisions", "地图修订"), text,
                   render_static_map_cache_snapshot_revision() != render_static_map_cache_live_revision() ?
                   RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+        snprintf(text, sizeof(text), "snap f/b %d/%d / live f/b %d/%d / pub f/b %d/%d / own cur %d",
+                 render_static_map_cache_snapshot_fill_revision(),
+                 render_static_map_cache_snapshot_border_revision(),
+                 render_static_map_cache_live_fill_revision(),
+                 render_static_map_cache_live_border_revision(),
+                 render_static_map_cache_published_fill_revision(),
+                 render_static_map_cache_published_border_revision(),
+                 render_static_map_cache_ownership_current());
+        perf_row(hdc, cursor, tr("Political keys", "政治键"), text,
+                 render_static_map_cache_ownership_current() ?
+                 ui_theme_color(UI_COLOR_TEXT_MUTED) : RGB(218, 178, 78));
+        snprintf(text, sizeof(text), "pending %d ms / last visible %d ms",
+                 render_static_map_cache_political_pending_ms(),
+                 render_static_map_cache_political_last_latency_ms());
+        perf_row(hdc, cursor, tr("Political latency", "政治延迟"), text,
+                 render_static_map_cache_political_pending_ms() > 1000 ?
+                 RGB(218, 118, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
         snprintf(text, sizeof(text), "data %d / visual %d / pop %d",
                  render_context_snapshot()->cities_revision,
                  render_context_snapshot()->city_visual_revision,
@@ -250,20 +302,61 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     perf_row(hdc, cursor, tr("Label reason", "标签原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Label cache", "Label cache"), map_label_cache_reason_summary(),
              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "paints %d / req %d / clear %d/%d / ms %d peak %d",
+             map_highlight_overlay_call_count(), map_highlight_overlay_last_requests(),
+             map_highlight_overlay_last_clears(), map_highlight_overlay_total_clears(),
+             map_highlight_overlay_last_ms(), map_highlight_overlay_peak_ms());
+    perf_row(hdc, cursor, tr("Highlight overlay", "高亮叠层"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "surface recreate %d / reuse %d / tiles %d / rects %d",
+             map_highlight_overlay_recreate_count(), map_highlight_overlay_reuse_count(),
+             map_highlight_overlay_last_tiles(), map_highlight_overlay_last_rects());
+    perf_row(hdc, cursor, tr("Highlight surface", "高亮表面"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "calls %d / req %d / hit %d miss %d / tiles %d / seg %d / pens %d / ms %d peak %d",
+             map_highlight_edge_call_count(), map_highlight_edge_last_requests(),
+             map_highlight_edge_cache_hits(), map_highlight_edge_cache_misses(),
+             map_highlight_edge_last_tiles(), map_highlight_edge_last_segments(),
+             map_highlight_edge_last_pen_creates(), map_highlight_edge_last_ms(),
+             map_highlight_edge_peak_ms());
+    perf_row(hdc, cursor, tr("Highlight edge", "高亮边界"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "geom %d peak %d / layer %d peak %d / blit %d peak %d / hit-only %d",
+             map_highlight_edge_geometry_last_ms(), map_highlight_edge_geometry_peak_ms(),
+             map_highlight_edge_layer_last_rebuild_ms(), map_highlight_edge_layer_peak_rebuild_ms(),
+             map_highlight_edge_layer_last_blit_ms(), map_highlight_edge_layer_peak_blit_ms(),
+             map_highlight_edge_layer_last_hit_blit_ms());
+    perf_row(hdc, cursor, tr("Highlight edge detail", "高亮边界详情"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "calls %d / req %d / rings %d / pens %d / fallback tiles %d / ms %d peak %d",
+             map_highlight_focus_call_count(), map_highlight_focus_last_requests(),
+             map_highlight_focus_last_rings(), map_highlight_focus_last_pen_creates(),
+             map_highlight_focus_last_fallback_tiles(), map_highlight_focus_last_ms(),
+             map_highlight_focus_peak_ms());
+    perf_row(hdc, cursor, tr("Highlight focus", "高亮焦点"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "paints %d / ms %d peak %d",
+             map_highlight_total_paint_count(), map_highlight_total_last_ms(),
+             map_highlight_total_peak_ms());
+    perf_row(hdc, cursor, tr("Highlight total", "高亮总计"), text,
+             ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Label revisions", "Label revisions"),
               dirty_label_revision_summary(), ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "cities %d / neutral %d / ports %d",
              render_city_icons_drawn_last_frame(), render_neutral_city_icons_drawn_last_frame(),
              render_port_icons_drawn_last_frame());
     perf_row(hdc, cursor, tr("Map icons", "Map icons"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "hit %d / miss %d / rebuild %d / preview %d / %s",
+    snprintf(text, sizeof(text), "hit %d / miss %d / rebuild %d / preview %d / rb %d/%d blit %d/%d / %s",
              render_city_overlay_cache_hits(), render_city_overlay_cache_misses(),
              render_city_overlay_exact_rebuilds(), render_city_overlay_preview_reuses(),
+             render_city_overlay_last_rebuild_ms(), render_city_overlay_peak_rebuild_ms(),
+             render_city_overlay_last_blit_ms(), render_city_overlay_peak_blit_ms(),
              render_overlay_cache_last_reason());
     perf_row(hdc, cursor, tr("City overlay", "City overlay"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "path hit %d / miss %d / %d ms / visible %d",
+    snprintf(text, sizeof(text), "path hit %d / miss %d / %d ms / visible %d s:%d d:%d",
              sea_lane_render_cache_hits(), sea_lane_render_cache_misses(),
-             sea_lane_render_last_ms(), sea_lane_render_visible_routes());
+             sea_lane_render_last_ms(), sea_lane_render_visible_routes(),
+             sea_lane_render_visible_shallow_routes(), sea_lane_render_visible_deep_routes());
     perf_row(hdc, cursor, tr("Sea lane render", "航道渲染"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "%s / %s", sea_lane_render_last_reason(),
              sea_lane_render_reason_summary());

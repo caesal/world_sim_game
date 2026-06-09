@@ -45,6 +45,13 @@ static int expansion_resource_score_snapshot(CountrySummary s) {
             s.water + s.pop_capacity + s.money + s.habitability) / 2;
 }
 
+static int settlement_cycle_years_snapshot(const SnapshotCiv *civ) {
+    int stage = civ ? clamp(civ->tech_stage, 0, 10) : 0;
+    if (stage >= 8) return 4;
+    if (stage >= 4) return 6;
+    return 10;
+}
+
 static void country_shortage_surplus(CountrySummary s, const char **shortage, const char **surplus) {
     int min_i = 0;
     int max_i = 0;
@@ -100,7 +107,7 @@ static void draw_country_resource_summary(HDC hdc, UiCursor *cursor, int civ_id)
     const char *surplus;
     char text[160];
     int tech = civ ? civ->tech_resource_percent : 100;
-    int disorder = civ ? disorder_productivity_percent(civ->disorder) : 100;
+    int disorder = civ ? disorder_productivity_percent(civ->effective_disorder) : 100;
 
     country_shortage_surplus(country, &shortage, &surplus);
     ui_section(hdc, cursor, tr("Country Resources", "国家资源"));
@@ -123,6 +130,24 @@ static void draw_country_resource_summary(HDC hdc, UiCursor *cursor, int civ_id)
     metric3(hdc, cursor, country.minerals, country.money, country.habitability,
             ICON_ORE, ICON_MONEY, ICON_HABITABILITY,
             metric_label("Ore", "矿石"), metric_label("Money", "金钱"), metric_label("Live", "宜居"));
+    ui_section(hdc, cursor, tr("Treasury", "国库"));
+    metric3(hdc, cursor, civ ? civ->treasury : 0, civ ? civ->treasury_cap : 0,
+            civ ? civ->resource_pressure : 0, ICON_MONEY, ICON_MONEY, ICON_DISORDER,
+            metric_label("Current", "当前"), metric_label("Cap", "上限"), metric_label("Pressure", "压力"));
+    snprintf(text, sizeof(text), "%s %d   %s %+d   %s %d",
+             tr("Pending", "待结算"), civ ? civ->treasury_pending_surplus : 0,
+             tr("Last balance", "上年收支"), civ ? civ->treasury_last_annual_balance : 0,
+             tr("Last deficit", "上年赤字"), civ ? civ->treasury_last_deficit : 0);
+    ui_row_text(hdc, cursor, tr("Annual Ledger", "年度账本"), text);
+    snprintf(text, sizeof(text), "%d %s   %s %d",
+             settlement_cycle_years_snapshot(civ), tr("years", "年"),
+             tr("Deficit years", "连续赤字"), civ ? civ->treasury_deficit_years : 0);
+    ui_row_text(hdc, cursor, tr("Settlement Cycle", "结算周期"), text);
+    snprintf(text, sizeof(text), "%s %d mo   %s %d mo   %s %d mo",
+             tr("Stability", "维稳"), civ ? civ->treasury_stability_months_left : 0,
+             tr("Cooldown", "冷却"), civ ? civ->treasury_stability_cooldown_months : 0,
+             tr("Mercenary", "雇佣兵"), civ ? civ->mercenary_cooldown_months : 0);
+    ui_row_text(hdc, cursor, tr("Programs", "项目"), text);
     ui_row_text(hdc, cursor, tr("Effects", "影响"),
                 tr("Resources affect expansion pressure, stability, population capacity, and war economy.",
                    "资源影响扩张压力、稳定度、人口承载与战争经济。"));
@@ -213,7 +238,7 @@ static void draw_selection_inspector(HDC hdc, UiCursor *cursor) {
 
 int country_resources_tab_height(int civ_id) {
     (void)civ_id;
-    return selected_x >= 0 && selected_y >= 0 ? 760 : 520;
+    return selected_x >= 0 && selected_y >= 0 ? 900 : 660;
 }
 
 void draw_country_resources_tab(HDC hdc, UiCursor *cursor, int civ_id) {

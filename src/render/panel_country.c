@@ -4,6 +4,7 @@
 #include "render/panel_country_decision.h"
 #include "render/panel_country_detail.h"
 #include "render/panel_country_diplomacy.h"
+#include "render/profiling_switches.h"
 #include "render/render_context.h"
 #include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
@@ -73,6 +74,7 @@ static int country_sort_value(int civ_id, int column) {
     switch (clamp(column, 0, COUNTRY_SORT_COUNT - 1)) {
         case COUNTRY_SORT_PROVINCES: return country_province_count(civ_id);
         case COUNTRY_SORT_ARMY: return civ->current_soldiers;
+        case COUNTRY_SORT_TREASURY: return civ->treasury;
         case COUNTRY_SORT_TECH: {
             int stage = clamp(civ->tech_stage, 0, 10);
             int progress = clamp(civ->tech_stage_progress_percent, 0, 99);
@@ -229,8 +231,8 @@ static void country_panel_layout_build(RECT client, CountryPanelLayout *layout) 
 }
 
 static const char *sort_column_label(int column) {
-    static const char *labels_en[COUNTRY_SORT_COUNT] = {"Pop", "Prov", "Army", "Tech", "Chaos"};
-    static const char *labels_zh[COUNTRY_SORT_COUNT] = {"人口", "省份", "军队", "科技", "混乱"};
+    static const char *labels_en[COUNTRY_SORT_COUNT] = {"Pop", "Prov", "Army", "Treas", "Tech", "Chaos"};
+    static const char *labels_zh[COUNTRY_SORT_COUNT] = {"人口", "省份", "军队", "国库", "科技", "混乱"};
     column = clamp(column, 0, COUNTRY_SORT_COUNT - 1);
     return tr(labels_en[column], labels_zh[column]);
 }
@@ -275,8 +277,7 @@ static void draw_country_count_cards(HDC hdc, const CountryPanelLayout *layout) 
     const RenderSnapshot *snapshot = render_context_snapshot();
     const char *labels_en[2] = {"Countries", "Independent"};
     const char *labels_zh[2] = {"国家数", "独立国家"};
-    int values[2] = {snapshot ? snapshot->civ_alive_count : 0,
-                     snapshot ? snapshot->civ_independent_alive_count : 0};
+    int values[2] = {snapshot ? snapshot->civ_alive_count : 0, snapshot ? snapshot->civ_independent_alive_count : 0};
     int i;
     for (i = 0; i < 2; i++) {
         char text[32];
@@ -347,7 +348,6 @@ static void draw_scrollbar(HDC hdc, RECT viewport, int scroll, int max_scroll) {
     fill_rect(hdc, track, RGB(40, 47, 52));
     fill_rect(hdc, thumb, RGB(115, 130, 138));
 }
-
 void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font) {
     CountryPanelLayout layout;
     int civ_id = displayed_country();
@@ -366,7 +366,7 @@ void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
                                     layout.detail_viewport.top - layout.detail_scroll +
                                     country_detail_content_height(civ_id) + 80);
         SelectClipRgn(hdc, clip);
-        draw_country_detail_content(hdc, &cursor, civ_id, title_font, body_font);
+        if (profiling_switch_enabled(PROFILING_SWITCH_SIDE_PANEL_DETAIL)) draw_country_detail_content(hdc, &cursor, civ_id, title_font, body_font);
         SelectClipRgn(hdc, NULL);
         DeleteObject(clip);
         draw_scrollbar(hdc, layout.detail_viewport, layout.detail_scroll, layout.detail_max_scroll);

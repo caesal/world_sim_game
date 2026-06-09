@@ -17,5 +17,8 @@ int map_label_cache_placement_rebuild_count(void);
 const char *map_label_cache_source_last_reason(void);
 const char *map_label_cache_placement_last_reason(void);
 int map_label_cache_preview_skip_count(void);
+int map_label_cache_measure_hit_count(void);
+int map_label_cache_measure_miss_count(void);
+void map_label_cache_reset_debug(void);
 
 #endif

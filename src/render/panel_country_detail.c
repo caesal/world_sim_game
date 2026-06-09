@@ -309,6 +309,12 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     ui_section(hdc, cursor, tr("Actions", "操作"));
     draw_civil_unrest_action(hdc, cursor, civ_id);
     draw_country_overview_vassal_actions(hdc, cursor, civ_id);
+    if ((civ ? civ->plague_active_count : 0) > 0) {
+        ui_section(hdc, cursor, tr("Plague", "瘟疫"));
+        draw_metric_row(hdc, cursor, civ ? civ->plague_active_count : 0, civ ? civ->plague_peak_severity : 0,
+                        civ ? civ->plague_deaths_total : 0, ICON_CITY_VILLAGE, ICON_DISORDER, ICON_POPULATION,
+                        metric_label("Cities", "城市"), metric_label("Severity", "烈度"), metric_label("Deaths", "死亡"));
+    }
     draw_country_recent_events(hdc, cursor, civ_id);
 }
 
@@ -337,17 +343,25 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
                                  HFONT title_font, HFONT body_font) {
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     CountrySummary country = civ ? civ->summary : (CountrySummary){0};
+    char army_current[32];
     char army_deployed[32];
     char army_reserve[32];
     char army_deployment[96];
-    const char *front_type;
+    char treasury_current[32];
+    char treasury_cap[32];
+    char treasury_text[72];
+    char disorder_text[32];
+    char front_text[32];
 
+    format_metric_value(civ ? civ->current_soldiers : 0, army_current, sizeof(army_current));
     format_metric_value(civ ? civ->war_deployed_soldiers : 0, army_deployed, sizeof(army_deployed));
     format_metric_value(civ ? civ->war_available_reserve : 0, army_reserve, sizeof(army_reserve));
     snprintf(army_deployment, sizeof(army_deployment), "%s / %s", army_deployed, army_reserve);
-    front_type = !civ || civ->war_front_count <= 0 ? tr("None", "无") :
-                 civ->war_front_count == 1 ? tr("Single", "单线") :
-                 tr("Multi-front", "多线");
+    format_metric_value(civ ? civ->treasury : 0, treasury_current, sizeof(treasury_current));
+    format_metric_value(civ ? civ->treasury_cap : 0, treasury_cap, sizeof(treasury_cap));
+    snprintf(treasury_text, sizeof(treasury_text), "%s / %s", treasury_current, treasury_cap);
+    snprintf(disorder_text, sizeof(disorder_text), "%d", civ ? civ->effective_disorder : 0);
+    snprintf(front_text, sizeof(front_text), "%d", civ ? civ->war_front_count : 0);
 
     switch (clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1)) {
         case COUNTRY_DETAIL_TECHNOLOGY:
@@ -373,22 +387,17 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
             draw_metric_row(hdc, cursor, country.population, province_count_for_civ(civ_id), country.ports,
                             ICON_POPULATION, ICON_TERRITORY, ICON_HARBOR,
                             metric_label("Pop", "人口"), metric_label("Provinces", "省份"), metric_label("Ports", "港口"));
-            draw_metric_row(hdc, cursor, civ ? civ->current_soldiers : 0, civ ? civ->war_front_count : 0,
-                            civ ? civ->disorder : 0, ICON_MILITARY, ICON_BATTLE, ICON_DISORDER,
-                            metric_label("Army", "军队"), metric_label("Fronts", "战线"), metric_label("Disorder", "混乱"));
+            draw_overview_text_row(hdc, cursor,
+                                   tr("Army", "军队"), army_current, ICON_MILITARY,
+                                   tr("Treasury", "国库"), treasury_text, ICON_MONEY,
+                                   tr("Disorder", "混乱"), disorder_text, ICON_DISORDER);
             draw_overview_text_row(hdc, cursor,
                                    tr("Heritage", "文明圈"),
                                    heritage_label(civ ? civ->heritage : CIV_HERITAGE_WESTERN),
                                    ICON_TERRITORY,
                                    tr("Deployment", "军队部署"), army_deployment, ICON_MILITARY,
-                                   tr("Front type", "战线类型"), front_type, ICON_BATTLE);
+                                   tr("Front", "战线"), front_text, ICON_BATTLE);
             draw_overview_mini_blocks(hdc, cursor, civ_id);
-            if ((civ ? civ->plague_active_count : 0) > 0) {
-                ui_section(hdc, cursor, tr("Plague", "瘟疫"));
-                draw_metric_row(hdc, cursor, civ ? civ->plague_active_count : 0, civ ? civ->plague_peak_severity : 0,
-                                civ ? civ->plague_deaths_total : 0, ICON_CITY_VILLAGE, ICON_DISORDER, ICON_POPULATION,
-                                metric_label("Cities", "城市"), metric_label("Severity", "烈度"), metric_label("Deaths", "死亡"));
-            }
             break;
     }
     (void)title_font;

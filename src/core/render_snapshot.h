@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "sim/decision_snapshot.h"
 #include "sim/fragmentation_diag.h"
+#include "sim/population_diagnostics.h"
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
@@ -65,6 +66,7 @@ typedef struct {
     int tech_resource_percent;
     int tech_progress_percent;
     int disorder;
+    int effective_disorder;
     int disorder_resource;
     int disorder_plague;
     int disorder_migration;
@@ -102,6 +104,16 @@ typedef struct {
     int vassal_annex_threshold_years;
     int vassal_annex_remaining_years;
     int vassal_support_used, vassal_support_casualties;
+    int treasury;
+    int treasury_cap;
+    int treasury_pending_surplus;
+    int treasury_last_annual_balance;
+    int treasury_last_deficit;
+    int resource_pressure;
+    int treasury_deficit_years;
+    int treasury_stability_months_left;
+    int treasury_stability_cooldown_months;
+    int mercenary_cooldown_months;
     int decision_expansion_weight;
     int decision_war_weight;
     int decision_stability_weight;
@@ -118,6 +130,9 @@ typedef struct {
     int heritage;
     CountrySummary summary;
     PopulationSummary population_summary;
+    PopulationDiagnostics population_diagnostics;
+    int population_city_count;
+    int population_top_city_ids[POPULATION_TOP_CITY_COUNT];
     char main_intent[32];
     char decision_expansion_reason[128];
     char decision_war_reason[128];
@@ -159,6 +174,8 @@ typedef struct {
     int casualties_b;
     int support_casualties_a;
     int support_casualties_b;
+    int temporary_soldiers_a;
+    int temporary_soldiers_b;
     int wins_a;
     int wins_b;
     int years;
@@ -256,6 +273,7 @@ typedef struct {
     int coast_revision;
     int hydrology_revision;
     int civs_revision;
+    int civ_visual_revision;
     int cities_revision;
     int city_visual_revision;
     int regions_revision;

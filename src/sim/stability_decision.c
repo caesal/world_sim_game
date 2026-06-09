@@ -1,6 +1,7 @@
 #include "sim/stability_decision.h"
 
 #include "core/game_state.h"
+#include "sim/economy.h"
 #include "sim/regions.h"
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
@@ -55,14 +56,14 @@ void stability_decision_update_month(int civ_id) {
         return;
     }
     current = stability_modes[civ_id];
-    target = target_mode_for_disorder(civs[civ_id].disorder);
+    target = target_mode_for_disorder(economy_effective_disorder_for_civ(civ_id));
     if (target > current) {
         stability_modes[civ_id] = target;
         stability_mode_months[civ_id] = 1;
         stability_recover_months[civ_id] = 0;
         return;
     }
-    if (target < current && civs[civ_id].disorder < threshold_for_mode(current)) {
+    if (target < current && economy_effective_disorder_for_civ(civ_id) < threshold_for_mode(current)) {
         stability_recover_months[civ_id]++;
         if (stability_recover_months[civ_id] >= STABILITY_RECOVER_MONTHS) {
             stability_modes[civ_id] = target;
@@ -84,7 +85,7 @@ void stability_decision_update_all(void) {
 StabilityMode stability_mode_for_civ(int civ_id) {
     StabilityMode target;
     if (!valid_civ(civ_id)) return STABILITY_MODE_NORMAL;
-    target = target_mode_for_disorder(civs[civ_id].disorder);
+    target = target_mode_for_disorder(economy_effective_disorder_for_civ(civ_id));
     return target > stability_modes[civ_id] ? target : stability_modes[civ_id];
 }
 

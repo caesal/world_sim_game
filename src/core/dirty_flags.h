@@ -37,6 +37,7 @@ int dirty_revision_population(void);
 int dirty_revision_ui(void);
 int dirty_revision_hydrology(void);
 int dirty_revision_civ(void);
+int dirty_revision_civ_visual(void);
 int dirty_revision_city(void);
 int dirty_revision_diplomacy(void);
 int dirty_revision_label_country(void);

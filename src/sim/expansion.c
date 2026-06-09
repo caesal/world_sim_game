@@ -149,8 +149,9 @@ static ExpansionAIDiagnostics expansion_land_diagnostics(int civ_id, int resourc
 
     memset(&ai, 0, sizeof(ai));
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return ai;
+    (void)resource_score;
     ai.population_pressure = population_pressure_for_civ(civ_id);
-    ai.resource_pressure = clamp(22 - resource_score, 0, 22) * 4;
+    ai.resource_pressure = clamp(civs[civ_id].resource_pressure, 0, 100);
     ai.expansion_need = max(ai.population_pressure, ai.resource_pressure);
     ai.expansion_threshold = expansion_threshold_for_civ(civ_id);
     ai.tech_expansion_percent = technology_expansion_percent(civ_id);

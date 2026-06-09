@@ -26,7 +26,7 @@ typedef struct {
 } CachedLanePath;
 static CachedLanePath lane_path_cache[MAX_SEA_LANES];
 static int lane_cache_hits, lane_cache_misses, lane_last_render_ms, lane_dash_segments;
-static int lane_visible_routes, lane_infected_routes, lane_infected_draw_ms;
+static int lane_visible_routes, lane_visible_shallow_routes, lane_visible_deep_routes, lane_infected_routes, lane_infected_draw_ms;
 static int lane_miss_initial, lane_miss_route, lane_miss_other;
 static const char *lane_last_reason = "none";
 static unsigned int mix_key(unsigned int key, int value) {
@@ -390,7 +390,7 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
     int saved;
     int i;
     lane_dash_segments = 0;
-    lane_visible_routes = 0;
+    lane_visible_routes = lane_visible_shallow_routes = lane_visible_deep_routes = 0;
     lane_infected_routes = 0;
     lane_infected_draw_ms = 0;
     sea_lane_dash_cache_begin_frame();
@@ -442,6 +442,7 @@ void draw_sea_lanes(HDC hdc, RECT client, MapLayout layout) {
             draw_lane_stroke_shifted(hdc, i, key, path->map_points, path->screen_points,
                                      path->count, inner, width, dash, gap, visual_shift);
             lane_visible_routes++;
+            if (deep) lane_visible_deep_routes++; else lane_visible_shallow_routes++;
         }
     }
     {
@@ -493,5 +494,6 @@ int sea_lane_render_dash_rebuild_ms(void) { return sea_lane_dash_cache_last_rebu
 const char *sea_lane_render_dash_reason(void) { return sea_lane_dash_cache_last_reason(); }
 const char *sea_lane_render_dash_reason_summary(void) { return sea_lane_dash_cache_reason_summary(); }
 int sea_lane_render_visible_routes(void) { return lane_visible_routes; }
+int sea_lane_render_visible_shallow_routes(void) { return lane_visible_shallow_routes; } int sea_lane_render_visible_deep_routes(void) { return lane_visible_deep_routes; }
 int sea_lane_render_infected_routes(void) { return lane_infected_routes; }
 int sea_lane_render_infected_draw_ms(void) { return lane_infected_draw_ms; }

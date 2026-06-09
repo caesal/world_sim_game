@@ -4,6 +4,7 @@
 #include "core/game_state.h"
 #include "data/game_tables.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
 
@@ -65,7 +66,7 @@ void technology_update_month(void) {
         int required;
         if (!civ->alive || civ->tech_stage >= 10) continue;
         required = technology_required_months_for_civ(i);
-        tech_progress_remainder[i] += disorder_technology_percent(civ->disorder);
+        tech_progress_remainder[i] += disorder_technology_percent(economy_effective_disorder_for_civ(i));
         while (tech_progress_remainder[i] >= 100) {
             civ->tech_progress++;
             tech_progress_remainder[i] -= 100;
@@ -92,7 +93,7 @@ int technology_months_to_next(int civ_id) {
     if (civ_id < 0 || civ_id >= civ_count || civs[civ_id].tech_stage >= 10) return 0;
     remaining = technology_required_months_for_civ(civ_id) - civs[civ_id].tech_progress;
     remaining = remaining * 100 - tech_progress_remainder[civ_id];
-    monthly = max(1, disorder_technology_percent(civs[civ_id].disorder));
+    monthly = max(1, disorder_technology_percent(economy_effective_disorder_for_civ(civ_id)));
     return max(0, (remaining + monthly - 1) / monthly);
 }
 

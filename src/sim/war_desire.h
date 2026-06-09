@@ -25,6 +25,11 @@ typedef struct {
     int aggression_score;
     int border_score;
     int resource_score;
+    int population_pressure;
+    int resource_pressure;
+    int crisis_score;
+    int open_target_count;
+    int global_unowned_percent;
     int strength_score;
     int trade_penalty;
     int truce_penalty;

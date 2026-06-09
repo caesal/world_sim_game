@@ -3,6 +3,7 @@
 #include "core/load_progress.h"
 #include "game/game.h"
 #include "io/map_save_legacy.h"
+#include "io/map_save_civs.h"
 #include "io/map_save_regions.h"
 #include "io/map_save_state.h"
 #include "sim/civilization_uid.h"
@@ -15,7 +16,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#define MAP_SAVE_VERSION 11
+#define MAP_SAVE_VERSION 12
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {
@@ -237,102 +238,6 @@ static int read_world_rows(FILE *file) {
     }
     return 1;
 }
-static int read_civilizations(FILE *file, int save_version) {
-    if (save_version >= 9) return read_block(file, civs, sizeof(Civilization), (size_t)civ_count);
-    if (save_version >= 6) { size_t old_size = sizeof(Civilization) - sizeof(int); int i; for (i = 0; i < civ_count; i++) {
-            memset(&civs[i], 0, sizeof(civs[i])); if (!read_block(file, &civs[i], old_size, 1)) return 0;
-            civs[i].heritage = CIV_HERITAGE_WESTERN; } return 1; }
-    if (save_version >= 4) {
-        LegacyCivilizationV5 legacy[MAX_CIVS];
-        int i;
-
-        if (!read_block(file, legacy, sizeof(LegacyCivilizationV5), (size_t)civ_count)) return 0;
-        for (i = 0; i < civ_count; i++) {
-            memset(&civs[i], 0, sizeof(civs[i]));
-            memcpy(civs[i].name, legacy[i].name, NAME_LEN);
-            civs[i].name_id = legacy[i].name_id;
-            civs[i].custom_name = legacy[i].custom_name;
-            memcpy(((char *)&civs[i]) + offsetof(Civilization, symbol),
-                   ((char *)&legacy[i]) + offsetof(LegacyCivilizationV5, symbol),
-                   sizeof(LegacyCivilizationV5) - offsetof(LegacyCivilizationV5, symbol));
-        }
-        return 1;
-    }
-    if (save_version == 3) {
-        LegacyCivilizationV3 legacy[MAX_CIVS];
-        int i;
-        if (!read_block(file, legacy, sizeof(LegacyCivilizationV3), (size_t)civ_count)) return 0;
-        for (i = 0; i < civ_count; i++) {
-            memset(&civs[i], 0, sizeof(civs[i]));
-            memcpy(&civs[i], &legacy[i], sizeof(legacy[i]));
-        }
-        return 1;
-    }
-    if (save_version == 2) {
-        LegacyCivilizationV2 legacy[MAX_CIVS];
-        int i;
-        if (!read_block(file, legacy, sizeof(LegacyCivilizationV2), (size_t)civ_count)) return 0;
-        for (i = 0; i < civ_count; i++) {
-            memset(&civs[i], 0, sizeof(civs[i]));
-            memcpy(&civs[i], &legacy[i], sizeof(legacy[i]));
-            civs[i].plague_recovery_months = 36;
-            civs[i].war_recovery_months = 36;
-        }
-        return 1;
-    }
-    {
-        LegacyCivilizationV1 legacy[MAX_CIVS];
-        int i;
-        if (!read_block(file, legacy, sizeof(LegacyCivilizationV1), (size_t)civ_count)) return 0;
-        for (i = 0; i < civ_count; i++) {
-            memset(&civs[i], 0, sizeof(civs[i]));
-            memcpy(civs[i].name, legacy[i].name, NAME_LEN);
-            civs[i].name[NAME_LEN - 1] = '\0';
-            civs[i].name_id = -1;
-            civs[i].custom_name = 1;
-            civs[i].symbol = legacy[i].symbol;
-            civs[i].color = legacy[i].color;
-            civs[i].alive = legacy[i].alive;
-            civs[i].population = legacy[i].population;
-            civs[i].territory = legacy[i].territory;
-            civs[i].aggression = legacy[i].aggression;
-            civs[i].expansion = legacy[i].expansion;
-            civs[i].defense = legacy[i].defense;
-            civs[i].culture = legacy[i].culture;
-            civs[i].governance = legacy[i].governance;
-            civs[i].cohesion = legacy[i].cohesion;
-            civs[i].production = legacy[i].production;
-            civs[i].military = legacy[i].military;
-            civs[i].commerce = legacy[i].commerce;
-            civs[i].logistics = legacy[i].logistics;
-            civs[i].innovation = legacy[i].innovation;
-            civs[i].adaptation = legacy[i].adaptation;
-            civs[i].tech_stage = legacy[i].tech_stage;
-            civs[i].tech_progress = legacy[i].tech_progress;
-            civs[i].deep_sea_route_unlocked_event_done = legacy[i].deep_sea_route_unlocked_event_done;
-            civs[i].capital_city = legacy[i].capital_city;
-            civs[i].disorder = legacy[i].disorder;
-            civs[i].disorder_resource = legacy[i].disorder_resource;
-            civs[i].disorder_plague = legacy[i].disorder_plague;
-            civs[i].disorder_migration = legacy[i].disorder_migration;
-            civs[i].disorder_stability = legacy[i].disorder_stability;
-            civs[i].plague_recovery_months = 36;
-            civs[i].war_recovery_months = 36;
-        }
-        return 1;
-    }
-}
-
-static void normalize_loaded_technology(void) {
-    int i;
-
-    for (i = 0; i < civ_count; i++) {
-        civs[i].tech_stage = clamp(civs[i].tech_stage, 0, 10);
-        if (civs[i].tech_progress < 0) civs[i].tech_progress = 0;
-        if (civs[i].tech_stage >= 10) civs[i].tech_progress = 0;
-    }
-}
-
 int save_current_map(HWND hwnd) {
     MapSaveHeader header;
     FILE *file;
@@ -469,7 +374,7 @@ int load_map_from_file(HWND hwnd) {
     if (!map_save_read_natural_regions(file, header.version)) LOAD_FAIL("Could not read the full map save.");
     load_progress_update(LOAD_STAGE_REGIONS, 1, 1);
     load_progress_update(LOAD_STAGE_CIVS, 0, 1);
-    if (!read_civilizations(file, header.version)) LOAD_FAIL("Could not read the full map save.");
+    if (!map_save_read_civilizations(file, header.version, civ_count)) LOAD_FAIL("Could not read the full map save.");
     load_progress_update(LOAD_STAGE_CIVS, 1, 1);
     load_progress_update(LOAD_STAGE_CITIES, 0, 1);
     if (!read_block(file, cities, sizeof(City), (size_t)city_count)) LOAD_FAIL("Could not read the full map save.");
@@ -485,7 +390,7 @@ int load_map_from_file(HWND hwnd) {
         header.version = dynamic_result > 0 ? header.version : 7;
     }
     fclose(file);
-    normalize_loaded_technology();
+    map_save_normalize_loaded_civilizations(header.version);
     civilization_migrate_loaded_names();
     civilization_repair_loaded_uids();
     regions_repair_local_city_slots(1);

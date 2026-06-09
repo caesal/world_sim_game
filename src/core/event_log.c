@@ -1,3 +1,4 @@
+#include "core/event_log_classify.h"
 #include "core/event_log_history.h"
 #include "core/event_log_store.h"
 #include "core/game_state.h"
@@ -14,53 +15,6 @@ int event_log_next = 0;
 int event_log_total_entries = 0;
 static int event_log_last_event_id = 0;
 static EventLogEntry event_log_last_entry;
-static EventLogType event_type_from_text(const char *text) {
-    if (!text) return EVENT_TYPE_GENERIC;
-    if (strstr(text, "[Performance]")) return EVENT_TYPE_PERFORMANCE_THROTTLED;
-    if (strstr(text, "[Disorder]")) return EVENT_TYPE_DISORDER_CHANGED;
-    if (strstr(text, "[World]")) return EVENT_TYPE_WORLD_GENERATION_NOTICE;
-    if (strstr(text, "[Debug]") || strstr(text, "[Render]")) return EVENT_TYPE_DEBUG_NOTICE;
-    if (strstr(text, "[War] War started")) return EVENT_TYPE_WAR_STARTED;
-    if (strstr(text, "[War]")) return EVENT_TYPE_BATTLE_RESOLVED;
-    if (strstr(text, "[Collapse] Collapse succeeded") || strstr(text, "Collapse succeeded")) {
-        return EVENT_TYPE_COLLAPSE_SUCCEEDED;
-    }
-    if (strstr(text, "[Collapse]") || strstr(text, "Collapse failed") || strstr(text, "Collapse blocked")) {
-        return EVENT_TYPE_COLLAPSE_FAILED;
-    }
-    if (strstr(text, "[Plague]") && strstr(text, "ended")) return EVENT_TYPE_PLAGUE_ENDED;
-    if (strstr(text, "[Plague]") && strstr(text, "spread")) return EVENT_TYPE_PLAGUE_SPREAD;
-    if (strstr(text, "[Plague]") || strstr(text, "Plague outbreak")) return EVENT_TYPE_PLAGUE_STARTED;
-    if (strstr(text, "became vassal")) return EVENT_TYPE_VASSAL_CREATED;
-    if (strstr(text, "vassal") && strstr(text, "independent")) return EVENT_TYPE_VASSAL_RELEASED;
-    if (strstr(text, "deep sea") && strstr(text, "failed")) return EVENT_TYPE_DEEP_SEA_ROUTE_FAILED;
-    if (strstr(text, "deep sea")) return EVENT_TYPE_DEEP_SEA_ROUTE_CREATED;
-    if (strstr(text, "Civil unrest")) return EVENT_TYPE_CIVIL_UNREST_TRIGGERED;
-    if (strstr(text, "Truce")) return EVENT_TYPE_TRUCE_SIGNED;
-    if (strstr(text, "created country")) return EVENT_TYPE_CIV_CREATED;
-    return EVENT_TYPE_GENERIC;
-}
-static EventLogSeverity event_severity_from_type(EventLogType type) {
-    switch (type) {
-        case EVENT_TYPE_WAR_STARTED:
-        case EVENT_TYPE_WAR_FRONT_SEVERED:
-        case EVENT_TYPE_BATTLE_RESOLVED:
-        case EVENT_TYPE_VASSAL_INDEPENDENCE_WAR:
-        case EVENT_TYPE_COLLAPSE_FAILED:
-        case EVENT_TYPE_PLAGUE_STARTED:
-        case EVENT_TYPE_PERFORMANCE_THROTTLED:
-        case EVENT_TYPE_PERFORMANCE_SLOW_CALL:
-        case EVENT_TYPE_SCHEDULER_YIELD:
-            return EVENT_SEVERITY_WARNING;
-        case EVENT_TYPE_COLLAPSE_SUCCEEDED:
-        case EVENT_TYPE_CIVIL_UNREST_TRIGGERED:
-        case EVENT_TYPE_VASSAL_ANNEXED:
-        case EVENT_TYPE_ENCLAVE_FAILED:
-            return EVENT_SEVERITY_DANGER;
-        default:
-            return EVENT_SEVERITY_INFO;
-    }
-}
 static const char *event_type_label(EventLogType type, int language) {
     int zh = language != 0;
     switch (type) {
@@ -97,6 +51,9 @@ static const char *event_type_label(EventLogType type, int language) {
         case EVENT_TYPE_CIV_CREATED: return zh ? "国家建立" : "Country created";
         case EVENT_TYPE_DIPLOMACY_PEACE: return zh ? "外交和平" : "Diplomatic peace";
         case EVENT_TYPE_DIPLOMACY_TENSE: return zh ? "外交紧张" : "Diplomatic tension";
+        case EVENT_TYPE_TREASURY_INDEMNITY: return zh ? "战争赔款" : "War indemnity";
+        case EVENT_TYPE_STABILITY_PROJECT: return zh ? "国库维稳" : "Treasury stability";
+        case EVENT_TYPE_MERCENARIES_HIRED: return zh ? "雇佣兵" : "Mercenaries";
         default: return zh ? "事件" : "Event";
     }
 }
@@ -167,8 +124,8 @@ void event_log_push_structured(EventLogType type, EventLogSeverity severity, int
 void event_log_push(const char *text) {
     EventLogType type;
     if (!text || !text[0]) return;
-    type = event_type_from_text(text);
-    event_log_push_structured(type, event_severity_from_type(type), -1, -1, -1, -1, 0, 0, text);
+    type = event_log_type_from_text(text);
+    event_log_push_structured(type, event_log_severity_from_type(type), -1, -1, -1, -1, 0, 0, text);
 }
 void event_log_clear(void) {
     memset(event_log, 0, sizeof(event_log));
@@ -358,6 +315,24 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
             return;
         case EVENT_TYPE_DIPLOMACY_TENSE:
             snprintf(out, out_size, zh ? "%s与%s关系转为紧张。" : "%s and %s relations became tense.", civ, target);
+            return;
+        case EVENT_TYPE_TREASURY_INDEMNITY:
+            snprintf(out, out_size,
+                     zh ? "%s向%s支付赔款，抵消%d个割地；实际割让%d个，花费%d。" :
+                          "%s paid war indemnity to %s, offsetting %d cessions; %d provinces transferred, cost %d.",
+                     civ, target, entry->param_a, entry->param_b, max(0, entry->region_id));
+            return;
+        case EVENT_TYPE_STABILITY_PROJECT:
+            snprintf(out, out_size,
+                     zh ? "%s动用国库维稳，花费%d，临时降低有效混乱%d点。" :
+                          "%s funded a stability project, spending %d for a temporary %d-point effective disorder offset.",
+                     civ, entry->param_a, entry->param_b);
+            return;
+        case EVENT_TYPE_MERCENARIES_HIRED:
+            snprintf(out, out_size,
+                     zh ? "%s在对%s的战争中雇佣%d名临时士兵，花费%d。" :
+                          "%s hired temporary soldiers against %s: %d soldiers, cost %d.",
+                     civ, target, entry->param_a, entry->param_b);
             return;
         case EVENT_TYPE_DISORDER_CHANGED:
             snprintf(out, out_size, zh ? "%s混乱影响调整为%d%%，当前混乱%d。" :

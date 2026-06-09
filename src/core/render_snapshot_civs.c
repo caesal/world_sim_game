@@ -7,7 +7,9 @@
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
 #include "sim/population.h"
+#include "sim/population_diagnostics.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
@@ -49,7 +51,10 @@ static void copy_decision_strings(SnapshotCiv *dst, const DecisionSnapshot *src)
 static void reset_stale_fields(SnapshotCiv *dst) {
     memset(&dst->summary, 0, sizeof(dst->summary));
     memset(&dst->population_summary, 0, sizeof(dst->population_summary));
+    memset(&dst->population_diagnostics, 0, sizeof(dst->population_diagnostics));
+    memset(dst->population_top_city_ids, -1, sizeof(dst->population_top_city_ids));
     memset(&dst->decision, 0, sizeof(dst->decision));
+    dst->population_city_count = 0;
     dst->decision_expansion_weight = 0;
     dst->decision_war_weight = 0;
     dst->decision_stability_weight = 0;
@@ -106,7 +111,8 @@ static void copy_raw_fields(SnapshotCiv *dst, Civilization *src, int i) {
     dst->tech_expansion_percent = technology_expansion_percent(i);
     dst->tech_resource_percent = technology_resource_percent(i);
     dst->tech_progress_percent = technology_progress_percent(i);
-    dst->disorder = src->disorder; dst->disorder_resource = src->disorder_resource;
+    dst->disorder = src->disorder; dst->effective_disorder = economy_effective_disorder_for_civ(i);
+    dst->disorder_resource = src->disorder_resource;
     dst->disorder_plague = src->disorder_plague; dst->disorder_migration = src->disorder_migration;
     dst->disorder_stability = src->disorder_stability; dst->disorder_wartime = disorder_wartime_pressure(i);
     dst->disorder_last_pressure = src->disorder_last_pressure;
@@ -138,6 +144,15 @@ static void copy_raw_fields(SnapshotCiv *dst, Civilization *src, int i) {
     dst->vassal_annex_remaining_years = dst->overlord >= 0 ?
         vassal_annex_remaining_years(dst->overlord, diplomacy_relation(dst->overlord, i).vassal_years) : 0;
     dst->vassal_support_casualties = vassal_support_casualties(i);
+    dst->treasury = src->treasury; dst->treasury_cap = src->treasury_cap;
+    dst->treasury_pending_surplus = src->treasury_pending_surplus;
+    dst->treasury_last_annual_balance = src->treasury_last_annual_balance;
+    dst->treasury_last_deficit = src->treasury_last_deficit;
+    dst->resource_pressure = src->resource_pressure;
+    dst->treasury_deficit_years = src->treasury_deficit_years;
+    dst->treasury_stability_months_left = src->treasury_stability_months_left;
+    dst->treasury_stability_cooldown_months = src->treasury_stability_cooldown_months;
+    dst->mercenary_cooldown_months = src->mercenary_cooldown_months;
     dst->vassal_count = vassal_direct_count(i);
     dst->name_id = src->name_id; dst->heritage = src->heritage;
 }
@@ -157,6 +172,10 @@ static int copy_cached_population_summary(SnapshotCiv *dst, int i) {
     PopulationSummary population;
     if (population_country_summary_cached(i, &population)) {
         dst->population_summary = population;
+        dst->population_diagnostics = population_diagnostics_for_country(i, population, dst->summary);
+        population_country_city_count_cached(i, &dst->population_city_count);
+        population_country_top_city_ids_cached(i, dst->population_top_city_ids,
+                                               POPULATION_TOP_CITY_COUNT);
         dst->current_soldiers = war_current_soldiers_for_civ(i);
         dst->war_available_reserve = war_available_reserve_for_civ(i);
         dst->vassal_callable_soldiers = vassal_callable_soldiers(i);

@@ -17,6 +17,11 @@ typedef struct {
     int war_aggression_score;
     int war_border_score;
     int war_resource_score;
+    int war_population_pressure;
+    int war_resource_pressure;
+    int war_crisis_score;
+    int war_open_target_count;
+    int war_global_unowned_percent;
     int war_strength_score;
     int war_trade_penalty;
     int war_truce_penalty;

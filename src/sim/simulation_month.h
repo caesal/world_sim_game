@@ -18,6 +18,10 @@ typedef struct {
     int calendar_started;
     int calendar_year_rollover;
     int calendar_step;
+    int economy_year_cursor;
+    int war_year_cursor;
+    int war_year_changed;
+    int war_tail_cut_done;
     int resource_scores[MAX_CIVS];
     int resource_totals[MAX_CIVS];
     int resource_counts[MAX_CIVS];

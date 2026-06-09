@@ -174,6 +174,7 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
     EventLogEntry entry;
     UiCursor list;
     HRGN clip;
+    int saved_dc;
     int i;
     int skipped = 0;
     int shown = 0;
@@ -202,7 +203,8 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
                      recent_events_rect.bottom - 6);
     clip = CreateRectRgn(recent_events_rect.left, recent_events_rect.top,
                          recent_events_rect.right, recent_events_rect.bottom);
-    SelectClipRgn(hdc, clip);
+    saved_dc = SaveDC(hdc);
+    if (saved_dc > 0 && clip) SelectClipRgn(hdc, clip);
     for (i = 0; i < source_event_count() && list.y < list.bottom - 42; i++) {
         if (!source_event_entry(i, &entry)) continue;
         if (skipped < recent_scroll_offset) {
@@ -217,8 +219,8 @@ void draw_country_recent_events(HDC hdc, UiCursor *cursor, int civ_id) {
                        tr("No related events.", "暂无相关事件。"),
                        ui_theme_color(UI_COLOR_TEXT_MUTED), DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
-    SelectClipRgn(hdc, NULL);
-    DeleteObject(clip);
+    if (saved_dc > 0) RestoreDC(hdc, saved_dc);
+    if (clip) DeleteObject(clip);
     draw_recent_scrollbar(hdc, shown);
     cursor->y += 8;
 }

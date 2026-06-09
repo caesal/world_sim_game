@@ -1,5 +1,62 @@
 # Version Log
 
+## Ver0.3.2.e
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.e.
+2. Added persistent capped treasury state, annual economy settlement, resource
+   pressure, deficit buffering, stability spending, war indemnity offsets, and
+   temporary mercenary support hooks.
+3. Preserved commerce as trade capability and money as territorial money
+   potential while adding treasury as a separate national reserve.
+4. Added save compatibility plumbing for expanded civilization state.
+5. Updated population diagnostics and Population tab presentation with effective
+   pressure, weighted fertility, proportional pressure deaths, small-population
+   natural mortality, Top 6 city rows, city display names, type/status columns,
+   and compact monthly-change/treasury cards.
+6. Updated decision/war desire diagnostics so resource crisis with no reachable
+   expansion target can raise war pressure while existing hard gates still
+   suppress invalid declarations.
+7. Added runtime-only profiling switches and expanded Debug / Performance rows
+   for side-panel detail draw, highlight, city overlay, map labels, static
+   scene/cache, diplomacy animation, map legend, panel cache rebuild, treasury,
+   resource pressure, and political publish latency.
+8. Batched selected-country highlight work, added contour/edge caching, and
+   reduced highlight hot-path GDI churn.
+9. Split static map and static scene responsibilities so stale safe frames no
+   longer hide current ownership colors.
+10. Fixed Political/All/Regions ownership-color latency by allowing current
+    political fill and borders to publish before full coast/hydro/static compose
+    completion.
+
+Validation notes:
+
+- Ver0.3.2.e uses `WORLD_SIM_VERSION "0.3.2.e"`.
+- Focused ownership-latency evidence reproduced pre-fix political publish lag
+  at 143250 ms and reduced focused post-fix max pending latency to 78 ms.
+- Rule39 ownership validation reported max political pending latency of 31 ms.
+- Selected-detail matrix validation stayed around 9.17-11.36 months/sec without
+  repeated 235-250 ms selected-detail peaks.
+- Full Rule39 validation used a Large map with 26 initial civilizations, 712
+  natural regions, max/5x speed, reached Year 435 Month 6, and reported 24
+  stage-5 civilizations plus 6 stage-6 civilizations.
+- First five stage-5 civilizations in the Rule39 run were `0 Thornwatch
+  Kingdom`, `1 TengriAkane Jade Dominion`, `2 Great Qinghe Dynasty`, `3
+  Goldenreach League`, and `4 MoriChen River League`.
+- Deep-sea evidence reported visible deep routes transitioning from 0 before
+  unlock to 2 after unlock.
+- Canonical `make -B world_sim.exe` succeeded.
+- `cmd /c build.bat` succeeded.
+- `make check-text` passed.
+- `git diff --check` passed with only CRLF conversion warnings.
+- Static checks found no `.c` file includes another `.c`, and all touched `.c`
+  / `.h` files are at or below 500 lines.
+- Root executable inventory contains exactly `world_sim.exe`.
+- Rule39 recorded isolated late-run frame peaks up to 250 ms during late
+  technology/deep-sea transition; throughput remained near 10 months/sec, so
+  this is tracked as a performance watch item.
+
 ## Ver0.3.2.d
 
 Implemented fixes:

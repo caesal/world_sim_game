@@ -3,6 +3,8 @@
 #include "core/dirty_flags.h"
 #include "core/plague_perf.h"
 #include "sim/disorder.h"
+#include "sim/economy.h"
+#include "sim/population_diagnostics.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
 #include "world/terrain_query.h"
@@ -12,6 +14,8 @@
 static const int cohort_width_years[POP_COHORT_COUNT] = {5, 13, 7, 15, 15, 10, 10, 12};
 static const int stable_distribution[POP_COHORT_COUNT] = {10, 22, 10, 22, 18, 9, 6, 3};
 static PopulationSummary country_population_cache[MAX_CIVS];
+static int country_population_city_count[MAX_CIVS];
+static int country_population_top_city_ids[MAX_CIVS][POPULATION_TOP_CITY_COUNT];
 static int population_cache_dirty = 1;
 
 static int cohort_total(PopulationCohort cohort) {
@@ -32,6 +36,24 @@ static int city_visual_population_class(const City *city, int population) {
 static void add_cohort(PopulationCohort *target, PopulationCohort source) {
     target->male += source.male;
     target->female += source.female;
+}
+
+static void add_top_city(int owner, int city_id, int population) {
+    int slot;
+    if (owner < 0 || owner >= MAX_CIVS || city_id < 0) return;
+    for (slot = 0; slot < POPULATION_TOP_CITY_COUNT; slot++) {
+        int existing = country_population_top_city_ids[owner][slot];
+        int existing_pop = existing >= 0 && existing < city_count ? cities[existing].population : -1;
+        if (existing >= 0 && existing_pop >= population) continue;
+        if (slot + 1 < POPULATION_TOP_CITY_COUNT) {
+            memmove(&country_population_top_city_ids[owner][slot + 1],
+                    &country_population_top_city_ids[owner][slot],
+                    (POPULATION_TOP_CITY_COUNT - slot - 1) *
+                    sizeof(country_population_top_city_ids[owner][slot]));
+        }
+        country_population_top_city_ids[owner][slot] = city_id;
+        return;
+    }
 }
 
 static PopulationCohort take_from_cohort(PopulationCohort *cohort, int amount) {
@@ -162,13 +184,22 @@ static void rebuild_population_cache(void) {
     int band;
 
     memset(country_population_cache, 0, sizeof(country_population_cache));
+    memset(country_population_city_count, 0, sizeof(country_population_city_count));
+    for (i = 0; i < MAX_CIVS; i++) {
+        int slot;
+        for (slot = 0; slot < POPULATION_TOP_CITY_COUNT; slot++) {
+            country_population_top_city_ids[i][slot] = -1;
+        }
+    }
     for (i = 0; i < city_count; i++) {
         PopulationSummary city_summary;
         int owner;
         if (!cities[i].alive) continue;
         owner = cities[i].owner;
         if (owner < 0 || owner >= civ_count) continue;
+        country_population_city_count[owner]++;
         city_summary = population_city_summary(i);
+        add_top_city(owner, i, city_summary.total);
         for (band = 0; band < POP_COHORT_COUNT; band++) {
             add_cohort(&country_population_cache[owner].cohorts[band], city_summary.cohorts[band]);
         }
@@ -195,6 +226,25 @@ int population_country_summary_cached(int civ_id, PopulationSummary *out) {
     memset(out, 0, sizeof(*out));
     if (civ_id < 0 || civ_id >= civ_count || population_cache_dirty) return 0;
     *out = country_population_cache[civ_id];
+    return 1;
+}
+
+int population_country_city_count_cached(int civ_id, int *out_count) {
+    if (!out_count) return 0;
+    *out_count = 0;
+    if (civ_id < 0 || civ_id >= civ_count || population_cache_dirty) return 0;
+    *out_count = country_population_city_count[civ_id];
+    return 1;
+}
+
+int population_country_top_city_ids_cached(int civ_id, int *out_ids, int max_ids) {
+    int i;
+    if (!out_ids || max_ids <= 0) return 0;
+    for (i = 0; i < max_ids; i++) out_ids[i] = -1;
+    if (civ_id < 0 || civ_id >= civ_count || population_cache_dirty) return 0;
+    for (i = 0; i < max_ids && i < POPULATION_TOP_CITY_COUNT; i++) {
+        out_ids[i] = country_population_top_city_ids[civ_id][i];
+    }
     return 1;
 }
 
@@ -251,48 +301,58 @@ static void age_city_one_year(int city_id) {
     for (i = 0; i < POP_COHORT_COUNT - 1; i++) add_cohort(&cities[city_id].population_cohorts[i + 1], moved[i]);
 }
 
-static int reproductive_male_count(PopulationSummary summary) {
-    return summary.cohorts[POP_AGE_18_24].male + summary.cohorts[POP_AGE_25_39].male +
-           summary.cohorts[POP_AGE_40_54].male;
+static int monthly_births(int city_id, PopulationSummary summary, TerrainStats stats) {
+    int owner = cities[city_id].owner;
+    return population_monthly_births_from_summary(owner, summary, stats, rnd(9000));
 }
 
-static int monthly_births(int city_id, PopulationSummary summary, TerrainStats stats) {
-    int fertile_males = reproductive_male_count(summary);
-    int fertile_couples = summary.fertile < fertile_males ? summary.fertile : fertile_males;
-    int rate = 28 + stats.food * 4 + stats.water * 4 + stats.habitability * 3;
-    int owner = cities[city_id].owner;
-    int births;
+static int remove_band_ordered_deaths(int city_id, const int *bands, int band_count, int amount) {
+    int removed = 0;
+    int i;
 
-    if (owner >= 0 && owner < civ_count) rate += civs[owner].cohesion + civs[owner].governance / 2;
-    if (summary.pressure > 100) rate -= (summary.pressure - 100) / 2;
-    if (owner >= 0 && owner < civ_count) {
-        rate -= civs[owner].disorder / 3 +
-                (plague_perf_system_enabled() ? civs[owner].disorder_plague / 4 : 0);
+    for (i = 0; i < band_count && removed < amount; i++) {
+        removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[bands[i]],
+                                                 amount - removed));
     }
-    rate = clamp(rate, 0, 95);
-    births = (fertile_couples * rate + rnd(12000)) / 12000;
-    if (owner >= 0 && owner < civ_count) {
-        births = births * disorder_population_growth_percent(civs[owner].disorder) / 100;
+    return removed;
+}
+
+static int remove_proportional_deaths(int city_id, PopulationSummary basis, int amount) {
+    int removed = 0;
+    int band;
+    if (amount <= 0 || basis.total <= 0) return 0;
+    for (band = 0; band < POP_COHORT_COUNT && removed < amount; band++) {
+        int want = amount * cohort_total(basis.cohorts[band]) / basis.total;
+        if (band == POP_COHORT_COUNT - 1) want = amount - removed;
+        removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[band],
+                                                 clamp(want, 0, amount - removed)));
     }
-    return max(0, births);
+    for (band = 0; band < POP_COHORT_COUNT && removed < amount; band++) {
+        removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[band],
+                                                 amount - removed));
+    }
+    return removed;
 }
 
 static int apply_city_deaths(int city_id, PopulationSummary summary, TerrainStats stats) {
-    int deaths = 0;
-    int pressure_deaths = summary.pressure > 115 ? summary.total * (summary.pressure - 110) / 18000 : 0;
-    int child_stress = stats.food < 4 || stats.water < 4 ? cohort_total(cities[city_id].population_cohorts[POP_AGE_0_4]) / 160 : 0;
-    int old_deaths = cohort_total(cities[city_id].population_cohorts[POP_AGE_65_74]) / 360 +
-                     cohort_total(cities[city_id].population_cohorts[POP_AGE_75_PLUS]) / 80;
-    int remaining;
+    static const int old_bands[] = {POP_AGE_75_PLUS, POP_AGE_65_74};
+    static const int child_bands[] = {POP_AGE_0_4};
+    int owner = cities[city_id].owner;
+    int pressure = population_effective_pressure_for_summary(owner, summary);
+    int pressure_deaths = population_pressure_deaths_estimate(summary, pressure);
+    int child_stress = population_child_accidental_deaths_sample(summary, stats,
+        rnd(population_child_accidental_denominator(stats)));
+    int old_deaths = population_natural_age_deaths_sample(summary, rnd(480), rnd(120));
+    int removed = 0;
 
-    deaths += pressure_deaths + child_stress + old_deaths;
-    if (deaths <= 0) return 0;
-    remaining = deaths;
-    remaining -= cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_75_PLUS], remaining));
-    if (remaining > 0) remaining -= cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_65_74], remaining));
-    if (remaining > 0) remaining -= cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_0_4], remaining));
-    if (remaining > 0) take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_55_64], remaining);
-    return pressure_deaths + child_stress + old_deaths;
+    removed += remove_proportional_deaths(city_id, summary, pressure_deaths);
+    removed += remove_band_ordered_deaths(city_id, old_bands,
+                                          (int)(sizeof(old_bands) / sizeof(old_bands[0])),
+                                          old_deaths);
+    removed += remove_band_ordered_deaths(city_id, child_bands,
+                                          (int)(sizeof(child_bands) / sizeof(child_bands[0])),
+                                          child_stress);
+    return removed;
 }
 
 static void update_city_population_month(int city_id) {

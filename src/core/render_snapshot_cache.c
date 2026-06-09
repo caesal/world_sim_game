@@ -93,6 +93,8 @@ static void copy_war(SnapshotWar *dst, ActiveWar war) {
     dst->casualties_a = war.casualties_a; dst->casualties_b = war.casualties_b;
     dst->support_casualties_a = war.support_casualties_a;
     dst->support_casualties_b = war.support_casualties_b;
+    dst->temporary_soldiers_a = war.temporary_soldiers_a;
+    dst->temporary_soldiers_b = war.temporary_soldiers_b;
     dst->wins_a = war.wins_a; dst->wins_b = war.wins_b; dst->years = war.years;
 }
 

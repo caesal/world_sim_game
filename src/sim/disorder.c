@@ -159,8 +159,6 @@ static void record_recovery_components(Civilization *civ, int civ_id, int pressu
 void disorder_update_month(int civ_id, int resource_score) {
     Civilization *civ;
     int pressure;
-    int pressure_disorder;
-    int scarcity_disorder;
     int recovery_x10;
     int delta_x10;
     int total_x10;
@@ -175,10 +173,8 @@ void disorder_update_month(int civ_id, int resource_score) {
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return;
     civ = &civs[civ_id];
     old_disorder = civ->disorder;
-    pressure = population_pressure_for_civ(civ_id);
-    pressure_disorder = clamp((pressure - 85) / 3, 0, 45);
-    scarcity_disorder = clamp(34 - resource_score, 0, 34);
-    civ->disorder_resource = clamp(pressure_disorder + scarcity_disorder, 0, 100);
+    pressure = clamp(civ->resource_pressure, 0, 100);
+    civ->disorder_resource = pressure;
     plague_decay = plague_decay_for_civ(civ, civ_id);
     war_decay = war_decay_for_civ(civ, civ_id);
     migration_decay = civ->disorder_migration > 0 ? 4 : 0;

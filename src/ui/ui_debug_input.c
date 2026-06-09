@@ -7,6 +7,7 @@
 #include "render/panel_debug.h"
 #include "render/panel_debug_controls.h"
 #include "render/panel_view_model_cache.h"
+#include "render/profiling_switches.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_types.h"
@@ -33,6 +34,10 @@ int ui_handle_debug_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y
             plague_perf_toggle_system();
         } else if (plague_switch == DEBUG_PLAGUE_SWITCH_VISUALS) {
             plague_perf_toggle_map_visuals();
+        } else if (plague_switch >= DEBUG_FEATURE_SWITCH_PROFILE_FIRST) {
+            profiling_switch_toggle(plague_switch - DEBUG_FEATURE_SWITCH_PROFILE_FIRST);
+            ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_STATIC | GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+            return 1;
         } else {
             return 0;
         }
