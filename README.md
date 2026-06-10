@@ -7,16 +7,16 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2.f is a Windows graphical sandbox prototype written in C.
+Ver0.3.2.g is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2.f is a focused population formula and World Population presentation
-checkpoint over Ver0.3.2.e. It keeps the Ver0.3.2.e economy, map-cache,
-highlight, and performance baseline while tightening the population pressure
-pipeline: lower high-pressure birth multipliers, a piecewise pressure-death
-curve, and a World Population tab that uses the same age-normalized pyramid
-semantics as the country Population tab. It also separates global carrying
-usage from average country pressure so world-level population pressure is easier
-to read.
+Ver0.3.2.g is a focused population age-structure checkpoint over Ver0.3.2.f.
+It keeps the Ver0.3.2.f population-pressure, economy, map-cache, highlight,
+and performance baseline while adding a display-only yearly population cohort
+cache for country and world population pyramids. The visible UI still shows the
+compact age bands, including a single `75+` row, but the display cache can show
+cohort waves moving upward over time. Old-age natural mortality now applies the
+requested stronger monthly rates for 55-64, 65-74, 75-80, and 81+ internally,
+while real population storage remains on the existing 8 gameplay cohorts.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -27,12 +27,13 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: isolated late-run frame peaks remain a performance watch item,
-and the new population curve should be watched in later balance passes because
-focused multi-seed probes ended with negative average monthly net growth. Future
-marker, route, performance, UI, map-display, simulation-speed, collapse,
-enclave, diplomacy, or population-balance changes must remain evidence-based
-and pass the strict validation gate for the specific scope involved.
+Known follow-up: strict Rule39 was not rerun for Ver0.3.2.g, and the stronger
+old-age mortality remains a balance watch item because focused multi-seed probes
+again ended with negative average monthly net growth and a small number of
+near-extinct civilizations. Future marker, route, performance, UI, map-display,
+simulation-speed, collapse, enclave, diplomacy, or population-balance changes
+must remain evidence-based and pass the strict validation gate for the specific
+scope involved.
 
 You can:
 

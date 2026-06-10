@@ -4,6 +4,7 @@
 #include "render_common.h"
 #include "core/version.h"
 #include "sim/diplomacy.h"
+#include "sim/population_display_cohorts.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
 #include "ui/ui_layout.h"
@@ -28,6 +29,12 @@ int draw_population_pyramid_summary(HDC hdc, RECT client, int x, int y, int widt
 int draw_population_pyramid_summary_labeled(HDC hdc, RECT client, int x, int y, int width,
                                             PopulationSummary summary, HFONT body_font,
                                             const char *pressure_label);
+int draw_population_display_pyramid_summary_labeled(HDC hdc, RECT client, int x, int y,
+                                                    int width,
+                                                    const PopulationDisplayCohorts *display,
+                                                    PopulationSummary summary,
+                                                    HFONT body_font,
+                                                    const char *pressure_label);
 void draw_side_panel(HDC hdc, RECT client);
 void draw_bottom_bar(HDC hdc, RECT client);
 void draw_map_frame_overlay(HDC hdc, RECT client);

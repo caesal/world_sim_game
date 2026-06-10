@@ -8,9 +8,15 @@
 #include <stdio.h>
 #include <string.h>
 
-#define POPULATION_TAB_FIXED_H 820
+#define POPULATION_TAB_FIXED_H 920
 
-static const int cohort_display_width_years[POP_COHORT_COUNT] = {5, 13, 7, 15, 15, 10, 10, 12};
+static const int display_row_first[] = {
+    75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5, 0
+};
+static const int display_row_last[] = {
+    100, 74, 69, 64, 59, 54, 49, 44, 39, 34, 29, 24, 19, 14, 9, 4
+};
+#define DISPLAY_ROW_COUNT ((int)(sizeof(display_row_first) / sizeof(display_row_first[0])))
 
 static COLORREF pressure_color(int pressure) {
     if (pressure < 50) return RGB(83, 143, 98);
@@ -69,28 +75,39 @@ static int draw_capacity_overview(HDC hdc, UiCursor *cursor, PopulationSummary s
     return usage;
 }
 
-static int cohort_density_value(int value, int band) {
-    if (band < 0 || band >= POP_COHORT_COUNT) return value;
-    return value / max(1, cohort_display_width_years[band]);
+static const char *display_row_label(int row) {
+    static const char *labels[] = {
+        "75+", "70-74", "65-69", "60-64", "55-59", "50-54",
+        "45-49", "40-44", "35-39", "30-34", "25-29", "20-24",
+        "15-19", "10-14", "5-9", "0-4"
+    };
+    return labels[row];
 }
 
-static int max_population_side(PopulationSummary summary) {
+static int display_row_value(const int *ages, int row) {
+    int first = display_row_first[row];
+    int last = display_row_last[row];
+    int total = 0;
+    int age;
+    for (age = first; age <= last && age < POP_DISPLAY_AGE_COUNT; age++) total += ages[age];
+    return total;
+}
+
+static int display_row_density_value(const int *ages, int row) {
+    int width = row == 0 ? 12 : 5;
+    return (display_row_value(ages, row) + width / 2) / width;
+}
+
+static int max_population_side(const PopulationDisplayCohorts *display) {
     int max_value = 1;
-    int i;
-    for (i = 0; i < POP_COHORT_COUNT; i++) {
-        int male = cohort_density_value(summary.cohorts[i].male, i);
-        int female = cohort_density_value(summary.cohorts[i].female, i);
+    int row;
+    for (row = 0; row < DISPLAY_ROW_COUNT; row++) {
+        int male = display_row_density_value(display->male, row);
+        int female = display_row_density_value(display->female, row);
         if (male > max_value) max_value = male;
         if (female > max_value) max_value = female;
     }
     return max_value;
-}
-
-static const char *age_band_label(int band) {
-    static const char *labels[POP_COHORT_COUNT] = {
-        "0-4", "5-17", "18-24", "25-39", "40-54", "55-64", "65-74", "75+"
-    };
-    return labels[band];
 }
 
 static void draw_population_side_bar(HDC hdc, RECT rect, int value, int max_value,
@@ -103,14 +120,24 @@ static void draw_population_side_bar(HDC hdc, RECT rect, int value, int max_valu
     fill_rect(hdc, bar, color);
 }
 
-static void draw_compact_pyramid(HDC hdc, UiCursor *cursor, PopulationSummary summary) {
-    RECT area = ui_take_rect(cursor, 124);
+static void draw_compact_pyramid(HDC hdc, UiCursor *cursor, PopulationSummary summary,
+                                 const PopulationDisplayCohorts *display) {
+    PopulationDisplayCohorts fallback;
+    const PopulationDisplayCohorts *source = display;
+    RECT area = ui_take_rect(cursor, 188);
     int center = area.left + (area.right - area.left) / 2;
     int bar_w = max(32, (area.right - area.left - 112) / 2);
-    int row_h = 9;
-    int max_value = max_population_side(summary);
+    int row_h = 10;
+    int bar_h = 7;
+    int max_value;
     int y = area.top;
-    int i;
+    int row;
+
+    if (!source || population_display_total(source) <= 0) {
+        population_display_uniform_from_summary(&fallback, summary);
+        source = &fallback;
+    }
+    max_value = max_population_side(source);
 
     fill_rect(hdc, area, ui_theme_color(UI_COLOR_PANEL));
     draw_text_rect(hdc, (RECT){center - bar_w - 34, y, center - 36, y + 16}, tr("Male", "男"),
@@ -118,19 +145,19 @@ static void draw_compact_pyramid(HDC hdc, UiCursor *cursor, PopulationSummary su
     draw_text_rect(hdc, (RECT){center + 36, y, center + bar_w + 34, y + 16}, tr("Female", "女"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_LEFT | DT_VCENTER);
     y += 18;
-    for (i = POP_AGE_75_PLUS; i >= POP_AGE_0_4; i--) {
-        RECT male = {center - bar_w - 34, y + 1, center - 34, y + row_h};
-        RECT female = {center + 34, y + 1, center + bar_w + 34, y + row_h};
+    for (row = 0; row < DISPLAY_ROW_COUNT; row++) {
+        RECT male = {center - bar_w - 34, y + 1, center - 34, y + 1 + bar_h};
+        RECT female = {center + 34, y + 1, center + bar_w + 34, y + 1 + bar_h};
         RECT label = {center - 31, y, center + 31, y + row_h + 1};
-        draw_population_side_bar(hdc, male, cohort_density_value(summary.cohorts[i].male, i),
+        draw_population_side_bar(hdc, male, display_row_density_value(source->male, row),
                                  max_value, 1, RGB(83, 123, 166));
-        draw_population_side_bar(hdc, female, cohort_density_value(summary.cohorts[i].female, i),
+        draw_population_side_bar(hdc, female, display_row_density_value(source->female, row),
                                  max_value, 0, RGB(164, 102, 141));
-        draw_center_text(hdc, label, age_band_label(i), RGB(218, 224, 230));
-        y += row_h + 1;
+        draw_center_text(hdc, label, display_row_label(row), RGB(218, 224, 230));
+        y += row_h;
     }
     draw_text_rect(hdc, (RECT){area.left, y + 1, area.right, area.bottom},
-                   tr("Age-normalized density", "按年龄段年均人数"),
+                   tr("Age bands", "年龄段"),
                    ui_theme_color(UI_COLOR_TEXT_MUTED),
                    DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
 }
@@ -448,7 +475,7 @@ void draw_country_population_tab(HDC hdc, RECT client, UiCursor *cursor,
     ui_section(hdc, cursor, tr("Population Capacity", "人口承载总览"));
     usage = draw_capacity_overview(hdc, cursor, summary);
     ui_section(hdc, cursor, tr("Population Structure", "人口结构"));
-    draw_compact_pyramid(hdc, cursor, summary);
+    draw_compact_pyramid(hdc, cursor, summary, civ ? &civ->population_display : NULL);
     draw_structure_cards(hdc, cursor, summary, usage);
     ui_section(hdc, cursor, tr("Population Pressure Sources", "人口压力来源"));
     draw_pressure_section(hdc, cursor, diag);

@@ -3,6 +3,7 @@
 
 #include "core/sim_types.h"
 #include "core/world_types.h"
+#include "sim/population_display_cohorts.h"
 
 typedef struct {
     int national_resource_pressure;
@@ -33,6 +34,8 @@ int population_monthly_births_from_summary(int owner, PopulationSummary summary,
 int population_pressure_deaths_estimate(PopulationSummary summary, int effective_pressure);
 int population_natural_age_deaths_estimate(PopulationSummary summary);
 int population_natural_age_deaths_estimate_x10(PopulationSummary summary);
+int population_natural_age_deaths_estimate_x100_with_display(
+    PopulationSummary summary, const PopulationDisplayCohorts *display);
 int population_natural_age_deaths_sample(PopulationSummary summary, int roll65, int roll75);
 int population_child_accidental_denominator(TerrainStats stats);
 int population_child_stress_deaths_estimate(PopulationSummary summary, TerrainStats stats);
@@ -40,7 +43,13 @@ int population_child_accidental_deaths_estimate_x10(PopulationSummary summary, T
 int population_child_accidental_deaths_sample(PopulationSummary summary, TerrainStats stats, int roll);
 PopulationDiagnostics population_diagnostics_for_summary(int owner, PopulationSummary summary,
                                                          TerrainStats stats);
+PopulationDiagnostics population_diagnostics_for_summary_display(
+    int owner, PopulationSummary summary, const PopulationDisplayCohorts *display,
+    TerrainStats stats);
 PopulationDiagnostics population_diagnostics_for_country(int owner, PopulationSummary summary,
                                                          CountrySummary country);
+PopulationDiagnostics population_diagnostics_for_country_display(
+    int owner, PopulationSummary summary, const PopulationDisplayCohorts *display,
+    CountrySummary country);
 
 #endif

@@ -35,6 +35,7 @@ static void sort_population_ids(const RenderSnapshot *snapshot, int *ids, int co
 void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font) {
     UiCursor cursor = ui_cursor(x, TOP_BAR_H + 62, side_panel_w - FORM_X_PAD * 2, client.bottom - 64);
     PopulationSummary world = {0};
+    PopulationDisplayCohorts world_display = {0};
     int ids[MAX_CIVS];
     int id_count = 0;
     int active_civs = 0;
@@ -68,6 +69,7 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
         world.elder += s.elder;
         world.carrying_capacity += s.carrying_capacity;
         world.pressure += s.pressure;
+        population_display_add(&world_display, &civ->population_display);
         for (int band = 0; band < POP_COHORT_COUNT; band++) {
             world.cohorts[band].male += s.cohorts[band].male;
             world.cohorts[band].female += s.cohorts[band].female;
@@ -92,9 +94,9 @@ void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT 
             ICON_POPULATION, ICON_PRODUCTION, ICON_POPULATION,
             metric_label("Children", "儿童"), metric_label("Working", "劳力"), metric_label("Elder", "老人"));
     ui_section(hdc, &cursor, tr("Global Structure", "全球结构"));
-    cursor.y = draw_population_pyramid_summary_labeled(hdc, client, x, cursor.y + 2,
-                                                       cursor.width, world, body_font,
-                                                       tr("Global Usage", "全球使用率"));
+    cursor.y = draw_population_display_pyramid_summary_labeled(
+        hdc, client, x, cursor.y + 2, cursor.width, &world_display, world, body_font,
+        tr("Global Usage", "全球使用率"));
     if (world.total > 0) {
         snprintf(text, sizeof(text), "%s %d%%   %s %d%%   %s %d%%",
                  tr("Children", "儿童"), world.children * 100 / world.total,

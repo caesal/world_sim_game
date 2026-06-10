@@ -28,6 +28,9 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-crisis") == 0) {
         return run_crisis_probe();
     }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-population") == 0) {
+        return run_population_probe();
+    }
     if (no_activate) return run_game_no_activate();
     return run_game();
 }

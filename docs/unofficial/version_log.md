@@ -1,5 +1,57 @@
 # Version Log
 
+## Ver0.3.2.g
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.2.g.
+2. Added a display-only yearly population cohort cache so country and world
+   population pyramids can show cohort waves moving upward over time without
+   changing the real 8-band gameplay population storage.
+3. Kept the visible population pyramid row structure compact: the UI still
+   shows one `75+` row and does not expose an `81+` row.
+4. Updated pyramid bar scaling to use density-style values: 5-year rows divide
+   by 5, while the visible `75+` row divides by 12 so it no longer visually
+   dominates only because it covers more years.
+5. Replaced old-age natural mortality with the requested monthly rates:
+   55-64 = n / 200, 65-74 = n / 83, 75-80 = n / 24, and 81+ = n * 8 / 100.
+6. Used display cohorts only to split the real `75+` gameplay bucket into
+   75-80 and 81+ for mortality calculation; actual real deductions still come
+   from the existing real `75+` bucket.
+7. Added a focused population probe entrypoint and mortality/display helpers
+   for formula, split, wave, display-scale, and multi-seed balance validation.
+
+Validation notes:
+
+- Ver0.3.2.g uses `WORLD_SIM_VERSION "0.3.2.g"`.
+- Focused formula probes reported monthly natural deaths of 5000, 12048,
+  41667, and 80000 for 1,000,000 people in 55-64, 65-74, 75-80, and 81+.
+- The split probe reported 60K people in 75-80 plus 40K in 81+ removed 5700
+  people from the real `75+` bucket while keeping the UI row label as `75+`.
+- Display-wave probes reported a birth batch reaching `5-9` after 6 years and
+  `20-24` after 20 years while preserving the old real 8-band aging behavior.
+- Focused GUI evidence covered country Population in English and Chinese,
+  elderly fixture views, world Population in English and Chinese, and the
+  Population-tab Debug / Performance sample.
+- Multi-seed Large-map, 26-civilization, >600-region probes to Year 240 ended
+  with population/capacity ratios of 98%, 100%, and 90%; two seeds produced one
+  near-extinct civilization each, so longer balance validation remains a watch
+  item.
+- Population-tab max-speed focused evidence reported 93 ms/month,
+  10.75 months/sec, queue 1, coalesced 0, frame 76/188, and render 63/125.
+- Strict AGENTS Rule39 was not rerun for this checkpoint; this release is based
+  on focused probes plus user acceptance after manual inspection.
+- Canonical `make -B world_sim.exe` was attempted first and reached the link
+  step, but the running `world_sim.exe` was locked by PID 29828.
+- A temporary-target build with `TARGET=tmp_worldsim_ver032g_verify.exe`
+  succeeded, string checks found `World Sim Game Ver 0.3.2.g`, and the
+  temporary executable was deleted.
+- `cmd /c build.bat` was attempted and reached the link step, but was blocked
+  by the same locked canonical executable.
+- `make check-text` and `git diff --check` passed.
+- Static checks found no `.c` file includes another `.c`, and all touched `.c`
+  / `.h` files are at or below 500 lines.
+
 ## Ver0.3.2.f
 
 Implemented fixes:

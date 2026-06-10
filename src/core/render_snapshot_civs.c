@@ -10,6 +10,7 @@
 #include "sim/economy.h"
 #include "sim/population.h"
 #include "sim/population_diagnostics.h"
+#include "sim/population_display_cohorts.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
@@ -51,6 +52,7 @@ static void copy_decision_strings(SnapshotCiv *dst, const DecisionSnapshot *src)
 static void reset_stale_fields(SnapshotCiv *dst) {
     memset(&dst->summary, 0, sizeof(dst->summary));
     memset(&dst->population_summary, 0, sizeof(dst->population_summary));
+    memset(&dst->population_display, 0, sizeof(dst->population_display));
     memset(&dst->population_diagnostics, 0, sizeof(dst->population_diagnostics));
     memset(dst->population_top_city_ids, -1, sizeof(dst->population_top_city_ids));
     memset(&dst->decision, 0, sizeof(dst->decision));
@@ -172,7 +174,13 @@ static int copy_cached_population_summary(SnapshotCiv *dst, int i) {
     PopulationSummary population;
     if (population_country_summary_cached(i, &population)) {
         dst->population_summary = population;
-        dst->population_diagnostics = population_diagnostics_for_country(i, population, dst->summary);
+        if (!population_display_country_cached(i, &dst->population_display)) {
+            population_display_uniform_from_summary(&dst->population_display, population);
+        }
+        dst->population_diagnostics =
+            population_diagnostics_for_country_display(i, population,
+                                                       &dst->population_display,
+                                                       dst->summary);
         population_country_city_count_cached(i, &dst->population_city_count);
         population_country_top_city_ids_cached(i, dst->population_top_city_ids,
                                                POPULATION_TOP_CITY_COUNT);

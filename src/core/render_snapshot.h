@@ -5,6 +5,7 @@
 #include "sim/decision_snapshot.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/population_diagnostics.h"
+#include "sim/population_display_cohorts.h"
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
@@ -130,6 +131,7 @@ typedef struct {
     int heritage;
     CountrySummary summary;
     PopulationSummary population_summary;
+    PopulationDisplayCohorts population_display;
     PopulationDiagnostics population_diagnostics;
     int population_city_count;
     int population_top_city_ids[POPULATION_TOP_CITY_COUNT];

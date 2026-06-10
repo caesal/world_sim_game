@@ -4,6 +4,7 @@
 #include "core/plague_perf.h"
 #include "sim/disorder.h"
 #include "sim/economy.h"
+#include "sim/population_mortality.h"
 
 #include <string.h>
 
@@ -117,18 +118,18 @@ int population_natural_age_deaths_estimate(PopulationSummary summary) {
 }
 
 int population_natural_age_deaths_estimate_x10(PopulationSummary summary) {
-    return (diagnostics_cohort_total(summary.cohorts[POP_AGE_65_74]) * 10 + 240) / 480 +
-           (diagnostics_cohort_total(summary.cohorts[POP_AGE_75_PLUS]) * 10 + 60) / 120;
+    return (population_natural_age_deaths_estimate_x100_with_display(summary, NULL) + 5) / 10;
 }
 
-static int population_natural_age_deaths_estimate_x100(PopulationSummary summary) {
-    return (diagnostics_cohort_total(summary.cohorts[POP_AGE_65_74]) * 100 + 240) / 480 +
-           (diagnostics_cohort_total(summary.cohorts[POP_AGE_75_PLUS]) * 100 + 60) / 120;
+int population_natural_age_deaths_estimate_x100_with_display(
+    PopulationSummary summary, const PopulationDisplayCohorts *display) {
+    return population_mortality_natural_age_deaths_x100(summary, display);
 }
 
 int population_natural_age_deaths_sample(PopulationSummary summary, int roll65, int roll75) {
-    return population_probabilistic_round(diagnostics_cohort_total(summary.cohorts[POP_AGE_65_74]), 480, roll65) +
-           population_probabilistic_round(diagnostics_cohort_total(summary.cohorts[POP_AGE_75_PLUS]), 120, roll75);
+    PopulationNaturalAgeDeaths deaths =
+        population_natural_age_deaths_sample_with_display(summary, NULL, 0, roll65, roll75, 0);
+    return deaths.total;
 }
 
 int population_child_accidental_denominator(TerrainStats stats) {
@@ -154,8 +155,9 @@ int population_child_accidental_deaths_sample(PopulationSummary summary, Terrain
                                           population_child_accidental_denominator(stats), roll);
 }
 
-PopulationDiagnostics population_diagnostics_for_summary(int owner, PopulationSummary summary,
-                                                         TerrainStats stats) {
+PopulationDiagnostics population_diagnostics_for_summary_display(
+    int owner, PopulationSummary summary, const PopulationDisplayCohorts *display,
+    TerrainStats stats) {
     PopulationDiagnostics diag;
     memset(&diag, 0, sizeof(diag));
     diag.national_resource_pressure = owner >= 0 && owner < civ_count ?
@@ -167,8 +169,10 @@ PopulationDiagnostics population_diagnostics_for_summary(int owner, PopulationSu
     diag.estimated_monthly_births = population_monthly_births_from_summary(owner, summary, stats, 4500);
     diag.estimated_pressure_deaths = population_pressure_deaths_estimate(summary, diag.effective_pressure);
     diag.estimated_natural_age_deaths = population_natural_age_deaths_estimate(summary);
-    diag.estimated_natural_age_deaths_x10 = population_natural_age_deaths_estimate_x10(summary);
-    diag.estimated_natural_age_deaths_x100 = population_natural_age_deaths_estimate_x100(summary);
+    diag.estimated_natural_age_deaths_x100 =
+        population_natural_age_deaths_estimate_x100_with_display(summary, display);
+    diag.estimated_natural_age_deaths_x10 = (diag.estimated_natural_age_deaths_x100 + 5) / 10;
+    diag.estimated_natural_age_deaths = (diag.estimated_natural_age_deaths_x100 + 50) / 100;
     diag.estimated_child_stress_deaths = population_child_stress_deaths_estimate(summary, stats);
     diag.estimated_child_accidental_deaths_x10 =
         population_child_accidental_deaths_estimate_x10(summary, stats);
@@ -181,7 +185,19 @@ PopulationDiagnostics population_diagnostics_for_summary(int owner, PopulationSu
     return diag;
 }
 
+PopulationDiagnostics population_diagnostics_for_summary(int owner, PopulationSummary summary,
+                                                         TerrainStats stats) {
+    return population_diagnostics_for_summary_display(owner, summary, NULL, stats);
+}
+
 PopulationDiagnostics population_diagnostics_for_country(int owner, PopulationSummary summary,
                                                          CountrySummary country) {
-    return population_diagnostics_for_summary(owner, summary, terrain_stats_from_country(country));
+    return population_diagnostics_for_country_display(owner, summary, NULL, country);
+}
+
+PopulationDiagnostics population_diagnostics_for_country_display(
+    int owner, PopulationSummary summary, const PopulationDisplayCohorts *display,
+    CountrySummary country) {
+    return population_diagnostics_for_summary_display(owner, summary, display,
+                                                      terrain_stats_from_country(country));
 }
