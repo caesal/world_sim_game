@@ -11,6 +11,7 @@
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/ports.h"
+#include "sim/population_aging.h"
 #include "sim/regions.h"
 #include "sim/route_potential.h"
 #include "sim/simulation.h"
@@ -36,6 +37,7 @@ void game_clear_world_tiles(void) {
     }
     river_path_count = 0;
     maritime_route_count = 0;
+    population_age_reset_all();
     regions_reset();
     route_potential_reset();
 }

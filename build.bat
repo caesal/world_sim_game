@@ -14,6 +14,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_crisis_probe.c ^
   src\game\game_economy_probe.c ^
   src\game\game_population_probe.c ^
+  src\game\game_population_corner_probe.c ^
   src\io\map_save.c ^
   src\io\map_save_civs.c ^
   src\io\map_save_regions.c ^
@@ -75,8 +76,10 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\collapse.c ^
   src\sim\collapse_partition.c ^
   src\sim\collapse_single.c ^
+  src\sim\population_aging.c ^
   src\sim\population_diagnostics.c ^
   src\sim\population_display_cohorts.c ^
+  src\sim\population_military.c ^
   src\sim\population_mortality.c ^
   src\sim\population.c ^
   src\sim\plague.c ^
@@ -153,6 +156,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\render\panel_country_decision.c ^
   src\render\panel_country_decision_extra.c ^
   src\render\panel_country_population.c ^
+  src\render\panel_country_population_cards.c ^
   src\render\panel_country_resources.c ^
   src\render\panel_country_diplomacy.c ^
   src\render\panel_country_diplomacy_cards.c ^

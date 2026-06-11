@@ -1,5 +1,6 @@
 #include "render/panel_country_population.h"
 
+#include "render/panel_country_population_cards.h"
 #include "render/snapshot_ui.h"
 #include "render_panel_internal.h"
 #include "ui/ui_clay_widgets.h"
@@ -162,31 +163,6 @@ static void draw_compact_pyramid(HDC hdc, UiCursor *cursor, PopulationSummary su
                    DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
-static void draw_structure_cards(HDC hdc, UiCursor *cursor, PopulationSummary summary, int usage) {
-    int gap = 6;
-    int w = (cursor->width - gap * 2) / 3;
-    int h = 34;
-    RECT area = ui_take_rect(cursor, h * 2 + gap + 4);
-    RECT r = {area.left, area.top, area.left + w, area.top + h};
-    ui_clay_draw_metric_chip_int(hdc, r, ICON_POPULATION, metric_label("Children", "儿童"),
-                                 summary.children, RGB(118, 143, 95));
-    r.left += w + gap; r.right += w + gap;
-    ui_clay_draw_metric_chip_int(hdc, r, ICON_PRODUCTION, metric_label("Workers", "劳力"),
-                                 summary.working, RGB(83, 123, 166));
-    r.left += w + gap; r.right = area.right;
-    ui_clay_draw_metric_chip_int(hdc, r, ICON_HABITABILITY, metric_label("Elder", "老人"),
-                                 summary.elder, RGB(188, 154, 88));
-    r = (RECT){area.left, area.top + h + gap, area.left + w, area.top + h * 2 + gap};
-    ui_clay_draw_metric_chip_int(hdc, r, ICON_MIGRATION, metric_label("Fertile", "育龄"),
-                                 summary.fertile, RGB(164, 102, 141));
-    r.left += w + gap; r.right += w + gap;
-    ui_clay_draw_metric_chip_int(hdc, r, ICON_MILITARY, metric_label("Recruit", "可征召"),
-                                 summary.recruitable, RGB(158, 74, 62));
-    r.left += w + gap; r.right = area.right;
-    ui_clay_draw_metric_chip_int(hdc, r, ICON_DISORDER, metric_label("Usage", "使用率"),
-                                 usage, pressure_color(usage));
-}
-
 static void draw_pressure_bar(HDC hdc, UiCursor *cursor, const char *label, int value,
                               COLORREF color, int important) {
     RECT row = ui_take_rect(cursor, important ? 30 : 24);
@@ -218,13 +194,13 @@ static void draw_pressure_section(HDC hdc, UiCursor *cursor, PopulationDiagnosti
                       diag.local_overcapacity_pressure, RGB(196, 154, 72), 0);
 }
 
-static void draw_centered_net_bar(HDC hdc, UiCursor *cursor, int net, int population) {
+static void draw_centered_net_bar(HDC hdc, UiCursor *cursor, int net_x100, int population) {
     RECT area = ui_take_rect(cursor, 34);
     RECT track = {area.left, area.top + 15, area.right, area.top + 27};
     RECT fill = track;
     int center = track.left + (track.right - track.left) / 2;
-    int magnitude = net < 0 ? -net : net;
-    int limit = max(1, max(magnitude, max(10, population / 200)));
+    int magnitude = net_x100 < 0 ? -net_x100 : net_x100;
+    int limit = max(100, max(magnitude, max(10, population / 200) * 100));
     int width = (track.right - track.left) / 2 * magnitude / limit;
     char text[64];
 
@@ -233,7 +209,7 @@ static void draw_centered_net_bar(HDC hdc, UiCursor *cursor, int net, int popula
     fill_rect(hdc, track, RGB(47, 58, 63));
     fill_rect(hdc, (RECT){center - 1, track.top - 5, center + 1, track.bottom + 5},
               RGB(220, 224, 210));
-    if (net >= 0) {
+    if (net_x100 >= 0) {
         fill.left = center;
         fill.right = min(track.right, center + width);
         fill.top = track.top;
@@ -246,10 +222,11 @@ static void draw_centered_net_bar(HDC hdc, UiCursor *cursor, int net, int popula
         fill.bottom = track.bottom;
         if (fill.right > fill.left) fill_rect(hdc, fill, RGB(188, 78, 68));
     }
-    format_signed(text, sizeof(text), net);
+    snprintf(text, sizeof(text), "%s%d.%02d", net_x100 < 0 ? "-" : "+",
+             magnitude / 100, magnitude % 100);
     snprintf(text + strlen(text), sizeof(text) - strlen(text), "%s", tr(" / month", " / 月"));
     draw_text_rect(hdc, (RECT){area.left, area.top, area.right, area.top + 14}, text,
-                   net >= 0 ? RGB(154, 210, 160) : RGB(224, 132, 124),
+                   net_x100 >= 0 ? RGB(154, 210, 160) : RGB(224, 132, 124),
                    DT_SINGLELINE | DT_RIGHT | DT_VCENTER);
 }
 
@@ -283,11 +260,11 @@ static void draw_monthly_change_cards(HDC hdc, UiCursor *cursor,
     RECT area = ui_take_rect(cursor, h * 2 + gap + 4);
     RECT r = {area.left, area.top, area.left + w, area.top + h};
 
-    draw_month_card(hdc, r, ICON_POPULATION, metric_label("Estimated Births", "估算出生"),
-                    diag.estimated_monthly_births, per_month, RGB(83, 143, 98), 1);
+    draw_month_card_x100(hdc, r, ICON_POPULATION, metric_label("Estimated Births", "估算出生"),
+                         diag.estimated_monthly_births_x100, per_month, RGB(83, 143, 98));
     r.left += w + gap; r.right += w + gap;
-    draw_month_card(hdc, r, ICON_DISORDER, metric_label("Total Deaths", "总死亡"),
-                    -diag.estimated_total_deaths, per_month, RGB(188, 78, 68), 1);
+    draw_month_card_x100(hdc, r, ICON_DISORDER, metric_label("Total Deaths", "总死亡"),
+                         -diag.estimated_total_deaths_x100, per_month, RGB(188, 78, 68));
     r.left += w + gap; r.right = area.right;
     draw_month_card(hdc, r, ICON_HABITABILITY, metric_label("Birth Multiplier", "出生系数"),
                     diag.birth_multiplier_percent, "%", pressure_color(100 - diag.birth_multiplier_percent), 0);
@@ -306,7 +283,7 @@ static void draw_monthly_change_cards(HDC hdc, UiCursor *cursor,
 static void draw_monthly_change(HDC hdc, UiCursor *cursor, PopulationSummary summary,
                                 PopulationDiagnostics diag) {
     draw_monthly_change_cards(hdc, cursor, diag);
-    draw_centered_net_bar(hdc, cursor, diag.estimated_net_monthly_change, summary.total);
+    draw_centered_net_bar(hdc, cursor, diag.estimated_net_monthly_change_x100, summary.total);
 }
 
 static void draw_treasury_buffer(HDC hdc, UiCursor *cursor, const SnapshotCiv *civ) {
@@ -468,15 +445,15 @@ void draw_country_population_tab(HDC hdc, RECT client, UiCursor *cursor,
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     PopulationSummary summary = civ ? civ->population_summary : (PopulationSummary){0};
     PopulationDiagnostics diag = civ ? civ->population_diagnostics : (PopulationDiagnostics){0};
-    int usage;
 
     (void)client;
     SelectObject(hdc, body_font);
     ui_section(hdc, cursor, tr("Population Capacity", "人口承载总览"));
-    usage = draw_capacity_overview(hdc, cursor, summary);
+    draw_capacity_overview(hdc, cursor, summary);
     ui_section(hdc, cursor, tr("Population Structure", "人口结构"));
     draw_compact_pyramid(hdc, cursor, summary, civ ? &civ->population_display : NULL);
-    draw_structure_cards(hdc, cursor, summary, usage);
+    draw_population_structure_cards(hdc, cursor, summary,
+                                    civ ? civ->current_soldiers : 0);
     ui_section(hdc, cursor, tr("Population Pressure Sources", "人口压力来源"));
     draw_pressure_section(hdc, cursor, diag);
     ui_section(hdc, cursor, tr("Monthly Population Change", "月度人口变化"));

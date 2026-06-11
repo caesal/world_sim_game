@@ -298,9 +298,9 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot, PanelCacheK
         if (civ) {
             key = mix_population_summary_key(key, civ->population_summary);
             key = mix_key(key, civ->population_diagnostics.effective_pressure);
-            key = mix_key(key, civ->population_diagnostics.estimated_monthly_births);
-            key = mix_key(key, civ->population_diagnostics.estimated_total_deaths);
-            key = mix_key(key, civ->population_diagnostics.estimated_net_monthly_change);
+            key = mix_key(key, civ->population_diagnostics.estimated_monthly_births_x100);
+            key = mix_key(key, civ->population_diagnostics.estimated_total_deaths_x100);
+            key = mix_key(key, civ->population_diagnostics.estimated_net_monthly_change_x100);
         }
         key = mix_top_city_rows_key(key, snapshot, civ);
     } else if (tab == COUNTRY_DETAIL_DIPLOMACY) {

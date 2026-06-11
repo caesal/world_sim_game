@@ -25,16 +25,21 @@ static int required_years_for_civ(int civ_id) {
     int resources = resource_score_for_civ(civ_id);
     int pressure = population_pressure_for_civ(civ_id);
     int stage = clamp(civ->tech_stage, 0, 10);
-    int base_years = clamp(78 - (civ->innovation - 5) * 4, 60, 96);
-    int years = base_years;
+    return technology_required_years_for_values(civ->innovation, resources,
+                                                pressure, stage);
+}
 
-    if (resources >= 36) years -= 6;
-    else if (resources < 24) years += 6;
-    if (pressure < 50) years -= 3;
-    else if (pressure > 115) years += 8;
-    else if (pressure > 80) years += 4;
+int technology_required_years_for_values(int innovation, int resources,
+                                         int pressure, int stage) {
+    int years = 120 - (innovation - 5) * 5;
+
+    if (resources >= 36) years -= 10;
+    else if (resources < 24) years += 10;
+    if (pressure < 50) years -= 5;
+    else if (pressure > 115) years += 15;
+    else if (pressure > 80) years += 8;
     if (stage >= 8) years = years * 92 / 100;
-    return clamp(years, 58, 96);
+    return clamp(years, 80, 150);
 }
 
 static void bonus_summary_for_stage(int stage, TechnologyBonusSummary *out) {

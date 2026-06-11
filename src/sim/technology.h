@@ -16,6 +16,8 @@ void technology_update_month(void);
 int technology_years_to_next(int civ_id);
 int technology_months_to_next(int civ_id);
 int technology_required_months_for_civ(int civ_id);
+int technology_required_years_for_values(int innovation, int resources,
+                                         int pressure, int stage);
 int technology_expansion_percent(int civ_id);
 int technology_resource_percent(int civ_id);
 int technology_progress_percent(int civ_id);

@@ -18,6 +18,7 @@
 #include "sim/maritime.h"
 #include "sim/plague.h"
 #include "sim/ports.h"
+#include "sim/population_aging.h"
 #include "sim/regions.h"
 #include "sim/regions_port_policy.h"
 #include "sim/regions_settlement.h"
@@ -199,6 +200,7 @@ void game_request_after_load_map(int restored_dynamic_state) {
     load_progress_update(LOAD_STAGE_POST_LOAD, 2, 6);
     route_potential_rebuild();
     load_progress_update(LOAD_STAGE_POST_LOAD, 3, 6);
+    population_age_reset_all();
     territory_integrity_repair_capitals();
     if (restored_dynamic_state) diplomacy_mark_contacts_dirty(); else diplomacy_update_contacts();
     stability_decision_reset();

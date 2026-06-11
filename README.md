@@ -7,16 +7,17 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.2.g is a Windows graphical sandbox prototype written in C.
+Ver0.3.3 is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.2.g is a focused population age-structure checkpoint over Ver0.3.2.f.
-It keeps the Ver0.3.2.f population-pressure, economy, map-cache, highlight,
-and performance baseline while adding a display-only yearly population cohort
-cache for country and world population pyramids. The visible UI still shows the
-compact age bands, including a single `75+` row, but the display cache can show
-cohort waves moving upward over time. Old-age natural mortality now applies the
-requested stronger monthly rates for 55-64, 65-74, 75-80, and 81+ internally,
-while real population storage remains on the existing 8 gameplay cohorts.
+Ver0.3.3 is a population, military, and technology pacing checkpoint over
+Ver0.3.2.g. It keeps the display-only yearly population pyramid cache and the
+existing 8 real gameplay population cohorts, then adds small-population-safe
+aging, fractional birth/death diagnostics, a single-civilization auto-run fix,
+and clearer Country Population cards. Military strength now derives from male
+and female 25-64 population with different mobilization weights, while the
+population page shows Workers, Recruitable, and Army as male/female splits.
+Technology stage timing now uses a slower 120-year innovation-5 baseline with
+larger resource and population-pressure modifiers.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -27,13 +28,12 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: strict Rule39 was not rerun for Ver0.3.2.g, and the stronger
-old-age mortality remains a balance watch item because focused multi-seed probes
-again ended with negative average monthly net growth and a small number of
-near-extinct civilizations. Future marker, route, performance, UI, map-display,
-simulation-speed, collapse, enclave, diplomacy, or population-balance changes
-must remain evidence-based and pass the strict validation gate for the specific
-scope involved.
+Known follow-up: population and technology pacing remain balance-watch areas
+because the new army model, tiny-cohort aging, old-age mortality, and slower
+technology cadence interact over long runs. Future marker, route, performance,
+UI, map-display, simulation-speed, collapse, enclave, diplomacy, or population
+balance changes must remain evidence-based and pass the strict validation gate
+for the specific scope involved.
 
 You can:
 

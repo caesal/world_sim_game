@@ -12,7 +12,9 @@ typedef struct {
     int birth_multiplier_percent;
     int effective_fertile_pairs;
     int estimated_monthly_births;
+    int estimated_monthly_births_x100;
     int estimated_pressure_deaths;
+    int estimated_pressure_deaths_x100;
     int estimated_natural_age_deaths;
     int estimated_natural_age_deaths_x10;
     int estimated_natural_age_deaths_x100;
@@ -20,7 +22,9 @@ typedef struct {
     int estimated_child_accidental_deaths_x10;
     int estimated_child_accidental_deaths_x100;
     int estimated_total_deaths;
+    int estimated_total_deaths_x100;
     int estimated_net_monthly_change;
+    int estimated_net_monthly_change_x100;
 } PopulationDiagnostics;
 
 int population_probabilistic_round(int numerator, int denominator, int rounding_roll);
@@ -31,6 +35,8 @@ int population_local_overcapacity_pressure(PopulationSummary summary);
 int population_effective_pressure_for_summary(int owner, PopulationSummary summary);
 int population_monthly_births_from_summary(int owner, PopulationSummary summary,
                                            TerrainStats stats, int rounding_roll);
+int population_monthly_births_x100_from_summary(int owner, PopulationSummary summary,
+                                                TerrainStats stats);
 int population_pressure_deaths_estimate(PopulationSummary summary, int effective_pressure);
 int population_natural_age_deaths_estimate(PopulationSummary summary);
 int population_natural_age_deaths_estimate_x10(PopulationSummary summary);

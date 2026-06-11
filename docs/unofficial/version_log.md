@@ -1,5 +1,37 @@
 # Version Log
 
+## Ver0.3.3
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.
+2. Added a population-derived army model using male 25-64 at 2.5% and female
+   25-64 at 1%, with current soldiers subtracting active-war casualties.
+3. Added weighted population casualty deduction from male/female 25-64 cohorts.
+4. Added deterministic tiny-cohort aging remainder support and reset it across
+   city init, clear-world/new-world, and post-load paths.
+5. Kept real population storage on the existing 8 `PopulationCohort` bands and
+   kept save format unchanged.
+6. Added fractional x100 birth, total-death, and net-change diagnostics for
+   small populations.
+7. Updated Country Population cards to show `Children / Fertile / Elder` over
+   `Workers / Recruitable / Army`, with the second row split by male/female.
+8. Removed the duplicated `Usage` card from the structure-card grid while
+   keeping the top carrying-usage overview.
+9. Changed one-civilization auto-run behavior so auto-run stops only when the
+   living civilization count is zero.
+10. Updated technology stage timing to a 120-year innovation-5 baseline, 5 years
+    per innovation point, larger resource/pressure modifiers, late-stage 92%
+    duration scaling, and an 80..150 year clamp.
+
+Validation notes:
+
+- Ver0.3.3 uses `WORLD_SIM_VERSION "0.3.3"`.
+- Final release validation evidence is recorded in
+  `docs/unofficial/ver0.3.3_side_doc.md`.
+- Strict Rule39 was not completed before this push; the side doc records the
+  focused evidence and the explicit limitation.
+
 ## Ver0.3.2.g
 
 Implemented fixes:

@@ -4,8 +4,10 @@
 #include "core/plague_perf.h"
 #include "sim/disorder.h"
 #include "sim/economy.h"
+#include "sim/population_aging.h"
 #include "sim/population_diagnostics.h"
 #include "sim/population_display_cohorts.h"
+#include "sim/population_military.h"
 #include "sim/population_mortality.h"
 #include "sim/province.h"
 #include "sim/simulation.h"
@@ -13,7 +15,6 @@
 
 #include <string.h>
 
-static const int cohort_width_years[POP_COHORT_COUNT] = {5, 13, 7, 15, 15, 10, 10, 12};
 static const int stable_distribution[POP_COHORT_COUNT] = {10, 22, 10, 22, 18, 9, 6, 3};
 static PopulationSummary country_population_cache[MAX_CIVS];
 static int country_population_city_count[MAX_CIVS];
@@ -121,6 +122,7 @@ void population_init_city(int city_id, int total_population) {
         remaining -= amount;
     }
     city->population_ready = 1;
+    population_age_reset_city(city_id);
     population_display_init_city(city_id);
     population_sync_city(city_id);
     population_mark_dirty();
@@ -294,19 +296,6 @@ void population_sync_all(void) {
     rebuild_population_cache();
 }
 
-static void age_city_one_year(int city_id) {
-    PopulationCohort moved[POP_COHORT_COUNT];
-    int i;
-
-    memset(moved, 0, sizeof(moved));
-    for (i = 0; i < POP_COHORT_COUNT - 1; i++) {
-        int move_total = cohort_total(cities[city_id].population_cohorts[i]) / cohort_width_years[i];
-        moved[i] = take_from_cohort(&cities[city_id].population_cohorts[i], move_total);
-    }
-    for (i = 0; i < POP_COHORT_COUNT - 1; i++) add_cohort(&cities[city_id].population_cohorts[i + 1], moved[i]);
-    population_display_age_city_one_year(city_id);
-}
-
 static int monthly_births(int city_id, PopulationSummary summary, TerrainStats stats) {
     int owner = cities[city_id].owner;
     return population_monthly_births_from_summary(owner, summary, stats, rnd(9000));
@@ -378,7 +367,7 @@ static void update_city_population_month(int city_id) {
         population_display_note_births(city_id, births);
     }
     apply_city_deaths(city_id, summary, stats);
-    if (month == 12) age_city_one_year(city_id);
+    if (month == 12) population_age_city_one_year(city_id);
 }
 
 int population_update_month_step(int *cursor, int batch_size) {
@@ -425,23 +414,7 @@ int population_migrate_between_cities(int from_city, int to_city, int amount) {
 }
 
 int population_apply_casualties(int civ_id, int casualties) {
-    int city_id;
-    int removed = 0;
-
-    if (civ_id < 0 || civ_id >= civ_count || casualties <= 0) return 0;
-    for (city_id = 0; city_id < city_count && removed < casualties; city_id++) {
-        int take;
-        if (!cities[city_id].alive || cities[city_id].owner != civ_id) continue;
-        ensure_city_population(city_id);
-        take = casualties - removed;
-        removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_25_39], take));
-        if (removed < casualties) removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_40_54], casualties - removed));
-        if (removed < casualties) removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[POP_AGE_55_64], casualties - removed));
-        population_sync_city(city_id);
-    }
-    population_sync_all();
-    world_invalidate_population_cache();
-    return removed;
+    return population_military_apply_casualties(civ_id, casualties);
 }
 
 int population_apply_city_plague(int city_id, int severity) {

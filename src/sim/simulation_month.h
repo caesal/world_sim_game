@@ -34,5 +34,6 @@ int simulation_month_begin(SimulationMonthState *state);
 int simulation_month_run_next(SimulationMonthState *state);
 int simulation_month_is_done(const SimulationMonthState *state);
 void simulation_month_run_blocking(void);
+int simulation_month_should_stop_auto_run_for_living(int living);
 
 #endif

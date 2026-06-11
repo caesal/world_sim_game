@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "读取地图时显示中央进度条，并恢复外交、战争、附庸、停战、瘟疫和日志状态。\n"
-                 "右侧面板、地图静态层、标签、航道和瘟疫视觉缓存进一步拆分，降低运行时卡顿。\n"
-                 "政治图层颜色更柔和，保留轻微地形纹理。\n"
-                 "浅海/深海水深由平滑大陆架场生成，海洋过渡更自然。\n",
+                 "人口页结构卡改为儿童、育龄、老人、劳力、可征召和军队，并显示劳力、可征召、军队的男女拆分。\n"
+                 "军队人数改为由男女 25-64 人口按不同权重换算，并扣除当前战争伤亡。\n"
+                 "小人口国家现在显示小数出生/死亡预估，极小年龄段也会随时间继续老化。\n"
+                 "科技阶段改为更慢的 120 年基准，并继续受创新、资源、人口压力和混乱影响。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Map loading now shows a central progress overlay and restores diplomacy, war, vassal, truce, plague, and event state.\n"
-                 "Right-panel, static-map, label, route, and plague visual caches were split further to reduce runtime stutter.\n"
-                 "Political colors are softer while retaining subtle terrain texture.\n"
-                 "Shallow/deep water now comes from a smooth continental-shelf field for more natural ocean transitions.",
+                 "Population cards now show Children, Fertile, Elder, Workers, Recruitable, and Army, with male/female splits for the second row.\n"
+                 "Army size now comes from weighted male/female 25-64 population and active-war casualties.\n"
+                 "Small countries show fractional birth/death estimates, and tiny real cohorts continue aging over time.\n"
+                 "Technology stages now use a slower 120-year baseline shaped by innovation, resources, population pressure, and disorder.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

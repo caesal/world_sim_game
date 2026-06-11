@@ -205,6 +205,10 @@ static int living_civilizations(void) {
     return living;
 }
 
+int simulation_month_should_stop_auto_run_for_living(int living) {
+    return living <= 0;
+}
+
 int simulation_month_begin(SimulationMonthState *state) {
     ProfilerCallTrace trace;
 
@@ -401,7 +405,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 event_log_push_structured(EVENT_TYPE_DEBUG_NOTICE, EVENT_SEVERITY_INFO,
                                           -1, -1, -1, -1, 0, 0, state->log);
             }
-            if (living_civilizations() <= 1) auto_run = 0;
+            if (simulation_month_should_stop_auto_run_for_living(living_civilizations())) auto_run = 0;
             state->phase = SIM_MONTH_SNAPSHOT_CACHE;
             break;
         case SIM_MONTH_SNAPSHOT_CACHE:

@@ -83,12 +83,10 @@ int population_effective_pressure_for_summary(int owner, PopulationSummary summa
     return max(clamp(national, 0, 100), local);
 }
 
-int population_monthly_births_from_summary(int owner, PopulationSummary summary,
-                                           TerrainStats stats, int rounding_roll) {
-    int fertile_couples = population_effective_fertile_pairs(summary);
+static int population_birth_rate_for_summary(int owner, PopulationSummary summary,
+                                             TerrainStats stats) {
     int rate = 36 + stats.food * 4 + stats.water * 4 + stats.habitability * 3;
     int pressure = population_effective_pressure_for_summary(owner, summary);
-    int births;
 
     if (owner >= 0 && owner < civ_count) rate += civs[owner].cohesion + civs[owner].governance / 2;
     if (owner >= 0 && owner < civ_count) {
@@ -96,7 +94,27 @@ int population_monthly_births_from_summary(int owner, PopulationSummary summary,
                 (plague_perf_system_enabled() ? civs[owner].disorder_plague / 4 : 0);
     }
     rate = rate * population_birth_multiplier_percent(pressure) / 100;
-    rate = clamp(rate, 0, 120);
+    return clamp(rate, 0, 120);
+}
+
+int population_monthly_births_x100_from_summary(int owner, PopulationSummary summary,
+                                                TerrainStats stats) {
+    int fertile_couples = population_effective_fertile_pairs(summary);
+    int rate = population_birth_rate_for_summary(owner, summary, stats);
+    int births_x100 = (int)(((long long)fertile_couples * rate * 100 + 4500) / 9000);
+    if (owner >= 0 && owner < civ_count) {
+        births_x100 = births_x100 *
+                      disorder_population_growth_percent(economy_effective_disorder_for_civ(owner)) / 100;
+    }
+    return max(0, births_x100);
+}
+
+int population_monthly_births_from_summary(int owner, PopulationSummary summary,
+                                           TerrainStats stats, int rounding_roll) {
+    int fertile_couples = population_effective_fertile_pairs(summary);
+    int rate = population_birth_rate_for_summary(owner, summary, stats);
+    int births;
+
     births = (fertile_couples * rate + clamp(rounding_roll, 0, 8999)) / 9000;
     if (owner >= 0 && owner < civ_count) {
         births = births * disorder_population_growth_percent(economy_effective_disorder_for_civ(owner)) / 100;
@@ -146,6 +164,10 @@ static int population_child_accidental_deaths_estimate_x100(PopulationSummary su
     return (diagnostics_cohort_total(summary.cohorts[POP_AGE_0_4]) * 100 + denom / 2) / denom;
 }
 
+static int round_signed_x100(int value_x100) {
+    return value_x100 >= 0 ? (value_x100 + 50) / 100 : -((-value_x100 + 50) / 100);
+}
+
 int population_child_stress_deaths_estimate(PopulationSummary summary, TerrainStats stats) {
     return (population_child_accidental_deaths_estimate_x10(summary, stats) + 5) / 10;
 }
@@ -166,8 +188,11 @@ PopulationDiagnostics population_diagnostics_for_summary_display(
     diag.effective_pressure = population_effective_pressure_for_summary(owner, summary);
     diag.birth_multiplier_percent = population_birth_multiplier_percent(diag.effective_pressure);
     diag.effective_fertile_pairs = population_effective_fertile_pairs(summary);
+    diag.estimated_monthly_births_x100 =
+        population_monthly_births_x100_from_summary(owner, summary, stats);
     diag.estimated_monthly_births = population_monthly_births_from_summary(owner, summary, stats, 4500);
     diag.estimated_pressure_deaths = population_pressure_deaths_estimate(summary, diag.effective_pressure);
+    diag.estimated_pressure_deaths_x100 = diag.estimated_pressure_deaths * 100;
     diag.estimated_natural_age_deaths = population_natural_age_deaths_estimate(summary);
     diag.estimated_natural_age_deaths_x100 =
         population_natural_age_deaths_estimate_x100_with_display(summary, display);
@@ -178,10 +203,13 @@ PopulationDiagnostics population_diagnostics_for_summary_display(
         population_child_accidental_deaths_estimate_x10(summary, stats);
     diag.estimated_child_accidental_deaths_x100 =
         population_child_accidental_deaths_estimate_x100(summary, stats);
-    diag.estimated_total_deaths = diag.estimated_pressure_deaths +
-                                  diag.estimated_natural_age_deaths +
-                                  diag.estimated_child_stress_deaths;
-    diag.estimated_net_monthly_change = diag.estimated_monthly_births - diag.estimated_total_deaths;
+    diag.estimated_total_deaths_x100 = diag.estimated_pressure_deaths_x100 +
+                                       diag.estimated_natural_age_deaths_x100 +
+                                       diag.estimated_child_accidental_deaths_x100;
+    diag.estimated_total_deaths = (diag.estimated_total_deaths_x100 + 50) / 100;
+    diag.estimated_net_monthly_change_x100 =
+        diag.estimated_monthly_births_x100 - diag.estimated_total_deaths_x100;
+    diag.estimated_net_monthly_change = round_signed_x100(diag.estimated_net_monthly_change_x100);
     return diag;
 }
 

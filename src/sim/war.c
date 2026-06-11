@@ -6,6 +6,7 @@
 #include "sim/economy.h"
 #include "sim/plague.h"
 #include "sim/population.h"
+#include "sim/population_military.h"
 #include "sim/simulation.h"
 #include "sim/stability_decision.h"
 #include "sim/technology.h"
@@ -17,8 +18,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#define WAR_MOBILIZATION_RATE 10
-#define EXTREME_MOBILIZATION_RATE 18
 static int total_active_war_casualties(int civ_id);
 static int support_share_for_front(int overlord, int vassal);
 static int peace_desire(int civ_id, int casualties, int initial_soldiers, int initial_national);
@@ -26,12 +25,12 @@ static int is_valid_civ(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
 }
 static int mobilized_soldiers(int civ_id, int extreme) {
-    int recruitable = population_recruitable_for_civ(civ_id);
-    int rate = extreme ? EXTREME_MOBILIZATION_RATE : WAR_MOBILIZATION_RATE;
-    return clamp(recruitable * rate / 100, 0, MAX_POPULATION);
+    (void)extreme;
+    return population_military_base_soldiers_for_civ(civ_id);
 }
 static int current_national_soldiers(int civ_id) {
-    return max(0, mobilized_soldiers(civ_id, 0) - total_active_war_casualties(civ_id));
+    return population_military_current_soldiers_for_civ(civ_id,
+        total_active_war_casualties(civ_id));
 }
 static int active_war_index(int civ_a, int civ_b) {
     int i;

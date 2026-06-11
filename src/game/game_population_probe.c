@@ -2,6 +2,7 @@
 
 #include "core/game_types.h"
 #include "core/profiler.h"
+#include "game/game_population_corner_probe.h"
 #include "game/game_worldgen.h"
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
@@ -427,6 +428,8 @@ int run_population_probe(void) {
     write_wave_probe(summary);
     fflush(summary);
     write_birth_batch_probe(summary);
+    fflush(summary);
+    write_population_corner_probes(summary);
     fflush(summary);
     for (i = 0; i < (int)(sizeof(seeds) / sizeof(seeds[0])); i++) {
         if (!run_balance_seed(summary, seeds[i])) {
