@@ -248,27 +248,18 @@ void population_display_age_city_one_year(int city_id) {
 }
 
 void population_display_calibrate_city(int city_id) {
+    int band;
     if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) return;
     ensure_city_display(city_id);
     if (!city_display_ready[city_id]) return;
-    scale_range_to_total(city_display_cache[city_id].male, 0, POP_DISPLAY_MAX_AGE,
-                         cities[city_id].population_cohorts[POP_AGE_0_4].male +
-                         cities[city_id].population_cohorts[POP_AGE_5_17].male +
-                         cities[city_id].population_cohorts[POP_AGE_18_24].male +
-                         cities[city_id].population_cohorts[POP_AGE_25_39].male +
-                         cities[city_id].population_cohorts[POP_AGE_40_54].male +
-                         cities[city_id].population_cohorts[POP_AGE_55_64].male +
-                         cities[city_id].population_cohorts[POP_AGE_65_74].male +
-                         cities[city_id].population_cohorts[POP_AGE_75_PLUS].male);
-    scale_range_to_total(city_display_cache[city_id].female, 0, POP_DISPLAY_MAX_AGE,
-                         cities[city_id].population_cohorts[POP_AGE_0_4].female +
-                         cities[city_id].population_cohorts[POP_AGE_5_17].female +
-                         cities[city_id].population_cohorts[POP_AGE_18_24].female +
-                         cities[city_id].population_cohorts[POP_AGE_25_39].female +
-                         cities[city_id].population_cohorts[POP_AGE_40_54].female +
-                         cities[city_id].population_cohorts[POP_AGE_55_64].female +
-                         cities[city_id].population_cohorts[POP_AGE_65_74].female +
-                         cities[city_id].population_cohorts[POP_AGE_75_PLUS].female);
+    for (band = 0; band < POP_COHORT_COUNT; band++) {
+        scale_range_to_total(city_display_cache[city_id].male,
+                             display_band_first[band], display_band_last[band],
+                             cities[city_id].population_cohorts[band].male);
+        scale_range_to_total(city_display_cache[city_id].female,
+                             display_band_first[band], display_band_last[band],
+                             cities[city_id].population_cohorts[band].female);
+    }
     country_display_cache_dirty = 1;
 }
 

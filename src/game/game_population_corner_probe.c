@@ -6,6 +6,7 @@
 #include "sim/population.h"
 #include "sim/population_aging.h"
 #include "sim/population_diagnostics.h"
+#include "sim/population_display_cohorts.h"
 #include "sim/population_military.h"
 #include "sim/simulation_month.h"
 #include "sim/technology.h"
@@ -17,6 +18,16 @@
 
 static int cohort_total(PopulationCohort cohort) {
     return cohort.male + cohort.female;
+}
+
+static int display_range_total(const PopulationDisplayCohorts *display,
+                               int first, int last) {
+    int total = 0;
+    int age;
+    for (age = first; display && age <= last && age < POP_DISPLAY_AGE_COUNT; age++) {
+        total += display->male[age] + display->female[age];
+    }
+    return total;
 }
 
 static int male_25_64(void) {
@@ -135,6 +146,47 @@ static void write_population_card_probe(FILE *file) {
                   "army_m=%d army_f=%d army_total=%d expected_total=11250\n",
             male_18_64(), female_18_64(), male_25_64(), female_25_64(),
             army_male, army_female, army_male + army_female);
+    population_military_split_current_soldiers(summary, 0, &army_male, &army_female);
+    fprintf(file, "population_cards_army_zero recruit_m=%d recruit_f=%d "
+                  "army_m=%d army_f=%d army_total=%d current_soldiers=0\n",
+            male_25_64(), female_25_64(), army_male, army_female,
+            army_male + army_female);
+}
+
+static void write_display_band_calibration_probe(FILE *file) {
+    PopulationDisplayCohorts display;
+    int real_elder, real_75_plus, display_elder, display_75_plus;
+    int display_5_17, shape_preserved;
+    reset_one_city();
+    cities[0].population_cohorts[POP_AGE_5_17].male = 30;
+    cities[0].population_cohorts[POP_AGE_5_17].female = 30;
+    cities[0].population_cohorts[POP_AGE_65_74].male = 12;
+    cities[0].population_cohorts[POP_AGE_65_74].female = 8;
+    cities[0].population_cohorts[POP_AGE_75_PLUS].male = 1;
+    cities[0].population_cohorts[POP_AGE_75_PLUS].female = 1;
+    sync_fixture();
+    memset(&display, 0, sizeof(display));
+    display.male[5] = 90;
+    display.male[17] = 10;
+    display.male[75] = 120;
+    display.female[100] = 180;
+    population_display_replace_city_for_validation(0, &display);
+    population_display_calibrate_city(0);
+    population_display_city_cached(0, &display);
+    real_elder = cohort_total(cities[0].population_cohorts[POP_AGE_65_74]) +
+                 cohort_total(cities[0].population_cohorts[POP_AGE_75_PLUS]);
+    real_75_plus = cohort_total(cities[0].population_cohorts[POP_AGE_75_PLUS]);
+    display_elder = display_range_total(&display, 65, POP_DISPLAY_MAX_AGE);
+    display_75_plus = display_range_total(&display, 75, POP_DISPLAY_MAX_AGE);
+    display_5_17 = display_range_total(&display, 5, 17);
+    shape_preserved = display.male[5] > display.male[17];
+    fprintf(file, "display_band_calibration real_elder=%d display65plus=%d "
+                  "real75plus=%d display75plus=%d display5_17=%d "
+                  "shape_preserved=%d pass=%d\n",
+            real_elder, display_elder, real_75_plus, display_75_plus,
+            display_5_17, shape_preserved,
+            real_elder == display_elder && real_75_plus == display_75_plus &&
+            display_5_17 == 60 && shape_preserved);
 }
 
 static void write_support_separation_probe(FILE *file) {
@@ -252,6 +304,7 @@ void write_population_corner_probes(FILE *file) {
     write_army_probe(file);
     write_casualty_probe(file);
     write_population_card_probe(file);
+    write_display_band_calibration_probe(file);
     write_support_separation_probe(file);
     write_fractional_birth_probe(file);
     write_tiny_aging_probe(file);
