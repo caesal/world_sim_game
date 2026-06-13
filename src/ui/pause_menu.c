@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "新增极大地图，尺寸为 1152x800，并按地图大小使用不同自然区域上限。\n"
-                 "世界生成的物理和高级随机按钮会把各自滑条分别随机到 5..95。\n"
-                 "极大地图的省界和国界更清晰，城市与港口图标更小。\n"
-                 "人口金字塔会平滑显示 65-74 岁区间，但不改变真实人口模拟。\n",
+                 "极大地图的城市槽上限现在跟随自然区域上限，避免 1536 个自然区域被 1024 个城市槽卡住。\n"
+                 "地图存档版本提升到 13，用于记录更大的城市和瘟疫城市状态容量。\n"
+                 "旧存档仍可读取，新存档会使用新的容量版本。\n"
+                 "这次修复城市容量瓶颈，但剩余自然区仍可能来自可达性、港口或扩张规则。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Extreme maps are now available at 1152x800 with map-size-specific natural-region caps.\n"
-                 "World-generation random buttons independently randomize their sliders in the 5..95 range.\n"
-                 "Extreme map province and country borders are clearer, with smaller city and port markers.\n"
-                 "The population pyramid display smooths ages 65-74 without changing real population simulation.",
+                 "Extreme map city capacity now follows the natural-region cap, avoiding the old 1024-city ceiling against 1536 regions.\n"
+                 "Map save version is now 13 so larger city and plague-city state capacity is recorded explicitly.\n"
+                 "Old saves still load; new saves use the larger capacity version.\n"
+                 "This removes the city-cap bottleneck, while unreachable or port-gated natural pockets remain separate expansion behavior.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

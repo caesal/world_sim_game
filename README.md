@@ -7,17 +7,15 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.3.a is a Windows graphical sandbox prototype written in C.
+Ver0.3.3.b is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.3.a is a map-generation and presentation checkpoint over Ver0.3.3. It
-adds an Extreme map size at 1152x800, keeps the existing Small/Medium/Large map
-sizes, and gives each size its own natural-region cap. The world-generation
-panel now has four map-size choices, active-map region estimates use the
-selected size cap, and the physical and advanced random buttons independently
-randomize their controlled sliders into the 5..95 range. Extreme-map
-presentation also receives thicker province and country borders, smaller
-city/port markers, and display-only smoothing for the population pyramid's
-65-74 age band without changing real population simulation totals.
+Ver0.3.3.b is a focused capacity and save-version checkpoint over Ver0.3.3.a.
+It keeps the Extreme map size and presentation work from Ver0.3.3.a, then
+removes the remaining 1024-city global ceiling by making `MAX_CITIES` follow
+`MAX_NATURAL_REGIONS`. Extreme maps can now use the same 1536 capacity for
+natural regions and city slots, reducing the chance that late-game expansion
+stalls only because the city table filled first. `MAP_SAVE_VERSION` is now 13
+so saves explicitly record the larger city and plague-city state capacity.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -28,14 +26,14 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: Ver0.3.3.a is based on focused map-size, GUI, and population
-display validation rather than full AGENTS Rule39 game-flow evidence. Population
-and technology pacing remain balance-watch areas because the new army model,
-tiny-cohort aging, old-age mortality, and slower technology cadence interact
-over long runs. Future marker, route, performance, UI, map-display,
-simulation-speed, collapse, enclave, diplomacy, or population balance changes
-must remain evidence-based and pass the strict validation gate for the specific
-scope involved.
+Known follow-up: Ver0.3.3.b is based on focused capacity, save-version,
+build/static, and text validation rather than full AGENTS Rule39 game-flow
+evidence. The change removes the city-slot bottleneck, but remaining natural
+regions after long Extreme-map runs can still come from reachability, port
+availability, sea-lane contact, or ordinary expansion rules. Future marker,
+route, performance, UI, map-display, simulation-speed, collapse, enclave,
+diplomacy, or population balance changes must remain evidence-based and pass
+the strict validation gate for the specific scope involved.
 
 You can:
 

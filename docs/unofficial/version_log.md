@@ -1,5 +1,36 @@
 # Version Log
 
+## Ver0.3.3.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.b.
+2. Changed `MAX_CITIES` to follow `MAX_NATURAL_REGIONS`, so Extreme maps use
+   the same `1536` capacity for natural regions and city slots instead of
+   keeping the older `1024` city-slot ceiling.
+3. Bumped `MAP_SAVE_VERSION` to `13` because the serialized city and
+   plague-city state capacity can now exceed the prior save-version ceiling.
+4. Updated the in-game pause-menu version summary in English and Chinese.
+5. Updated the root README, documentation index, version log, and side doc for
+   the Ver0.3.3.b release record.
+
+Behavioral notes:
+
+- Old saves remain loadable through the existing compatibility path.
+- New saves use version `13` and can represent the larger city/plague-city
+  state arrays.
+- This removes the global city-cap bottleneck for Extreme maps, but it does
+  not guarantee every natural region will be colonized. Long-lived natural
+  pockets can still come from reachability, ports, sea-lane contact, or
+  expansion-priority rules.
+
+Validation notes:
+
+- Ver0.3.3.b uses `WORLD_SIM_VERSION "0.3.3.b"`.
+- Strict AGENTS Rule39 game-flow regression was not completed for this pushed
+  checkpoint. This version must not be treated as full release-readiness
+  evidence until Rule39 is run and recorded.
+
 ## Ver0.3.3.a
 
 Implemented fixes:
