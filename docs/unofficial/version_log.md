@@ -1,5 +1,52 @@
 # Version Log
 
+## Ver0.3.3.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.a.
+2. Added an Extreme map size at `1152x800` while preserving the existing Small,
+   Medium, and Large choices.
+3. Added map-size-specific natural-region caps:
+   Small `512`, Medium `768`, Large `1024`, Extreme `1536`.
+4. Updated world-generation estimates and generation repair/headroom behavior
+   so they clamp to the active map's region cap instead of always using the
+   global maximum.
+5. Updated the world-generation panel and hit layout for four map-size buttons,
+   including the localized Extreme label.
+6. Changed the Physical random button so each physical slider is randomized
+   independently in the `5..95` range.
+7. Changed the Advanced random button so forest, desert, mountain, wetland, and
+   natural-region-size sliders are randomized independently in the `5..95`
+   range.
+8. Added an Extreme-map presentation policy that raises province borders to
+   `2px` and country borders to `3px` across static cache, snapshot fallback,
+   contour, and vector border paths.
+9. Reduced Extreme-map city and port marker sizes while keeping capital rings
+   and harbor glyphs recognizable.
+10. Smoothed the display-only population pyramid band from ages `65..74`,
+    preserving male, female, and total population values exactly.
+11. Updated the in-game pause-menu version summary, including a cleaned UTF-8
+    Chinese release-note block.
+
+Validation notes:
+
+- Ver0.3.3.a uses `WORLD_SIM_VERSION "0.3.3.a"`.
+- Focused map-size probe evidence is recorded at
+  `build/validation/map_size_extreme_20260612/map_size_probe_output.txt`.
+  It generated Small `576x400`, Medium `720x500`, Large `864x600`, and Extreme
+  `1152x800`, with Extreme producing `1093/1536` natural regions and
+  `failures=0`.
+- Focused population display evidence is recorded at
+  `build/validation/population_display_65_74_20260612/summary.txt`. It
+  preserved male `1000`, female `800`, and total `1800`, and smoothed
+  `65-69` and `70-74` to `900/900` with `failures=0`.
+- GUI evidence for Extreme-map readability and population display is recorded
+  under `build/validation/extreme_visual_readability_20260612/gui/`.
+- Strict AGENTS Rule39 game-flow regression was not completed for this pushed
+  checkpoint. This version must not be treated as full release-readiness
+  evidence until Rule39 is run and recorded.
+
 ## Ver0.3.3
 
 Implemented fixes:

@@ -7,17 +7,17 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.3 is a Windows graphical sandbox prototype written in C.
+Ver0.3.3.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.3 is a population, military, and technology pacing checkpoint over
-Ver0.3.2.g. It keeps the display-only yearly population pyramid cache and the
-existing 8 real gameplay population cohorts, then adds small-population-safe
-aging, fractional birth/death diagnostics, a single-civilization auto-run fix,
-and clearer Country Population cards. Military strength now derives from male
-and female 25-64 population with different mobilization weights, while the
-population page shows Workers, Recruitable, and Army as male/female splits.
-Technology stage timing now uses a slower 120-year innovation-5 baseline with
-larger resource and population-pressure modifiers.
+Ver0.3.3.a is a map-generation and presentation checkpoint over Ver0.3.3. It
+adds an Extreme map size at 1152x800, keeps the existing Small/Medium/Large map
+sizes, and gives each size its own natural-region cap. The world-generation
+panel now has four map-size choices, active-map region estimates use the
+selected size cap, and the physical and advanced random buttons independently
+randomize their controlled sliders into the 5..95 range. Extreme-map
+presentation also receives thicker province and country borders, smaller
+city/port markers, and display-only smoothing for the population pyramid's
+65-74 age band without changing real population simulation totals.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -28,12 +28,14 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: population and technology pacing remain balance-watch areas
-because the new army model, tiny-cohort aging, old-age mortality, and slower
-technology cadence interact over long runs. Future marker, route, performance,
-UI, map-display, simulation-speed, collapse, enclave, diplomacy, or population
-balance changes must remain evidence-based and pass the strict validation gate
-for the specific scope involved.
+Known follow-up: Ver0.3.3.a is based on focused map-size, GUI, and population
+display validation rather than full AGENTS Rule39 game-flow evidence. Population
+and technology pacing remain balance-watch areas because the new army model,
+tiny-cohort aging, old-age mortality, and slower technology cadence interact
+over long runs. Future marker, route, performance, UI, map-display,
+simulation-speed, collapse, enclave, diplomacy, or population balance changes
+must remain evidence-based and pass the strict validation gate for the specific
+scope involved.
 
 You can:
 
@@ -56,7 +58,7 @@ You can:
 17. Use right-side tabs for selected info, civilization management, and map generation
 18. Tune ocean, mountain, desert, forest, and wetland generation from the map tab
 19. Generate cold regions from a randomized latitude axis instead of fixed top/bottom poles
-20. Use a higher-density 800x600 internal map grid with crisp tile rendering
+20. Use selectable Small, Medium, Large, and Extreme internal map grids with crisp tile rendering
 21. Drag the map with the right mouse button
 22. Keep peaceful contact borders stable while civilizations expand toward open land
 23. Show country, tile, combat, and province resources as compact image-icon metric blocks with hover labels

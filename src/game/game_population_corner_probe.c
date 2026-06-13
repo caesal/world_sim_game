@@ -30,6 +30,15 @@ static int display_range_total(const PopulationDisplayCohorts *display,
     return total;
 }
 
+static int display_side_range_total(const int *ages, int first, int last) {
+    int total = 0;
+    int age;
+    for (age = first; ages && age <= last && age < POP_DISPLAY_AGE_COUNT; age++) {
+        total += ages[age];
+    }
+    return total;
+}
+
 static int male_25_64(void) {
     return cities[0].population_cohorts[POP_AGE_25_39].male +
            cities[0].population_cohorts[POP_AGE_40_54].male +
@@ -156,18 +165,24 @@ static void write_population_card_probe(FILE *file) {
 static void write_display_band_calibration_probe(FILE *file) {
     PopulationDisplayCohorts display;
     int real_elder, real_75_plus, display_elder, display_75_plus;
-    int display_5_17, shape_preserved;
+    int display_5_17, display_65_69, display_70_74, cliff_delta;
+    int male_65_74, female_65_74, male_preserved, female_preserved;
+    int shape_preserved, elder_cliff_smoothed;
     reset_one_city();
     cities[0].population_cohorts[POP_AGE_5_17].male = 30;
     cities[0].population_cohorts[POP_AGE_5_17].female = 30;
-    cities[0].population_cohorts[POP_AGE_65_74].male = 12;
-    cities[0].population_cohorts[POP_AGE_65_74].female = 8;
+    cities[0].population_cohorts[POP_AGE_65_74].male = 1000;
+    cities[0].population_cohorts[POP_AGE_65_74].female = 800;
     cities[0].population_cohorts[POP_AGE_75_PLUS].male = 1;
     cities[0].population_cohorts[POP_AGE_75_PLUS].female = 1;
     sync_fixture();
     memset(&display, 0, sizeof(display));
     display.male[5] = 90;
     display.male[17] = 10;
+    display.male[65] = 1;
+    display.male[70] = 999;
+    display.female[65] = 1;
+    display.female[70] = 799;
     display.male[75] = 120;
     display.female[100] = 180;
     population_display_replace_city_for_validation(0, &display);
@@ -179,14 +194,28 @@ static void write_display_band_calibration_probe(FILE *file) {
     display_elder = display_range_total(&display, 65, POP_DISPLAY_MAX_AGE);
     display_75_plus = display_range_total(&display, 75, POP_DISPLAY_MAX_AGE);
     display_5_17 = display_range_total(&display, 5, 17);
+    display_65_69 = display_range_total(&display, 65, 69);
+    display_70_74 = display_range_total(&display, 70, 74);
+    cliff_delta = display_65_69 > display_70_74 ?
+                  display_65_69 - display_70_74 : display_70_74 - display_65_69;
+    male_65_74 = display_side_range_total(display.male, 65, 74);
+    female_65_74 = display_side_range_total(display.female, 65, 74);
+    male_preserved = male_65_74 == cities[0].population_cohorts[POP_AGE_65_74].male;
+    female_preserved = female_65_74 == cities[0].population_cohorts[POP_AGE_65_74].female;
     shape_preserved = display.male[5] > display.male[17];
+    elder_cliff_smoothed = cliff_delta <= 1;
     fprintf(file, "display_band_calibration real_elder=%d display65plus=%d "
                   "real75plus=%d display75plus=%d display5_17=%d "
-                  "shape_preserved=%d pass=%d\n",
+                  "display65_69=%d display70_74=%d cliff_delta=%d "
+                  "male65_74=%d female65_74=%d preserved_mf=%d/%d "
+                  "shape_preserved=%d elder_cliff_smoothed=%d pass=%d\n",
             real_elder, display_elder, real_75_plus, display_75_plus,
-            display_5_17, shape_preserved,
+            display_5_17, display_65_69, display_70_74, cliff_delta,
+            male_65_74, female_65_74, male_preserved, female_preserved,
+            shape_preserved, elder_cliff_smoothed,
             real_elder == display_elder && real_75_plus == display_75_plus &&
-            display_5_17 == 60 && shape_preserved);
+            display_5_17 == 60 && male_preserved && female_preserved &&
+            shape_preserved && elder_cliff_smoothed);
 }
 
 static void write_support_separation_probe(FILE *file) {

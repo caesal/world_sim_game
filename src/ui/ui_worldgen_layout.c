@@ -80,7 +80,7 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     int width = panel_width - FORM_X_PAD * 2;
     int y = TOP_BAR_H + 62;
     int gap = 8;
-    int button_w = (width - gap * 2) / 3;
+    int button_w = (width - gap * (MAP_SIZE_COUNT - 1)) / MAP_SIZE_COUNT;
     int command_gap = 12;
     int command_w = (width - command_gap) / 2;
     int metric_gap = 12;

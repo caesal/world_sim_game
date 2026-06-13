@@ -1,5 +1,6 @@
 #include "vector_paths.h"
 
+#include "render/map_presentation_policy.h"
 #include "render/render_common.h"
 #include "world/terrain_query.h"
 
@@ -286,13 +287,15 @@ void vector_paths_draw_coastline(HDC hdc, RECT client, MapLayout layout) {
 }
 
 void vector_paths_draw_country_borders(HDC hdc, RECT client, MapLayout layout) {
+    int country_w = map_presentation_country_border_width(MAP_W, MAP_H, 3);
     build_country_segments();
-    draw_boundary_layer(hdc, client, layout, RGB(34, 29, 24), 3, RGB(129, 104, 70), 1, 10);
+    draw_boundary_layer(hdc, client, layout, RGB(34, 29, 24), country_w, RGB(129, 104, 70), 1, 10);
 }
 
 void vector_paths_draw_province_borders(HDC hdc, RECT client, MapLayout layout) {
+    int province_w = map_presentation_province_border_width(MAP_W, MAP_H, 1);
     build_province_segments();
-    draw_boundary_layer(hdc, client, layout, RGB(91, 83, 62), 1, RGB(124, 116, 84), 1, layout.tile_size < 7 ? 28 : 12);
+    draw_boundary_layer(hdc, client, layout, RGB(91, 83, 62), province_w, RGB(124, 116, 84), 1, layout.tile_size < 7 ? 28 : 12);
 }
 
 void vector_paths_draw_region_borders(HDC hdc, RECT client, MapLayout layout) {

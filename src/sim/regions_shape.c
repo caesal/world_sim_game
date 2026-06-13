@@ -308,7 +308,7 @@ static int split_bad_region(int id, int target_size) {
     ShapeMetrics *m = &shape_metrics[id];
     RegionSizeBand band = regions_size_band(target_size);
     int pieces = clamp(m->tile_count / max(1, target_size) + 1, 2, SHAPE_SPLIT_PARTS);
-    int available = MAX_NATURAL_REGIONS - region_count;
+    int available = regions_generation_cap() - region_count;
     int seed_x[SHAPE_SPLIT_PARTS], seed_y[SHAPE_SPLIT_PARTS];
     int part_count[SHAPE_SPLIT_PARTS] = {0};
     int part_region[SHAPE_SPLIT_PARTS];

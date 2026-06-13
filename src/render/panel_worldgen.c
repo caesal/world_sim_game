@@ -80,8 +80,8 @@ static void draw_viewer_controls_summary(HDC hdc, const WorldgenLayout *layout) 
 }
 
 static void draw_map_size_selector(HDC hdc, const WorldgenLayout *layout) {
-    const char *size_en[3] = {"Small", "Medium", "Large"};
-    const char *size_zh[3] = {"小", "中", "大"};
+    const char *size_en[MAP_SIZE_COUNT] = {"Small", "Medium", "Large", "Extreme"};
+    const char *size_zh[MAP_SIZE_COUNT] = {"小", "中", "大", "极大"};
     for (int i = 0; i < MAP_SIZE_COUNT; i++) {
         RECT button = layout->map_size_buttons[i];
         UiClayState state;
@@ -142,9 +142,11 @@ static void draw_region_size_estimate(HDC hdc, const WorldgenLayout *layout) {
     int map_w_setting, map_h_setting, cap_reached = 0;
     int target_area = regions_target_size_from_slider(region_size_slider);
     int estimated_count;
+    int region_cap;
     char text[192];
 
     map_size_dimensions(pending_map_size, &map_w_setting, &map_h_setting);
+    region_cap = regions_max_count_for_dimensions(map_w_setting, map_h_setting);
     estimated_count = regions_estimated_count_for_settings(map_w_setting, map_h_setting,
                                                            ocean_slider, region_size_slider,
                                                            &cap_reached);
@@ -152,7 +154,7 @@ static void draw_region_size_estimate(HDC hdc, const WorldgenLayout *layout) {
         snprintf(text, sizeof(text), "%s: %d    %s: %d / %d    %s: %d",
                  tr("Target area", "目标面积"), target_area,
                  tr("Estimated regions", "估算区域数"), estimated_count,
-                 MAX_NATURAL_REGIONS, tr("Current", "当前"), world_generated ? region_count : 0);
+                 region_cap, tr("Current", "当前"), world_generated ? region_count : 0);
         draw_text_rect_clipped(hdc, layout->region_estimate, text,
                                ui_theme_color(UI_COLOR_TEXT_DIM),
                                DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);

@@ -189,10 +189,10 @@ RECT get_map_size_button_rect(RECT client, int index) {
     RECT rect;
     int panel_x = client.right - side_panel_w + FORM_X_PAD;
     int gap = 8;
-    int button_w = (side_panel_w - FORM_X_PAD * 2 - gap * 2) / 3;
+    int button_w = (side_panel_w - FORM_X_PAD * 2 - gap * (MAP_SIZE_COUNT - 1)) / MAP_SIZE_COUNT;
     rect.left = panel_x + index * (button_w + gap);
     rect.top = TOP_BAR_H + 128;
-    rect.right = rect.left + button_w;
+    rect.right = index == MAP_SIZE_COUNT - 1 ? panel_x + side_panel_w - FORM_X_PAD : rect.left + button_w;
     rect.bottom = rect.top + 28;
     return rect;
 }

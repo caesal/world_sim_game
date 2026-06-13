@@ -254,7 +254,7 @@ static int reassign_disconnected_components(void) {
                 if (best >= 0) {
                     world[y][x].region_id = best;
                     changed++;
-                } else if (region_count < MAX_NATURAL_REGIONS) {
+                } else if (region_count < regions_generation_cap()) {
                     if (comp_region[comp] < 0) {
                         comp_region[comp] = region_count;
                         natural_regions[region_count].id = region_count;
@@ -320,7 +320,7 @@ static void choose_far_seed(int id, int part, int *seed_x, int *seed_y) {
 static int split_huge_region(int id, int target_size) {
     static const int dirs[4][2] = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}};
     int pieces = clamp(measure[id].tile_count / max(1, target_size), 2, MAX_SPLIT_PARTS);
-    int available = MAX_NATURAL_REGIONS - region_count;
+    int available = regions_generation_cap() - region_count;
     int seed_x[MAX_SPLIT_PARTS], seed_y[MAX_SPLIT_PARTS];
     int part_count[MAX_SPLIT_PARTS] = {0};
     int part_region[MAX_SPLIT_PARTS];
@@ -395,7 +395,7 @@ static int split_huge_regions_pass(int target_size) {
         if (measure[i].tile_count <= huge_limit) continue;
         last_stats.huge_regions++;
         if (split_huge_region(i, target_size) > 0) changed++;
-        if (region_count >= MAX_NATURAL_REGIONS) {
+        if (region_count >= regions_generation_cap()) {
             last_stats.cap_reached = 1;
             break;
         }

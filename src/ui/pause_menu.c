@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "人口页结构卡改为儿童、育龄、老人、劳力、可征召和军队，并显示劳力、可征召、军队的男女拆分。\n"
-                 "军队人数改为由男女 25-64 人口按不同权重换算，并扣除当前战争伤亡。\n"
-                 "小人口国家现在显示小数出生/死亡预估，极小年龄段也会随时间继续老化。\n"
-                 "科技阶段改为更慢的 120 年基准，并继续受创新、资源、人口压力和混乱影响。\n",
+                 "新增极大地图，尺寸为 1152x800，并按地图大小使用不同自然区域上限。\n"
+                 "世界生成的物理和高级随机按钮会把各自滑条分别随机到 5..95。\n"
+                 "极大地图的省界和国界更清晰，城市与港口图标更小。\n"
+                 "人口金字塔会平滑显示 65-74 岁区间，但不改变真实人口模拟。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Population cards now show Children, Fertile, Elder, Workers, Recruitable, and Army, with male/female splits for the second row.\n"
-                 "Army size now comes from weighted male/female 25-64 population and active-war casualties.\n"
-                 "Small countries show fractional birth/death estimates, and tiny real cohorts continue aging over time.\n"
-                 "Technology stages now use a slower 120-year baseline shaped by innovation, resources, population pressure, and disorder.",
+                 "Extreme maps are now available at 1152x800 with map-size-specific natural-region caps.\n"
+                 "World-generation random buttons independently randomize their sliders in the 5..95 range.\n"
+                 "Extreme map province and country borders are clearer, with smaller city and port markers.\n"
+                 "The population pyramid display smooths ages 65-74 without changing real population simulation.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

@@ -3,6 +3,7 @@
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "core/profiler.h"
+#include "render/map_presentation_policy.h"
 #include "render/render_common.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
@@ -431,13 +432,15 @@ void contour_paths_draw_coastline(HDC hdc, RECT client, MapLayout layout) {
 }
 
 void contour_paths_draw_country_borders(HDC hdc, RECT client, MapLayout layout) {
+    int country_w = map_presentation_country_border_width(MAP_W, MAP_H, 2);
     ensure_contour_cache(CONTOUR_COUNTRY, dirty_revision_ownership(), 0);
-    draw_layer(hdc, client, layout, CONTOUR_COUNTRY, RGB(34, 29, 24), 2, RGB(136, 106, 72), 1, 12);
+    draw_layer(hdc, client, layout, CONTOUR_COUNTRY, RGB(34, 29, 24), country_w, RGB(136, 106, 72), 1, 12);
 }
 
 void contour_paths_draw_province_borders(HDC hdc, RECT client, MapLayout layout) {
+    int province_w = map_presentation_province_border_width(MAP_W, MAP_H, 1);
     ensure_contour_cache(CONTOUR_PROVINCE, dirty_revision_province(), dirty_revision_ownership());
-    draw_layer(hdc, client, layout, CONTOUR_PROVINCE, RGB(99, 90, 67), 1, RGB(132, 122, 88), 1, layout.tile_size < 7 ? 32 : 14);
+    draw_layer(hdc, client, layout, CONTOUR_PROVINCE, RGB(99, 90, 67), province_w, RGB(132, 122, 88), 1, layout.tile_size < 7 ? 32 : 14);
 }
 
 void contour_paths_draw_region_borders(HDC hdc, RECT client, MapLayout layout) {

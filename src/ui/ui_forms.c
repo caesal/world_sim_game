@@ -196,21 +196,21 @@ static void ui_randomize_civilization_form(HWND hwnd) {
 }
 
 static void ui_randomize_physical_world_sliders(HWND hwnd) {
-    ocean_slider = random_range(25, 75);
-    continent_slider = random_range(10, 85);
-    relief_slider = random_range(20, 85);
-    moisture_slider = random_range(15, 85);
-    drought_slider = random_range(15, 85);
-    vegetation_slider = random_range(15, 85);
+    ocean_slider = random_range(5, 95);
+    continent_slider = random_range(5, 95);
+    relief_slider = random_range(5, 95);
+    moisture_slider = random_range(5, 95);
+    drought_slider = random_range(5, 95);
+    vegetation_slider = random_range(5, 95);
     ui_invalidate_side_panel(hwnd);
 }
 
 static void ui_randomize_advanced_world_sliders(HWND hwnd) {
-    bias_forest_slider = random_range(20, 80);
-    bias_desert_slider = random_range(20, 80);
-    bias_mountain_slider = random_range(20, 80);
-    bias_wetland_slider = random_range(20, 80);
-    region_size_slider = random_range(15, 90);
+    bias_forest_slider = random_range(5, 95);
+    bias_desert_slider = random_range(5, 95);
+    bias_mountain_slider = random_range(5, 95);
+    bias_wetland_slider = random_range(5, 95);
+    region_size_slider = random_range(5, 95);
     ui_invalidate_side_panel(hwnd);
 }
 

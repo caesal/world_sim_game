@@ -406,7 +406,7 @@ static void assign_unreached_land(void) {
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
             if (!is_land(world[y][x].geography) || world[y][x].region_id >= 0) continue;
-            if (region_count < MAX_NATURAL_REGIONS) {
+            if (region_count < regions_generation_cap()) {
                 world[y][x].region_id = region_count;
                 natural_regions[region_count].id = region_count;
                 natural_regions[region_count].owner_civ = -1;
@@ -448,8 +448,9 @@ void regions_generate(int region_size_value) {
     static int seed_y[MAX_NATURAL_REGIONS];
     int land = land_tile_count();
     int target_size = regions_target_size_from_slider(region_size_value);
-    int repair_headroom = max(128, MAX_NATURAL_REGIONS / 3);
-    int target_capacity = max(1, MAX_NATURAL_REGIONS - repair_headroom);
+    int region_cap = regions_generation_cap();
+    int repair_headroom = max(32, region_cap / 3);
+    int target_capacity = max(1, region_cap - repair_headroom);
     int target_count;
 
     regions_reset();

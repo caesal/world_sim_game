@@ -63,6 +63,16 @@ static void scale_range_to_total(int *ages, int first, int last, int target) {
     }
 }
 
+static void smooth_display_range_to_total(int *ages, int first, int last) {
+    spread_value(ages, first, last, range_total(ages, first, last));
+}
+
+static void smooth_elder_display_band(PopulationDisplayCohorts *display) {
+    if (!display) return;
+    smooth_display_range_to_total(display->male, 65, 74);
+    smooth_display_range_to_total(display->female, 65, 74);
+}
+
 static int take_from_age(PopulationDisplayCohorts *display, int age, int amount) {
     int total;
     int male;
@@ -260,6 +270,7 @@ void population_display_calibrate_city(int city_id) {
                              display_band_first[band], display_band_last[band],
                              cities[city_id].population_cohorts[band].female);
     }
+    smooth_elder_display_band(&city_display_cache[city_id]);
     country_display_cache_dirty = 1;
 }
 

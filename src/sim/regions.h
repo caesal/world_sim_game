@@ -44,6 +44,9 @@ void regions_reset(void);
 void regions_generate(int region_size_value);
 const NaturalRegion *regions_get(int region_id);
 int regions_target_size_from_slider(int value);
+int regions_max_count_for_map_size(int map_size);
+int regions_max_count_for_dimensions(int width, int height);
+int regions_generation_cap(void);
 int regions_estimated_count_for_settings(int width, int height, int ocean_percent,
                                          int region_size_value, int *cap_reached);
 int regions_select_spawn_region(int preferred_x, int preferred_y, int *out_region_id, int *out_x, int *out_y);

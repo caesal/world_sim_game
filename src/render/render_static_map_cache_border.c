@@ -1,5 +1,6 @@
 #include "render/render_static_map_cache_internal.h"
 
+#include "render/map_presentation_policy.h"
 #include "world/terrain_query.h"
 
 static unsigned int argb(COLORREF color, int alpha) {
@@ -101,11 +102,15 @@ static void draw_grid(MapLayerCache *cache, const RenderSnapshot *snapshot) {
 
 void render_static_map_cache_build_border_pixels(MapLayerCache *cache,
                                                  const RenderSnapshot *snapshot) {
+    int province_w;
+    int country_w;
     if (!cache || !cache->pixels || !snapshot || !snapshot->world_generated) return;
+    province_w = map_presentation_province_border_width(snapshot->map_w, snapshot->map_h, 1);
+    country_w = map_presentation_country_border_width(snapshot->map_w, snapshot->map_h, 2);
     if (display_mode == DISPLAY_REGIONS) {
         draw_edge_kind(cache, snapshot, 3, argb(RGB(44, 54, 46), 255), 1);
     }
-    draw_edge_kind(cache, snapshot, 2, argb(RGB(70, 62, 50), 255), 1);
-    draw_edge_kind(cache, snapshot, 1, argb(RGB(34, 30, 24), 255), 2);
+    draw_edge_kind(cache, snapshot, 2, argb(RGB(70, 62, 50), 255), province_w);
+    draw_edge_kind(cache, snapshot, 1, argb(RGB(34, 30, 24), 255), country_w);
     draw_grid(cache, snapshot);
 }

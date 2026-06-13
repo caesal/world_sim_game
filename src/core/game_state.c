@@ -165,6 +165,9 @@ void map_size_dimensions(int size, int *out_w, int *out_h) {
     } else if (size == MAP_SIZE_LARGE) {
         width = 864;
         height = 600;
+    } else if (size == MAP_SIZE_EXTREME) {
+        width = 1152;
+        height = 800;
     }
     if (out_w) *out_w = width;
     if (out_h) *out_h = height;

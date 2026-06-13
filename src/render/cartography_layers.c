@@ -3,6 +3,7 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "render/contour_paths.h"
+#include "render/map_presentation_policy.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
 
@@ -218,7 +219,7 @@ void draw_cartography_region_borders(HDC hdc, RECT client, MapLayout layout) {
 }
 
 void draw_cartography_province_borders(HDC hdc, RECT client, MapLayout layout) {
-    if (layout.tile_size < 7) return;
+    if (layout.tile_size < 7 && !map_presentation_extreme_dimensions(MAP_W, MAP_H)) return;
     contour_paths_draw_province_borders(hdc, client, layout);
 }
 

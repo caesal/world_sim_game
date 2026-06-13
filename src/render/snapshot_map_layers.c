@@ -1,5 +1,6 @@
 #include "render/snapshot_map_layers.h"
 
+#include "render/map_presentation_policy.h"
 #include "render/render_context.h"
 #include "render/render_map_internal.h"
 #include "render/river_render.h"
@@ -196,9 +197,15 @@ static void draw_snapshot_grid_overlay(HDC hdc, MapLayout layout) {
 }
 
 void draw_snapshot_border_layer(HDC hdc, RECT client, MapLayout layout) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    int province_w;
+    int country_w;
     (void)client;
+    if (!snapshot || !snapshot->world_generated) return;
+    province_w = map_presentation_province_border_width(snapshot->map_w, snapshot->map_h, 1);
+    country_w = map_presentation_country_border_width(snapshot->map_w, snapshot->map_h, 2);
     if (display_mode == DISPLAY_REGIONS) draw_edges(hdc, client, layout, 3, RGB(44, 54, 46), 1);
-    draw_edges(hdc, client, layout, 2, RGB(70, 62, 50), 1);
-    draw_edges(hdc, client, layout, 1, RGB(34, 30, 24), 2);
+    draw_edges(hdc, client, layout, 2, RGB(70, 62, 50), province_w);
+    draw_edges(hdc, client, layout, 1, RGB(34, 30, 24), country_w);
     draw_snapshot_grid_overlay(hdc, layout);
 }

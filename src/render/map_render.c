@@ -1,6 +1,7 @@
 ﻿#include "render_map_internal.h"
 
 #include "core/city_display.h"
+#include "render/map_presentation_policy.h"
 #include "render/render_context.h"
 
 static void draw_mountain_marker_if_needed(HDC hdc, MapLayout layout, int x, int y);
@@ -188,45 +189,69 @@ static void draw_harbor_glyph(HDC hdc, RECT rect) {
     DeleteObject(pen);
 }
 
-static void draw_city_icon(HDC hdc, int cx, int cy, int size, IconId icon, int capital) {
-    int backplate = clamp(size + (capital ? 10 : 6), 16, capital ? 34 : 28);
-    int icon_size = clamp(size - 2, 10, capital ? 24 : 20);
+static int compact_city_markers(const RenderSnapshot *snapshot) {
+    return snapshot && map_presentation_extreme_dimensions(snapshot->map_w, snapshot->map_h);
+}
+
+static int city_marker_size(int tile_size, int capital, int compact) {
+    if (compact) return clamp(tile_size + (capital ? 4 : 2), capital ? 10 : 9, capital ? 18 : 14);
+    return clamp(tile_size + (capital ? 8 : 4), 12, 26);
+}
+
+static int harbor_marker_size(int tile_size, int capital, int compact) {
+    if (compact) return clamp(tile_size + (capital ? 4 : 3), capital ? 10 : 9, capital ? 18 : 15);
+    return clamp(tile_size + 8, 16, 26);
+}
+
+static void draw_city_icon(HDC hdc, int cx, int cy, int size, IconId icon,
+                           int capital, int compact) {
+    int backplate = compact ? clamp(size + (capital ? 6 : 4), 13, capital ? 24 : 19) :
+                    clamp(size + (capital ? 10 : 6), 16, capital ? 34 : 28);
+    int icon_size = compact ? clamp(size - 1, 8, capital ? 16 : 13) :
+                    clamp(size - 2, 10, capital ? 24 : 20);
     RECT plate = centered_rect(cx, cy, backplate);
     RECT icon_rect = centered_rect(cx, cy, icon_size);
 
-    draw_marker_ellipse(hdc, plate, RGB(232, 218, 176), RGB(28, 27, 23), capital ? 3 : 2);
+    draw_marker_ellipse(hdc, plate, RGB(232, 218, 176), RGB(28, 27, 23),
+                        compact ? (capital ? 2 : 1) : (capital ? 3 : 2));
     if (capital) {
         RECT inner = plate;
-        InflateRect(&inner, -4, -4);
-        draw_marker_ellipse(hdc, inner, RGB(241, 229, 188), RGB(28, 27, 23), 2);
+        InflateRect(&inner, compact ? -3 : -4, compact ? -3 : -4);
+        draw_marker_ellipse(hdc, inner, RGB(241, 229, 188), RGB(28, 27, 23),
+                            compact ? 1 : 2);
     }
     draw_city_stage_glyph(hdc, icon_rect, icon);
 }
 
-static void draw_harbor_marker(HDC hdc, int cx, int cy, int size, int capital) {
-    int marker_size = clamp(size + (capital ? 4 : 0), 15, capital ? 30 : 26);
-    int icon_size = clamp(marker_size - 4, 10, capital ? 22 : 20);
+static void draw_harbor_marker(HDC hdc, int cx, int cy, int size,
+                               int capital, int compact) {
+    int marker_size = compact ? clamp(size + (capital ? 3 : 0), 12, capital ? 22 : 17) :
+                      clamp(size + (capital ? 4 : 0), 15, capital ? 30 : 26);
+    int icon_size = compact ? clamp(marker_size - 3, 8, capital ? 16 : 13) :
+                    clamp(marker_size - 4, 10, capital ? 22 : 20);
     RECT plate = centered_rect(cx, cy, marker_size);
     RECT icon_rect = centered_rect(cx, cy, icon_size);
 
-    draw_marker_ellipse(hdc, plate, RGB(218, 226, 205), RGB(31, 50, 48), 2);
+    draw_marker_ellipse(hdc, plate, RGB(218, 226, 205), RGB(31, 50, 48),
+                        compact ? 1 : 2);
     if (capital) {
         RECT inner = plate;
-        InflateRect(&inner, -4, -4);
-        draw_marker_ellipse(hdc, inner, RGB(226, 234, 217), RGB(28, 27, 23), 2);
+        InflateRect(&inner, compact ? -3 : -4, compact ? -3 : -4);
+        draw_marker_ellipse(hdc, inner, RGB(226, 234, 217), RGB(28, 27, 23),
+                            compact ? 1 : 2);
     }
     draw_harbor_glyph(hdc, icon_rect);
 }
 
-static void draw_neutral_city_icon(HDC hdc, int cx, int cy, int size) {
-    RECT plate = centered_rect(cx, cy, clamp(size, 10, 18));
+static void draw_neutral_city_icon(HDC hdc, int cx, int cy, int size, int compact) {
+    RECT plate = centered_rect(cx, cy, compact ? clamp(size, 8, 12) : clamp(size, 10, 18));
 
     draw_marker_ellipse(hdc, plate, RGB(172, 174, 166), RGB(84, 86, 82), 1);
 }
 
-static void draw_neutral_harbor_marker(HDC hdc, int cx, int cy, int size) {
-    int marker_size = clamp(size, 10, 18);
-    int icon_size = clamp(marker_size - 4, 7, 13);
+static void draw_neutral_harbor_marker(HDC hdc, int cx, int cy, int size, int compact) {
+    int marker_size = compact ? clamp(size, 8, 12) : clamp(size, 10, 18);
+    int icon_size = compact ? clamp(marker_size - 2, 7, 10) : clamp(marker_size - 4, 7, 13);
     RECT plate = centered_rect(cx, cy, marker_size);
     RECT icon_rect = centered_rect(cx, cy, icon_size);
 
@@ -250,6 +275,7 @@ void draw_cities(HDC hdc, MapLayout layout) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     int i;
     int s = layout.tile_size;
+    int compact = compact_city_markers(snapshot);
     int show_neutral = neutral_settlement_icons_visible();
 
     city_icons_drawn_last_frame = 0;
@@ -275,14 +301,17 @@ void draw_cities(HDC hdc, MapLayout layout) {
         cx = (snap_tile_left(layout, snapshot, marker_x) + snap_tile_right(layout, snapshot, marker_x)) / 2;
         cy = (snap_tile_top(layout, snapshot, marker_y) + snap_tile_bottom(layout, snapshot, marker_y)) / 2;
         if (marker_kind == CITY_DISPLAY_POINT_PORT) {
-            if (owned) draw_harbor_marker(hdc, cx, cy, clamp(s + 8, 16, 26), city->capital);
-            else draw_neutral_harbor_marker(hdc, cx, cy, clamp(s + 5, 11, 18));
+            if (owned) draw_harbor_marker(hdc, cx, cy, harbor_marker_size(s, city->capital, compact),
+                                          city->capital, compact);
+            else draw_neutral_harbor_marker(hdc, cx, cy, compact ? clamp(s + 2, 8, 12) :
+                                            clamp(s + 5, 11, 18), compact);
             port_icons_drawn_last_frame++;
         } else if (owned) {
-            draw_city_icon(hdc, cx, cy, clamp(s + (city->capital ? 8 : 4), 12, 26),
-                           city_stage_icon(city->capital, city->population), city->capital);
+            draw_city_icon(hdc, cx, cy, city_marker_size(s, city->capital, compact),
+                           city_stage_icon(city->capital, city->population), city->capital, compact);
         } else {
-            draw_neutral_city_icon(hdc, cx, cy, clamp(s + 2, 9, 16));
+            draw_neutral_city_icon(hdc, cx, cy, compact ? clamp(s + 1, 8, 12) :
+                                   clamp(s + 2, 9, 16), compact);
         }
         if (neutral) neutral_city_icons_drawn_last_frame++;
         city_icons_drawn_last_frame++;
