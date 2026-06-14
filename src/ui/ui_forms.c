@@ -341,7 +341,7 @@ HBRUSH ui_forms_control_color(WPARAM wparam, LPARAM lparam) {
 
 static void redraw_control(HWND control) {
     if (!control || !IsWindowVisible(control)) return;
-    RedrawWindow(control, NULL, NULL, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
+    RedrawWindow(control, NULL, NULL, RDW_INVALIDATE | RDW_NOERASE);
 }
 
 void ui_forms_redraw_visible_controls(void) {

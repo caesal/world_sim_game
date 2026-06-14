@@ -118,13 +118,13 @@ int country_overview_actions_height(int civ_id) {
     int direct = actions_direct_count(civ_id);
     int is_vassal = actions_overlord(civ_id) >= 0;
     int rows = is_vassal ? 1 : max(1, direct);
-    return 40 + rows * 36 + 32;
+    return 36 + 24 + rows * 36 + 32;
 }
 
 int country_overview_vassal_actions_height(int civ_id) {
     int direct = actions_direct_count(civ_id);
     int is_vassal = actions_overlord(civ_id) >= 0;
-    return (is_vassal ? 1 : max(1, direct)) * 36;
+    return 36 + 24 + (is_vassal ? 1 : max(1, direct)) * 36;
 }
 
 int country_overview_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y) {
@@ -190,19 +190,33 @@ static void draw_vassal_name_cell(HDC hdc, RECT rect, int vassal_id) {
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
-static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
+static void draw_action_row(HDC hdc, UiCursor *cursor, int civ_id) {
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
+    int enabled = civ && civ->alive;
     int can_trigger = civ ? civ->collapse_can_trigger : 0;
-    const char *reason = collapse_block_reason_ui(civ_id);
-    RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 34};
+    int gap = 6;
+    int button_w = (cursor->width - gap * 3) / 4;
+    RECT declare_button = {cursor->x, cursor->y + 4, cursor->x + button_w, cursor->y + 32};
+    RECT peace_button = {declare_button.right + gap, cursor->y + 4,
+                         declare_button.right + gap + button_w, cursor->y + 32};
+    RECT vassal_button = {peace_button.right + gap, cursor->y + 4,
+                          peace_button.right + gap + button_w, cursor->y + 32};
+    RECT unrest_button = {vassal_button.right + gap, cursor->y + 4,
+                          cursor->x + cursor->width, cursor->y + 32};
 
-    last_civil_unrest_button = button;
+    record_vassal_hit(declare_button, -1, COUNTRY_VASSAL_ACTION_DECLARE_WAR);
+    record_vassal_hit(peace_button, -1, COUNTRY_VASSAL_ACTION_PEACE);
+    record_vassal_hit(vassal_button, -1, COUNTRY_VASSAL_ACTION_VASSALIZE);
+    last_civil_unrest_button = unrest_button;
     last_civil_unrest_enabled = can_trigger;
-    fill_rect(hdc, button, can_trigger ? RGB(112, 45, 45) : RGB(65, 55, 55));
-    draw_center_text(hdc, button, tr("Civil Unrest", "内乱"),
-                     can_trigger ? RGB(255, 236, 226) : ui_theme_color(UI_COLOR_TEXT_DIM));
-    cursor->y += 40;
-    if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"), reason);
+
+    draw_button(hdc, declare_button, tr("Declare War", "开战"), enabled);
+    draw_button(hdc, peace_button, tr("Peace", "和平"), enabled);
+    draw_button(hdc, vassal_button, tr("Vassalize", "附庸"), enabled);
+    draw_button(hdc, unrest_button, tr("Civil Unrest", "内乱"), can_trigger);
+    cursor->y += 36;
+    if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"),
+                                  collapse_block_reason_ui(civ_id));
 }
 
 static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
@@ -211,7 +225,6 @@ static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
     int count, i;
     char text[160];
 
-    reset_vassal_hits();
     if (overlord >= 0) {
         RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 32};
         snprintf(text, sizeof(text), "%s", tr("Independence", "独立"));
@@ -261,7 +274,8 @@ static void draw_vassal_action_buttons(HDC hdc, UiCursor *cursor, int civ_id) {
 }
 
 void draw_country_overview_actions(HDC hdc, UiCursor *cursor, int civ_id) {
-    draw_civil_unrest_action(hdc, cursor, civ_id);
+    reset_vassal_hits();
+    draw_action_row(hdc, cursor, civ_id);
     draw_vassal_action_buttons(hdc, cursor, civ_id);
 }
 
@@ -270,5 +284,7 @@ void country_overview_vassal_actions_reset_hit(void) {
 }
 
 void draw_country_overview_vassal_actions(HDC hdc, UiCursor *cursor, int civ_id) {
+    reset_vassal_hits();
+    draw_action_row(hdc, cursor, civ_id);
     draw_vassal_action_buttons(hdc, cursor, civ_id);
 }

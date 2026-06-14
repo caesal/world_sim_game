@@ -1,5 +1,47 @@
 # Version Log
 
+## Ver0.3.3.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.c.
+2. Added selected-country player actions for Declare War, Peace, Vassalize,
+   and Civil Unrest in one consistent action row.
+3. Added Declare War and Vassalize target-selection modes with pause/restore
+   behavior, red or purple arrows, Esc/right-click cancel, and reusable top
+   stacked notifications.
+4. Added game-facing player action wrappers and a no-winner direct-war peace
+   helper while preserving existing AI diplomacy, war resolution, vassal
+   rules, save format, economy, population, plague, routes, and balance.
+5. Improved failed Declare War feedback so player commands can report specific
+   reasons such as stability limits, own vassals, target vassal status,
+   overlord wars, missing fronts, full war slots, or rule-blocked fallback.
+6. Routed side-panel tab switching and World-tab child-control updates through
+   normal invalidation paths instead of direct synchronous side-panel painting
+   or erase/immediate redraw calls.
+7. Updated the root README, documentation index, version log, side doc, and
+   in-game pause-menu version summary for the Ver0.3.3.c release record.
+
+Behavioral notes:
+
+- This version does not change world generation, map save format, AI
+  diplomacy, war settlement scoring, economy, population simulation, plague
+  formulas, routes, or balance constants.
+- `MAP_SAVE_VERSION` remains `13` from Ver0.3.3.b.
+- Generated validation screenshots and logs remain local artifacts and are not
+  committed as release source.
+
+Validation notes:
+
+- Ver0.3.3.c uses `WORLD_SIM_VERSION "0.3.3.c"`.
+- Focused GUI evidence from the implementation pass is recorded locally under
+  `logs/validation/sidebar_action_feedback_20260613_154734/`, including
+  action buttons, target arrows, notification rendering, successful player
+  actions, and sidebar tab ROI captures.
+- Strict AGENTS Rule39 game-flow regression was not completed for this pushed
+  checkpoint. This version must not be treated as full release-readiness
+  evidence until Rule39 is run and recorded.
+
 ## Ver0.3.3.b
 
 Implemented fixes:

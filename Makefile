@@ -10,6 +10,7 @@ SOURCES := \
 	src/main.c \
 	src/game/game.c \
 	src/game/game_loop.c \
+	src/game/game_player_actions.c \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
 	src/game/game_crisis_probe.c \
@@ -108,6 +109,8 @@ SOURCES := \
 	src/sim/war.c \
 	src/sim/war_economy.c \
 	src/sim/war_front.c \
+	src/sim/war_player_peace.c \
+	src/sim/war_query.c \
 	src/sim/war_resolution.c \
 	src/sim/war_state.c \
 	src/render/render.c \
@@ -121,6 +124,7 @@ SOURCES := \
 	src/render/render_common.c \
 	src/render/ui_format.c \
 	src/render/cartography_layers.c \
+	src/render/country_target_arrow.c \
 	src/render/contour_paths.c \
 	src/render/vector_paths.c \
 	src/render/load_progress_overlay.c \
@@ -148,6 +152,7 @@ SOURCES := \
 	src/render/plague_visual.c \
 	src/render/profiling_switches.c \
 	src/render/pause_menu_render.c \
+	src/render/top_notifications.c \
 	src/render/panel_country.c \
 	src/render/panel_country_actions.c \
 	src/render/panel_country_cards.c \
@@ -182,8 +187,10 @@ SOURCES := \
 	src/ui/color_picker.c \
 	src/ui/pause_menu.c \
 	src/ui/ui_actions.c \
+	src/ui/ui_country_target.c \
 	src/ui/ui_debug_input.c \
 	src/ui/ui_invalidation.c \
+	src/ui/ui_notifications.c \
 	src/ui/ui_wheel.c \
 	src/ui/ui_worldgen_layout.c \
 	src/ui/ui_state.c \

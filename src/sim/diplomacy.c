@@ -336,8 +336,8 @@ void diplomacy_record_war_no_winner(int civ_a, int civ_b, DiplomacyLastWarResult
     if (last_war_result_has_winner(result) || result == DIP_LAST_WAR_NONE) result = DIP_LAST_WAR_NEGOTIATED_TRUCE;
     relation = diplomacy_matrix[civ_a][civ_b];
     if (relation.state == DIPLOMACY_NONE) relation = default_relation(DIPLOMACY_PEACE, 50);
-    relation.last_war_winner = -1;
-    relation.last_war_loser = -1;
+    relation.last_war_winner = result == DIP_LAST_WAR_OFFENSIVE_HALTED ? civ_a : -1;
+    relation.last_war_loser = result == DIP_LAST_WAR_OFFENSIVE_HALTED ? civ_b : -1;
     relation.last_war_result = result;
     set_relation_pair(civ_a, civ_b, relation);
 }
@@ -432,7 +432,13 @@ void diplomacy_sanitize_loaded(void) {
             diplomacy_matrix[a][b].last_war_result = DIP_LAST_WAR_NONE;
             diplomacy_matrix[a][b].last_war_winner = -1;
             diplomacy_matrix[a][b].last_war_loser = -1;
-        } else if (!last_war_result_has_winner(diplomacy_matrix[a][b].last_war_result)) {
+        } else if (!last_war_result_has_winner(diplomacy_matrix[a][b].last_war_result) &&
+                   !(diplomacy_matrix[a][b].last_war_result == DIP_LAST_WAR_OFFENSIVE_HALTED &&
+                     diplomacy_matrix[a][b].last_war_winner >= 0 &&
+                     diplomacy_matrix[a][b].last_war_winner < civ_count &&
+                     diplomacy_matrix[a][b].last_war_loser >= 0 &&
+                     diplomacy_matrix[a][b].last_war_loser < civ_count &&
+                     diplomacy_matrix[a][b].last_war_winner != diplomacy_matrix[a][b].last_war_loser)) {
             diplomacy_matrix[a][b].last_war_winner = -1;
             diplomacy_matrix[a][b].last_war_loser = -1;
         }

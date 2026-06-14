@@ -6,6 +6,7 @@
 #include "core/render_snapshot.h"
 #include "core/render_snapshot_keys.h"
 #include "render/cartography_layers.h"
+#include "render/country_target_arrow.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/load_progress_overlay.h"
 #include "render/map_highlight.h"
@@ -17,6 +18,7 @@
 #include "render/render_layer_cache.h"
 #include "render/render_static_map_cache.h"
 #include "render/render_static_scene.h"
+#include "render/top_notifications.h"
 #include "render/worldgen_progress_overlay.h"
 #include "core/worldgen_progress.h"
 #include "sim/simulation_worker.h"
@@ -178,6 +180,7 @@ static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
         draw_map_frame_overlay(ui_cache.dc, client);
         if (profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) draw_map_legend(ui_cache.dc, client);
         panel_view_model_cache_draw(ui_cache.dc, client);
+        draw_top_notifications(ui_cache.dc, client);
         if (pause_menu_open) draw_pause_menu_overlay(ui_cache.dc, client);
         BitBlt(hdc, 0, 0, ui_cache.width, ui_cache.height, ui_cache.dc, 0, 0, SRCCOPY);
     } else {
@@ -186,6 +189,7 @@ static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
         draw_map_frame_overlay(hdc, client);
         if (profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) draw_map_legend(hdc, client);
         panel_view_model_cache_draw(hdc, client);
+        draw_top_notifications(hdc, client);
         if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
     }
     if (render_snapshot_age_ms() > 500) draw_stale_ui_indicator(hdc, client);
@@ -309,6 +313,7 @@ static void render_world(HDC hdc, RECT client) {
             draw_diplomacy_map_animations(hdc, client, layout, snapshot);
         }
         draw_selected_tile(hdc, layout);
+        draw_country_target_arrow(hdc, client, layout, snapshot);
     } else {
         dirty_clear_render_maritime();
         dirty_clear_render_plague();
@@ -367,26 +372,6 @@ void paint_window(HWND hwnd) {
     profiler_record_render_ms((int)(GetTickCount() - render_start));
     EndPaint(hwnd, &ps);
     render_static_scene_request_continue(hwnd, continue_static_work);
-}
-
-void render_paint_side_panel_now(HWND hwnd) {
-    RECT client, panel, handle_dirty, paint; WorldGenProgress progress;
-    const RenderSnapshot *snapshot; HDC hdc; int saved;
-    DWORD start = GetTickCount();
-    if (!hwnd) return;
-    GetClientRect(hwnd, &client);
-    worldgen_progress_get(&progress);
-    if (color_picker_active() || pause_menu_open || progress.active || load_progress_active()) return;
-    panel = get_side_panel_draw_rect(client); handle_dirty = get_side_panel_handle_dirty_rect(client);
-    UnionRect(&paint, &panel, &handle_dirty);
-    if (paint.right <= paint.left || paint.bottom <= paint.top) return;
-    hdc = GetDC(hwnd); if (!hdc) return;
-    snapshot = render_snapshot_acquire(); render_context_begin(snapshot); saved = SaveDC(hdc);
-    IntersectClipRect(hdc, paint.left, paint.top, paint.right, paint.bottom);
-    draw_partial_ui(hdc, client, paint);
-    RestoreDC(hdc, saved);
-    render_context_end(); render_snapshot_release(snapshot); ReleaseDC(hwnd, hdc); ValidateRect(hwnd, &paint);
-    profiler_record_render_ms((int)(GetTickCount() - start));
 }
 
 int render_city_overlay_cache_hits(void) { return city_overlay_cache_hits; }

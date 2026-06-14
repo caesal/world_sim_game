@@ -51,11 +51,14 @@ int war_deployed_soldiers_for_civ(int civ_id);
 int war_available_reserve_for_civ(int civ_id);
 int war_front_count_for_civ(int civ_id);
 int war_active_for_civ(int civ_id);
+int war_has_empty_slot(void);
 int war_vassal_support_used_for_overlord(int overlord, int vassal);
 int war_vassal_support_casualties(int vassal);
 int war_peace_pressure_between(int civ_id, int other_id);
 int war_total_started_count(void);
 void war_end_direct_for_civ(int civ_id);
+int war_end_direct_for_civ_no_winner(int civ_id, int last_war_result,
+                                     int truce_years, int relation_score);
 int war_start_independence(int attacker, int defender);
 void war_copy_save_state(ActiveWar *wars, int war_count, int *support, int support_count, int *total_started);
 void war_restore_save_state(const ActiveWar *wars, int war_count, const int *support, int support_count, int total_started);

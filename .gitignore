@@ -22,3 +22,4 @@ mono_crash.*.json
 build/
 saves/
 logs/uiux_phase4_evidence/
+logs/validation/

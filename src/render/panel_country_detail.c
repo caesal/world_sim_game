@@ -30,9 +30,6 @@
 #include <stdio.h>
 #include <string.h>
 
-static RECT last_civil_unrest_button;
-static int last_civil_unrest_enabled;
-
 static __attribute__((unused)) const char *collapse_block_reason_ui(int civ_id) {
     static char buffers[4][EVENT_LOG_LEN];
     static int index;
@@ -90,16 +87,12 @@ int country_detail_content_height(int civ_id) {
 }
 
 void country_detail_reset_hit(void) {
-    last_civil_unrest_enabled = 0;
-    SetRectEmpty(&last_civil_unrest_button);
-    country_overview_vassal_actions_reset_hit();
+    country_overview_actions_reset_hit();
     country_recent_events_reset_hit();
 }
 
 int country_detail_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y) {
-    return last_civil_unrest_enabled &&
-           point_in_rect_local(viewport, mouse_x, mouse_y) &&
-           point_in_rect_local(last_civil_unrest_button, mouse_x, mouse_y);
+    return country_overview_civil_unrest_hit(viewport, mouse_x, mouse_y);
 }
 
 CountryVassalActionHit country_detail_vassal_action_hit(RECT viewport, int mouse_x, int mouse_y) {
@@ -199,21 +192,6 @@ static __attribute__((unused)) void draw_city_list(HDC hdc, UiCursor *cursor, in
     }
 }
 
-static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id);
-
-static const char *collapse_block_reason_snapshot_ui(int reason) {
-    switch ((CollapseBlockReason)reason) {
-        case COLLAPSE_BLOCK_NONE: return tr("Ready.", "就绪。");
-        case COLLAPSE_BLOCK_NOT_ALIVE: return tr("Country is invalid or has fallen.", "国家无效或已经灭亡。");
-        case COLLAPSE_BLOCK_MAX_CIVS: return tr("No reusable or free country slots.", "没有可复用或空闲国家槽。");
-        case COLLAPSE_BLOCK_NO_CAPITAL_REGION: return tr("No valid capital region.", "没有有效首都区域。");
-        case COLLAPSE_BLOCK_NO_SPLITTABLE_REGION: return tr("No splittable non-capital region.", "没有可拆分的非首都区域。");
-        case COLLAPSE_BLOCK_ONLY_CORE_LEFT: return tr("Only capital/core region remains.", "只剩首都/核心区域。");
-        case COLLAPSE_BLOCK_CITY_CAP: return tr("City limit reached.", "城市数量已达上限。");
-        default: return tr("Unknown collapse blocker.", "未知崩溃阻碍。");
-    }
-}
-
 static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
     static char buffers[4][96];
     static int index;
@@ -307,7 +285,6 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     ui_row_text(hdc, cursor, tr("Dominant Intent", "主导方向"), overview_dominant_intent(&decision));
     ui_row_text(hdc, cursor, tr("Next Action", "下一步"), overview_next_action_ui(&decision));
     ui_section(hdc, cursor, tr("Actions", "操作"));
-    draw_civil_unrest_action(hdc, cursor, civ_id);
     draw_country_overview_vassal_actions(hdc, cursor, civ_id);
     if ((civ ? civ->plague_active_count : 0) > 0) {
         ui_section(hdc, cursor, tr("Plague", "瘟疫"));
@@ -321,23 +298,6 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
 static const char *heritage_label(int heritage) {
     return heritage == CIV_HERITAGE_EASTERN ? tr("Eastern", "东方") : tr("Western", "西方");
 }
-
-static void draw_civil_unrest_action(HDC hdc, UiCursor *cursor, int civ_id) {
-    const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
-    int can_trigger = civ ? civ->collapse_can_trigger : 0;
-    const char *reason = collapse_block_reason_snapshot_ui(civ ? civ->collapse_block_reason : COLLAPSE_BLOCK_NOT_ALIVE);
-    RECT button = {cursor->x, cursor->y + 4, cursor->x + cursor->width, cursor->y + 34};
-
-    last_civil_unrest_button = button;
-    last_civil_unrest_enabled = can_trigger;
-    fill_rect(hdc, button, can_trigger ? RGB(112, 45, 45) : RGB(65, 55, 55));
-    draw_center_text(hdc, button, tr("Civil Unrest", "内乱"),
-                     can_trigger ? RGB(255, 236, 226) : ui_theme_color(UI_COLOR_TEXT_DIM));
-    cursor->y += 40;
-    if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"), reason);
-}
-
-
 
 void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
                                  HFONT title_font, HFONT body_font) {

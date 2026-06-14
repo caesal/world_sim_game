@@ -3,6 +3,7 @@
 
 #include <windows.h>
 
+int ui_map_screen_to_tile(HWND hwnd, int mouse_x, int mouse_y, int *out_x, int *out_y);
 void ui_select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y);
 
 #endif

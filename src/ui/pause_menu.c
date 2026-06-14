@@ -53,23 +53,23 @@ static void show_utf8_message(HWND hwnd, const char *text, const char *title) {
 }
 
 void pause_menu_show_version_log(HWND hwnd) {
-    char message[1024];
+    char message[2048];
 
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "极大地图的城市槽上限现在跟随自然区域上限，避免 1536 个自然区域被 1024 个城市槽卡住。\n"
-                 "地图存档版本提升到 13，用于记录更大的城市和瘟疫城市状态容量。\n"
-                 "旧存档仍可读取，新存档会使用新的容量版本。\n"
-                 "这次修复城市容量瓶颈，但剩余自然区仍可能来自可达性、港口或扩张规则。\n",
+                 "右侧栏切换标签页现在走正常重绘路径，减少直接绘制造成的闪烁。\n"
+                 "国家操作加入开战、和平、附庸、内乱同排按钮，并保留附庸释放/吞并。\n"
+                 "开战和附庸目标模式现在有红色/紫色箭头、暂停恢复和顶部通知。\n"
+                 "开战失败会显示更具体原因，例如稳定限制、自己的附庸、目标宗主国已在战争中、没有有效战线或战争槽已满。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Extreme map city capacity now follows the natural-region cap, avoiding the old 1024-city ceiling against 1536 regions.\n"
-                 "Map save version is now 13 so larger city and plague-city state capacity is recorded explicitly.\n"
-                 "Old saves still load; new saves use the larger capacity version.\n"
-                 "This removes the city-cap bottleneck, while unreachable or port-gated natural pockets remain separate expansion behavior.",
+                 "Sidebar tab switching now uses the normal repaint path to reduce direct-paint flicker.\n"
+                 "Country actions now keep Declare War, Peace, Vassalize, and Civil Unrest in one row while preserving vassal Release/Annex controls.\n"
+                 "Declare War and Vassalize target modes use red/purple arrows, pause/restore, and top notifications.\n"
+                 "Failed Declare War attempts now report specific reasons such as stability limits, own vassals, overlord wars, missing fronts, or full war slots.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

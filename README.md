@@ -7,15 +7,17 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.3.b is a Windows graphical sandbox prototype written in C.
+Ver0.3.3.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.3.b is a focused capacity and save-version checkpoint over Ver0.3.3.a.
-It keeps the Extreme map size and presentation work from Ver0.3.3.a, then
-removes the remaining 1024-city global ceiling by making `MAX_CITIES` follow
-`MAX_NATURAL_REGIONS`. Extreme maps can now use the same 1536 capacity for
-natural regions and city slots, reducing the chance that late-game expansion
-stalls only because the city table filled first. `MAP_SAVE_VERSION` is now 13
-so saves explicitly record the larger city and plague-city state capacity.
+Ver0.3.3.c is a focused player-country action and side-panel repaint checkpoint
+over Ver0.3.3.b. It keeps the Extreme-map capacity work from Ver0.3.3.b, then
+adds selected-country actions for Declare War, Peace, Vassalize, and Civil
+Unrest in one consistent action row. Declare War and Vassalize use target
+selection arrows, pause/restore behavior, and top stacked notifications. Peace
+can end the selected country's active direct wars without assigning victory or
+defeat. The sidebar tab repaint path was also routed through normal
+invalidation instead of direct synchronous side-panel painting to reduce tab
+switch flicker.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -26,14 +28,13 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: Ver0.3.3.b is based on focused capacity, save-version,
-build/static, and text validation rather than full AGENTS Rule39 game-flow
-evidence. The change removes the city-slot bottleneck, but remaining natural
-regions after long Extreme-map runs can still come from reachability, port
-availability, sea-lane contact, or ordinary expansion rules. Future marker,
-route, performance, UI, map-display, simulation-speed, collapse, enclave,
-diplomacy, or population balance changes must remain evidence-based and pass
-the strict validation gate for the specific scope involved.
+Known follow-up: Ver0.3.3.c is based on focused build/static/text validation
+and targeted GUI evidence rather than full AGENTS Rule39 game-flow evidence.
+The action buttons and target-mode overlays are implemented, but future
+performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
+collapse, enclave, route, marker, plague, or population balance changes must
+remain evidence-based and pass the strict validation gate for the specific
+scope involved.
 
 You can:
 
@@ -172,6 +173,10 @@ You can:
 125. Deduct cohesion when any civilization loses its capital, and give collapse/enclave successor countries parent cohesion plus a bounded random bonus
 126. Apply Claymorphism Phase 4 presentation to Country lists, selected summaries, overview metric chips, action pills, diplomacy tabs, diplomacy cards, semantic relation accents, truce spacing, and vassal hierarchy rows
 127. Sort War & Truce relations with active wars first, then truces by remaining duration from longest to shortest
+128. Use selected-country action buttons for Declare War, Peace, Vassalize, and Civil Unrest in one row
+129. Target Declare War and Vassalize commands with dynamic red or purple arrows and top stacked notifications
+130. End a selected country's active direct wars through no-winner Peace commands
+131. Route side-panel tab switching through normal invalidation to reduce direct-paint flicker
 
 ## Controls
 

@@ -69,7 +69,11 @@ static const char *last_war_result_text(int civ_id, SnapshotDiplomacyRelation re
     if (relation.last_war_result == DIP_LAST_WAR_INTERRUPTED ||
         relation.last_war_result == DIP_LAST_WAR_FRONT_SEVERED) return tr("Front Severed", "战线中断");
     if (relation.last_war_result == DIP_LAST_WAR_NEGOTIATED_TRUCE) return tr("Negotiated Truce", "议和停战");
-    if (relation.last_war_result == DIP_LAST_WAR_OFFENSIVE_HALTED) return tr("Offensive Halted", "攻势中止");
+    if (relation.last_war_result == DIP_LAST_WAR_OFFENSIVE_HALTED) {
+        if (relation.last_war_winner == civ_id) return tr("Offensive Halted", "攻势中止");
+        if (relation.last_war_loser == civ_id) return tr("Enemy Offensive Halted", "对方攻势中止");
+        return tr("Offensive Halted", "攻势中止");
+    }
     if (relation.last_war_result == DIP_LAST_WAR_SURRENDER) {
         if (relation.last_war_winner == civ_id) return tr("Surrender Win", "受降胜利");
         if (relation.last_war_loser == civ_id) return tr("Surrender", "投降战败");

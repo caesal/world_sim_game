@@ -11,11 +11,13 @@
 #include "ui/color_picker.h"
 #include "ui/pause_menu.h"
 #include "ui/ui_actions.h"
+#include "ui/ui_country_target.h"
 #include "ui/ui_debug_input.h"
 #include "ui/ui_forms.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_map_input.h"
+#include "ui/ui_notifications.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_snapshot_read.h"
 #include "ui/ui_sliders.h"
@@ -26,6 +28,13 @@
 #include <windowsx.h>
 static int tracking_mouse_leave = 0;
 static int last_panel_hover_target = -1;
+
+static void reset_side_panel_hover_tracking(void) {
+    hover_x = -1;
+    hover_y = -1;
+    last_panel_hover_target = -1;
+}
+
 static void invalidate_panel_hover_target(HWND hwnd, int old_target, int new_target) {
     if (old_target == -2 || new_target == -2) ui_invalidate_side_panel_handle(hwnd);
     else ui_invalidate_side_panel_hover(hwnd);
@@ -44,6 +53,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     int i;
     int slider;
     GetClientRect(hwnd, &client);
+    if (ui_country_target_handle_left_click(hwnd, mouse_x, mouse_y)) return;
     if (color_picker_mouse_down(hwnd, client, mouse_x, mouse_y)) return;
     if (pause_menu_open) {
         int hit = pause_menu_hit_test(client, mouse_x, mouse_y);
@@ -81,9 +91,11 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (side_panel_collapsed) { ui_select_tile_from_mouse(hwnd, mouse_x, mouse_y); return; }
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         if (point_in_rect(get_panel_tab_rect(client, i), mouse_x, mouse_y)) {
+            if (panel_tab == i) return;
             panel_tab = i;
+            reset_side_panel_hover_tracking();
             ui_forms_layout(hwnd);
-            ui_invalidate_side_panel_immediate(hwnd);
+            ui_invalidate_side_panel(hwnd);
             return;
         }
     }
@@ -136,6 +148,8 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         if (hit == COUNTRY_PANEL_HIT_VASSAL_ACTION) {
             CountryVassalActionHit action = country_panel_vassal_action_target(client, mouse_x, mouse_y);
             int ok = 0;
+            if (ui_country_target_handle_action_button(hwnd, selected_civ, action.action,
+                                                       mouse_x, mouse_y)) return;
             if (action.action == COUNTRY_VASSAL_ACTION_SELECT) {
                 if (ui_snapshot_civ_alive(action.vassal_id)) {
                     ui_select_civ_preserve_view(action.vassal_id, UI_SELECT_SOURCE_VASSAL_ROW);
@@ -249,6 +263,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     int is_panel;
     GetClientRect(hwnd, &client);
     if (color_picker_mouse_move(hwnd, client, mouse_x, mouse_y)) return;
+    if (ui_country_target_update_mouse(hwnd, mouse_x, mouse_y)) return;
     if (color_picker_active()) return;
     if (pause_menu_open) return;
     if (!tracking_mouse_leave) {
@@ -330,6 +345,7 @@ static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     RECT viewport;
     GetClientRect(hwnd, &client);
+    if (ui_country_target_cancel(hwnd)) return;
     if (color_picker_active()) return;
     if (pause_menu_open) return;
     if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) return;
@@ -342,6 +358,10 @@ static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     SetCapture(hwnd);
 }
 int handle_shortcut(HWND hwnd, WPARAM key) {
+    if (ui_country_target_active()) {
+        if (key == VK_ESCAPE) return ui_country_target_cancel(hwnd);
+        return 1;
+    }
     if (key == VK_ESCAPE) {
         game_pause_for_modal_or_action();
         if (color_picker_active()) {
@@ -382,6 +402,7 @@ int is_game_shortcut(WPARAM key) {
 }
 int is_game_char_shortcut(WPARAM key) { return key == ' '; }
 int handle_char_shortcut(HWND hwnd, WPARAM key) {
+    if (ui_country_target_active()) return 1;
     if (color_picker_active()) return 1;
     if (pause_menu_open) return 1;
     if (key == ' ') return handle_shortcut(hwnd, VK_SPACE);
@@ -423,6 +444,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
                 if (ui_highlight_pulse_active()) redraw |= GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL;
                 if (redraw) ui_invalidate_game_redraw(hwnd, redraw);
             }
+            if (wparam == TIMER_ID && ui_notifications_tick()) ui_notifications_invalidate(hwnd);
             return 0;
         case WM_LBUTTONDOWN:
             handle_mouse_down(hwnd, LOWORD(lparam), HIWORD(lparam));
