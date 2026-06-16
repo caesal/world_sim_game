@@ -84,6 +84,11 @@ static SnapshotDiplomacyRelation tab_relation(int state, int score, int tension,
     relation.candidate_years = candidate_years;
     relation.last_war_winner = -1;
     relation.last_war_loser = -1;
+    if (state == DIPLOMACY_TRUCE) {
+        relation.truce_years_left = 8;
+        relation.truce_initial_years = 25;
+        relation.last_war_result = DIP_LAST_WAR_NEGOTIATED_TRUCE;
+    }
     relation.yearly_delta_x10 = score > 0 ? 15 : -10;
     relation.relation_factor_ids[0] = DIP_REL_FACTOR_CONTACT;
     relation.relation_factor_delta_x10[0] = 5;
@@ -116,8 +121,8 @@ static void fill_diplomacy_tab_snapshot(RenderSnapshot *snapshot) {
     snapshot->relations[1][0] = tab_relation(DIPLOMACY_ALLIANCE, 88, 18, 8, DIPLOMACY_NONE, 0, 4);
     snapshot->relations[0][2] = tab_relation(DIPLOMACY_PEACE, 84, 12, 6, DIPLOMACY_ALLIANCE, 3, 14);
     snapshot->relations[2][0] = tab_relation(DIPLOMACY_PEACE, 82, 12, 6, DIPLOMACY_ALLIANCE, 3, 14);
-    snapshot->relations[0][3] = tab_relation(DIPLOMACY_TENSE, -24, 86, 30, DIPLOMACY_NONE, 0, 13);
-    snapshot->relations[3][0] = tab_relation(DIPLOMACY_TENSE, -28, 86, 30, DIPLOMACY_NONE, 0, 13);
+    snapshot->relations[0][3] = tab_relation(DIPLOMACY_TRUCE, -24, 86, 30, DIPLOMACY_NONE, 0, 13);
+    snapshot->relations[3][0] = tab_relation(DIPLOMACY_TRUCE, -28, 86, 30, DIPLOMACY_NONE, 0, 13);
     snapshot->relations[0][4] = tab_relation(DIPLOMACY_WAR, -82, 92, 82, DIPLOMACY_NONE, 0, 2);
     snapshot->relations[4][0] = tab_relation(DIPLOMACY_WAR, -78, 92, 82, DIPLOMACY_NONE, 0, 2);
     snapshot->relations[0][5] = tab_relation(DIPLOMACY_VASSAL, 40, 10, 5, DIPLOMACY_NONE, 0, 8);
@@ -448,15 +453,18 @@ static int case_alliance_highlight_render(FILE *summary) {
 
 static int case_diplomacy_tab_render(FILE *summary) {
     int ok = 1;
+    int tense_ok, truce_hits;
     ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_alliance.bmp", DIPLOMACY_VIEW_ALLIANCE, 0, 0);
     ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_peace.bmp", DIPLOMACY_VIEW_PEACE, 0, 0);
-    ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_tense.bmp", DIPLOMACY_VIEW_TENSE, 0, 0);
+    tense_ok = render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_tense.bmp", DIPLOMACY_VIEW_TENSE, 0, 0);
+    truce_hits = diplomacy_score_tooltip_registered_count();
+    ok &= tense_ok;
     ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_war.bmp", DIPLOMACY_VIEW_WAR, 0, 0);
     ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_vassal.bmp", DIPLOMACY_VIEW_VASSAL, 0, 0);
     ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_peace_scrolled.bmp", DIPLOMACY_VIEW_PEACE, 180, 0);
     ok &= render_diplomacy_tab_bmp(DIPLOMACY_PROBE_DIR "/tab_peace_empty.bmp", DIPLOMACY_VIEW_PEACE, 0, 1);
-    fprintf(summary, "case=diplomacy_tab_render ok=%d files=tab_alliance.bmp/tab_peace.bmp/tab_tense.bmp/tab_war.bmp/tab_vassal.bmp/tab_peace_scrolled.bmp/tab_peace_empty.bmp\n", ok);
-    return ok;
+    fprintf(summary, "case=diplomacy_tab_render ok=%d truce_score_tooltip_hits=%d files=tab_alliance.bmp/tab_peace.bmp/tab_tense.bmp/tab_war.bmp/tab_vassal.bmp/tab_peace_scrolled.bmp/tab_peace_empty.bmp\n", ok, truce_hits);
+    return ok && truce_hits > 0;
 }
 
 static int case_actions_render(FILE *summary) {

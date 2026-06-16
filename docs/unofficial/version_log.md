@@ -1,5 +1,46 @@
 # Version Log
 
+## Ver0.3.3.e
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.e.
+2. Updated truce diplomacy cards so they now include the normal relation score
+   summary block before the truce countdown.
+3. Preserved the truce countdown, risk, status, and history rows while allowing
+   the relation bar to register the same hover factor tooltip as other
+   diplomacy cards.
+4. Softened the selected-country highlight focus halo by replacing the dark
+   outer focus-ring color with a light halo mix.
+5. Updated deterministic diplomacy visual probe coverage so the Tense tab
+   includes a truce relation and asserts truce relation tooltip registration.
+6. Updated the root README, documentation index, version log, side doc, active
+   version marker, and in-game pause-menu version summary for the Ver0.3.3.e
+   release record.
+
+Behavioral notes:
+
+- This version does not change gameplay, simulation, relation-score math,
+  diplomacy state transitions, war/truce rules, alliance rules, vassal rules,
+  save format, or `MAP_SAVE_VERSION`.
+- Truce remains grouped under the Tense diplomacy tab and keeps its no-war lock.
+- The highlight change is presentation-only and preserves selected, war,
+  vassal/overlord, and alliance highlight behavior.
+
+Validation notes:
+
+- Ver0.3.3.e uses `WORLD_SIM_VERSION "0.3.3.e"`.
+- Focused deterministic evidence from the implementation pass is recorded
+  locally under `build/validation/diplomacy_alliance_probe_20260613/`,
+  especially `tab_tense.bmp`, `alliance_highlight_sample.bmp`, and the probe
+  summary.
+- Live populated GUI hover validation remains a known gap; user-side live
+  interaction should be checked before treating the hover interaction as fully
+  accepted.
+- Strict AGENTS Rule39 game-flow regression was not completed for this pushed
+  checkpoint. This version must not be treated as full release-readiness
+  evidence until Rule39 is run and recorded.
+
 ## Ver0.3.3.d
 
 Implemented fixes:

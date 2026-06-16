@@ -57,19 +57,17 @@ void pause_menu_show_version_log(HWND hwnd) {
 
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
-                 "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "外交状态加入同盟，停战后的关系会进入更稳定的冷却和恢复过程。\n"
-                 "国家外交页现在按同盟、和平、紧张、战争、附庸分组，并显示方向性关系分数。\n"
-                 "鼠标悬停关系条时，会显示每年关系变化的正面和负面因素账本。\n"
-                 "操作加入同盟和解散同盟，同盟国家会以蓝色高亮显示。\n",
+                 "World Sim Game Ver %s\n\n本版本改进：\n"
+                 "停战外交卡片现在也显示关系条和鼠标悬停详情。\n"
+                 "停战倒计时、再战风险、停战状态和历史记录保持不变。\n"
+                 "国家高亮的焦点外环已变浅，减少黑色圆圈感。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
-                 "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Diplomacy now includes Alliance, with steadier post-war cooling and recovery.\n"
-                 "Country Diplomacy groups relations into Alliance, Peace, Tense, War, and Vassal tabs with directional relation scores.\n"
-                 "Hovering a relation bar opens a diplomacy ledger tooltip that explains positive and negative yearly change factors.\n"
-                 "Country actions now include Alliance and Dissolve, and allies are highlighted in blue.",
+                 "World Sim Game Ver %s\n\nImproved in this version:\n"
+                 "Diplomacy truce cards now show the relation bar and hover detail tooltip.\n"
+                 "Truce countdown, re-war risk, status, and history rows are preserved.\n"
+                 "Country highlight focus halos are lighter so they no longer read as black rings.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

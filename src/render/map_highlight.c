@@ -54,7 +54,8 @@ COLORREF map_highlight_civ_highlight_color(const RenderSnapshot *snapshot, int c
 }
 
 COLORREF map_highlight_civ_shadow_color(const RenderSnapshot *snapshot, int civ_id) {
-    return map_highlight_mix_color(civ_color(snapshot, civ_id), RGB(24, 22, 18), 68);
+    return map_highlight_mix_color(map_highlight_civ_highlight_color(snapshot, civ_id, 0),
+                                   RGB(255, 255, 245), 36);
 }
 
 static COLORREF alliance_highlight_color(void) {

@@ -364,6 +364,7 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
         int truce_denom = relation.truce_initial_years > 0 ? relation.truce_initial_years : relation.truce_years_left;
         RECT chip_row;
         int chip_w;
+        draw_diplomacy_relation_score_block(hdc, cursor, civ_id, other_id);
         ui_format_months(span, sizeof(span), relation.truce_years_left * 12, UI_MONTH_ZERO_DONE);
         bar_row(hdc, cursor, tr("Truce left", "停战剩余"), span,
                 clamp(relation.truce_years_left * 100 / max(1, truce_denom), 0, 100), truce_style.accent);
@@ -449,7 +450,7 @@ int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view)
         SnapshotWar war = card_war(civ_id, other_id);
         return war.temporary_soldiers_a > 0 || war.temporary_soldiers_b > 0 ? 264 : 244;
     }
-    if (relation.state == DIPLOMACY_TRUCE) return 150;
+    if (relation.state == DIPLOMACY_TRUCE) return 150 + diplomacy_relation_score_block_height(civ_id, other_id);
     if (direct_vassal) return 162;
     if (vassal_like) return 110;
     return 78 + diplomacy_relation_score_block_height(civ_id, other_id);
