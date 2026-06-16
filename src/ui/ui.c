@@ -7,6 +7,7 @@
 #include "render/panel_country_events.h"
 #include "render/panel_debug.h"
 #include "render/panel_country_diplomacy_hits.h"
+#include "render/panel_country_diplomacy_tooltip.h"
 #include "render/render.h"
 #include "ui/color_picker.h"
 #include "ui/pause_menu.h"
@@ -41,10 +42,17 @@ static void invalidate_panel_hover_target(HWND hwnd, int old_target, int new_tar
 }
 
 static int panel_hover_target(RECT client, int x, int y) {
+    int tooltip_key;
     if (side_panel_handle_hit_test(client, x, y)) return -2;
     if (!point_in_rect(get_side_panel_draw_rect(client), x, y)) return -1;
     if (side_panel_collapsed) return 1;
-    if (panel_tab == PANEL_COUNTRY) return panel_tab * 100000 + country_panel_hit_test(client, x, y);
+    if (panel_tab == PANEL_COUNTRY) {
+        if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
+            tooltip_key = diplomacy_score_tooltip_hover_key(x, y);
+            if (tooltip_key > 0) return 7000000 + tooltip_key;
+        }
+        return panel_tab * 100000 + country_panel_hit_test(client, x, y);
+    }
     return panel_tab * 100000 + (x / 24) * 31 + y / 24;
 }
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
@@ -183,22 +191,27 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
         if (hit <= COUNTRY_PANEL_HIT_SUBTAB_BASE &&
             hit > COUNTRY_PANEL_HIT_SUBTAB_BASE - COUNTRY_DETAIL_TAB_COUNT) {
-            country_detail_subtab = COUNTRY_PANEL_HIT_SUBTAB_BASE - hit;
-            country_detail_subtab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
+            int new_tab = clamp(COUNTRY_PANEL_HIT_SUBTAB_BASE - hit, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
+            if (country_detail_subtab == new_tab) return;
+            country_detail_subtab = new_tab;
             ui_invalidate_side_panel(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE &&
-            hit >= COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - DIPLOMACY_VIEW_OTHER) {
-            country_diplomacy_view = COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - hit;
+            hit > COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - DIPLOMACY_VIEW_COUNT) {
+            int new_view = COUNTRY_PANEL_HIT_DIPLOMACY_VIEW_BASE - hit;
+            if (country_diplomacy_view == new_view) return;
+            country_diplomacy_view = new_view;
             country_detail_scroll_offsets[COUNTRY_DETAIL_DIPLOMACY] = 0;
             ui_invalidate_side_panel(hwnd);
             return;
         }
         if (hit <= COUNTRY_PANEL_HIT_DECISION_VIEW_BASE &&
             hit > COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - COUNTRY_DECISION_SUBTAB_COUNT) {
-            country_decision_subtab = COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - hit;
-            country_decision_subtab = clamp(country_decision_subtab, 0, COUNTRY_DECISION_SUBTAB_COUNT - 1);
+            int new_view = clamp(COUNTRY_PANEL_HIT_DECISION_VIEW_BASE - hit, 0,
+                                 COUNTRY_DECISION_SUBTAB_COUNT - 1);
+            if (country_decision_subtab == new_view) return;
+            country_decision_subtab = new_view;
             country_detail_scroll_offsets[COUNTRY_DETAIL_DECISION] = 0;
             ui_invalidate_side_panel(hwnd);
             return;

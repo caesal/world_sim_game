@@ -2,6 +2,8 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "core/render_snapshot.h"
+#include "render/panel_diplomacy_cache_key.h"
+#include "render/panel_country_diplomacy_tooltip.h"
 #include "render/profiling_switches.h"
 #include "render/render_context.h"
 #include "render/render_panel_internal.h"
@@ -158,26 +160,6 @@ static unsigned int mix_top_city_rows_key(unsigned int key, const RenderSnapshot
     return key;
 }
 
-static unsigned int mix_diplomacy_rows_key(unsigned int key, const RenderSnapshot *snapshot,
-                                           int civ_id, int all_relations) {
-    int i;
-    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return mix_key(key, 0);
-    for (i = 0; i < snapshot->civ_count; i++) {
-        const SnapshotCiv *other = &snapshot->civs[i];
-        const SnapshotDiplomacyRelation *rel = &snapshot->relations[civ_id][i];
-        const SnapshotWar *war = &snapshot->wars[civ_id][i];
-        int direct = other->alive && (other->overlord == civ_id || snapshot->civs[civ_id].overlord == i);
-        if (i == civ_id || (!all_relations && !direct)) continue;
-        key = mix_key(key, other->uid); key = mix_key(key, other->alive);
-        key = mix_key(key, other->overlord); key = mix_key(key, key_bucket(other->current_soldiers, 100));
-        key = mix_key(key, other->vassal_callable_soldiers); key = mix_key(key, other->vassal_resource_tribute);
-        key = mix_key(key, rel->state); key = mix_key(key, rel->relation_score);
-        key = mix_key(key, rel->truce_years_left); key = mix_key(key, war->active);
-        key = mix_key(key, key_bucket(war->soldiers_a + war->soldiers_b, 100));
-    }
-    return key;
-}
-
 static PanelCacheKind panel_cache_kind(const RenderSnapshot *snapshot) {
     (void)snapshot;
     if (side_panel_collapsed) return PANEL_CACHE_COLLAPSED;
@@ -273,7 +255,7 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot, PanelCacheK
         key = mix_header_key(key, civ, 1);
         if (civ) key = mix_country_summary_key(key, civ->summary);
         key = mix_decision_key(key, civ);
-        key = mix_diplomacy_rows_key(key, snapshot, selected_civ, 0);
+        key = panel_diplomacy_rows_cache_key(key, snapshot, selected_civ, 0);
         key = mix_key(key, snapshot->plague_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_RESOURCES) {
@@ -305,7 +287,7 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot, PanelCacheK
         key = mix_top_city_rows_key(key, snapshot, civ);
     } else if (tab == COUNTRY_DETAIL_DIPLOMACY) {
         key = mix_header_key(key, civ, 0);
-        key = mix_diplomacy_rows_key(key, snapshot, selected_civ, 1);
+        key = panel_diplomacy_rows_cache_key(key, snapshot, selected_civ, 1);
         key = mix_key(key, snapshot->diplomacy_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_DISORDER) {
@@ -425,6 +407,16 @@ static void rebuild_panel_cache(PanelViewCache *cache, RECT client, RECT panel,
     force_refresh = 0;
 }
 
+static void draw_hover_overlay(HDC hdc, RECT panel, PanelCacheKind kind) {
+    if (kind != PANEL_CACHE_COUNTRY_DETAIL ||
+        panel_tab != PANEL_COUNTRY ||
+        country_detail_subtab != COUNTRY_DETAIL_DIPLOMACY) return;
+    if (hover_x < panel.left || hover_x >= panel.right ||
+        hover_y < panel.top || hover_y >= panel.bottom) return;
+    if (diplomacy_score_tooltip_hover_key(hover_x, hover_y) <= 0) return;
+    diplomacy_score_tooltip_draw(hdc, panel);
+}
+
 void panel_view_model_cache_draw(HDC hdc, RECT client) {
     const RenderSnapshot *snapshot = render_context_snapshot();
     PanelCacheKind kind = panel_cache_kind(snapshot);
@@ -455,6 +447,7 @@ void panel_view_model_cache_draw(HDC hdc, RECT client) {
     hover_repaint_pending = 0;
     BitBlt(hdc, panel.left, panel.top, panel.right - panel.left, panel.bottom - panel.top,
            cache->dc, panel.left, panel.top, SRCCOPY);
+    draw_hover_overlay(hdc, panel, kind);
 }
 
 void panel_view_model_cache_invalidate(void) {

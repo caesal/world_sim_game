@@ -118,13 +118,13 @@ int country_overview_actions_height(int civ_id) {
     int direct = actions_direct_count(civ_id);
     int is_vassal = actions_overlord(civ_id) >= 0;
     int rows = is_vassal ? 1 : max(1, direct);
-    return 36 + 24 + rows * 36 + 32;
+    return 72 + 24 + rows * 36 + 32;
 }
 
 int country_overview_vassal_actions_height(int civ_id) {
     int direct = actions_direct_count(civ_id);
     int is_vassal = actions_overlord(civ_id) >= 0;
-    return 36 + 24 + (is_vassal ? 1 : max(1, direct)) * 36;
+    return 72 + 24 + (is_vassal ? 1 : max(1, direct)) * 36;
 }
 
 int country_overview_civil_unrest_hit(RECT viewport, int mouse_x, int mouse_y) {
@@ -195,26 +195,33 @@ static void draw_action_row(HDC hdc, UiCursor *cursor, int civ_id) {
     int enabled = civ && civ->alive;
     int can_trigger = civ ? civ->collapse_can_trigger : 0;
     int gap = 6;
-    int button_w = (cursor->width - gap * 3) / 4;
+    int button_w = (cursor->width - gap * 2) / 3;
     RECT declare_button = {cursor->x, cursor->y + 4, cursor->x + button_w, cursor->y + 32};
     RECT peace_button = {declare_button.right + gap, cursor->y + 4,
                          declare_button.right + gap + button_w, cursor->y + 32};
-    RECT vassal_button = {peace_button.right + gap, cursor->y + 4,
-                          peace_button.right + gap + button_w, cursor->y + 32};
-    RECT unrest_button = {vassal_button.right + gap, cursor->y + 4,
-                          cursor->x + cursor->width, cursor->y + 32};
+    RECT alliance_button = {peace_button.right + gap, cursor->y + 4,
+                            cursor->x + cursor->width, cursor->y + 32};
+    RECT dissolve_button = {cursor->x, cursor->y + 40, cursor->x + button_w, cursor->y + 68};
+    RECT vassal_button = {dissolve_button.right + gap, cursor->y + 40,
+                          dissolve_button.right + gap + button_w, cursor->y + 68};
+    RECT unrest_button = {vassal_button.right + gap, cursor->y + 40,
+                          cursor->x + cursor->width, cursor->y + 68};
 
     record_vassal_hit(declare_button, -1, COUNTRY_VASSAL_ACTION_DECLARE_WAR);
     record_vassal_hit(peace_button, -1, COUNTRY_VASSAL_ACTION_PEACE);
+    record_vassal_hit(alliance_button, -1, COUNTRY_VASSAL_ACTION_ALLIANCE);
+    record_vassal_hit(dissolve_button, -1, COUNTRY_VASSAL_ACTION_DISSOLVE);
     record_vassal_hit(vassal_button, -1, COUNTRY_VASSAL_ACTION_VASSALIZE);
     last_civil_unrest_button = unrest_button;
     last_civil_unrest_enabled = can_trigger;
 
     draw_button(hdc, declare_button, tr("Declare War", "开战"), enabled);
     draw_button(hdc, peace_button, tr("Peace", "和平"), enabled);
+    draw_button(hdc, alliance_button, tr("Alliance", "同盟"), enabled);
+    draw_button(hdc, dissolve_button, tr("Dissolve", "解散"), enabled);
     draw_button(hdc, vassal_button, tr("Vassalize", "附庸"), enabled);
     draw_button(hdc, unrest_button, tr("Civil Unrest", "内乱"), can_trigger);
-    cursor->y += 36;
+    cursor->y += 72;
     if (!can_trigger) ui_row_text(hdc, cursor, tr("Cannot collapse", "无法崩溃"),
                                   collapse_block_reason_ui(civ_id));
 }

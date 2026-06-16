@@ -13,6 +13,15 @@ static void bind_civ_decision_strings(RenderSnapshot *snapshot) {
     }
 }
 
+void render_snapshot_copy_diplomacy_section(RenderSnapshot *dst, const RenderSnapshot *src) {
+    if (!dst || !src) return;
+    memcpy(dst->relations, src->relations, sizeof(dst->relations));
+    memcpy(dst->wars, src->wars, sizeof(dst->wars));
+    memcpy(dst->war_front_flags, src->war_front_flags, sizeof(dst->war_front_flags));
+    memcpy(dst->war_peace_pressure, src->war_peace_pressure, sizeof(dst->war_peace_pressure));
+    dst->diplomacy_revision = src->diplomacy_revision;
+}
+
 void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnapshot *src) {
     int mask;
     if (!dst || !src) return;
@@ -44,11 +53,7 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
         dst->regions_revision = src->regions_revision;
     }
     if (mask & RENDER_SNAPSHOT_SECTION_DIPLOMACY) {
-        memcpy(dst->relations, src->relations, sizeof(dst->relations));
-        memcpy(dst->wars, src->wars, sizeof(dst->wars));
-        memcpy(dst->war_front_flags, src->war_front_flags, sizeof(dst->war_front_flags));
-        memcpy(dst->war_peace_pressure, src->war_peace_pressure, sizeof(dst->war_peace_pressure));
-        dst->diplomacy_revision = src->diplomacy_revision;
+        render_snapshot_copy_diplomacy_section(dst, src);
     }
     if (mask & RENDER_SNAPSHOT_SECTION_LANES) {
         memcpy(dst->lanes, src->lanes, sizeof(dst->lanes));

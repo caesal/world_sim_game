@@ -130,7 +130,8 @@ static int draw_contour_pass(HDC hdc, const HighlightRequest *requests,
         int width, count;
         if (used[i] || segs[i].request_index < 0) continue;
         request = &requests[segs[i].request_index];
-        width = inner ? (request->strong ? 2 : 1) : (request->strong ? 3 : 2);
+        width = (inner ? (request->strong ? 2 : 1) : (request->strong ? 3 : 2)) +
+                request->width_boost;
         pen = contour_pen_get(&pool, inner ? request->inner : request->outer, width);
         if (current != pen) {
             HGDIOBJ prev = SelectObject(hdc, pen);

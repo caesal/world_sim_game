@@ -105,6 +105,10 @@ UiClaySemanticStyle ui_clay_semantic_style(UiClaySemanticTone tone) {
             style = (UiClaySemanticStyle){RGB(88, 164, 134), RGB(43, 70, 63),
                                           RGB(222, 248, 238), RGB(48, 63, 60), RGB(78, 124, 111)};
             break;
+        case UI_CLAY_TONE_ALLIANCE:
+            style = (UiClaySemanticStyle){RGB(75, 149, 199), RGB(38, 60, 78),
+                                          RGB(218, 240, 255), RGB(45, 58, 68), RGB(64, 112, 151)};
+            break;
         case UI_CLAY_TONE_TENSE:
             style = (UiClaySemanticStyle){RGB(210, 143, 70), RGB(77, 58, 38),
                                           RGB(255, 232, 204), RGB(63, 55, 45), RGB(136, 105, 62)};

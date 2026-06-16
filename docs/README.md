@@ -10,11 +10,11 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.3.c, this release update intentionally excludes `docs/official`.
+For Ver0.3.3.d, this release update intentionally excludes `docs/official`.
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
-- `docs/unofficial/ver0.3.3.c_side_doc.md`
+- `docs/unofficial/ver0.3.3.d_side_doc.md`
 
 The working version log is:
 

@@ -6,7 +6,7 @@
 
 #include <windows.h>
 
-#define HIGHLIGHT_REQUEST_MAX 96
+#define HIGHLIGHT_REQUEST_MAX (MAX_CIVS + 3)
 #define HIGHLIGHT_EDGE_SEGMENT_MAX 24000
 
 typedef struct {
@@ -16,6 +16,7 @@ typedef struct {
     int dim;
     int priority;
     int strong;
+    int width_boost;
     int pulse_start;
     unsigned int pixel;
     COLORREF inner;

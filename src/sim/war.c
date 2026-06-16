@@ -157,9 +157,10 @@ static int war_start_internal(int attacker, int defender, int allow_no_border) {
     ActiveWar *war;
     if (!is_valid_civ(attacker) || !is_valid_civ(defender) || attacker == defender) return 0;
     if (vassal_overlord(attacker) >= 0) return 0;
-    if (!allow_no_border && !stability_allows_new_war(attacker, defender)) return 0;
     if (vassal_overlord(defender) >= 0) defender = vassal_overlord(defender);
     if (!is_valid_civ(defender) || attacker == defender) return 0;
+    if (!allow_no_border && diplomacy_status(attacker, defender) == DIPLOMACY_ALLIANCE) return 0;
+    if (!allow_no_border && !stability_allows_new_war(attacker, defender)) return 0;
     (void)allow_no_border;
     if (!war_has_active_front(attacker, defender) && !war_has_active_front(attacker, direct_target)) return 0;
     if (active_war_index(attacker, defender) >= 0) return 0;

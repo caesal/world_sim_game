@@ -1,5 +1,55 @@
 # Version Log
 
+## Ver0.3.3.d
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.d.
+2. Added Alliance as a first-class diplomacy state for display, AI war desire
+   blocking, player Declare War feedback, debug filtering, event logs, and map
+   animation.
+3. Added post-war cooling and diplomacy-state stabilization so ordinary truce
+   expiry can recover through Tense and Peace instead of immediately looping
+   into repeated wars under normal pressure.
+4. Added cached directional relation scores and yearly factor breakdowns for
+   Country > Diplomacy cards.
+5. Reworked diplomacy relation groups into Alliance, Peace, Tense, War, and
+   Vassal tabs, with sticky subview tabs while the relation list scrolls.
+6. Added selected-country ally highlighting in blue, with highlight capacity
+   and priority hardening.
+7. Added player Alliance and Dissolve commands, including a blue target arrow
+   for Alliance and forced player Declare War behavior that can break only the
+   relevant alliance pair before war.
+8. Added and polished a hover diplomacy ledger tooltip for relation cards,
+   grouping positive and negative yearly relation-change factors from cached
+   snapshot data.
+9. Updated deterministic diplomacy probes and tooltip visual evidence for the
+   Ver0.3.3.d release record.
+10. Updated the root README, documentation index, version log, side doc, and
+    in-game pause-menu version summary for the Ver0.3.3.d release record.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `13`; no save layout change is part of this
+  checkpoint.
+- This version does not add call-to-arms or multi-country war participation.
+- The tooltip UI explains current cached factor values; it does not change
+  relation-score math.
+- Generated validation screenshots and logs remain local artifacts and are not
+  committed as release source.
+
+Validation notes:
+
+- Ver0.3.3.d uses `WORLD_SIM_VERSION "0.3.3.d"`.
+- Focused deterministic evidence from the implementation passes is recorded
+  locally under `build/validation/diplomacy_alliance_probe_20260613/`.
+- Live populated Country > Diplomacy hover validation remains a known gap from
+  the implementation pass; user-side live interaction should be checked before
+  treating the tooltip interaction as fully accepted.
+- Strict AGENTS Rule39 game-flow regression was not completed for this pushed
+  checkpoint. This version must not be treated as full release-readiness
+  evidence until Rule39 is run and recorded.
+
 ## Ver0.3.3.c
 
 Implemented fixes:

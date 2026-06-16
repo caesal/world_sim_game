@@ -7,17 +7,15 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.3.c is a Windows graphical sandbox prototype written in C.
+Ver0.3.3.d is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.3.c is a focused player-country action and side-panel repaint checkpoint
-over Ver0.3.3.b. It keeps the Extreme-map capacity work from Ver0.3.3.b, then
-adds selected-country actions for Declare War, Peace, Vassalize, and Civil
-Unrest in one consistent action row. Declare War and Vassalize use target
-selection arrows, pause/restore behavior, and top stacked notifications. Peace
-can end the selected country's active direct wars without assigning victory or
-defeat. The sidebar tab repaint path was also routed through normal
-invalidation instead of direct synchronous side-panel painting to reduce tab
-switch flicker.
+Ver0.3.3.d is a focused diplomacy-state, relation-score, alliance-highlight,
+and diplomacy UI explanation checkpoint over Ver0.3.3.c. It keeps the
+player-country action flow from Ver0.3.3.c, then adds alliance as a first-class
+diplomacy state, post-war cooling behavior, directional relation scores with
+cached factor breakdowns, diplomacy grouping tabs, blue ally map highlights,
+player Alliance and Dissolve commands, and a polished hover ledger explaining
+yearly relation changes from cached snapshot data.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use a Large map, at least 26 placed
@@ -28,13 +26,13 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: Ver0.3.3.c is based on focused build/static/text validation
-and targeted GUI evidence rather than full AGENTS Rule39 game-flow evidence.
-The action buttons and target-mode overlays are implemented, but future
-performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
-collapse, enclave, route, marker, plague, or population balance changes must
-remain evidence-based and pass the strict validation gate for the specific
-scope involved.
+Known follow-up: Ver0.3.3.d is based on focused build/static/text/probe
+validation and deterministic tooltip UI evidence rather than full AGENTS Rule39
+game-flow evidence. Diplomacy relation cards, ally highlights, and player
+alliance actions are implemented, but future performance, UI, map-display,
+simulation-speed, diplomacy, war, vassal, collapse, enclave, route, marker,
+plague, or population balance changes must remain evidence-based and pass the
+strict validation gate for the specific scope involved.
 
 You can:
 

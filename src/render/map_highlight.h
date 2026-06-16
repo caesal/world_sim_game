@@ -44,6 +44,10 @@ int map_highlight_focus_peak_ms(void);
 int map_highlight_total_paint_count(void);
 int map_highlight_total_last_ms(void);
 int map_highlight_total_peak_ms(void);
+int map_highlight_last_selected_request_present(void);
+int map_highlight_last_alliance_request_count(void);
+int map_highlight_last_war_request_count(void);
+int map_highlight_last_vassal_request_count(void);
 void map_highlight_overlay_reset_debug(void);
 
 #endif

@@ -102,6 +102,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
         out->war_strength_score = war_breakdown->strength_score;
         out->war_trade_penalty = war_breakdown->trade_penalty;
         out->war_truce_penalty = war_breakdown->truce_penalty;
+        out->war_post_war_cooldown_penalty = war_breakdown->post_war_cooldown_penalty;
         out->war_disorder_penalty = war_breakdown->disorder_penalty;
         out->war_frontier_penalty = war_breakdown->frontier_penalty;
         out->war_heritage_affinity_penalty = war_breakdown->heritage_affinity_penalty;

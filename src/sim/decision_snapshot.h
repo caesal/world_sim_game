@@ -25,6 +25,7 @@ typedef struct {
     int war_strength_score;
     int war_trade_penalty;
     int war_truce_penalty;
+    int war_post_war_cooldown_penalty;
     int war_disorder_penalty;
     int war_frontier_penalty;
     int war_heritage_affinity_penalty;

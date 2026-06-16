@@ -171,6 +171,8 @@ static int event_matches_filter(int index) {
                    type == EVENT_TYPE_VASSAL_ANNEXED ||
                    type == EVENT_TYPE_DIPLOMACY_PEACE ||
                    type == EVENT_TYPE_DIPLOMACY_TENSE ||
+                   type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
+                   type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
                    type == EVENT_TYPE_TREASURY_INDEMNITY ||
                    type == EVENT_TYPE_STABILITY_PROJECT ||
                    type == EVENT_TYPE_MERCENARIES_HIRED;

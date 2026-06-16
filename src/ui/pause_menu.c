@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本新增：\n"
-                 "右侧栏切换标签页现在走正常重绘路径，减少直接绘制造成的闪烁。\n"
-                 "国家操作加入开战、和平、附庸、内乱同排按钮，并保留附庸释放/吞并。\n"
-                 "开战和附庸目标模式现在有红色/紫色箭头、暂停恢复和顶部通知。\n"
-                 "开战失败会显示更具体原因，例如稳定限制、自己的附庸、目标宗主国已在战争中、没有有效战线或战争槽已满。\n",
+                 "外交状态加入同盟，停战后的关系会进入更稳定的冷却和恢复过程。\n"
+                 "国家外交页现在按同盟、和平、紧张、战争、附庸分组，并显示方向性关系分数。\n"
+                 "鼠标悬停关系条时，会显示每年关系变化的正面和负面因素账本。\n"
+                 "操作加入同盟和解散同盟，同盟国家会以蓝色高亮显示。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nNew in this version:\n"
-                 "Sidebar tab switching now uses the normal repaint path to reduce direct-paint flicker.\n"
-                 "Country actions now keep Declare War, Peace, Vassalize, and Civil Unrest in one row while preserving vassal Release/Annex controls.\n"
-                 "Declare War and Vassalize target modes use red/purple arrows, pause/restore, and top notifications.\n"
-                 "Failed Declare War attempts now report specific reasons such as stability limits, own vassals, overlord wars, missing fronts, or full war slots.",
+                 "Diplomacy now includes Alliance, with steadier post-war cooling and recovery.\n"
+                 "Country Diplomacy groups relations into Alliance, Peace, Tense, War, and Vassal tabs with directional relation scores.\n"
+                 "Hovering a relation bar opens a diplomacy ledger tooltip that explains positive and negative yearly change factors.\n"
+                 "Country actions now include Alliance and Dissolve, and allies are highlighted in blue.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

@@ -11,7 +11,8 @@ typedef enum {
     WAR_DESIRE_RESULT_LOW_READINESS,
     WAR_DESIRE_RESULT_STABILITY,
     WAR_DESIRE_RESULT_READY,
-    WAR_DESIRE_RESULT_BELOW_THRESHOLD
+    WAR_DESIRE_RESULT_BELOW_THRESHOLD,
+    WAR_DESIRE_RESULT_POST_WAR_COOLDOWN
 } WarDesireResult;
 
 typedef struct {
@@ -33,6 +34,7 @@ typedef struct {
     int strength_score;
     int trade_penalty;
     int truce_penalty;
+    int post_war_cooldown_penalty;
     int disorder_penalty;
     int frontier_penalty;
     int heritage_affinity_penalty;

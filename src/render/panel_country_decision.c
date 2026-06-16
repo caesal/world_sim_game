@@ -306,6 +306,7 @@ static const char *war_result_text(const DecisionSnapshot *snap) {
         case WAR_DESIRE_RESULT_STABILITY: return tr("Stability", "稳定闸门");
         case WAR_DESIRE_RESULT_READY: return tr("Ready", "可宣战");
         case WAR_DESIRE_RESULT_BELOW_THRESHOLD: return tr("Below threshold", "低于门槛");
+        case WAR_DESIRE_RESULT_POST_WAR_COOLDOWN: return tr("Post-war cooldown", "战后冷却");
         default: return tr("None", "无");
     }
 }
@@ -318,6 +319,7 @@ static const char *war_result_short_text(const DecisionSnapshot *snap) {
         case WAR_DESIRE_RESULT_STABILITY: return tr("Stability gate", "稳定闸门");
         case WAR_DESIRE_RESULT_READY: return tr("Can declare", "可以开战");
         case WAR_DESIRE_RESULT_BELOW_THRESHOLD: return tr("Below threshold", "低于门槛");
+        case WAR_DESIRE_RESULT_POST_WAR_COOLDOWN: return tr("Post-war cooldown", "战后冷却");
         default: return tr("No decision", "暂无");
     }
 }
@@ -354,6 +356,7 @@ static void draw_war_desire_breakdown(HDC hdc, UiCursor *cursor, const DecisionS
     char text[128], own[32], enemy[32], ratio[24], cap_text[24];
     int threshold = snap->war_threshold > 0 ? snap->war_threshold : 70;
     int cap = snap->war_readiness_cap > 0 ? snap->war_readiness_cap : 100;
+    int cooldown = snap->war_post_war_cooldown_penalty > 0;
     int cols = cursor->width >= 360 ? 4 : 3;
     int gap = 6;
     int chip_h = 28;
@@ -394,7 +397,8 @@ static void draw_war_desire_breakdown(HDC hdc, UiCursor *cursor, const DecisionS
     desire_chip_plain(hdc, CHIP_RECT(), tr("Targets", "目标"), text, RGB(156, 142, 92), 0); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Power", "兵力"), snap->war_strength_score, 1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Trade", "贸易"), snap->war_trade_penalty, -1); i++;
-    desire_chip_signed(hdc, CHIP_RECT(), tr("Truce", "停战"), snap->war_truce_penalty, -1); i++;
+    desire_chip_signed(hdc, CHIP_RECT(), cooldown ? tr("Cooldown", "战后冷却") : tr("Truce", "停战"),
+                       cooldown ? snap->war_post_war_cooldown_penalty : snap->war_truce_penalty, -1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Disorder", "混乱"), snap->war_disorder_penalty, -1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Open", "空地"), snap->war_frontier_penalty, -1); i++;
     desire_chip_signed(hdc, CHIP_RECT(), tr("Heritage", "文明"), snap->war_heritage_affinity_penalty, -1); i++;

@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define POST_WAR_DESIRE_PENALTY 25
+
 static WarDesireBreakdown last_breakdowns[MAX_CIVS];
 
 static int resource_deficit_value(int value, int target) {
@@ -86,6 +88,12 @@ WarDesireBreakdown war_desire_calculate(int civ_a, int civ_b, DiplomacyRelation 
         store_last(civ_a, out);
         return out;
     }
+    if (relation.state == DIPLOMACY_ALLIANCE) {
+        out.result = WAR_DESIRE_RESULT_BELOW_THRESHOLD;
+        set_reason(&out, "Alliance blocks proactive war.");
+        store_last(civ_a, out);
+        return out;
+    }
 
     out.resource_score = resource_need_score(civ_a);
     expansion_ai = expansion_ai_diagnostics(civ_a, expansion_resource_score_for_civ(civ_a));
@@ -102,9 +110,13 @@ WarDesireBreakdown war_desire_calculate(int civ_a, int civ_b, DiplomacyRelation 
 
     out.trade_penalty = (relation.trade_fit * 3) / 5;
     out.truce_penalty = relation.truce_years_left > 0 ? 50 : 0;
+    out.post_war_cooldown_penalty =
+        relation.truce_years_left <= 0 && relation.last_war_result != DIP_LAST_WAR_NONE ?
+        POST_WAR_DESIRE_PENALTY : 0;
     out.disorder_penalty = economy_effective_disorder_for_civ(civ_a) / 2;
     out.heritage_affinity_penalty = civs[civ_a].heritage == civs[civ_b].heritage ? 8 : 0;
-    desire -= out.trade_penalty + out.truce_penalty + out.disorder_penalty + out.heritage_affinity_penalty;
+    desire -= out.trade_penalty + out.truce_penalty + out.post_war_cooldown_penalty +
+              out.disorder_penalty + out.heritage_affinity_penalty;
     out.own_soldiers = war_current_soldiers_for_civ(civ_a);
     out.enemy_soldiers = war_current_soldiers_for_civ(civ_b);
     out.readiness_percent = clamp(out.own_soldiers * 100 / max(1, out.enemy_soldiers), 0, 999);
@@ -147,6 +159,7 @@ WarDesireBreakdown war_desire_calculate(int civ_a, int civ_b, DiplomacyRelation 
 
     if (out.stability_blocked) out.result = WAR_DESIRE_RESULT_STABILITY;
     else if (out.truce_penalty > 0) out.result = WAR_DESIRE_RESULT_TRUCE;
+    else if (out.post_war_cooldown_penalty > 0) out.result = WAR_DESIRE_RESULT_POST_WAR_COOLDOWN;
     else if (out.frontier_penalty > 0) out.result = WAR_DESIRE_RESULT_FRONTIER;
     else if (out.readiness_cap_applied) out.result = WAR_DESIRE_RESULT_LOW_READINESS;
     else if (out.final_desire >= out.threshold) out.result = WAR_DESIRE_RESULT_READY;
@@ -157,6 +170,9 @@ WarDesireBreakdown war_desire_calculate(int civ_a, int civ_b, DiplomacyRelation 
     else if (out.result == WAR_DESIRE_RESULT_FRONTIER) set_reason(&out, "Reachable expansion targets suppress war.");
     else if (out.result == WAR_DESIRE_RESULT_READY) set_reason(&out, "War desire reaches the declaration threshold.");
     else if (out.result == WAR_DESIRE_RESULT_TRUCE) set_reason(&out, "Truce blocks a new war.");
+    else if (out.result == WAR_DESIRE_RESULT_POST_WAR_COOLDOWN) {
+        set_reason(&out, "Post-war cooldown lowers war desire.");
+    }
     else if (out.crisis_score > 0 && out.open_target_count <= 0) {
         set_reason(&out, "Crisis pressure raises war desire; final score remains below threshold.");
     }

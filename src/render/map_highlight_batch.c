@@ -72,6 +72,7 @@ static unsigned int edge_request_key(const RenderSnapshot *snapshot, MapLayout l
         key = mix_edge_key(key, requests[i].civ_id);
         key = mix_edge_key(key, requests[i].priority);
         key = mix_edge_key(key, requests[i].strong);
+        key = mix_edge_key(key, requests[i].width_boost);
         key = mix_edge_key(key, (int)requests[i].inner);
         key = mix_edge_key(key, (int)requests[i].outer);
     }
@@ -346,13 +347,14 @@ static void draw_focus_ring(HDC hdc, HighlightPenPool *pool, MapLayout layout,
     elapsed = pulse_elapsed(request->pulse_start);
     warm = map_highlight_mix_color(request->inner, RGB(255, 220, 92), 24);
     shadow = map_highlight_civ_shadow_color(snapshot, request->civ_id);
-    draw_ring(hdc, pool, cx, cy, base, request->strong ? 3 : 2, request->inner);
-    draw_ring(hdc, pool, cx, cy, base + 7, 1, shadow);
+    draw_ring(hdc, pool, cx, cy, base, (request->strong ? 3 : 2) + request->width_boost,
+              request->inner);
+    draw_ring(hdc, pool, cx, cy, base + 7, 1 + request->width_boost, shadow);
     if (elapsed < 3000) {
         phase = (elapsed % 1000) * 26 / 1000;
-        draw_ring(hdc, pool, cx, cy, base + phase + 8, 2,
+        draw_ring(hdc, pool, cx, cy, base + phase + 8, 2 + request->width_boost,
                   map_highlight_mix_color(request->inner, RGB(255, 255, 255), 18));
-        draw_ring(hdc, pool, cx, cy, base + phase / 2 + 18, 1, warm);
+        draw_ring(hdc, pool, cx, cy, base + phase / 2 + 18, 1 + request->width_boost, warm);
     }
 }
 

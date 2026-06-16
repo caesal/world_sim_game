@@ -22,6 +22,7 @@ typedef enum {
 typedef enum {
     UI_CLAY_TONE_NEUTRAL,
     UI_CLAY_TONE_PEACE,
+    UI_CLAY_TONE_ALLIANCE,
     UI_CLAY_TONE_TENSE,
     UI_CLAY_TONE_TRUCE,
     UI_CLAY_TONE_WAR,

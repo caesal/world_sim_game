@@ -115,6 +115,9 @@ static void notify_result(HWND hwnd, UiCountryTargetMode mode, GamePlayerActionR
     if (result == GAME_PLAYER_ACTION_NO_CONTACT && mode == UI_COUNTRY_TARGET_DECLARE_WAR) {
         notify(hwnd, "War requires land border or sea route contact.",
                "开战需要陆地边界或航道联系。");
+    } else if (result == GAME_PLAYER_ACTION_NO_CONTACT && mode == UI_COUNTRY_TARGET_ALLIANCE) {
+        notify(hwnd, "Alliance requires land border or sea route contact.",
+               "同盟需要陆地边界或航道联系。");
     } else if (result == GAME_PLAYER_ACTION_NO_CONTACT) {
         notify(hwnd, "Vassalization requires land border or sea route contact.",
                "附庸化需要陆地边界或航道联系。");
@@ -152,6 +155,17 @@ static void notify_result(HWND hwnd, UiCountryTargetMode mode, GamePlayerActionR
                "无法与目标宗主国形成有效战线。");
     } else if (result == GAME_PLAYER_ACTION_WAR_SLOT_FULL) {
         notify(hwnd, "No war slot is available.", "没有可用的战争槽位。");
+    } else if (result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE) {
+        notify(hwnd, "Alliance dissolved; war declared.", "同盟已解散；战争已开始。");
+    } else if (result == GAME_PLAYER_ACTION_ALREADY_ALLIED) {
+        notify(hwnd, "Alliance is already active.", "同盟已经存在。");
+    } else if (result == GAME_PLAYER_ACTION_NO_ALLIANCES) {
+        notify(hwnd, "No alliances to dissolve.", "没有可解散的同盟。");
+    } else if (result == GAME_PLAYER_ACTION_ALLIANCE_BLOCKED) {
+        notify(hwnd, "Alliance is blocked by war, truce, or vassal rules.",
+               "战争、停战或附庸规则阻止同盟。");
+    } else if (result == GAME_PLAYER_ACTION_TARGET_IS_ALLY) {
+        notify(hwnd, "Cannot declare war on an ally.", "不能向盟友开战。");
     } else if (result == GAME_PLAYER_ACTION_RULE_BLOCKED) {
         notify(hwnd, "Action is blocked by current war or vassal rules.",
                "当前战争或附庸规则阻止了该行动。");
@@ -182,8 +196,24 @@ int ui_country_target_handle_action_button(HWND hwnd, int source_civ,
     if (action == COUNTRY_VASSAL_ACTION_DECLARE_WAR) {
         return begin_target(hwnd, source_civ, UI_COUNTRY_TARGET_DECLARE_WAR, mouse_x, mouse_y);
     }
+    if (action == COUNTRY_VASSAL_ACTION_ALLIANCE) {
+        return begin_target(hwnd, source_civ, UI_COUNTRY_TARGET_ALLIANCE, mouse_x, mouse_y);
+    }
     if (action == COUNTRY_VASSAL_ACTION_VASSALIZE) {
         return begin_target(hwnd, source_civ, UI_COUNTRY_TARGET_VASSALIZE, mouse_x, mouse_y);
+    }
+    if (action == COUNTRY_VASSAL_ACTION_DISSOLVE) {
+        result = game_player_dissolve_alliances(source_civ);
+        if (result == GAME_PLAYER_ACTION_OK) {
+            notify(hwnd, "Alliances dissolved.", "同盟已解散。");
+        } else if (result == GAME_PLAYER_ACTION_NO_ALLIANCES) {
+            notify(hwnd, "No alliances to dissolve.", "没有可解散的同盟。");
+        } else {
+            notify_result(hwnd, UI_COUNTRY_TARGET_NONE, result);
+        }
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
+                                        GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+        return 1;
     }
     if (action != COUNTRY_VASSAL_ACTION_PEACE) return 0;
 
@@ -236,10 +266,17 @@ int ui_country_target_handle_left_click(HWND hwnd, int mouse_x, int mouse_y) {
     }
     if (target_state.mode == UI_COUNTRY_TARGET_DECLARE_WAR) {
         result = game_player_declare_war(target_state.source_civ, owner);
+    } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE) {
+        result = game_player_form_alliance(target_state.source_civ, owner);
     } else {
         result = game_player_vassalize(target_state.source_civ, owner);
     }
-    if (result == GAME_PLAYER_ACTION_OK) {
+    if (result == GAME_PLAYER_ACTION_OK || result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE) {
+        if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE) {
+            notify(hwnd, "Alliance formed.", "同盟已建立。");
+        } else if (result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE) {
+            notify_result(hwnd, target_state.mode, result);
+        }
         complete_target(hwnd);
     } else {
         notify_result(hwnd, target_state.mode, result);

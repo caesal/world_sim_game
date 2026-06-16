@@ -14,6 +14,10 @@ SOURCES := \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
 	src/game/game_crisis_probe.c \
+	src/game/game_diplomacy_probe.c \
+	src/game/game_diplomacy_relation_probe.c \
+	src/game/game_diplomacy_tooltip_probe.c \
+	src/game/game_diplomacy_visual_probe.c \
 	src/game/game_economy_probe.c \
 	src/game/game_population_probe.c \
 	src/game/game_population_corner_probe.c \
@@ -102,6 +106,9 @@ SOURCES := \
 	src/sim/spawn.c \
 	src/sim/expansion.c \
 	src/sim/diplomacy.c \
+	src/sim/diplomacy_policy.c \
+	src/sim/diplomacy_relation_score.c \
+	src/sim/diplomacy_stability.c \
 	src/sim/diplomacy_borders.c \
 	src/sim/diplomacy_contact.c \
 	src/sim/diplomacy_names.c \
@@ -128,6 +135,7 @@ SOURCES := \
 	src/render/contour_paths.c \
 	src/render/vector_paths.c \
 	src/render/load_progress_overlay.c \
+	src/render/panel_diplomacy_cache_key.c \
 	src/render/panel_view_model_cache.c \
 	src/render/worldgen_progress_overlay.c \
 	src/render/diplomacy_map_anim.c \
@@ -166,6 +174,8 @@ SOURCES := \
 	src/render/panel_country_resources.c \
 	src/render/panel_country_diplomacy.c \
 	src/render/panel_country_diplomacy_cards.c \
+	src/render/panel_country_diplomacy_score.c \
+	src/render/panel_country_diplomacy_tooltip.c \
 	src/render/panel_country_disorder.c \
 	src/render/panel_country_diplomacy_hits.c \
 	src/render/panel_population_page.c \

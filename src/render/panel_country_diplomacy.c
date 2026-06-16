@@ -3,6 +3,7 @@
 #include "render/panel_country.h"
 #include "render/panel_country_diplomacy_cards.h"
 #include "render/panel_country_diplomacy_hits.h"
+#include "render/panel_country_diplomacy_tooltip.h"
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
 #include "render_panel_internal.h"
@@ -16,11 +17,13 @@
 
 #define DIPLOMACY_VIEW_TAB_H 28
 #define DIPLOMACY_VIEW_TAB_GAP 6
+#define DIPLOMACY_STICKY_H (31 + DIPLOMACY_VIEW_TAB_H + 8)
 typedef DiplomacyView DiplomacyDisplayGroup;
-#define DIP_DISPLAY_PEACE_TENSE DIPLOMACY_VIEW_PEACE_TENSE
-#define DIP_DISPLAY_WAR_TRUCE DIPLOMACY_VIEW_WAR_TRUCE
-#define DIP_DISPLAY_VASSAL DIPLOMACY_VIEW_TRIBUTE_VASSAL
-#define DIP_DISPLAY_OTHER DIPLOMACY_VIEW_OTHER
+#define DIP_DISPLAY_ALLIANCE DIPLOMACY_VIEW_ALLIANCE
+#define DIP_DISPLAY_PEACE DIPLOMACY_VIEW_PEACE
+#define DIP_DISPLAY_TENSE DIPLOMACY_VIEW_TENSE
+#define DIP_DISPLAY_WAR DIPLOMACY_VIEW_WAR
+#define DIP_DISPLAY_VASSAL DIPLOMACY_VIEW_VASSAL
 
 typedef struct {
     int id;
@@ -119,49 +122,39 @@ static SnapshotWar dip_war(int a, int b) {
 }
 
 static const char *display_group_label(int selected_is_vassal, DiplomacyDisplayGroup group) {
-    if (selected_is_vassal) {
-        return group == DIP_DISPLAY_VASSAL ? tr("Tribute & Vassal", "朝贡 & 附庸") :
-                                             tr("Other", "其他");
-    }
+    (void)selected_is_vassal;
     switch (group) {
-        case DIP_DISPLAY_PEACE_TENSE: return tr("Peace & Tense", "和平 & 紧张");
-        case DIP_DISPLAY_WAR_TRUCE: return tr("War & Truce", "战争 & 停战");
-        case DIP_DISPLAY_VASSAL: return tr("Tribute & Vassal", "朝贡 & 附庸");
-        default: return tr("Other", "其他");
+        case DIP_DISPLAY_ALLIANCE: return tr("Alliance", "同盟");
+        case DIP_DISPLAY_TENSE: return tr("Tense", "紧张");
+        case DIP_DISPLAY_WAR: return tr("War", "战争");
+        case DIP_DISPLAY_VASSAL: return tr("Vassal", "附庸");
+        default: return tr("Peace", "和平");
     }
 }
 
 static DiplomacyDisplayGroup display_group_for_pair(int civ_id, int other_id) {
     SnapshotDiplomacyRelation relation = dip_relation(civ_id, other_id);
-    if (dip_overlord(civ_id) >= 0) return other_id == dip_overlord(civ_id) ? DIP_DISPLAY_VASSAL : DIP_DISPLAY_OTHER;
     if (dip_is_direct_vassal(civ_id, other_id) || dip_is_direct_vassal(other_id, civ_id)) return DIP_DISPLAY_VASSAL;
-    if (relation.state == DIPLOMACY_WAR || relation.state == DIPLOMACY_TRUCE) return DIP_DISPLAY_WAR_TRUCE;
-    if (relation.state == DIPLOMACY_PEACE || relation.state == DIPLOMACY_TENSE || relation.state == DIPLOMACY_ALLIANCE) {
-        return DIP_DISPLAY_PEACE_TENSE;
-    }
-    return DIP_DISPLAY_OTHER;
+    if (relation.state == DIPLOMACY_WAR) return DIP_DISPLAY_WAR;
+    if (relation.state == DIPLOMACY_TRUCE || relation.state == DIPLOMACY_TENSE) return DIP_DISPLAY_TENSE;
+    if (relation.state == DIPLOMACY_ALLIANCE) return DIP_DISPLAY_ALLIANCE;
+    return DIP_DISPLAY_PEACE;
 }
 
 static DiplomacyView normalize_diplomacy_view(int civ_id) {
     int selected_is_vassal = dip_overlord(civ_id) >= 0;
     DiplomacyView view = (DiplomacyView)country_diplomacy_view;
-    if (selected_is_vassal) {
-        if (view != DIPLOMACY_VIEW_TRIBUTE_VASSAL) view = DIPLOMACY_VIEW_OTHER;
-    } else if (view == DIPLOMACY_VIEW_OTHER ||
-               view < DIPLOMACY_VIEW_PEACE_TENSE || view > DIPLOMACY_VIEW_TRIBUTE_VASSAL) {
-        view = DIPLOMACY_VIEW_PEACE_TENSE;
-    }
+    if (selected_is_vassal) view = DIPLOMACY_VIEW_VASSAL;
+    else if (view < DIPLOMACY_VIEW_ALLIANCE || view >= DIPLOMACY_VIEW_COUNT) view = DIPLOMACY_VIEW_PEACE;
     country_diplomacy_view = view;
     return view;
 }
 
-static int diplomacy_view_count(int selected_is_vassal) { return selected_is_vassal ? 2 : 3; }
+static int diplomacy_view_count(int selected_is_vassal) { return selected_is_vassal ? 1 : DIPLOMACY_VIEW_COUNT; }
 
 static DiplomacyView diplomacy_view_at(int selected_is_vassal, int index) {
-    if (selected_is_vassal) return index == 0 ? DIPLOMACY_VIEW_TRIBUTE_VASSAL : DIPLOMACY_VIEW_OTHER;
-    if (index == 1) return DIPLOMACY_VIEW_WAR_TRUCE;
-    if (index == 2) return DIPLOMACY_VIEW_TRIBUTE_VASSAL;
-    return DIPLOMACY_VIEW_PEACE_TENSE;
+    if (selected_is_vassal) return DIPLOMACY_VIEW_VASSAL;
+    return (index >= 0 && index < DIPLOMACY_VIEW_COUNT) ? (DiplomacyView)index : DIPLOMACY_VIEW_PEACE;
 }
 
 static int sovereign_id(int civ_id) {
@@ -302,17 +295,18 @@ static DiplomacyEntry make_entry(int civ_id, int other_id, DiplomacyDisplayGroup
     int sort_b = other_id;
     SnapshotDiplomacyRelation rel;
     DiplomacyEntry e = {other_id, 0, 0, other_id};
-    if (selected_is_vassal && group == DIP_DISPLAY_OTHER) {
+    if (selected_is_vassal && group == DIP_DISPLAY_VASSAL) {
         sort_a = sovereign_id(civ_id);
         sort_b = sovereign_id(other_id);
     }
     rel = dip_relation(sort_a, sort_b);
-    if (group == DIP_DISPLAY_PEACE_TENSE) {
-        e.primary = rel.state == DIPLOMACY_TENSE ? 1 : 0;
-        e.secondary = rel.state == DIPLOMACY_TENSE ? -rel.border_tension : -rel.relation_score;
-    } else if (group == DIP_DISPLAY_WAR_TRUCE) {
-        e.primary = rel.state == DIPLOMACY_WAR ? 0 : 1;
-        e.secondary = rel.state == DIPLOMACY_WAR ? -relation_war_scale(civ_id, other_id) : -rel.truce_years_left;
+    if (group == DIP_DISPLAY_ALLIANCE || group == DIP_DISPLAY_PEACE) {
+        e.secondary = -rel.relation_score;
+    } else if (group == DIP_DISPLAY_TENSE) {
+        e.primary = rel.state == DIPLOMACY_TRUCE ? 0 : 1;
+        e.secondary = rel.state == DIPLOMACY_TRUCE ? rel.truce_years_left : -rel.border_tension;
+    } else if (group == DIP_DISPLAY_WAR) {
+        e.secondary = -relation_war_scale(civ_id, other_id);
     } else if (group == DIP_DISPLAY_VASSAL) {
         e.primary = dip_is_direct_vassal(civ_id, other_id) ? 0 : 1;
         e.secondary = -(dip_civ(other_id) ? dip_civ(other_id)->current_soldiers : 0);
@@ -345,15 +339,10 @@ static int collect_entries(int civ_id, DiplomacyDisplayGroup group, int selected
                            DiplomacyEntry *entries, int max_entries) {
     int count = 0;
     int i;
-    if (selected_is_vassal && group == DIP_DISPLAY_VASSAL) {
-        int overlord = dip_overlord(civ_id);
-        if (overlord >= 0 && count < max_entries) entries[count++] = make_entry(civ_id, overlord, group, selected_is_vassal);
-        return count;
-    }
     for (i = 0; i < dip_civ_count(); i++) {
         if (!direct_relation_visible(civ_id, i)) continue;
+        if (selected_is_vassal && group != DIP_DISPLAY_VASSAL) continue;
         if (!selected_is_vassal && display_group_for_pair(civ_id, i) != group) continue;
-        if (selected_is_vassal && group == DIP_DISPLAY_OTHER && i == dip_overlord(civ_id)) continue;
         if (count < max_entries) entries[count++] = make_entry(civ_id, i, group, selected_is_vassal);
     }
     sort_entries(entries, count);
@@ -385,7 +374,8 @@ int country_diplomacy_view_hit_test(int civ_id, RECT viewport, int scroll, int m
     selected_is_vassal = dip_overlord(civ_id) >= 0;
     count = diplomacy_view_count(selected_is_vassal);
     width = ((viewport.right - viewport.left - 8) - (count - 1) * DIPLOMACY_VIEW_TAB_GAP) / count;
-    y = viewport.top - scroll + 31;
+    (void)scroll;
+    y = viewport.top + 31;
     for (i = 0; i < count; i++) {
         RECT tab = {viewport.left + i * (width + DIPLOMACY_VIEW_TAB_GAP), y,
                     viewport.left + i * (width + DIPLOMACY_VIEW_TAB_GAP) + width,
@@ -405,7 +395,7 @@ int country_diplomacy_tab_height(int civ_id) {
     int i;
     for (i = 0; i < count; i++) {
         int id = entries[i].id;
-        if (selected_is_vassal && view == DIPLOMACY_VIEW_OTHER) {
+        if (selected_is_vassal) {
             height += 40;
         } else {
             height += diplomacy_relation_card_height(civ_id, id, view) + 8;
@@ -425,7 +415,7 @@ static int draw_diplomacy_group(HDC hdc, UiCursor *cursor, int civ_id,
     ui_section(hdc, cursor, display_group_label(selected_is_vassal, group));
     for (i = 0; i < count; i++) {
         int id = entries[i].id;
-        if (selected_is_vassal && group == DIP_DISPLAY_OTHER) {
+        if (selected_is_vassal) {
             draw_vassal_subrow(hdc, cursor, civ_id, id, dip_overlord(civ_id));
         } else {
             draw_relation(hdc, cursor, civ_id, id);
@@ -443,17 +433,36 @@ static int draw_diplomacy_group(HDC hdc, UiCursor *cursor, int civ_id,
     return shown;
 }
 
-void draw_country_diplomacy_tab(HDC hdc, UiCursor *cursor, int civ_id) {
+void draw_country_diplomacy_tab(HDC hdc, UiCursor *cursor, RECT viewport,
+                                int scroll, int civ_id) {
     int selected_is_vassal = dip_overlord(civ_id) >= 0;
     DiplomacyView view = normalize_diplomacy_view(civ_id);
     int shown_total;
+    UiCursor fixed = ui_cursor(viewport.left, viewport.top,
+                               viewport.right - viewport.left - 8,
+                               viewport.top + DIPLOMACY_STICKY_H);
+    UiCursor content = ui_cursor(viewport.left,
+                                 viewport.top + DIPLOMACY_STICKY_H - scroll,
+                                 viewport.right - viewport.left - 8,
+                                 cursor ? cursor->bottom : viewport.bottom);
+    int saved;
     country_diplomacy_hit_reset();
-    ui_section(hdc, cursor, tr("Diplomacy", "外交"));
-    draw_diplomacy_view_tabs(hdc, cursor, civ_id);
-    draw_army_pool(hdc, cursor, civ_id);
-    shown_total = draw_diplomacy_group(hdc, cursor, civ_id, view, selected_is_vassal);
+    diplomacy_score_tooltip_begin();
+    saved = SaveDC(hdc);
+    IntersectClipRect(hdc, viewport.left, viewport.top + DIPLOMACY_STICKY_H,
+                      viewport.right, viewport.bottom);
+    draw_army_pool(hdc, &content, civ_id);
+    shown_total = draw_diplomacy_group(hdc, &content, civ_id, view, selected_is_vassal);
     if (shown_total == 0) {
-        ui_row_text(hdc, cursor, tr("Known Countries", "已知国家"),
+        ui_row_text(hdc, &content, tr("Known Countries", "已知国家"),
                     tr("No contacted civilizations yet.", "还没有已接触文明。"));
     }
+    RestoreDC(hdc, saved);
+    fill_rect(hdc, (RECT){viewport.left, viewport.top, viewport.right,
+                          min(viewport.bottom, viewport.top + DIPLOMACY_STICKY_H)},
+              ui_theme_color(UI_COLOR_PANEL));
+    ui_section(hdc, &fixed, tr("Diplomacy", "外交"));
+    draw_diplomacy_view_tabs(hdc, &fixed, civ_id);
+    diplomacy_score_tooltip_draw(hdc, viewport);
+    if (cursor) cursor->y = content.y;
 }

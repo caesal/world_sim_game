@@ -3,6 +3,8 @@
 #include "core/dirty_flags.h"
 #include "core/render_snapshot_keys.h"
 #include "sim/diplomacy.h"
+#include "sim/diplomacy_relation_score.h"
+#include "sim/diplomacy_stability.h"
 #include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/sea_lanes.h"
@@ -74,7 +76,9 @@ static void track_pair_key(int key, int total_pairs) {
     tracked_pair_dirty = clamp(total_pairs, 0, MAX_CIVS * MAX_CIVS);
 }
 
-static void copy_relation(SnapshotDiplomacyRelation *dst, DiplomacyRelation rel) {
+static void copy_relation(SnapshotDiplomacyRelation *dst, DiplomacyRelation rel, int a, int b) {
+    DiplomacyRelationBreakdown breakdown = diplomacy_relation_breakdown(a, b);
+    int i;
     dst->state = rel.state; dst->relation_score = rel.relation_score;
     dst->border_tension = rel.border_tension; dst->trade_fit = rel.trade_fit;
     dst->resource_conflict = rel.resource_conflict; dst->truce_years_left = rel.truce_years_left;
@@ -85,6 +89,15 @@ static void copy_relation(SnapshotDiplomacyRelation *dst, DiplomacyRelation rel)
     dst->overlord = rel.overlord; dst->vassal = rel.vassal;
     dst->last_war_winner = rel.last_war_winner; dst->last_war_loser = rel.last_war_loser;
     dst->last_war_result = rel.last_war_result;
+    dst->state_years = diplomacy_stability_state_years(a, b);
+    dst->candidate_state = diplomacy_stability_candidate_state(a, b);
+    dst->candidate_years = diplomacy_stability_candidate_years(a, b);
+    dst->yearly_delta_x10 = breakdown.yearly_delta_x10;
+    for (i = 0; i < DIP_REL_FACTOR_SLOTS; i++) {
+        dst->relation_factor_ids[i] = breakdown.factor_ids[i];
+        dst->relation_factor_delta_x10[i] = breakdown.factor_delta_x10[i];
+        dst->relation_factor_values[i] = breakdown.factor_values[i];
+    }
 }
 
 static void copy_war(SnapshotWar *dst, ActiveWar war) {
@@ -120,7 +133,7 @@ static void refresh_pair(int a, int b, int key) {
     memset(entry, 0, sizeof(*entry));
     entry->key = key;
     if (a >= civ_count || b >= civ_count) return;
-    copy_relation(&entry->relation, diplomacy_relation(a, b));
+    copy_relation(&entry->relation, diplomacy_relation(a, b), a, b);
     if (entry->relation.state == DIPLOMACY_WAR) {
         copy_war(&entry->war, war_state_between(a, b));
         if (entry->war.active) {

@@ -51,6 +51,8 @@ static const char *event_type_label(EventLogType type, int language) {
         case EVENT_TYPE_CIV_CREATED: return zh ? "国家建立" : "Country created";
         case EVENT_TYPE_DIPLOMACY_PEACE: return zh ? "外交和平" : "Diplomatic peace";
         case EVENT_TYPE_DIPLOMACY_TENSE: return zh ? "外交紧张" : "Diplomatic tension";
+        case EVENT_TYPE_DIPLOMACY_ALLIANCE: return zh ? "外交同盟" : "Diplomatic alliance";
+        case EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED: return zh ? "同盟结束" : "Alliance ended";
         case EVENT_TYPE_TREASURY_INDEMNITY: return zh ? "战争赔款" : "War indemnity";
         case EVENT_TYPE_STABILITY_PROJECT: return zh ? "国库维稳" : "Treasury stability";
         case EVENT_TYPE_MERCENARIES_HIRED: return zh ? "雇佣兵" : "Mercenaries";
@@ -315,6 +317,12 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
             return;
         case EVENT_TYPE_DIPLOMACY_TENSE:
             snprintf(out, out_size, zh ? "%s与%s关系转为紧张。" : "%s and %s relations became tense.", civ, target);
+            return;
+        case EVENT_TYPE_DIPLOMACY_ALLIANCE:
+            snprintf(out, out_size, zh ? "%s与%s结为同盟。" : "%s and %s formed an alliance.", civ, target);
+            return;
+        case EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED:
+            snprintf(out, out_size, zh ? "%s与%s结束同盟。" : "%s and %s ended their alliance.", civ, target);
             return;
         case EVENT_TYPE_TREASURY_INDEMNITY:
             snprintf(out, out_size,

@@ -269,6 +269,8 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
         decision.main_intent = civ->main_intent;
         decision.expansion_reason = civ->decision_expansion_reason;
     }
+    ui_section(hdc, cursor, tr("Actions", "操作"));
+    draw_country_overview_vassal_actions(hdc, cursor, civ_id);
     ui_section(hdc, cursor, tr("Technology Snapshot", "科技摘要"));
     snprintf(text, sizeof(text), "%s %d: %s", tr("Stage", "阶段"),
              civ ? clamp(civ->tech_stage, 0, 10) : 0,
@@ -284,8 +286,6 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     draw_decision_meter_row(hdc, cursor, tr("Stability", "稳定"), decision.stability_weight, RGB(92, 130, 162));
     ui_row_text(hdc, cursor, tr("Dominant Intent", "主导方向"), overview_dominant_intent(&decision));
     ui_row_text(hdc, cursor, tr("Next Action", "下一步"), overview_next_action_ui(&decision));
-    ui_section(hdc, cursor, tr("Actions", "操作"));
-    draw_country_overview_vassal_actions(hdc, cursor, civ_id);
     if ((civ ? civ->plague_active_count : 0) > 0) {
         ui_section(hdc, cursor, tr("Plague", "瘟疫"));
         draw_metric_row(hdc, cursor, civ ? civ->plague_active_count : 0, civ ? civ->plague_peak_severity : 0,
@@ -299,7 +299,8 @@ static const char *heritage_label(int heritage) {
     return heritage == CIV_HERITAGE_EASTERN ? tr("Eastern", "东方") : tr("Western", "西方");
 }
 
-void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
+void draw_country_detail_content(HDC hdc, UiCursor *cursor, RECT viewport,
+                                 int scroll, int civ_id,
                                  HFONT title_font, HFONT body_font) {
     const SnapshotCiv *civ = snapshot_ui_civ(civ_id);
     CountrySummary country = civ ? civ->summary : (CountrySummary){0};
@@ -337,7 +338,7 @@ void draw_country_detail_content(HDC hdc, UiCursor *cursor, int civ_id,
             draw_country_resources_tab(hdc, cursor, civ_id);
             break;
         case COUNTRY_DETAIL_DIPLOMACY:
-            draw_country_diplomacy_tab(hdc, cursor, civ_id);
+            draw_country_diplomacy_tab(hdc, cursor, viewport, scroll, civ_id);
             break;
         case COUNTRY_DETAIL_DISORDER:
             draw_country_disorder_tab(hdc, cursor, civ_id);

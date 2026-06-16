@@ -1,5 +1,6 @@
 #include "render/panel_country_diplomacy_cards.h"
 
+#include "render/panel_country_diplomacy_score.h"
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
 #include "sim/diplomacy.h"
@@ -106,6 +107,7 @@ static const char *status_label(int civ_id, int other_id, SnapshotDiplomacyRelat
     if (other_overlord >= 0 && civ_id != other_overlord) return tr("No autonomy", "无自主权");
     switch (relation.state) {
         case DIPLOMACY_PEACE: return tr("Peace", "和平");
+        case DIPLOMACY_ALLIANCE: return tr("Alliance", "同盟");
         case DIPLOMACY_TENSE: return tr("Tense", "紧张");
         case DIPLOMACY_TRUCE: return tr("Truce", "停战");
         case DIPLOMACY_WAR: return tr("War", "战争");
@@ -123,6 +125,7 @@ static UiClaySemanticStyle status_style(int civ_id, int other_id, SnapshotDiplom
     }
     switch (relation.state) {
         case DIPLOMACY_PEACE: return ui_clay_semantic_style(UI_CLAY_TONE_PEACE);
+        case DIPLOMACY_ALLIANCE: return ui_clay_semantic_style(UI_CLAY_TONE_ALLIANCE);
         case DIPLOMACY_TENSE: return ui_clay_semantic_style(UI_CLAY_TONE_TENSE);
         case DIPLOMACY_TRUCE: return ui_clay_semantic_style(UI_CLAY_TONE_TRUCE);
         case DIPLOMACY_WAR: return ui_clay_semantic_style(UI_CLAY_TONE_WAR);
@@ -291,26 +294,14 @@ static int battle_progress_percent(int remaining_months) {
 
 static void draw_peace_tense(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                              SnapshotDiplomacyRelation relation) {
-    char num[32], border[32];
-    UiClaySemanticStyle peace = ui_clay_semantic_style(UI_CLAY_TONE_PEACE);
-    UiClaySemanticStyle tense = ui_clay_semantic_style(UI_CLAY_TONE_TENSE);
-    UiClaySemanticStyle war = ui_clay_semantic_style(UI_CLAY_TONE_WAR);
-    int spark = clamp((relation.border_tension + relation.resource_conflict) / 2, 0, 100);
-    (void)other_id;
+    char border[32];
+    draw_diplomacy_relation_score_block(hdc, cursor, civ_id, other_id);
     if (relation.state == DIPLOMACY_TENSE) {
-        snprintf(num, sizeof(num), "%d", relation.border_tension);
-        bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, tense.accent);
-        snprintf(num, sizeof(num), "%d", spark);
-        bar_row(hdc, cursor, tr("War spark", "战争火花"), num, spark, war.accent);
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_TERRITORY, tr("Border", "边界"), border,
                   ICON_ATTACK, tr("Conflict", "冲突"), level_label(relation.resource_conflict),
                   ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
     } else {
-        bar_row(hdc, cursor, tr("Relation temp", "关系温度"), level_label(relation.relation_score),
-                relation.relation_score, peace.accent);
-        snprintf(num, sizeof(num), "%d", relation.border_tension);
-        bar_row(hdc, cursor, tr("Tension risk", "紧张风险"), num, relation.border_tension, tense.accent);
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_COMMERCE, tr("Trade", "贸易"), level_label(relation.trade_fit),
                   ICON_TERRITORY, tr("Border", "边界"), border,
@@ -450,7 +441,7 @@ static void draw_vassal_card(HDC hdc, UiCursor *cursor, int civ_id, int other_id
 
 int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view) {
     SnapshotDiplomacyRelation relation = card_relation(civ_id, other_id);
-    int vassal_like = view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
+    int vassal_like = view == DIPLOMACY_VIEW_VASSAL ||
                       card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
     int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
@@ -461,13 +452,13 @@ int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view)
     if (relation.state == DIPLOMACY_TRUCE) return 150;
     if (direct_vassal) return 162;
     if (vassal_like) return 110;
-    return 132;
+    return 78 + diplomacy_relation_score_block_height(civ_id, other_id);
 }
 
 void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
                                   int other_id, DiplomacyView view) {
     SnapshotDiplomacyRelation relation = card_relation(civ_id, other_id);
-    int vassal_like = view == DIPLOMACY_VIEW_TRIBUTE_VASSAL ||
+    int vassal_like = view == DIPLOMACY_VIEW_VASSAL ||
                       card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id) ||
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
     UiClaySemanticStyle style = status_style(civ_id, other_id, relation);
@@ -478,7 +469,7 @@ void draw_diplomacy_relation_card(HDC hdc, UiCursor *cursor, int civ_id,
     fill_rect(hdc, (RECT){card.left, card.top + 8, card.left + 4, card.bottom - 8}, style.accent);
     fill_rect(hdc, (RECT){card.left + 8, card.top, card.right - 8, card.top + 2}, style.border);
     draw_header(hdc, &inner, civ_id, other_id, relation);
-    if (view == DIPLOMACY_VIEW_WAR_TRUCE || relation.state == DIPLOMACY_WAR || relation.state == DIPLOMACY_TRUCE) {
+    if (view == DIPLOMACY_VIEW_WAR || relation.state == DIPLOMACY_WAR || relation.state == DIPLOMACY_TRUCE) {
         draw_war_truce(hdc, &inner, civ_id, other_id, relation);
     } else if (vassal_like) {
         draw_vassal_card(hdc, &inner, civ_id, other_id);

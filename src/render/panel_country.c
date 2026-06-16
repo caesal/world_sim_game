@@ -366,7 +366,7 @@ void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bod
                                     layout.detail_viewport.top - layout.detail_scroll +
                                     country_detail_content_height(civ_id) + 80);
         SelectClipRgn(hdc, clip);
-        if (profiling_switch_enabled(PROFILING_SWITCH_SIDE_PANEL_DETAIL)) draw_country_detail_content(hdc, &cursor, civ_id, title_font, body_font);
+        if (profiling_switch_enabled(PROFILING_SWITCH_SIDE_PANEL_DETAIL)) draw_country_detail_content(hdc, &cursor, layout.detail_viewport, layout.detail_scroll, civ_id, title_font, body_font);
         SelectClipRgn(hdc, NULL);
         DeleteObject(clip);
         draw_scrollbar(hdc, layout.detail_viewport, layout.detail_scroll, layout.detail_max_scroll);

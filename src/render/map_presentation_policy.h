@@ -19,4 +19,8 @@ static inline int map_presentation_country_border_width(int map_w, int map_h,
            3 : normal_width;
 }
 
+static inline int map_presentation_highlight_width_boost(int map_w, int map_h) {
+    return map_presentation_extreme_dimensions(map_w, map_h) ? 1 : 0;
+}
+
 #endif

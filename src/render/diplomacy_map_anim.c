@@ -73,6 +73,12 @@ static void anim_style(EventLogType type, COLORREF *color, IconId *icon, int *bi
     if (type == EVENT_TYPE_DIPLOMACY_TENSE) {
         *color = RGB(220, 150, 62);
         *icon = ICON_DISORDER;
+    } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE) {
+        *color = RGB(86, 152, 218);
+        *icon = ICON_COHESION;
+    } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED) {
+        *color = RGB(150, 118, 192);
+        *icon = ICON_COUNTRY_DEFENSE;
     } else if (type == EVENT_TYPE_WAR_STARTED) {
         *color = RGB(205, 62, 52);
         *icon = ICON_ATTACK;
@@ -94,6 +100,8 @@ static void anim_style(EventLogType type, COLORREF *color, IconId *icon, int *bi
 static int anim_type(EventLogType type) {
     return type == EVENT_TYPE_DIPLOMACY_PEACE ||
            type == EVENT_TYPE_DIPLOMACY_TENSE ||
+           type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
+           type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
            type == EVENT_TYPE_WAR_STARTED ||
            type == EVENT_TYPE_TRUCE_SIGNED ||
            type == EVENT_TYPE_WAR_FRONT_SEVERED ||
@@ -105,7 +113,9 @@ static int anim_type(EventLogType type) {
 
 static int contact_required_anim(EventLogType type) {
     return type == EVENT_TYPE_DIPLOMACY_PEACE ||
-           type == EVENT_TYPE_DIPLOMACY_TENSE;
+           type == EVENT_TYPE_DIPLOMACY_TENSE ||
+           type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
+           type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED;
 }
 
 static int valid_snapshot_pair(const RenderSnapshot *snapshot, int from_id, int to_id) {

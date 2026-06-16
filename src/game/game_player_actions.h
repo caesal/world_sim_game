@@ -18,11 +18,18 @@ typedef enum {
     GAME_PLAYER_ACTION_REDIRECTED_TO_SELF,
     GAME_PLAYER_ACTION_NO_FRONT_AFTER_REDIRECT,
     GAME_PLAYER_ACTION_WAR_SLOT_FULL,
+    GAME_PLAYER_ACTION_TARGET_IS_ALLY,
+    GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE,
+    GAME_PLAYER_ACTION_ALREADY_ALLIED,
+    GAME_PLAYER_ACTION_NO_ALLIANCES,
+    GAME_PLAYER_ACTION_ALLIANCE_BLOCKED,
     GAME_PLAYER_ACTION_RULE_BLOCKED
 } GamePlayerActionResult;
 
 GamePlayerActionResult game_player_declare_war(int source_civ, int target_civ);
 GamePlayerActionResult game_player_peace_all(int source_civ);
+GamePlayerActionResult game_player_form_alliance(int source_civ, int target_civ);
+GamePlayerActionResult game_player_dissolve_alliances(int source_civ);
 GamePlayerActionResult game_player_vassalize(int source_civ, int target_civ);
 
 #endif

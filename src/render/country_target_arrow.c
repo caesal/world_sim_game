@@ -11,6 +11,7 @@ static POINT tile_center(MapLayout layout, const RenderSnapshot *snapshot, int x
 }
 
 static COLORREF mode_color(UiCountryTargetMode mode) {
+    if (mode == UI_COUNTRY_TARGET_ALLIANCE) return RGB(86, 152, 218);
     return mode == UI_COUNTRY_TARGET_VASSALIZE ? RGB(168, 92, 220) : RGB(218, 62, 58);
 }
 

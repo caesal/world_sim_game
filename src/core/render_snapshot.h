@@ -6,6 +6,7 @@
 #include "sim/fragmentation_diag.h"
 #include "sim/population_diagnostics.h"
 #include "sim/population_display_cohorts.h"
+#include "sim/diplomacy_relation_score.h"
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
@@ -164,6 +165,13 @@ typedef struct {
     int last_war_winner;
     int last_war_loser;
     int last_war_result;
+    int state_years;
+    int candidate_state;
+    int candidate_years;
+    int yearly_delta_x10;
+    int relation_factor_ids[DIP_REL_FACTOR_SLOTS];
+    int relation_factor_delta_x10[DIP_REL_FACTOR_SLOTS];
+    int relation_factor_values[DIP_REL_FACTOR_SLOTS];
 } SnapshotDiplomacyRelation;
 
 typedef struct {
