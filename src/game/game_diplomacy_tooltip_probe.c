@@ -29,12 +29,12 @@ static void tooltip_probe_relation(SnapshotDiplomacyRelation *relation, int scor
     relation->state = DIPLOMACY_PEACE;
     relation->relation_score = score;
     relation->contact_kind = DIP_CONTACT_LAND_BORDER;
-    relation->yearly_delta_x10 = 15;
+    relation->yearly_delta_x100 = 150;
     relation->relation_factor_ids[0] = DIP_REL_FACTOR_CONTACT;
-    relation->relation_factor_delta_x10[0] = 5;
+    relation->relation_factor_delta_x100[0] = 50;
     relation->relation_factor_values[0] = DIP_CONTACT_LAND_BORDER;
     relation->relation_factor_ids[1] = DIP_REL_FACTOR_TRADE;
-    relation->relation_factor_delta_x10[1] = 10;
+    relation->relation_factor_delta_x100[1] = 100;
     relation->relation_factor_values[1] = 62;
 }
 
@@ -76,7 +76,7 @@ static int case_late_tooltip_hit(FILE *summary) {
     return diplomacy_score_tooltip_registered_count() == count - 1 &&
            first_ok && first_civ == 0 && first_other == 1 &&
            hit_ok && key_ok && hit_civ == 0 && hit_other == late &&
-           sum + other == display && display == 15;
+           sum + other == display && display == 150;
 }
 
 static void fill_probe_pixels(unsigned int *pixels, int count, unsigned int color) {
@@ -143,7 +143,22 @@ static int case_overlay_stable_after_base(FILE *summary) {
     return key_ok && first_pixels > 256 && second_pixels == first_pixels;
 }
 
+static int case_delta_formatting(FILE *summary) {
+    char d01[16], d025[16], d075[16], d15[16], dm25[16];
+    diplomacy_score_tooltip_format_delta(10, d01, sizeof(d01));
+    diplomacy_score_tooltip_format_delta(25, d025, sizeof(d025));
+    diplomacy_score_tooltip_format_delta(75, d075, sizeof(d075));
+    diplomacy_score_tooltip_format_delta(150, d15, sizeof(d15));
+    diplomacy_score_tooltip_format_delta(-250, dm25, sizeof(dm25));
+    fprintf(summary, "case=delta_formatting d01=%s d025=%s d075=%s d15=%s dm25=%s\n",
+            d01, d025, d075, d15, dm25);
+    return strcmp(d01, "+0.1/y") == 0 && strcmp(d025, "+0.25/y") == 0 &&
+           strcmp(d075, "+0.75/y") == 0 && strcmp(d15, "+1.5/y") == 0 &&
+           strcmp(dm25, "-2.5/y") == 0;
+}
+
 int run_diplomacy_tooltip_probe_cases(FILE *summary) {
     return case_late_tooltip_hit(summary) &&
-           case_overlay_stable_after_base(summary);
+           case_overlay_stable_after_base(summary) &&
+           case_delta_formatting(summary);
 }

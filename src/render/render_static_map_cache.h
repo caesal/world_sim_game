@@ -22,5 +22,7 @@ int render_static_map_cache_published_border_revision(void);
 int render_static_map_cache_ownership_current(void);
 int render_static_map_cache_political_pending_ms(void);
 int render_static_map_cache_political_last_latency_ms(void);
+void render_static_map_cache_invalidate_all(void);
+void render_static_map_cache_reset_debug(void);
 
 #endif

@@ -53,11 +53,13 @@ static void maybe_tooltip(RECT rect, const char *text, const char **active_toolt
 
 static const char *worldgen_mode_label(void) {
     switch (display_mode) {
+        case DISPLAY_POLITICAL: return tr("Country", "国家");
+        case DISPLAY_ALLIANCE: return tr("Alliance", "同盟");
         case DISPLAY_GEOGRAPHY: return tr("Geography", "地理");
         case DISPLAY_CLIMATE: return tr("Climate", "气候");
         case DISPLAY_REGIONS: return tr("Regions", "区域");
         case DISPLAY_ROUTE_POTENTIAL: return tr("Routes", "航道潜力网");
-        default: return tr("Political", "政治");
+        default: return tr("Country", "国家");
     }
 }
 

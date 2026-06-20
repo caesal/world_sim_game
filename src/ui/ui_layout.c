@@ -267,16 +267,19 @@ RECT get_map_legend_box_rect(RECT client) {
     RECT box;
     RECT frame = get_map_frame_rect(client);
     int route_only = display_mode == DISPLAY_ROUTE_POTENTIAL;
-    int show_geography = !route_only && display_mode != DISPLAY_CLIMATE;
+    int alliance_mode = display_mode == DISPLAY_ALLIANCE;
+    int show_geography = !route_only && !alliance_mode && display_mode != DISPLAY_CLIMATE;
     int show_climate = display_mode == DISPLAY_POLITICAL || display_mode == DISPLAY_REGIONS ||
                        display_mode == DISPLAY_ALL ||
                        display_mode == DISPLAY_CLIMATE;
     int show_routes = route_only;
     int show_city_glyphs = display_mode == DISPLAY_POLITICAL;
-    int box_w = show_routes && !show_geography && !show_climate ? 230 :
+    int box_w = alliance_mode ? 320 :
+                show_routes && !show_geography && !show_climate ? 230 :
                 show_city_glyphs ? 540 :
                 show_geography && show_climate ? 390 : 210;
-    int full_h = map_legend_full_height(show_geography, show_climate, show_routes, show_city_glyphs);
+    int full_h = alliance_mode ? 30 + 20 * 10 + 12 :
+                 map_legend_full_height(show_geography, show_climate, show_routes, show_city_glyphs);
 
     if (map_legend_collapsed) return map_legend_collapsed_rect(frame);
     if (!map_legend_collapsed && full_h + 180 > frame.bottom - frame.top) {

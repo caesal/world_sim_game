@@ -45,6 +45,7 @@ typedef struct {
     double sat;
     double value;
     int dragging;
+    int restore_auto_run;
     PickerButton hover_button;
     PickerButton pressed_button;
 } ColorPickerState;
@@ -225,11 +226,13 @@ static void set_pending(Color32 color) {
 }
 
 void color_picker_open_setup(Color32 color) {
+    int previous_auto_run = auto_run ? 1 : 0;
     game_pause_for_modal_or_action();
     memset(&picker, 0, sizeof(picker));
     picker.active = 1;
     picker.context = PICKER_CONTEXT_SETUP;
     picker.civ_id = -1;
+    picker.restore_auto_run = previous_auto_run;
     picker.original = color;
     set_pending(color);
 }
@@ -241,9 +244,13 @@ void color_picker_open_civ(int civ_id, Color32 color) {
 }
 
 void color_picker_close(void) {
+    int restore_auto_run;
+    if (!picker.active) return;
+    restore_auto_run = picker.restore_auto_run;
     if (picker.dragging) ReleaseCapture();
     picker.active = 0;
     picker.dragging = 0;
+    auto_run = restore_auto_run ? 1 : 0;
 }
 
 int color_picker_active(void) { return picker.active; }

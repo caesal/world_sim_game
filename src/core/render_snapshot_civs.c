@@ -4,6 +4,7 @@
 #include "core/render_snapshot_profile.h"
 #include "sim/civilization_slots.h"
 #include "sim/collapse.h"
+#include "sim/alliance.h"
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
@@ -142,6 +143,10 @@ static void copy_raw_fields(SnapshotCiv *dst, Civilization *src, int i) {
     dst->collapse_last_reason[0] = '\0';
     snprintf(dst->collapse_last_reason, sizeof(dst->collapse_last_reason), "%s", collapse_last_reason(i));
     dst->capital_city = src->capital_city; dst->overlord = vassal_overlord(i);
+    dst->alliance_id = alliance_for_civ(i);
+    dst->alliance_display_id = alliance_display_for_civ(i);
+    dst->alliance_member_order = alliance_member_order(dst->alliance_id, i);
+    dst->defensive_bloc_power = alliance_defensive_bloc_power(i);
     dst->vassal_annex_threshold_years = dst->overlord >= 0 ? vassal_annex_threshold_years(dst->overlord) : 0;
     dst->vassal_annex_remaining_years = dst->overlord >= 0 ?
         vassal_annex_remaining_years(dst->overlord, diplomacy_relation(dst->overlord, i).vassal_years) : 0;
@@ -244,6 +249,7 @@ static void copy_names(SnapshotCiv *dst, int i) {
 void render_snapshot_copy_civs_locked(RenderSnapshot *snapshot) {
     int i;
     snapshot->civ_count = clamp(civ_count, 0, MAX_CIVS);
+    snapshot->alliance_count = alliance_copy_snapshot_records(snapshot->alliances, ALLIANCE_MAX);
     snapshot->civ_independent_alive_count = 0;
     last_decision_cached_count = 0;
     last_decision_stale_count = 0;

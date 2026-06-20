@@ -1,4 +1,5 @@
 ﻿#include "render_common.h"
+#include "render/map_display_policy.h"
 
 void fill_rect(HDC hdc, RECT rect, COLORREF color) {
     HBRUSH brush = CreateSolidBrush(color);
@@ -343,39 +344,7 @@ int visible_tile_bounds(RECT client, MapLayout layout, int *min_x, int *max_x, i
 }
 
 COLORREF tile_display_color(int x, int y) {
-    COLORREF base;
-
-    switch (display_mode) {
-        case DISPLAY_CLIMATE:
-            base = climate_color(world[y][x].climate);
-            break;
-        case DISPLAY_GEOGRAPHY:
-            if (world_water_depth_at(x, y) != WATER_DEPTH_NONE) base = water_visual_color(x, y);
-            else base = blend_color(geography_color(world[y][x].geography), overview_color(x, y), 35);
-            break;
-        case DISPLAY_REGIONS:
-            base = overview_color(x, y);
-            if (world[y][x].region_id >= 0) {
-                int id = world[y][x].region_id;
-                COLORREF region_color = RGB(92 + (id * 37) % 112, 105 + (id * 53) % 96, 86 + (id * 29) % 104);
-                base = blend_color(base, region_color, 44);
-            }
-            break;
-        case DISPLAY_POLITICAL:
-            base = overview_color(x, y);
-            break;
-        case DISPLAY_ROUTE_POTENTIAL:
-            base = overview_color(x, y);
-            break;
-        case DISPLAY_ALL:
-            base = overview_color(x, y);
-            break;
-        case DISPLAY_OVERVIEW:
-        default:
-            base = overview_color(x, y);
-            break;
-    }
-    return base;
+    return map_display_policy_live_tile_color(x, y, display_mode);
 }
 
 int tile_left(MapLayout layout, int x) {

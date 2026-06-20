@@ -41,6 +41,14 @@ static const char *diplomacy_label(const SnapshotCiv *civ) {
     return civ->war_active ? tr("War", "战争") : tr("Peace", "和平");
 }
 
+static const AllianceSnapshotRecord *card_alliance_by_id(const RenderSnapshot *snapshot, int id) {
+    int i;
+    if (!snapshot || id < 0) return NULL;
+    for (i = 0; i < snapshot->alliance_count; i++)
+        if (snapshot->alliances[i].active && snapshot->alliances[i].id == id) return &snapshot->alliances[i];
+    return NULL;
+}
+
 static COLORREF fallen_color(void) {
     return RGB(76, 64, 64);
 }
@@ -67,6 +75,21 @@ static void status_summary_text(const SnapshotCiv *civ, char *out, int out_size)
         return;
     }
     snprintf(out, out_size, "%s / %s", sovereignty_label(civ), diplomacy_label(civ));
+}
+
+static void alliance_summary_text(const SnapshotCiv *civ, char *out, int out_size) {
+    const RenderSnapshot *snapshot = snapshot_ui_current();
+    const AllianceSnapshotRecord *alliance = civ ? card_alliance_by_id(snapshot, civ->alliance_display_id) : NULL;
+    char power[32];
+    if (!civ || !alliance) {
+        snprintf(out, out_size, "%s %s", tr("Alliance", "同盟"), tr("None", "无"));
+        return;
+    }
+    format_metric_value(civ->defensive_bloc_power, power, sizeof(power));
+    snprintf(out, out_size, "%s %.32s (%d) %s %s%s", tr("Alliance", "同盟"),
+             ui_language == UI_LANG_ZH ? alliance->name_zh : alliance->name_en,
+             alliance->member_count, tr("Defense", "防御"), power,
+             civ->alliance_id < 0 ? tr(" via overlord", " 随宗主国") : "");
 }
 
 static void draw_status_badge(HDC hdc, RECT rect, COLORREF color, const char *text) {
@@ -131,14 +154,16 @@ void draw_country_selected_summary(HDC hdc, RECT rect, int civ_id) {
     RECT name_rect = {rect.left + 32, rect.top + 5, locate_rect.left - 6, rect.top + 26};
     RECT summary_rect = {rect.left + 32, rect.top + 27, rect.right - 8, rect.bottom - 4};
     char title[160];
-    char summary[224];
+    char summary[320];
     char status_text[64];
+    char alliance_text[128];
 
     if (!civ) return;
     ui_clay_draw_card(hdc, rect, UI_CLAY_STATE_SELECTED);
     fill_rect(hdc, swatch, civ->color);
     snprintf(title, sizeof(title), "%c  %.80s", civ->symbol, snapshot_ui_civ_name(civ_id));
     status_summary_text(civ, status_text, sizeof(status_text));
+    alliance_summary_text(civ, alliance_text, sizeof(alliance_text));
     snprintf(summary, sizeof(summary), "%s %.20s   %s %d   %s %d   %s %d   %s %d   %s %s   %s %.16s",
              tr("Capital", "首都"), snapshot_ui_capital_name(civ_id),
              tr("Pop", "人口"), country.population,
@@ -147,6 +172,7 @@ void draw_country_selected_summary(HDC hdc, RECT rect, int civ_id) {
              tr("Disorder", "混乱"), civ->disorder,
              tr("Status", "状态"), status_text,
              tr("Intent", "意图"), intent_label(civ->main_intent));
+    snprintf(summary + strlen(summary), sizeof(summary) - strlen(summary), "   %s", alliance_text);
     draw_text_rect(hdc, name_rect, title, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     ui_clay_draw_pill_button(hdc, locate_rect, tr("Locate", "定位"),
                              ui_clay_state_for_rect(locate_rect, hover_x, hover_y, 0, 0));

@@ -2,6 +2,7 @@
 #include "core/city_display.h"
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "render/map_label_alliance.h"
 #include "render/map_label_style.h"
 #include "render/snapshot_ui.h"
 #include "ui/ui_types.h"
@@ -13,10 +14,8 @@
 #define MAX_LABEL_PLACEMENT 640
 #define LABEL_TEXT_MAX 128
 #define LABEL_MEASURE_CACHE_MAX 768
-
 typedef struct {
-    char text[LABEL_TEXT_MAX];
-    MapLabelKind kind;
+    char text[LABEL_TEXT_MAX]; MapLabelKind kind;
     int source_id, sequence, anchor_x2, anchor_y2, large, weight, tile_count;
 } MapLabelSource;
 typedef struct {
@@ -36,7 +35,6 @@ typedef struct {
     int tile_size, large, selected, language;
     SIZE size;
 } MapLabelMeasureEntry;
-
 static MapLabelSource source_cache[MAX_LABEL_SOURCES];
 static int source_count;
 static unsigned int source_key;
@@ -59,23 +57,18 @@ static int label_is_open(const RECT *used, int used_count, RECT candidate) {
     for (i = 0; i < used_count; i++) if (rects_overlap(used[i], candidate)) return 0;
     return 1;
 }
-
 static RECT label_rect_from_position(int x, int y, SIZE size, int pad) { RECT rect = {x - pad, y - pad, x + size.cx + pad, y + size.cy + pad}; return rect; }
-
 static int source_anchor_screen_x(const RenderSnapshot *snapshot, MapLayout layout,
                                   const MapLabelSource *source) {
     return layout.map_x + source->anchor_x2 * layout.draw_w / max(1, snapshot->map_w * 2);
 }
-
 static int source_anchor_screen_y(const RenderSnapshot *snapshot, MapLayout layout,
                                   const MapLabelSource *source) {
     return layout.map_y + source->anchor_y2 * layout.draw_h / max(1, snapshot->map_h * 2);
 }
-
 static int city_is_major(const SnapshotCity *city) {
     return city->population >= 650 || city->radius >= 4 || city->port;
 }
-
 static int label_visible_for_zoom(MapLabelKind kind, int tile_size, int selected) {
     if (selected) return 1;
     switch (kind) {
@@ -88,7 +81,6 @@ static int label_visible_for_zoom(MapLabelKind kind, int tile_size, int selected
         default: return tile_size >= 2;
     }
 }
-
 static unsigned int label_source_key_for(const RenderSnapshot *snapshot) {
     unsigned int key;
     if (!snapshot) return 0;
@@ -99,6 +91,9 @@ static unsigned int label_source_key_for(const RenderSnapshot *snapshot) {
     key = mix_label_key(key, snapshot->city_visual_revision);
     key = mix_label_key(key, snapshot->regions_revision);
     key = mix_label_key(key, snapshot->world_generated);
+    key = mix_label_key(key, snapshot->alliance_count);
+    if (display_mode == DISPLAY_ALLIANCE) key = mix_label_key(key, snapshot->alliance_revision);
+    key = mix_label_key(key, display_mode);
     key = mix_label_key(key, ui_language);
     return key;
 }
@@ -129,18 +124,24 @@ static void add_source(MapLabelKind kind, int source_id, int anchor_x, int ancho
 }
 
 static void collect_country_sources(const RenderSnapshot *snapshot) {
-    long sx[MAX_CIVS], sy[MAX_CIVS];
-    int weight[MAX_CIVS];
+    long sx[MAX_CIVS], sy[MAX_CIVS], alliance_sx[ALLIANCE_MAX], alliance_sy[ALLIANCE_MAX];
+    int weight[MAX_CIVS], alliance_weight[ALLIANCE_MAX];
     int x, y, i;
     memset(sx, 0, sizeof(sx));
     memset(sy, 0, sizeof(sy));
     memset(weight, 0, sizeof(weight));
+    memset(alliance_sx, 0, sizeof(alliance_sx)); memset(alliance_sy, 0, sizeof(alliance_sy));
+    memset(alliance_weight, 0, sizeof(alliance_weight));
     for (y = 2; y < snapshot->map_h; y += 7) {
         for (x = 2; x < snapshot->map_w; x += 7) {
             const SnapshotTile *tile = render_snapshot_tile_at(snapshot, x, y);
             int owner = tile ? tile->owner : -1;
-            if (owner < 0 || owner >= snapshot->civ_count) continue;
-            sx[owner] += x; sy[owner] += y; weight[owner]++;
+            if (display_mode == DISPLAY_ALLIANCE) {
+                map_label_alliance_accumulate(snapshot, owner, x, y, 1, alliance_sx, alliance_sy,
+                                              alliance_weight, sx, sy, weight);
+            } else if (owner >= 0 && owner < snapshot->civ_count) {
+                sx[owner] += x; sy[owner] += y; weight[owner]++;
+            }
         }
     }
     for (i = 0; i < snapshot->city_count; i++) {
@@ -151,14 +152,31 @@ static void collect_country_sources(const RenderSnapshot *snapshot) {
                                       snapshot->map_w, snapshot->map_h,
                                       &display_x, &display_y) == CITY_DISPLAY_POINT_NONE) continue;
         city_weight = city->capital ? 36 : 8;
-        sx[owner] += (long)display_x * city_weight;
-        sy[owner] += (long)display_y * city_weight;
-        weight[owner] += city_weight;
+        if (display_mode == DISPLAY_ALLIANCE) {
+            map_label_alliance_accumulate(snapshot, owner, display_x, display_y, city_weight,
+                                          alliance_sx, alliance_sy, alliance_weight, sx, sy, weight);
+        } else {
+            sx[owner] += (long)display_x * city_weight;
+            sy[owner] += (long)display_y * city_weight;
+            weight[owner] += city_weight;
+        }
+    }
+    if (display_mode == DISPLAY_ALLIANCE) {
+        for (i = 0; i < snapshot->alliance_count; i++) {
+            const AllianceSnapshotRecord *alliance = &snapshot->alliances[i];
+            const char *name = ui_language == UI_LANG_ZH ? alliance->name_zh : alliance->name_en;
+            if (!alliance->active || alliance_weight[i] <= 0) continue;
+            add_source(LABEL_COUNTRY, map_label_alliance_source_id(alliance->id),
+                       (int)(alliance_sx[i] / alliance_weight[i]),
+                       (int)(alliance_sy[i] / alliance_weight[i]), name,
+                       alliance_weight[i] > 86, alliance_weight[i], 0);
+        }
     }
     for (i = 0; i < snapshot->civ_count; i++) {
         const SnapshotCiv *civ = &snapshot->civs[i];
         const char *name;
         if (!civ->alive) continue;
+        if (display_mode == DISPLAY_ALLIANCE && civ->alliance_display_id >= 0) continue;
         name = ui_language == UI_LANG_ZH ? civ->name_zh : civ->name_en;
         add_source(LABEL_COUNTRY, i, weight[i] > 0 ? (int)(sx[i] / weight[i]) : 0,
                    weight[i] > 0 ? (int)(sy[i] / weight[i]) : 0,
@@ -245,7 +263,12 @@ static unsigned int label_placement_key(RECT viewport, MapLayout layout) {
 
 static int source_selected(const RenderSnapshot *snapshot, const MapLabelSource *source,
                            int selected_region) {
-    if (source->kind == LABEL_COUNTRY) return selected_civ == source->source_id;
+    if (source->kind == LABEL_COUNTRY) {
+        if (display_mode == DISPLAY_ALLIANCE &&
+            map_label_alliance_selected(snapshot, source->source_id, selected_civ)) return 1;
+        if (display_mode == DISPLAY_ALLIANCE && source->source_id >= MAX_CIVS) return 0;
+        return selected_civ == source->source_id;
+    }
     if (source->kind == LABEL_PROVINCE) return source->source_id == selected_region;
     if (source->kind == LABEL_PORT || source->kind == LABEL_CAPITAL ||
         source->kind == LABEL_MAJOR_CITY || source->kind == LABEL_CITY) {
@@ -303,6 +326,7 @@ static int source_to_placement(HDC hdc, const RenderSnapshot *snapshot, MapLayou
         if (!selected && source->tile_count < (layout.tile_size >= 10 ? 42 : 80)) return 0;
     }
     style = map_label_style_for(source->kind, layout.tile_size, source->large, selected);
+    if (display_mode == DISPLAY_ALLIANCE && source->kind == LABEL_COUNTRY) map_label_alliance_apply_style(&style, source->source_id, selected);
     if (!selected && layout.tile_size < style.min_tile_size) return 0;
     if (!label_visible_for_zoom(source->kind, layout.tile_size, selected)) return 0;
     memset(out, 0, sizeof(*out));

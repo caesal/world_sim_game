@@ -6,6 +6,7 @@
 #include "sim/fragmentation_diag.h"
 #include "sim/population_diagnostics.h"
 #include "sim/population_display_cohorts.h"
+#include "sim/alliance.h"
 #include "sim/diplomacy_relation_score.h"
 #include "sim/sea_lanes.h"
 
@@ -128,6 +129,10 @@ typedef struct {
     int focus_valid;
     int overlord;
     int vassal_count;
+    int alliance_id;
+    int alliance_display_id;
+    int alliance_member_order;
+    int defensive_bloc_power;
     int name_id;
     int heritage;
     CountrySummary summary;
@@ -168,9 +173,9 @@ typedef struct {
     int state_years;
     int candidate_state;
     int candidate_years;
-    int yearly_delta_x10;
+    int yearly_delta_x100;
     int relation_factor_ids[DIP_REL_FACTOR_SLOTS];
-    int relation_factor_delta_x10[DIP_REL_FACTOR_SLOTS];
+    int relation_factor_delta_x100[DIP_REL_FACTOR_SLOTS];
     int relation_factor_values[DIP_REL_FACTOR_SLOTS];
 } SnapshotDiplomacyRelation;
 
@@ -277,6 +282,7 @@ typedef struct {
     int lane_count;
     int event_count;
     int event_total_entries;
+    int alliance_count;
     FragmentationDiagnostics fragmentation;
     int tiles_revision;
     int terrain_revision;
@@ -284,6 +290,7 @@ typedef struct {
     int hydrology_revision;
     int civs_revision;
     int civ_visual_revision;
+    int alliance_revision;
     int cities_revision;
     int city_visual_revision;
     int regions_revision;
@@ -296,6 +303,7 @@ typedef struct {
     unsigned int revision;
     SnapshotTile tiles[MAX_MAP_W * MAX_MAP_H];
     SnapshotCiv civs[MAX_CIVS];
+    AllianceSnapshotRecord alliances[ALLIANCE_MAX];
     SnapshotCity cities[MAX_CITIES];
     SnapshotRegion regions[MAX_NATURAL_REGIONS];
     SnapshotSeaLane lanes[MAX_SEA_LANES];

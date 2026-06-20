@@ -178,7 +178,6 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
                                       GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL); return; }
         if (hit == COUNTRY_PANEL_HIT_COLOR) {
             if (selected_civ >= 0) {
-                game_pause_for_modal_or_action();
                 color_picker_open_civ(selected_civ, ui_snapshot_civ_color(selected_civ));
             }
             ui_invalidate_full(hwnd); return; }
@@ -246,7 +245,6 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         }
         if (worldgen_rect_visible(layout.viewport, layout.civ_color_preview) &&
             point_in_rect(layout.civ_color_preview, mouse_x, mouse_y)) {
-            game_pause_for_modal_or_action();
             color_picker_open_setup(selected_civ_color);
             ui_invalidate_full(hwnd);
             return;

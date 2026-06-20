@@ -1,5 +1,6 @@
 #include "sim/civ_colors.h"
 
+#include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "sim/regions.h"
 
@@ -67,9 +68,15 @@ static HslColor color_to_hsl(Color32 color) {
     return hsl;
 }
 
+static HslColor display_hsl(Color32 color) {
+    HslColor hsl = color_to_hsl(color);
+    if (hsl.s > 62) hsl.s = 62;
+    return hsl;
+}
+
 static int hsl_distance(Color32 a, Color32 b) {
-    HslColor ha = color_to_hsl(a);
-    HslColor hb = color_to_hsl(b);
+    HslColor ha = display_hsl(a);
+    HslColor hb = display_hsl(b);
     int hue = abs_int(ha.h - hb.h);
     int sat = abs_int(ha.s - hb.s);
     int light = abs_int(ha.l - hb.l);
@@ -79,8 +86,8 @@ static int hsl_distance(Color32 a, Color32 b) {
 }
 
 static int colors_too_similar(Color32 a, Color32 b) {
-    HslColor ha = color_to_hsl(a);
-    HslColor hb = color_to_hsl(b);
+    HslColor ha = display_hsl(a);
+    HslColor hb = display_hsl(b);
     int hue = abs_int(ha.h - hb.h);
 
     if (a == b) return 1;
@@ -311,6 +318,10 @@ Color32 civilization_pick_auto_color(int civ_id, int seed_region) {
     return civilization_pick_distinct_color(civ_id, 0, -1, seed_region);
 }
 
+int civilization_colors_too_similar_for_display(Color32 a, Color32 b) {
+    return colors_too_similar(a, b);
+}
+
 int civilization_colors_debug_check(void) {
     int issues = 0;
     int i;
@@ -360,9 +371,20 @@ int civilization_repair_alive_colors(void) {
             seed_region = regions_region_for_city(civs[i].capital_city);
         }
         if (preferred_color_is_safe(civs[i].color, i, -1, seed_region)) continue;
+        if (civilization_color_manual_locked(i)) {
+            civilization_color_repair_note_unresolved();
+            continue;
+        }
         old_color = civs[i].color;
         civs[i].color = civilization_pick_distinct_color(i, 0, -1, seed_region);
-        if (civs[i].color != old_color) changed++;
+        if (civs[i].color != old_color) {
+            changed++;
+            civilization_color_repair_note_changed();
+        }
+    }
+    if (changed > 0) {
+        dirty_mark_civ();
+        dirty_mark_territory();
     }
     if (changed > 0) {
         char text[EVENT_LOG_LEN];

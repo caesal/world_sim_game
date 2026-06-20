@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "data/province_names.h"
 #include "core/profiler.h"
+#include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/regions_settlement.h"
@@ -278,6 +279,7 @@ int regions_claim_for_civ(int region_id, int owner, int preferred_city_id, int c
     territory_integrity_repair_capitals();
     world_invalidate_region_cache();
     dirty_mark_territory();
+    civilization_color_note_region_claim(owner, region_id);
     diplomacy_mark_contacts_dirty();
     maritime_mark_ownership_dirty();
     profiler_record_phase("Claim", (int)(GetTickCount() - claim_start));

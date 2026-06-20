@@ -2,6 +2,8 @@
 #define WORLD_SIM_SIMULATION_MONTH_H
 
 #include "core/game_types.h"
+#include "sim/alliance.h"
+#include "sim/diplomacy_year.h"
 #include "sim/expansion.h"
 #include "sim/plague.h"
 
@@ -18,6 +20,7 @@ typedef struct {
     int calendar_started;
     int calendar_year_rollover;
     int calendar_step;
+    int diplomacy_alliance_year_started;
     int economy_year_cursor;
     int war_year_cursor;
     int war_year_changed;
@@ -25,6 +28,8 @@ typedef struct {
     int resource_scores[MAX_CIVS];
     int resource_totals[MAX_CIVS];
     int resource_counts[MAX_CIVS];
+    DiplomacyYearWork diplomacy_year_work;
+    AllianceYearWork alliance_year_work;
     ExpansionWorkState expansion_work;
     PlagueUpdateState plague_work;
     char log[512];

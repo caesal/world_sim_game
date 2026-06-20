@@ -156,11 +156,19 @@ static void notify_result(HWND hwnd, UiCountryTargetMode mode, GamePlayerActionR
     } else if (result == GAME_PLAYER_ACTION_WAR_SLOT_FULL) {
         notify(hwnd, "No war slot is available.", "没有可用的战争槽位。");
     } else if (result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE) {
-        notify(hwnd, "Alliance dissolved; war declared.", "同盟已解散；战争已开始。");
+        notify(hwnd, "Alliance broken; war declared.", "同盟已解除；战争已开始。");
     } else if (result == GAME_PLAYER_ACTION_ALREADY_ALLIED) {
-        notify(hwnd, "Alliance is already active.", "同盟已经存在。");
+        notify(hwnd, "Already in the same alliance.", "已在同一同盟。");
+    } else if (result == GAME_PLAYER_ACTION_DIFFERENT_ALLIANCES) {
+        notify(hwnd, "Both countries already belong to different alliances.",
+               "双方已经属于不同同盟。");
     } else if (result == GAME_PLAYER_ACTION_NO_ALLIANCES) {
-        notify(hwnd, "No alliances to dissolve.", "没有可解散的同盟。");
+        notify(hwnd, "This country is not in an alliance.", "该国家不在同盟中。");
+    } else if (result == GAME_PLAYER_ACTION_ALLIANCE_SLOT_FULL) {
+        notify(hwnd, "No alliance slot is available.", "没有可用的同盟槽位。");
+    } else if (result == GAME_PLAYER_ACTION_VASSAL_ALLIANCE_BLOCKED) {
+        notify(hwnd, "Vassal states cannot independently join alliances.",
+               "附庸国不能独立加入同盟。");
     } else if (result == GAME_PLAYER_ACTION_ALLIANCE_BLOCKED) {
         notify(hwnd, "Alliance is blocked by war, truce, or vassal rules.",
                "战争、停战或附庸规则阻止同盟。");
@@ -203,11 +211,14 @@ int ui_country_target_handle_action_button(HWND hwnd, int source_civ,
         return begin_target(hwnd, source_civ, UI_COUNTRY_TARGET_VASSALIZE, mouse_x, mouse_y);
     }
     if (action == COUNTRY_VASSAL_ACTION_DISSOLVE) {
-        result = game_player_dissolve_alliances(source_civ);
+        result = game_player_leave_alliance(source_civ);
         if (result == GAME_PLAYER_ACTION_OK) {
-            notify(hwnd, "Alliances dissolved.", "同盟已解散。");
+            notify(hwnd, "Left alliance.", "已退出同盟。");
         } else if (result == GAME_PLAYER_ACTION_NO_ALLIANCES) {
-            notify(hwnd, "No alliances to dissolve.", "没有可解散的同盟。");
+            notify(hwnd, "This country is not in an alliance.", "该国家不在同盟中。");
+        } else if (result == GAME_PLAYER_ACTION_SOURCE_NOT_SOVEREIGN) {
+            notify(hwnd, "Vassal states follow their overlord and cannot independently leave alliances.",
+                   "附庸国跟随宗主国，不能独立退出同盟。");
         } else {
             notify_result(hwnd, UI_COUNTRY_TARGET_NONE, result);
         }

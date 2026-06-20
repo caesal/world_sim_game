@@ -24,12 +24,12 @@ unsigned int panel_diplomacy_rows_cache_key(unsigned int key, const RenderSnapsh
         key = mix_key(key, other->overlord); key = mix_key(key, key_bucket(other->current_soldiers, 100));
         key = mix_key(key, other->vassal_callable_soldiers); key = mix_key(key, other->vassal_resource_tribute);
         key = mix_key(key, rel->state); key = mix_key(key, rel->relation_score);
-        key = mix_key(key, rev->relation_score); key = mix_key(key, rel->yearly_delta_x10);
+        key = mix_key(key, rev->relation_score); key = mix_key(key, rel->yearly_delta_x100);
         key = mix_key(key, rel->state_years); key = mix_key(key, rel->candidate_state);
         key = mix_key(key, rel->candidate_years);
         for (f = 0; f < DIP_REL_FACTOR_SLOTS; f++) {
             key = mix_key(key, rel->relation_factor_ids[f]);
-            key = mix_key(key, rel->relation_factor_delta_x10[f]);
+            key = mix_key(key, rel->relation_factor_delta_x100[f]);
             key = mix_key(key, rel->relation_factor_values[f]);
         }
         key = mix_key(key, rel->truce_years_left); key = mix_key(key, war->active);

@@ -1,6 +1,7 @@
 #include "render/map_highlight_internal.h"
 
 #include "core/game_state.h"
+#include "render/map_ownership_surface.h"
 
 #include <string.h>
 
@@ -39,8 +40,8 @@ static const SnapshotTile *snap_tile(const RenderSnapshot *snapshot, int x, int 
 }
 
 static int tile_owner(const RenderSnapshot *snapshot, int x, int y) {
-    const SnapshotTile *tile = snap_tile(snapshot, x, y);
-    return tile ? tile->owner : -1;
+    if (!snap_tile(snapshot, x, y)) return -1;
+    return map_ownership_surface_snapshot_owner(snapshot, x, y, NULL);
 }
 
 static int sx(MapLayout layout, const RenderSnapshot *snapshot, int x) {
@@ -61,7 +62,7 @@ static unsigned int edge_request_key(const RenderSnapshot *snapshot, MapLayout l
     unsigned int key = 2166136261u;
     int i;
     key = mix_edge_key(key, snapshot->map_w); key = mix_edge_key(key, snapshot->map_h);
-    key = mix_edge_key(key, snapshot->tiles_revision);
+    key = mix_edge_key(key, map_ownership_surface_snapshot_revision(snapshot));
     key = mix_edge_key(key, layout.map_x); key = mix_edge_key(key, layout.map_y);
     key = mix_edge_key(key, layout.draw_w); key = mix_edge_key(key, layout.draw_h);
     key = mix_edge_key(key, min_x); key = mix_edge_key(key, max_x);

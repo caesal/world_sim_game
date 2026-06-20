@@ -1,5 +1,7 @@
 #include "simulation_month.h"
 
+#include "sim/alliance.h"
+#include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
 #include "sim/collapse.h"
@@ -322,6 +324,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
                 ports_refresh_city_regions();
                 maritime_mark_routes_dirty();
                 diplomacy_mark_contacts_dirty();
+                civilization_repair_queued_color_conflicts(4);
             }
             state->phase = SIM_MONTH_PLAGUE;
             }
@@ -380,7 +383,20 @@ int simulation_month_run_next(SimulationMonthState *state) {
                         if (!economy_update_year_step(&state->economy_year_cursor, 4)) break;
                         state->calendar_step++;
                         break;
-                    case 1: phase_profile_name = "Diplomacy Year"; profiler_set_current_job("diplomacy-refresh"); diplomacy_update_year(); state->calendar_step++; break;
+                    case 1:
+                        if (!state->diplomacy_alliance_year_started) {
+                            diplomacy_year_work_begin(&state->diplomacy_year_work);
+                            alliance_year_work_begin(&state->alliance_year_work);
+                            state->diplomacy_alliance_year_started = 1;
+                        }
+                        phase_profile_name = "Diplomacy Year";
+                        profiler_set_current_job("diplomacy-year");
+                        if (!diplomacy_update_year_step(&state->diplomacy_year_work, 12)) break;
+                        phase_profile_name = "Alliance Year";
+                        profiler_set_current_job("alliance-year");
+                        if (!alliance_update_year_step(&state->alliance_year_work, 96)) break;
+                        state->calendar_step++;
+                        break;
                     case 2: phase_profile_name = "Vassal Year"; profiler_set_current_job("vassal-calendar"); vassal_update_year(); state->calendar_step++; break;
                     case 3:
                         phase_profile_name = "War Year";
@@ -409,13 +425,11 @@ int simulation_month_run_next(SimulationMonthState *state) {
             state->phase = SIM_MONTH_SNAPSHOT_CACHE;
             break;
         case SIM_MONTH_SNAPSHOT_CACHE:
-            render_snapshot_cache_update_budgeted(32, 1024, 1, 1);
-            if (render_snapshot_cache_dirty_count() > 0) break;
+            render_snapshot_cache_update_budgeted(16, 256, 1, 1);
             state->phase = SIM_MONTH_DECISION_CACHE;
             break;
         case SIM_MONTH_DECISION_CACHE:
-            decision_snapshot_cache_update_budgeted(1);
-            if (decision_snapshot_cache_dirty_count() > 0) break;
+            decision_snapshot_cache_update_budgeted(4);
             state->phase = SIM_MONTH_DONE;
             state->active = 0;
             break;

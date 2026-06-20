@@ -2,6 +2,7 @@
 
 #include "core/render_snapshot.h"
 #include "core/game_state.h"
+#include "game/game_alliance_probe.h"
 #include "game/game_diplomacy_relation_probe.h"
 #include "game/game_diplomacy_tooltip_probe.h"
 #include "game/game_diplomacy_visual_probe.h"
@@ -11,10 +12,12 @@
 #include "render/panel_country_diplomacy_cards.h"
 #include "render/render_context.h"
 #include "sim/civilization_slots.h"
+#include "sim/alliance.h"
 #include "sim/diplomacy.h"
 #include "sim/diplomacy_borders.h"
 #include "sim/diplomacy_relation_score.h"
 #include "sim/diplomacy_stability.h"
+#include "sim/diplomacy_year.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/regions.h"
@@ -26,6 +29,7 @@
 #include "world/terrain_query.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
@@ -148,6 +152,28 @@ static void reset_probe_fixture(int peaceful) {
     diplomacy_update_contacts();
 }
 
+static void extend_probe_fixture_to_four(void) {
+    initial_civ_count = 4;
+    civ_count = 4;
+    city_count = 4;
+    region_count = 4;
+    init_probe_civ(2, "Alliance Probe C", 2, 2, 6);
+    init_probe_civ(3, "Alliance Probe D", 3, 3, 5);
+    init_probe_region(2, 2, 4, 2, 2, 1);
+    init_probe_region(3, 3, 5, 2, 3, 1);
+    add_probe_neighbor(1, 2);
+    add_probe_neighbor(2, 3);
+    init_probe_city(2, 2, "Probe Capital C", 4, 2, 4000);
+    init_probe_city(3, 3, "Probe Capital D", 5, 2, 4000);
+    terrain_stats_invalidate_cache();
+    world_recalculate_territory();
+    population_sync_all();
+    maritime_rebuild_routes();
+    diplomacy_borders_mark_dirty();
+    diplomacy_mark_contacts_dirty();
+    diplomacy_update_contacts();
+}
+
 static DiplomacyRelation probe_relation(DiplomacyStatus state, int score, int tension, int conflict) {
     DiplomacyRelation relation;
     memset(&relation, 0, sizeof(relation));
@@ -165,25 +191,62 @@ static DiplomacyRelation probe_relation(DiplomacyStatus state, int score, int te
     return relation;
 }
 
+static void copy_probe_relations(DiplomacyRelation out[4][4]) {
+    int a, b;
+    for (a = 0; a < 4; a++) {
+        for (b = 0; b < 4; b++) out[a][b] = diplomacy_relation(a, b);
+    }
+}
+
+static int same_probe_relations(DiplomacyRelation a[4][4], DiplomacyRelation b[4][4]) {
+    return memcmp(a, b, sizeof(DiplomacyRelation) * 16) == 0;
+}
+
+static int case_budgeted_diplomacy_year(FILE *summary) {
+    DiplomacyRelation blocking[4][4];
+    DiplomacyRelation stepped[4][4];
+    DiplomacyYearWork work;
+    int first_done;
+    int steps = 1;
+    reset_probe_fixture(1);
+    extend_probe_fixture_to_four();
+    srand(12345);
+    diplomacy_update_year();
+    copy_probe_relations(blocking);
+    reset_probe_fixture(1);
+    extend_probe_fixture_to_four();
+    srand(12345);
+    diplomacy_year_work_begin(&work);
+    first_done = diplomacy_update_year_step(&work, 1);
+    while (!work.done && steps < 64) {
+        diplomacy_update_year_step(&work, 1);
+        steps++;
+    }
+    copy_probe_relations(stepped);
+    fprintf(summary, "case=budgeted_diplomacy_year ok=%d first_done=%d steps=%d last_ms=%d peak_ms=%d\n",
+            !first_done && work.done && same_probe_relations(blocking, stepped),
+            first_done, steps, diplomacy_year_last_step_ms(), diplomacy_year_peak_step_ms());
+    return !first_done && work.done && same_probe_relations(blocking, stepped);
+}
+
 static void restore_probe_relation(DiplomacyRelation relation) {
     diplomacy_restore_relation(0, 1, relation);
     diplomacy_restore_relation(1, 0, relation);
 }
 
 static int case_alliance_blocks(FILE *summary) {
-    DiplomacyRelation relation;
     WarDesireBreakdown desire;
     GamePlayerActionResult player_result;
+    int alliance_id;
     int started;
     reset_probe_fixture(1);
-    relation = probe_relation(DIPLOMACY_ALLIANCE, 90, 10, 5);
-    restore_probe_relation(relation);
+    alliance_id = alliance_debug_create_pair(0, 1, 90);
     desire = war_desire_calculate(0, 1, diplomacy_relation(0, 1));
     started = war_start(0, 1);
     player_result = game_player_declare_war(0, 1);
-    fprintf(summary, "case=alliance_blocks final=%d result=%d player=%d started=%d reason=\"%s\"\n",
-            desire.final_desire, desire.result, player_result, started, desire.reason);
-    return desire.final_desire == 0 && player_result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE &&
+    fprintf(summary, "case=alliance_blocks alliance=%d final=%d result=%d player=%d started=%d reason=\"%s\"\n",
+            alliance_id, desire.final_desire, desire.result, player_result, started, desire.reason);
+    return alliance_id >= 0 && desire.final_desire == 0 && player_result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE &&
            !started && diplomacy_status(0, 1) == DIPLOMACY_WAR;
 }
 
@@ -263,7 +326,7 @@ static int case_truce_expiry_and_memory_clear(FILE *summary) {
             relation.border_tension, relation.resource_conflict);
     return after.state == DIPLOMACY_TENSE && after.truce_years_left == 0 &&
            relation.state == DIPLOMACY_PEACE &&
-           relation.last_war_result == DIP_LAST_WAR_NONE;
+           relation.last_war_result != DIP_LAST_WAR_NONE && relation.easing_years >= 16;
 }
 
 static int case_high_pressure_can_war(FILE *summary) {
@@ -286,12 +349,14 @@ int run_diplomacy_probe(void) {
     ensure_probe_dirs();
     summary = fopen(DIPLOMACY_PROBE_DIR "/summary.txt", "w");
     if (!summary) return 2;
+    ok_all &= case_budgeted_diplomacy_year(summary);
     ok_all &= case_alliance_blocks(summary);
     ok_all &= case_player_alliance_dissolve(summary);
     ok_all &= case_active_truce_penalty(summary);
     ok_all &= case_post_war_penalty(summary);
     ok_all &= case_truce_expiry_and_memory_clear(summary);
     ok_all &= case_high_pressure_can_war(summary);
+    ok_all &= run_alliance_probe_cases(summary);
     ok_all &= run_diplomacy_relation_probe_cases(summary);
     ok_all &= run_diplomacy_tooltip_probe_cases(summary);
     ok_all &= run_diplomacy_visual_probe_cases(summary);

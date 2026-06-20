@@ -4,7 +4,7 @@
 #include "sim/diplomacy.h"
 
 #define DIP_REL_TOP_FACTORS 3
-#define DIP_REL_FACTOR_SLOTS 12
+#define DIP_REL_FACTOR_SLOTS 16
 
 typedef enum {
     DIP_REL_FACTOR_NONE,
@@ -16,6 +16,7 @@ typedef enum {
     DIP_REL_FACTOR_SHARED_WAR,
     DIP_REL_FACTOR_SHARED_THREAT,
     DIP_REL_FACTOR_POWER,
+    DIP_REL_FACTOR_CONTEMPT,
     DIP_REL_FACTOR_RESOURCE,
     DIP_REL_FACTOR_BORDER,
     DIP_REL_FACTOR_TRUCE_RECOVERY,
@@ -24,11 +25,11 @@ typedef enum {
 } DiplomacyRelationFactor;
 
 typedef struct {
-    int yearly_delta_x10;
-    int positive_x10;
-    int negative_x10;
+    int yearly_delta_x100;
+    int positive_x100;
+    int negative_x100;
     int factor_ids[DIP_REL_FACTOR_SLOTS];
-    int factor_delta_x10[DIP_REL_FACTOR_SLOTS];
+    int factor_delta_x100[DIP_REL_FACTOR_SLOTS];
     int factor_values[DIP_REL_FACTOR_SLOTS];
 } DiplomacyRelationBreakdown;
 

@@ -1,6 +1,7 @@
 #include "render/panel_debug_perf.h"
 #include "render/contour_paths.h"
 #include "render/diplomacy_map_anim.h"
+#include "render/panel_debug_spikes.h"
 #include "render/panel_debug_worldgen.h"
 #include "render/plague_visual.h"
 #include "render/panel_view_model_cache.h"
@@ -18,11 +19,15 @@
 #include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
+#include "sim/alliance.h"
+#include "sim/civ_colors.h"
 #include "sim/decision_snapshot.h"
+#include "sim/diplomacy_year.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/sea_lanes.h"
 #include "ui/ui_theme.h"
 #include <stdio.h>
+#include <string.h>
 
 static COLORREF budget_color(int value, int budget) {
     if (budget <= 0 || value < budget * 7 / 10) return RGB(132, 188, 111);
@@ -79,10 +84,45 @@ static void draw_economy_debug_rows(HDC hdc, UiCursor *cursor) {
              pressure_max >= 85 ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
 }
 
+static void draw_rule39_evidence_rows(HDC hdc, UiCursor *cursor) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    char text[180];
+    char list[180] = "";
+    int stage5 = 0;
+    int stage6 = 0;
+
+    if (snapshot) {
+        int i;
+        for (i = 0; i < snapshot->civ_count && i < MAX_CIVS; i++) {
+            const SnapshotCiv *civ = &snapshot->civs[i];
+            if (!civ->alive) continue;
+            if (civ->tech_stage >= 6) stage6++;
+            if (civ->tech_stage >= 5) {
+                if (stage5 < 5) {
+                    char item[64];
+                    snprintf(item, sizeof(item), "%s%d:%s/s%d",
+                             stage5 > 0 ? " | " : "", civ->id, civ->name_en, civ->tech_stage);
+                    strncat(list, item, sizeof(list) - strlen(list) - 1);
+                }
+                stage5++;
+            }
+        }
+    }
+    perf_row(hdc, cursor, tr("Rule39 stage5 civs", "Rule39 stage5 civs"),
+             list[0] ? list : "none", stage5 >= 5 ? RGB(132, 188, 111) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "stage5 %d / stage6 %d / routes %d shallow %d deep %d",
+             stage5, stage6, sea_lane_render_visible_routes(),
+             sea_lane_render_visible_shallow_routes(), sea_lane_render_visible_deep_routes());
+    perf_row(hdc, cursor, tr("Rule39 routes", "Rule39 routes"),
+             text, sea_lane_render_visible_deep_routes() > 0 ? RGB(132, 188, 111) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+}
+
 void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     RuntimeProfilerSnapshot perf;
     char text[180];
     profiler_snapshot(&perf);
+    draw_debug_spike_rows(hdc, cursor);
+    draw_rule39_evidence_rows(hdc, cursor);
     ui_section(hdc, cursor, tr("Snapshot", "快照"));
     snprintf(text, sizeof(text), "age %d ms / rev #%u / publish %d ms",
              render_snapshot_age_ms(), render_snapshot_revision(), render_snapshot_last_publish_ms());
@@ -180,8 +220,10 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "pending %d / step %d ms", perf.pending_months, perf.scheduler_step_ms);
     perf_row(hdc, cursor, tr("Queue / step", "队列 / 单步"), text,
               perf.scheduler_step_over_budget ? RGB(218, 92, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "visual %d / coalesced %d / throttle %s",
-             game_loop_presentation_backlog(), game_loop_visual_coalesced_months(),
+    snprintf(text, sizeof(text), "pending %d / max %d / shown %d / dropped %d / skipped %d / throttle %s",
+             game_loop_presentation_backlog(), game_loop_visual_max_backlog(),
+             game_loop_visual_presented_total(), game_loop_visual_dropped_months(),
+             game_loop_displayed_month_order_skips(),
              game_loop_presentation_throttled() ? "yes" : "no");
     perf_row(hdc, cursor, tr("Presentation", "展示背压"), text,
               game_loop_presentation_throttled() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
@@ -194,6 +236,16 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Map invalidation", "Map invalidation"),
               game_loop_last_map_redraw_reason(), ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "changed %d / unresolved %d / cooldown %d",
+             civilization_color_repair_changed_count(),
+             civilization_color_repair_unresolved_count(),
+             civilization_color_repair_cooldown_count());
+    perf_row(hdc, cursor, tr("Color repair", "Color repair"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
+    snprintf(text, sizeof(text), "dip %d/%d ms / alliance %d/%d ms",
+             diplomacy_year_last_step_ms(), diplomacy_year_peak_step_ms(),
+             alliance_year_last_step_ms(), alliance_year_peak_step_ms());
+    perf_row(hdc, cursor, tr("Annual steps", "Annual steps"), text,
+              ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Current Job", "当前任务"),
               perf.current_job[0] ? perf.current_job : "Idle", ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Worker", "模拟线程"), game_loop_worker_status(),

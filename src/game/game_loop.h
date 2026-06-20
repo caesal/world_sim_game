@@ -22,10 +22,16 @@ int game_loop_simulation_overloaded(void);
 int game_loop_snapshot_age_ms(void);
 int game_loop_presentation_backlog(void);
 int game_loop_visual_coalesced_months(void);
+int game_loop_visual_max_backlog(void);
+int game_loop_visual_presented_total(void);
+int game_loop_visual_dropped_months(void);
+int game_loop_displayed_month_order_skips(void);
 int game_loop_presentation_throttled(void);
 const char *game_loop_worker_status(void);
 int game_loop_last_redraw_flags(void);
 int game_loop_last_completed_months(void);
+int game_loop_display_year(void);
+int game_loop_display_month(void);
 int game_loop_last_completed_month_map_redraw(void);
 const char *game_loop_last_map_redraw_reason(void);
 

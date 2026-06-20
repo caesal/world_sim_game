@@ -6,9 +6,9 @@
 #include "game/game_loop.h"
 #include "render/panel_debug.h"
 #include "render/panel_debug_controls.h"
-#include "render/panel_view_model_cache.h"
 #include "render/profiling_switches.h"
 #include "ui/ui_invalidation.h"
+#include "ui/ui_map_display.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_types.h"
 
@@ -80,10 +80,7 @@ int ui_handle_debug_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y
         return 1;
     }
     if (mode >= 0) {
-        display_mode = MAP_DISPLAY_MODES[mode];
-        panel_view_model_cache_invalidate();
-        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_STATIC | GAME_REDRAW_SIDE_PANEL);
-        return 1;
+        return ui_set_map_display_mode(hwnd, mode);
     }
     return 0;
 }

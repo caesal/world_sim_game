@@ -1,10 +1,14 @@
 #include "render/snapshot_map_layers.h"
 
+#include "render/map_display_policy.h"
+#include "render/map_ownership_surface.h"
 #include "render/map_presentation_policy.h"
 #include "render/render_context.h"
 #include "render/render_map_internal.h"
 #include "render/river_render.h"
 #include "world/terrain_query.h"
+
+#include <stddef.h>
 
 static const SnapshotTile *snap_tile(const RenderSnapshot *snapshot, int x, int y) {
     if (!snapshot || x < 0 || y < 0 || x >= snapshot->map_w || y >= snapshot->map_h) return NULL;
@@ -19,6 +23,15 @@ static int snap_alive_owner(const RenderSnapshot *snapshot, int owner) {
     return snapshot && owner >= 0 && owner < snapshot->civ_count && snapshot->civs[owner].alive;
 }
 
+static int snap_owner_for_tile(const RenderSnapshot *snapshot, const SnapshotTile *tile) {
+    ptrdiff_t idx;
+    if (!snapshot || !tile) return -1;
+    idx = tile - snapshot->tiles;
+    if (idx < 0 || idx >= (ptrdiff_t)(snapshot->map_w * snapshot->map_h)) return -1;
+    return map_ownership_surface_snapshot_owner(snapshot, (int)(idx % snapshot->map_w),
+                                                (int)(idx / snapshot->map_w), NULL);
+}
+
 static int sx(MapLayout layout, const RenderSnapshot *snapshot, int x) {
     return layout.map_x + x * layout.draw_w / max(1, snapshot->map_w);
 }
@@ -27,66 +40,9 @@ static int sy(MapLayout layout, const RenderSnapshot *snapshot, int y) {
     return layout.map_y + y * layout.draw_h / max(1, snapshot->map_h);
 }
 
-static COLORREF snapshot_water_color(const SnapshotTile *tile) {
-    if (!tile) return RGB(38, 92, 154);
-    if (tile->water_depth == WATER_DEPTH_NONE) return RGB(38, 92, 154);
-    return blend_color(RGB(92, 177, 214), RGB(38, 92, 154),
-                       clamp(tile->water_deep_percent, 0, 100));
-}
-
-static COLORREF snapshot_overview_color(const SnapshotTile *tile) {
-    COLORREF base;
-    COLORREF climate;
-    int blend;
-    int elev;
-    if (!tile) return RGB(38, 92, 154);
-    base = snap_land(tile) ? geography_color((Geography)tile->geography) : snapshot_water_color(tile);
-    climate = climate_color((Climate)tile->climate);
-    blend = snap_land(tile) ? 48 : 18;
-    elev = tile->elevation;
-    base = blend_color(base, climate, blend);
-    if (!snap_land(tile)) return base;
-    if (elev > 55) return blend_color(base, RGB(38, 35, 32), clamp((elev - 55) / 3, 0, 18));
-    return blend_color(base, RGB(236, 230, 198), clamp((55 - elev) / 4, 0, 12));
-}
-
-static COLORREF snapshot_political_land_color(const SnapshotTile *tile, COLORREF civ_color) {
-    return political_color_with_texture(civ_color, snapshot_overview_color(tile));
-}
-
 static COLORREF snapshot_tile_color(const RenderSnapshot *snapshot, int x, int y) {
     const SnapshotTile *tile = snap_tile(snapshot, x, y);
-    COLORREF base;
-    if (!tile) return RGB(38, 92, 154);
-    switch (display_mode) {
-        case DISPLAY_CLIMATE:
-            return climate_color((Climate)tile->climate);
-        case DISPLAY_GEOGRAPHY:
-            return snap_land(tile) ? geography_color((Geography)tile->geography) : snapshot_water_color(tile);
-        case DISPLAY_REGIONS:
-            base = snapshot_overview_color(tile);
-            if (tile->region_id >= 0) {
-                int id = tile->region_id;
-                COLORREF region = RGB(92 + (id * 37) % 112, 105 + (id * 53) % 96, 86 + (id * 29) % 104);
-                base = blend_color(base, region, 44);
-            }
-            return base;
-        case DISPLAY_POLITICAL:
-            if (snap_land(tile) && tile->owner >= 0 && tile->owner < snapshot->civ_count &&
-                snapshot->civs[tile->owner].alive) {
-                return snapshot_political_land_color(tile, (COLORREF)snapshot->civs[tile->owner].color);
-            }
-            return snapshot_overview_color(tile);
-        case DISPLAY_ALL:
-            base = snapshot_overview_color(tile);
-            if (snap_land(tile) && tile->owner >= 0 && tile->owner < snapshot->civ_count &&
-                snapshot->civs[tile->owner].alive) {
-                base = blend_color(base, (COLORREF)snapshot->civs[tile->owner].color, 46);
-            }
-            return base;
-        default:
-            return snapshot_overview_color(tile);
-    }
+    return map_display_policy_snapshot_tile_color(snapshot, tile, display_mode);
 }
 
 static void draw_snapshot_tiles(HDC hdc, RECT client, MapLayout layout) {
@@ -118,9 +74,12 @@ static int edge_differs(const RenderSnapshot *snapshot, const SnapshotTile *a,
     if (!a || !b) return 0;
     if (kind == 0) return snap_land(a) != snap_land(b);
     if (kind == 1) {
+        int owner_a, owner_b;
         if (!snap_land(a) || !snap_land(b)) return 0;
-        if (!snap_alive_owner(snapshot, a->owner) || !snap_alive_owner(snapshot, b->owner)) return 0;
-        return a->owner != b->owner;
+        owner_a = snap_owner_for_tile(snapshot, a);
+        owner_b = snap_owner_for_tile(snapshot, b);
+        if (!snap_alive_owner(snapshot, owner_a) || !snap_alive_owner(snapshot, owner_b)) return 0;
+        return owner_a != owner_b;
     }
     if (kind == 2) {
         if (!snap_land(a) || !snap_land(b)) return 0;

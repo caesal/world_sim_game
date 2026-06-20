@@ -1,6 +1,7 @@
 #include "game/game_diplomacy_relation_probe.h"
 
 #include "core/game_state.h"
+#include "sim/alliance.h"
 #include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
 #include "sim/diplomacy_policy.h"
@@ -15,6 +16,7 @@
 #include <windows.h>
 #include "ui/ui_types.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 static void reset_probe_world_tiles(void) {
@@ -109,6 +111,20 @@ static int has_factor(DiplomacyRelationBreakdown b, int factor_id) {
     return 0;
 }
 
+static int factor_delta(DiplomacyRelationBreakdown b, int factor_id) {
+    int i;
+    for (i = 0; i < DIP_REL_FACTOR_SLOTS; i++) {
+        if (b.factor_ids[i] == factor_id) return b.factor_delta_x100[i];
+    }
+    return 0;
+}
+
+static int factor_sum(DiplomacyRelationBreakdown b) {
+    int i, sum = 0;
+    for (i = 0; i < DIP_REL_FACTOR_SLOTS; i++) sum += b.factor_delta_x100[i];
+    return sum;
+}
+
 static int count_peace_relations_from_zero(void) {
     int i, count = 0;
     for (i = 1; i < civ_count; i++) {
@@ -130,13 +146,13 @@ static int case_directional_scores(FILE *summary) {
     ba.relation_score = diplomacy_relation_score_apply_year(1, 0, ba);
     diplomacy_relation_score_end_year();
     fprintf(summary,
-            "case=directional_relation_scores our=%d their=%d our_delta_x10=%d their_delta_x10=%d\n",
+            "case=directional_relation_scores our=%d their=%d our_delta_x100=%d their_delta_x100=%d\n",
             ab.relation_score, ba.relation_score,
-            diplomacy_relation_breakdown(0, 1).yearly_delta_x10,
-            diplomacy_relation_breakdown(1, 0).yearly_delta_x10);
+            diplomacy_relation_breakdown(0, 1).yearly_delta_x100,
+            diplomacy_relation_breakdown(1, 0).yearly_delta_x100);
     return ab.relation_score > ba.relation_score &&
-           diplomacy_relation_breakdown(0, 1).yearly_delta_x10 > 0 &&
-           diplomacy_relation_breakdown(1, 0).yearly_delta_x10 < 0;
+           diplomacy_relation_breakdown(0, 1).yearly_delta_x100 > 0 &&
+           diplomacy_relation_breakdown(1, 0).yearly_delta_x100 < 0;
 }
 
 static int case_relation_factors(FILE *summary) {
@@ -144,17 +160,158 @@ static int case_relation_factors(FILE *summary) {
     DiplomacyRelationBreakdown b;
     reset_relation_probe_fixture();
     relation = relation_fixture(DIPLOMACY_PEACE, 20, 82, 12);
+    relation.years_known = 200;
     diplomacy_relation_score_begin_year();
     relation.relation_score = diplomacy_relation_score_apply_year(0, 1, relation);
     diplomacy_relation_score_end_year();
     b = diplomacy_relation_breakdown(0, 1);
     fprintf(summary,
-            "case=relation_factors score=%d delta_x10=%d has_trade=%d has_long_peace=%d pairs=%d update_ms=%d\n",
-            relation.relation_score, b.yearly_delta_x10, has_factor(b, DIP_REL_FACTOR_TRADE),
+            "case=relation_factors score=%d delta_x100=%d has_trade=%d has_long_peace=%d pairs=%d update_ms=%d\n",
+            relation.relation_score, b.yearly_delta_x100, has_factor(b, DIP_REL_FACTOR_TRADE),
             has_factor(b, DIP_REL_FACTOR_LONG_PEACE),
             diplomacy_relation_score_last_pairs(), diplomacy_relation_score_last_update_ms());
-    return b.yearly_delta_x10 >= 30 && has_factor(b, DIP_REL_FACTOR_TRADE) &&
+    return b.yearly_delta_x100 >= 400 && has_factor(b, DIP_REL_FACTOR_TRADE) &&
            has_factor(b, DIP_REL_FACTOR_LONG_PEACE);
+}
+
+static int case_factor_tuning(FILE *summary) {
+    DiplomacyRelation r = relation_fixture(DIPLOMACY_PEACE, 0, 0, 0);
+    DiplomacyRelationBreakdown b;
+    int ok = 1, contact, alliance, heritage_bonus, heritage_annual;
+    reset_relation_probe_fixture();
+    r.years_known = 1; r.resource_conflict = 0;
+    diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r);
+    b = diplomacy_relation_breakdown(0, 1);
+    contact = factor_delta(b, DIP_REL_FACTOR_CONTACT);
+    r.state = DIPLOMACY_ALLIANCE;
+    diplomacy_relation_score_apply_year(0, 1, r);
+    b = diplomacy_relation_breakdown(0, 1);
+    alliance = factor_delta(b, DIP_REL_FACTOR_ALLIANCE);
+    ok &= contact == 50 && alliance == 100 && !has_factor(b, DIP_REL_FACTOR_CONTACT);
+    diplomacy_relation_score_end_year();
+    diplomacy_mark_contacts_dirty();
+    diplomacy_update_contacts();
+    heritage_bonus = diplomacy_relation(0, 1).relation_score;
+    r = diplomacy_relation(0, 1);
+    diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r);
+    heritage_annual = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_HERITAGE);
+    diplomacy_relation_score_end_year();
+    fprintf(summary, "case=factor_tuning contact=%d alliance=%d heritage_bonus=%d heritage_annual=%d\n",
+            contact, alliance, heritage_bonus, heritage_annual);
+    return ok && heritage_bonus == 15 && heritage_annual == 10;
+}
+
+static int case_full_ledger_preserves_small_factors(FILE *summary) {
+    DiplomacyRelation r = relation_fixture(DIPLOMACY_PEACE, 0, 85, 90);
+    DiplomacyRelationBreakdown b;
+    int contact, heritage, sum;
+    reset_relation_probe_fixture();
+    r.years_known = 200;
+    r.border_tension = 90;
+    r.resource_conflict = 90;
+    r.last_war_result = DIP_LAST_WAR_MILITARY;
+    r.easing_years = 12;
+    civs[0].military = 5;
+    civs[1].military = 80;
+    civs[2].military = 240;
+    diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r);
+    b = diplomacy_relation_breakdown(0, 1);
+    diplomacy_relation_score_end_year();
+    contact = factor_delta(b, DIP_REL_FACTOR_CONTACT);
+    heritage = factor_delta(b, DIP_REL_FACTOR_HERITAGE);
+    sum = factor_sum(b);
+    fprintf(summary,
+            "case=full_ledger_preserves_small_factors contact=%d heritage=%d sum=%d yearly=%d other_x100=%d slots=%d\n",
+            contact, heritage, sum, b.yearly_delta_x100, b.yearly_delta_x100 - sum,
+            DIP_REL_FACTOR_SLOTS);
+    return contact == 50 && heritage == 10 && sum == b.yearly_delta_x100 &&
+           has_factor(b, DIP_REL_FACTOR_TRADE) && has_factor(b, DIP_REL_FACTOR_LONG_PEACE) &&
+           has_factor(b, DIP_REL_FACTOR_SHARED_THREAT) && has_factor(b, DIP_REL_FACTOR_POWER) &&
+           has_factor(b, DIP_REL_FACTOR_RESOURCE) && has_factor(b, DIP_REL_FACTOR_BORDER) &&
+           has_factor(b, DIP_REL_FACTOR_WAR_MEMORY);
+}
+
+static int case_long_peace_thresholds(FILE *summary) {
+    DiplomacyRelation r = relation_fixture(DIPLOMACY_PEACE, 0, 0, 0);
+    int d74, d75, d200;
+    reset_relation_probe_fixture();
+    r.contact_kind = DIP_CONTACT_NONE; r.resource_conflict = 0;
+    diplomacy_relation_score_begin_year();
+    r.years_known = 74; diplomacy_relation_score_apply_year(0, 1, r);
+    d74 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_LONG_PEACE);
+    r.years_known = 75; diplomacy_relation_score_apply_year(0, 1, r);
+    d75 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_LONG_PEACE);
+    r.years_known = 200; diplomacy_relation_score_apply_year(0, 1, r);
+    d200 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_LONG_PEACE);
+    diplomacy_relation_score_end_year();
+    fprintf(summary, "case=long_peace_thresholds d74=%d d75=%d d200=%d\n", d74, d75, d200);
+    return d74 == 0 && d75 == 75 && d200 == 150;
+}
+
+static int case_power_contempt_thresholds(FILE *summary) {
+    DiplomacyRelation r = relation_fixture(DIPLOMACY_PEACE, 0, 0, 0);
+    int d150, d250, d400, contempt;
+    reset_relation_probe_fixture();
+    r.contact_kind = DIP_CONTACT_NONE; r.resource_conflict = 0; r.years_known = 1;
+    diplomacy_relation_score_begin_year();
+    civs[0].military = 1; civs[1].military = 100; diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r); d150 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_POWER);
+    civs[1].military = 140; diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r); d250 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_POWER);
+    civs[1].military = 400; diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r); d400 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_POWER);
+    civs[0].military = 400; civs[1].military = 1; diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r); contempt = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_CONTEMPT);
+    diplomacy_relation_score_end_year();
+    fprintf(summary, "case=power_contempt d150=%d d250=%d d400=%d contempt=%d\n",
+            d150, d250, d400, contempt);
+    return d150 == -150 && d250 == -250 && d400 == -400 && contempt == -200;
+}
+
+static int case_shared_threat(FILE *summary) {
+    DiplomacyRelation r = relation_fixture(DIPLOMACY_PEACE, 0, 0, 0);
+    int shared, direct;
+    reset_relation_probe_fixture();
+    r.contact_kind = DIP_CONTACT_NONE; r.resource_conflict = 0; r.years_known = 1;
+    civs[0].military = 1; civs[1].military = 1; civs[2].military = 400;
+    diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r);
+    shared = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_SHARED_THREAT);
+    civs[2].alive = 0; civs[1].military = 400; diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r);
+    direct = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_SHARED_THREAT);
+    diplomacy_relation_score_end_year();
+    fprintf(summary, "case=shared_threat shared=%d direct_pair=%d\n", shared, direct);
+    return shared == 100 && direct == 0;
+}
+
+static int case_recovery_and_memory(FILE *summary) {
+    DiplomacyRelation r = relation_fixture(DIPLOMACY_PEACE, -20, 0, 0);
+    int border45, border75, truce, drift_pos, drift_neg, mem_early, mem_late;
+    reset_relation_probe_fixture();
+    r.contact_kind = DIP_CONTACT_NONE; r.resource_conflict = 0; r.border_tension = 45;
+    diplomacy_relation_score_begin_year();
+    diplomacy_relation_score_apply_year(0, 1, r); border45 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_BORDER);
+    r.border_tension = 75; diplomacy_relation_score_apply_year(0, 1, r);
+    border75 = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_BORDER);
+    r.state = DIPLOMACY_TRUCE; r.border_tension = 0; r.truce_years_left = 4; r.relation_score = -1;
+    diplomacy_relation_score_apply_year(0, 1, r); truce = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_TRUCE_RECOVERY);
+    r.state = DIPLOMACY_PEACE; r.truce_years_left = 0; r.last_war_result = DIP_LAST_WAR_NONE; r.relation_score = 12;
+    diplomacy_relation_score_apply_year(0, 1, r); drift_pos = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_QUIET_DRIFT);
+    r.relation_score = -12; diplomacy_relation_score_apply_year(0, 1, r);
+    drift_neg = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_QUIET_DRIFT);
+    r.last_war_result = DIP_LAST_WAR_MILITARY; r.easing_years = 10; diplomacy_relation_score_apply_year(0, 1, r);
+    mem_early = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_WAR_MEMORY);
+    r.easing_years = 75; diplomacy_relation_score_apply_year(0, 1, r);
+    mem_late = factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_WAR_MEMORY);
+    diplomacy_relation_score_end_year();
+    fprintf(summary, "case=recovery_memory border45=%d border75=%d truce=%d drift=%d/%d memory=%d/%d\n",
+            border45, border75, truce, drift_pos, drift_neg, mem_early, mem_late);
+    return border45 == -75 && border75 == -150 && truce == 25 &&
+           drift_pos == -25 && drift_neg == 25 && mem_early == -75 && mem_late == -25;
 }
 
 static int case_truce_grouping_contract(FILE *summary) {
@@ -184,29 +341,35 @@ static int case_directional_refresh_preserves(FILE *summary) {
 }
 
 static int case_high_score_alliance(FILE *summary) {
-    DiplomacyRelation ab = relation_fixture(DIPLOMACY_PEACE, 82, 20, 8);
-    DiplomacyRelation ba = relation_fixture(DIPLOMACY_PEACE, 81, 20, 8);
-    DiplomacyRelation mid_ab, out_ab;
-    int mid_candidate_state, mid_candidate_years;
-    int i;
+    DiplomacyRelation ab = relation_fixture(DIPLOMACY_PEACE, 95, 20, 8);
+    DiplomacyRelation out_ab;
+    int not_94, seed, create_seed = -1, alliance_id = -1;
     reset_relation_probe_fixture();
+    ab.relation_score = 94;
     diplomacy_restore_relation(0, 1, ab);
-    diplomacy_restore_relation(1, 0, ba);
+    diplomacy_restore_relation(1, 0, ab);
     diplomacy_mark_contacts_dirty();
-    for (i = 0; i < 4; i++) diplomacy_update_year();
-    mid_ab = diplomacy_relation(0, 1);
-    mid_candidate_state = diplomacy_stability_candidate_state(0, 1);
-    mid_candidate_years = diplomacy_stability_candidate_years(0, 1);
-    diplomacy_update_year();
+    alliance_debug_set_create_years(0, 1, 79);
+    alliance_update_year();
+    not_94 = alliance_for_civ(0) < 0;
+    for (seed = 0; seed < 300 && create_seed < 0; seed++) {
+        reset_relation_probe_fixture();
+        ab.relation_score = 95;
+        diplomacy_restore_relation(0, 1, ab);
+        diplomacy_restore_relation(1, 0, ab);
+        diplomacy_mark_contacts_dirty();
+        alliance_debug_set_create_years(0, 1, 79);
+        srand((unsigned int)seed);
+        alliance_update_year();
+        alliance_id = alliance_for_civ(0);
+        if (alliance_id >= 0) create_seed = seed;
+    }
     out_ab = diplomacy_relation(0, 1);
     fprintf(summary,
-            "case=high_score_alliance mid_state=%d candidate=%d/%d final_state=%d ab=%d ba=%d contact=%d\n",
-            mid_ab.state, mid_candidate_state, mid_candidate_years, out_ab.state, out_ab.relation_score,
+            "case=high_score_alliance mutual94_blocked=%d create_seed=%d alliance=%d final_state=%d ab=%d ba=%d contact=%d\n",
+            not_94, create_seed, alliance_id, out_ab.state, out_ab.relation_score,
             diplomacy_relation(1, 0).relation_score, out_ab.contact_kind);
-    return mid_ab.state == DIPLOMACY_PEACE &&
-           mid_candidate_state == DIPLOMACY_ALLIANCE &&
-           mid_candidate_years == DIPLOMACY_SOFT_TRANSITION_YEARS - 1 &&
-           out_ab.state == DIPLOMACY_ALLIANCE;
+    return not_94 && create_seed >= 0 && alliance_id >= 0 && out_ab.state == DIPLOMACY_ALLIANCE;
 }
 
 static int case_alliance_grace_and_exit(FILE *summary) {
@@ -285,6 +448,12 @@ int run_diplomacy_relation_probe_cases(FILE *summary) {
     int ok = 1;
     ok &= case_directional_scores(summary);
     ok &= case_relation_factors(summary);
+    ok &= case_factor_tuning(summary);
+    ok &= case_full_ledger_preserves_small_factors(summary);
+    ok &= case_long_peace_thresholds(summary);
+    ok &= case_power_contempt_thresholds(summary);
+    ok &= case_shared_threat(summary);
+    ok &= case_recovery_and_memory(summary);
     ok &= case_truce_grouping_contract(summary);
     ok &= case_directional_refresh_preserves(summary);
     ok &= case_high_score_alliance(summary);

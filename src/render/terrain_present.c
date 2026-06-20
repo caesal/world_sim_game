@@ -2,7 +2,8 @@
 
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
-#include "render/render_map_internal.h"
+#include "render/map_display_policy.h"
+#include "render/map_ownership_surface.h"
 
 typedef struct {
     HDC dc;
@@ -91,20 +92,24 @@ static COLORREF screen_sample_color(int map_px, int map_py, MapLayout layout) {
     int fy = wy % max(1, layout.draw_h);
     int bx = fx * 256 / max(1, layout.draw_w);
     int by = fy * 256 / max(1, layout.draw_h);
-    COLORREF color = tile_display_color(tx, ty);
+    COLORREF color = map_display_policy_live_tile_color(tx, ty, display_mode);
     int w;
 
     w = edge_weight(bx);
-    if (w > 0 && same_blend_class(tx, ty, tx + 1, ty)) color = mix_color(color, tile_display_color(tx + 1, ty), w);
+    if (w > 0 && same_blend_class(tx, ty, tx + 1, ty)) {
+        color = mix_color(color, map_display_policy_live_tile_color(tx + 1, ty, display_mode), w);
+    }
     w = edge_weight(by);
-    if (w > 0 && same_blend_class(tx, ty, tx, ty + 1)) color = mix_color(color, tile_display_color(tx, ty + 1), w);
+    if (w > 0 && same_blend_class(tx, ty, tx, ty + 1)) {
+        color = mix_color(color, map_display_policy_live_tile_color(tx, ty + 1, display_mode), w);
+    }
     return stable_grain(color, map_px, map_py, tx, ty);
 }
 
 static COLORREF sampled_base_color(int x, int y) {
     int sx = clamp(x / BASE_VISUAL_SCALE, 0, MAP_W - 1);
     int sy = clamp(y / BASE_VISUAL_SCALE, 0, MAP_H - 1);
-    COLORREF color = tile_display_color(sx, sy);
+    COLORREF color = map_display_policy_live_tile_color(sx, sy, display_mode);
     return stable_grain(color, x, y, sx, sy);
 }
 
@@ -116,7 +121,7 @@ static void rebuild_base_surface_cache(void) {
         }
     }
     base_surface_cache.display = display_mode;
-    base_surface_cache.revision = dirty_revision_terrain();
+    base_surface_cache.revision = map_ownership_surface_live_revision();
     base_surface_cache.valid = 1;
 }
 
@@ -125,7 +130,7 @@ void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
     int height = MAP_H * BASE_VISUAL_SCALE;
     if (!ensure_surface_cache(hdc, &base_surface_cache, width, height)) return;
     if (!base_surface_cache.valid || base_surface_cache.display != display_mode ||
-        base_surface_cache.revision != dirty_revision_terrain()) {
+        base_surface_cache.revision != map_ownership_surface_live_revision()) {
         rebuild_base_surface_cache();
     }
     SetStretchBltMode(hdc, layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);

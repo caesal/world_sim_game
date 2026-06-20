@@ -2,6 +2,7 @@
 
 #include "core/profiler.h"
 #include "game/game_loop.h"
+#include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
@@ -270,6 +271,35 @@ static void draw_legend_capital_pair_item(HDC hdc, int x, int y) {
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
+static int draw_alliance_legend(HDC hdc, int x, int y, int line_h) {
+    const RenderSnapshot *snapshot = snapshot_ui_current();
+    int i;
+    int drawn = 0;
+    draw_legend_group(hdc, x, y, tr("Alliances", "同盟"));
+    y += line_h;
+    if (!snapshot || snapshot->alliance_count <= 0) {
+        draw_legend_item(hdc, x, y, RGB(124, 132, 136), tr("No alliances", "无同盟"));
+        return y + line_h;
+    }
+    for (i = 0; i < snapshot->alliance_count && drawn < 8; i++) {
+        const AllianceSnapshotRecord *alliance = &snapshot->alliances[i];
+        char label[128];
+        const char *name = ui_language == UI_LANG_ZH ? alliance->name_zh : alliance->name_en;
+        if (!alliance->active) continue;
+        snprintf(label, sizeof(label), "%s (%d)", name, alliance->member_count);
+        draw_legend_item(hdc, x, y, (COLORREF)alliance->color, label);
+        y += line_h;
+        drawn++;
+    }
+    if (drawn < snapshot->alliance_count) {
+        char more[48];
+        snprintf(more, sizeof(more), "+%d %s", snapshot->alliance_count - drawn, tr("more", "更多"));
+        draw_text_line(hdc, x + 22, y, more, RGB(174, 186, 190));
+        y += line_h;
+    }
+    return y;
+}
+
 void draw_map_legend(HDC hdc, RECT client) {
     const Geography geographies[] = {
         GEO_PLAIN, GEO_HILL, GEO_MOUNTAIN, GEO_PLATEAU,
@@ -317,6 +347,12 @@ void draw_map_legend(HDC hdc, RECT client) {
 
     x = box.left + 10;
     y = box.top + 30;
+
+    if (display_mode == DISPLAY_ALLIANCE) {
+        draw_alliance_legend(hdc, x, y, line_h);
+        RestoreDC(hdc, saved_dc);
+        return;
+    }
 
     if (show_routes && !show_geography && !show_climate) {
         draw_legend_group(hdc, x, y, tr("Routes", "航道"));

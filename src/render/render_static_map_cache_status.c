@@ -30,8 +30,9 @@ static const char *reason_names[RENDER_STATIC_MAP_REASON_COUNT] = {
 static int now_ms(void) { return (int)GetTickCount(); }
 
 static int keys_pending(void) {
+    int expected_fill = status.live_fill_key ? status.live_fill_key : status.snapshot_fill_key;
     return status.snapshot_fill_key != 0 &&
-           (status.published_fill_key != status.snapshot_fill_key ||
+           (status.published_fill_key != expected_fill ||
             status.published_border_key != status.snapshot_border_key);
 }
 

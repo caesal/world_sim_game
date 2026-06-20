@@ -218,7 +218,7 @@ static void draw_action_row(HDC hdc, UiCursor *cursor, int civ_id) {
     draw_button(hdc, declare_button, tr("Declare War", "开战"), enabled);
     draw_button(hdc, peace_button, tr("Peace", "和平"), enabled);
     draw_button(hdc, alliance_button, tr("Alliance", "同盟"), enabled);
-    draw_button(hdc, dissolve_button, tr("Dissolve", "解散"), enabled);
+    draw_button(hdc, dissolve_button, tr("Leave Alliance", "退盟"), enabled);
     draw_button(hdc, vassal_button, tr("Vassalize", "附庸"), enabled);
     draw_button(hdc, unrest_button, tr("Civil Unrest", "内乱"), can_trigger);
     cursor->y += 72;

@@ -2,7 +2,7 @@
 
 #include "core/constants.h"
 
-#define POST_WAR_MEMORY_CLEAR_YEARS 5
+#define POST_WAR_MEMORY_MAX_YEARS 100
 #define TRUCE_END_TENSE_THRESHOLD 75
 
 int diplomacy_policy_last_war_result_valid(int result) {
@@ -65,20 +65,18 @@ int diplomacy_policy_tense_recovery_requested(const DiplomacyRelation *relation,
 }
 
 void diplomacy_policy_update_post_war_memory(DiplomacyRelation *relation, int calm) {
+    (void)calm;
     if (!diplomacy_policy_has_post_war_memory(relation)) return;
-    if (!calm) {
-        relation->easing_years = 0;
-        return;
-    }
-    relation->easing_years = clamp(relation->easing_years + 1, 0, 100);
-    if (relation->easing_years >= POST_WAR_MEMORY_CLEAR_YEARS) {
-        diplomacy_policy_clear_post_war_memory(relation);
-    }
+    relation->easing_years = clamp(relation->easing_years + 1, 0, POST_WAR_MEMORY_MAX_YEARS);
 }
 
 void diplomacy_policy_apply_tension_easing(DiplomacyRelation *relation, int desire_a, int desire_b) {
     int calm;
     if (!relation) return;
+    if (diplomacy_policy_has_post_war_memory(relation)) {
+        relation->easing_years = clamp(relation->easing_years + 1, 0, POST_WAR_MEMORY_MAX_YEARS);
+        return;
+    }
     calm = relation->trade_fit >= 40 && relation->border_tension < 45 &&
            relation->resource_conflict < 55 && desire_a < 45 && desire_b < 45;
     if (!calm) {
@@ -88,10 +86,6 @@ void diplomacy_policy_apply_tension_easing(DiplomacyRelation *relation, int desi
     relation->easing_years = clamp(relation->easing_years + 1, 0, 100);
     if (relation->easing_years >= 3) {
         relation->border_tension = clamp(relation->border_tension - 2, 0, 100);
-    }
-    if (diplomacy_policy_has_post_war_memory(relation) &&
-        relation->easing_years >= POST_WAR_MEMORY_CLEAR_YEARS) {
-        diplomacy_policy_clear_post_war_memory(relation);
     }
 }
 

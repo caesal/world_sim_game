@@ -41,5 +41,6 @@ int run_economy_probe(void);
 int run_crisis_probe(void);
 int run_diplomacy_probe(void);
 int run_population_probe(void);
+int run_presentation_probe(void);
 
 #endif

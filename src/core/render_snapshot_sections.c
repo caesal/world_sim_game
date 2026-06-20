@@ -35,10 +35,13 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
     }
     if (mask & RENDER_SNAPSHOT_SECTION_CIVS) {
         memcpy(dst->civs, src->civs, sizeof(dst->civs));
+        memcpy(dst->alliances, src->alliances, sizeof(dst->alliances));
         dst->civ_count = src->civ_count;
+        dst->alliance_count = src->alliance_count;
         dst->civ_independent_alive_count = src->civ_independent_alive_count;
         dst->civs_revision = src->civs_revision;
         dst->civ_visual_revision = src->civ_visual_revision;
+        dst->alliance_revision = src->alliance_revision;
         bind_civ_decision_strings(dst);
     }
     if (mask & RENDER_SNAPSHOT_SECTION_CITIES) {
@@ -92,6 +95,7 @@ void render_snapshot_seed_from_front(RenderSnapshot *dst, const RenderSnapshot *
     dst->civ_independent_alive_count = src->civ_independent_alive_count;
     dst->civ_reusable_slot_count = src->civ_reusable_slot_count;
     dst->civ_visual_revision = src->civ_visual_revision;
+    dst->alliance_revision = src->alliance_revision;
     dst->revision = src->revision;
     saved_mask = dst->sections_skipped_mask;
     dst->sections_skipped_mask =

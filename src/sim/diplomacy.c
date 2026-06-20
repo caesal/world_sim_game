@@ -1,6 +1,7 @@
 ﻿#include "diplomacy.h"
 #include "sim/expansion.h"
 #include "core/dirty_flags.h"
+#include "sim/alliance.h"
 #include "sim/diplomacy_borders.h"
 #include "sim/diplomacy_policy.h"
 #include "sim/maritime.h"
@@ -12,6 +13,7 @@
 #include "sim/war_desire.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
+#include "sim/diplomacy_year.h"
 #include <stdio.h>
 #include <string.h>
 #ifndef DIPLOMACY_ENABLE_ADVANCED_STATES
@@ -57,6 +59,7 @@ void diplomacy_reset(void) {
     war_desire_reset_all();
     diplomacy_relation_score_reset();
     diplomacy_stability_reset();
+    alliance_reset();
     diplomacy_contacts_dirty = 1;
     for (a = 0; a < MAX_CIVS; a++) {
         for (b = 0; b < MAX_CIVS; b++) {
@@ -192,10 +195,10 @@ static void prepare_soft_state(int civ_a, int civ_b, DiplomacyRelation *relation
     if (!relation) return;
     allow = soft_transition_allowed(civ_a, civ_b, relation->state, desired, relation);
     relation->state = diplomacy_stability_step_pair(civ_a, civ_b, relation->state, desired, allow);
-    if (relation->state == desired && desired != DIPLOMACY_TENSE) relation->easing_years = 0;
+    if (relation->state == desired && desired != DIPLOMACY_TENSE && relation->last_war_result == DIP_LAST_WAR_NONE) relation->easing_years = 0;
 }
 
-static void refresh_known_relation(int civ_a, int civ_b) {
+void diplomacy_refresh_known_relation_for_year(int civ_a, int civ_b) {
     DiplomacyRelation ab = diplomacy_matrix[civ_a][civ_b];
     DiplomacyRelation ba = diplomacy_matrix[civ_b][civ_a];
     DiplomacyRelation relation = ab;
@@ -218,7 +221,8 @@ static void refresh_known_relation(int civ_a, int civ_b) {
     else { relation.border_length = 0; relation.natural_barrier = 0; }
     if (contact_kind == DIP_CONTACT_NONE && relation.state != DIPLOMACY_WAR &&
         relation.state != DIPLOMACY_TRUCE &&
-        relation.state != DIPLOMACY_VASSAL) {
+        relation.state != DIPLOMACY_VASSAL &&
+        relation.state != DIPLOMACY_ALLIANCE) {
         if (relation.state == DIPLOMACY_ALLIANCE) log_relation_transition(civ_a, civ_b, relation.state, DIPLOMACY_NONE);
         relation = default_relation(DIPLOMACY_NONE, 0);
         set_relation_pair_shared(civ_a, civ_b, relation);
@@ -255,9 +259,7 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         relation.border_tension = clamp(relation.border_tension - 4, 0, 100);
         diplomacy_stability_force_pair(civ_a, civ_b, DIPLOMACY_VASSAL);
     } else if (relation.state == DIPLOMACY_ALLIANCE) {
-        prepare_soft_state(civ_a, civ_b, &relation,
-                           diplomacy_policy_alliance_exit_requested(&relation, score_ab, score_ba) ?
-                           DIPLOMACY_PEACE : DIPLOMACY_ALLIANCE);
+        prepare_soft_state(civ_a, civ_b, &relation, DIPLOMACY_ALLIANCE);
         diplomacy_policy_update_post_war_memory(&relation, diplomacy_policy_calm_post_war_relation(&relation));
     }
 #endif
@@ -265,12 +267,6 @@ static void refresh_known_relation(int civ_a, int civ_b) {
         if (diplomacy_policy_peace_tense_requested(&relation, score_ab, score_ba)) {
             prepare_soft_state(civ_a, civ_b, &relation, DIPLOMACY_TENSE);
         }
-#if DIPLOMACY_ENABLE_ADVANCED_STATES
-        else if (diplomacy_policy_mutual_score(score_ab, score_ba) >= 80 &&
-                 !diplomacy_policy_alliance_hard_blocked(&relation, contact_kind)) {
-            prepare_soft_state(civ_a, civ_b, &relation, DIPLOMACY_ALLIANCE);
-        }
-#endif
         else {
             prepare_soft_state(civ_a, civ_b, &relation, DIPLOMACY_PEACE);
             diplomacy_policy_update_post_war_memory(&relation, diplomacy_policy_calm_post_war_relation(&relation));
@@ -313,7 +309,7 @@ void diplomacy_update_contacts(void) {
             if (contact_kind == DIP_CONTACT_NONE) continue;
             relation = diplomacy_matrix[a][b];
             if (relation.state == DIPLOMACY_NONE) {
-                relation = default_relation(DIPLOMACY_PEACE, same_heritage(a, b) ? 5 : 0);
+                relation = default_relation(DIPLOMACY_PEACE, same_heritage(a, b) ? 15 : 0);
                 diplomacy_stability_force_pair(a, b, DIPLOMACY_PEACE);
                 event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
                                           a, b, -1, -1, 0, 0, "");
@@ -329,21 +325,6 @@ void diplomacy_update_contacts(void) {
         }
     }
     diplomacy_contacts_dirty = 0;
-}
-void diplomacy_update_year(void) {
-    int a;
-    int b;
-    diplomacy_update_contacts();
-    war_desire_reset_all();
-    diplomacy_relation_score_begin_year();
-    for (a = 0; a < civ_count; a++) {
-        if (!is_valid_civ(a)) continue;
-        for (b = a + 1; b < civ_count; b++) {
-            if (!is_valid_civ(b)) continue;
-            refresh_known_relation(a, b);
-        }
-    }
-    diplomacy_relation_score_end_year();
 }
 DiplomacyStatus diplomacy_status(int civ_a, int civ_b) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS) return DIPLOMACY_NONE;
@@ -369,7 +350,7 @@ void diplomacy_record_war_result_kind(int winner, int loser, DiplomacyLastWarRes
     if (lose_rel.state == DIPLOMACY_NONE) lose_rel = default_relation(DIPLOMACY_PEACE, loser_score);
     win_rel.last_war_winner = lose_rel.last_war_winner = winner;
     win_rel.last_war_loser = lose_rel.last_war_loser = loser;
-    win_rel.last_war_result = lose_rel.last_war_result = result;
+    win_rel.last_war_result = lose_rel.last_war_result = result; win_rel.easing_years = lose_rel.easing_years = 0;
     win_rel.relation_score = winner_score; lose_rel.relation_score = loser_score;
     set_relation_pair_directional(winner, loser, win_rel, lose_rel);
     diplomacy_relation_score_reset_pair(winner, loser);
@@ -387,7 +368,7 @@ void diplomacy_record_war_no_winner(int civ_a, int civ_b, DiplomacyLastWarResult
     if (ba.state == DIPLOMACY_NONE) ba = default_relation(DIPLOMACY_PEACE, -30);
     ab.last_war_winner = ba.last_war_winner = result == DIP_LAST_WAR_OFFENSIVE_HALTED ? civ_a : -1;
     ab.last_war_loser = ba.last_war_loser = result == DIP_LAST_WAR_OFFENSIVE_HALTED ? civ_b : -1;
-    ab.last_war_result = ba.last_war_result = result;
+    ab.last_war_result = ba.last_war_result = result; ab.easing_years = ba.easing_years = 0;
     ab.relation_score = -20; ba.relation_score = -30;
     set_relation_pair_directional(civ_a, civ_b, ab, ba);
     diplomacy_relation_score_reset_pair(civ_a, civ_b);

@@ -244,8 +244,8 @@ static void draw_debug_subtabs(HDC hdc, UiCursor *cursor) {
     cursor->y += 10;
 }
 static void draw_debug_map_layers(HDC hdc, UiCursor *cursor) {
-    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Political", "Geography", "Climate", "Regions", "Routes"};
-    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"政治", "地理", "气候", "区域", "航道潜力网"};
+    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Country", "Alliance", "Geography", "Climate", "Regions", "Routes"};
+    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"国家", "同盟", "地理", "气候", "区域", "航道潜力网"};
     RECT row;
     int i;
     int gap = 5;

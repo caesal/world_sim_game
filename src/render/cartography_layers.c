@@ -3,6 +3,8 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "render/contour_paths.h"
+#include "render/map_display_policy.h"
+#include "render/map_ownership_surface.h"
 #include "render/map_presentation_policy.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
@@ -100,8 +102,11 @@ static void blend_pixel(unsigned int *dst, COLORREF color, int alpha) {
     *dst = (unsigned int)b | ((unsigned int)g << 8) | ((unsigned int)r << 16) | ((unsigned int)a << 24);
 }
 
-static int alive_owner(int owner) {
-    return owner >= 0 && owner < civ_count && civs[owner].alive;
+static int cartography_fill_revision(void) {
+    int key = map_ownership_surface_live_revision();
+    key = key * 1000003 ^ dirty_revision_civ_visual();
+    if (display_mode == DISPLAY_ALLIANCE) key = key * 1000003 ^ dirty_revision_alliance();
+    return key;
 }
 
 static void build_land_mask(void) {
@@ -164,19 +169,13 @@ static void filter_mask(int passes, int fill_threshold, int keep_threshold) {
 static void rebuild_political(HDC hdc) {
     int x;
     int y;
-    int alpha = display_mode == DISPLAY_POLITICAL ? POLITICAL_FILL_ALPHA : 88;
     if (!ensure_cache(hdc, &political_cache, 1)) return;
-    clear_cache(&political_cache, dirty_revision_ownership());
+    clear_cache(&political_cache, cartography_fill_revision());
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
-            int owner = world[y][x].owner;
-            if (alive_owner(owner)) {
-                COLORREF color = display_mode == DISPLAY_POLITICAL ?
-                    soften_political_color(civs[owner].color) :
-                    political_color_with_texture(civs[owner].color, overview_color(x, y));
-                blend_pixel(&political_cache.pixels[y * MAP_W + x],
-                            color, alpha);
-            }
+            MapDisplayFillPolicy fill;
+            if (!map_display_policy_live_fill(x, y, display_mode, &fill)) continue;
+            blend_pixel(&political_cache.pixels[y * MAP_W + x], fill.color, fill.alpha);
         }
     }
 }
@@ -201,9 +200,9 @@ static void rebuild_coast_halo(HDC hdc) {
 
 void draw_cartography_political_fills(HDC hdc, RECT client, MapLayout layout) {
     (void)client;
-    if (display_mode != DISPLAY_ALL && display_mode != DISPLAY_POLITICAL) return;
+    if (!map_display_policy_requires_fill_layer(display_mode) || display_mode == DISPLAY_REGIONS) return;
     if (dirty_render_political() ||
-        !cache_current(&political_cache, 1, dirty_revision_ownership())) rebuild_political(hdc);
+        !cache_current(&political_cache, 1, cartography_fill_revision())) rebuild_political(hdc);
     if (political_cache.valid) present_cache(hdc, &political_cache, layout);
 }
 

@@ -14,6 +14,7 @@ void dirty_mark_civ(void);
 void dirty_mark_civ_stats(void);
 void dirty_mark_city(void);
 void dirty_mark_diplomacy(void);
+void dirty_mark_alliance(void);
 void dirty_mark_all_render(void);
 
 int dirty_render_terrain(void);
@@ -40,6 +41,7 @@ int dirty_revision_civ(void);
 int dirty_revision_civ_visual(void);
 int dirty_revision_city(void);
 int dirty_revision_diplomacy(void);
+int dirty_revision_alliance(void);
 int dirty_revision_label_country(void);
 int dirty_revision_label_city(void);
 const char *dirty_label_revision_summary(void);

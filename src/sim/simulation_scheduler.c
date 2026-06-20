@@ -7,9 +7,12 @@
 #include <stdio.h>
 
 #define SIM_PENDING_MONTH_CAP 4
+#define SIM_COMPLETED_MONTH_CAP 16
 
 static int pending_months = 0;
-static int completed_months = 0;
+static SimCompletedMonthDate completed_months[SIM_COMPLETED_MONTH_CAP];
+static int completed_month_head = 0;
+static int completed_month_count = 0;
 static int last_step_ms = 0;
 static SimulationMonthState active_month;
 static DWORD last_budget_event_tick = 0;
@@ -32,9 +35,19 @@ static void log_budget_yield(int step_ms, int budget_ms) {
     last_budget_event_tick = now;
 }
 
+static void enqueue_completed_month_date(void) {
+    int index;
+    if (completed_month_count >= SIM_COMPLETED_MONTH_CAP) return;
+    index = (completed_month_head + completed_month_count) % SIM_COMPLETED_MONTH_CAP;
+    completed_months[index].year = year;
+    completed_months[index].month = month;
+    completed_month_count++;
+}
+
 void sim_scheduler_reset(void) {
     pending_months = 0;
-    completed_months = 0;
+    completed_month_head = 0;
+    completed_month_count = 0;
     last_step_ms = 0;
     active_month.active = 0;
 }
@@ -63,7 +76,7 @@ int sim_scheduler_run_budget(int work_units) {
             if (!simulation_month_begin(&active_month)) continue;
         }
         did_work |= simulation_month_run_next(&active_month);
-        if (simulation_month_is_done(&active_month)) completed_months++;
+        if (simulation_month_is_done(&active_month)) enqueue_completed_month_date();
         work_units--;
     }
     return did_work;
@@ -107,10 +120,16 @@ void sim_scheduler_trim_pending_months(int max_total_pending) {
     if (pending_months > allowed_pending) pending_months = allowed_pending;
 }
 
-int sim_scheduler_take_completed_months(void) {
-    int result = completed_months;
-    completed_months = 0;
-    return result;
+int sim_scheduler_take_completed_month_dates(SimCompletedMonthDate *out_dates, int max_dates) {
+    int i;
+    int count = min(completed_month_count, max_dates);
+    if (!out_dates || max_dates <= 0) return 0;
+    for (i = 0; i < count; i++) {
+        out_dates[i] = completed_months[(completed_month_head + i) % SIM_COMPLETED_MONTH_CAP];
+    }
+    completed_month_head = (completed_month_head + count) % SIM_COMPLETED_MONTH_CAP;
+    completed_month_count -= count;
+    return count;
 }
 
 void sim_scheduler_run_blocking_month(void) {

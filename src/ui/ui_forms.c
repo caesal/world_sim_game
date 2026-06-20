@@ -13,6 +13,7 @@
 
 static FormControls form;
 static int suppress_form_change = 0;
+static unsigned int ui_rng_state = 0;
 
 static void get_window_text_utf8(HWND hwnd, char *buffer, int buffer_size) {
     WCHAR wide[128];
@@ -132,9 +133,30 @@ static int random_metric_value(void) {
     return 9 + rnd(2);
 }
 
-static int random_range(int min_value, int max_value) {
-    return min_value + rnd(max_value - min_value + 1);
+static unsigned int ui_random_next(void) {
+    LARGE_INTEGER counter;
+    unsigned int x;
+
+    if (!ui_rng_state) {
+        QueryPerformanceCounter(&counter);
+        ui_rng_state = (unsigned int)counter.LowPart ^ (unsigned int)counter.HighPart ^
+                       GetTickCount() ^ (GetCurrentProcessId() * 1103515245u);
+        if (!ui_rng_state) ui_rng_state = 0x9e3779b9u;
+    }
+    x = ui_rng_state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    ui_rng_state = x ? x : 0x85ebca6bu;
+    return ui_rng_state;
 }
+
+static int random_range(int min_value, int max_value) {
+    return min_value + (int)(ui_random_next() % (unsigned int)(max_value - min_value + 1));
+}
+
+static int random_slider_value(int old_value) {
+    int value = random_range(5, 94); return value >= old_value ? value + 1 : value; }
 
 static Color32 random_preview_civ_color(void) {
     Color32 old_color = selected_civ_color;
@@ -196,21 +218,21 @@ static void ui_randomize_civilization_form(HWND hwnd) {
 }
 
 static void ui_randomize_physical_world_sliders(HWND hwnd) {
-    ocean_slider = random_range(5, 95);
-    continent_slider = random_range(5, 95);
-    relief_slider = random_range(5, 95);
-    moisture_slider = random_range(5, 95);
-    drought_slider = random_range(5, 95);
-    vegetation_slider = random_range(5, 95);
+    ocean_slider = random_slider_value(ocean_slider);
+    continent_slider = random_slider_value(continent_slider);
+    relief_slider = random_slider_value(relief_slider);
+    moisture_slider = random_slider_value(moisture_slider);
+    drought_slider = random_slider_value(drought_slider);
+    vegetation_slider = random_slider_value(vegetation_slider);
     ui_invalidate_side_panel(hwnd);
 }
 
 static void ui_randomize_advanced_world_sliders(HWND hwnd) {
-    bias_forest_slider = random_range(5, 95);
-    bias_desert_slider = random_range(5, 95);
-    bias_mountain_slider = random_range(5, 95);
-    bias_wetland_slider = random_range(5, 95);
-    region_size_slider = random_range(5, 95);
+    bias_forest_slider = random_slider_value(bias_forest_slider);
+    bias_desert_slider = random_slider_value(bias_desert_slider);
+    bias_mountain_slider = random_slider_value(bias_mountain_slider);
+    bias_wetland_slider = random_slider_value(bias_wetland_slider);
+    region_size_slider = random_slider_value(region_size_slider);
     ui_invalidate_side_panel(hwnd);
 }
 

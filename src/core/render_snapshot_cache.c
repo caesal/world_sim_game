@@ -92,10 +92,10 @@ static void copy_relation(SnapshotDiplomacyRelation *dst, DiplomacyRelation rel,
     dst->state_years = diplomacy_stability_state_years(a, b);
     dst->candidate_state = diplomacy_stability_candidate_state(a, b);
     dst->candidate_years = diplomacy_stability_candidate_years(a, b);
-    dst->yearly_delta_x10 = breakdown.yearly_delta_x10;
+    dst->yearly_delta_x100 = breakdown.yearly_delta_x100;
     for (i = 0; i < DIP_REL_FACTOR_SLOTS; i++) {
         dst->relation_factor_ids[i] = breakdown.factor_ids[i];
-        dst->relation_factor_delta_x10[i] = breakdown.factor_delta_x10[i];
+        dst->relation_factor_delta_x100[i] = breakdown.factor_delta_x100[i];
         dst->relation_factor_values[i] = breakdown.factor_values[i];
     }
 }

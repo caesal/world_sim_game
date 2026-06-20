@@ -31,6 +31,9 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-diplomacy") == 0) {
         return run_diplomacy_probe();
     }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-presentation") == 0) {
+        return run_presentation_probe();
+    }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-population") == 0) {
         return run_population_probe();
     }

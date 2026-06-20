@@ -2,6 +2,7 @@
 
 #include "core/game_state.h"
 #include "sim/economy.h"
+#include "sim/alliance.h"
 #include "sim/expansion.h"
 #include "sim/simulation.h"
 #include "sim/stability_decision.h"
@@ -43,11 +44,7 @@ static int crisis_score_for_civ(int civ_id, int population_pressure) {
 }
 
 static int country_strength_score(int civ_id) {
-    CountrySummary summary = summarize_country(civ_id);
-    Civilization *civ = &civs[civ_id];
-    return summary.population / 800 + summary.food * 2 + summary.water * 2 + summary.money * 2 +
-           summary.minerals * 2 + civ->military * 7 + civ->production * 4 +
-           civ->logistics * 4 + civ->cohesion * 3 - economy_effective_disorder_for_civ(civ_id) / 2;
+    return alliance_own_power(civ_id);
 }
 
 static int readiness_cap_for_ratio(int ratio_percent, int extreme_pressure) {
@@ -104,7 +101,7 @@ WarDesireBreakdown war_desire_calculate(int civ_a, int civ_b, DiplomacyRelation 
     out.aggression_score = civs[civ_a].aggression * 4;
     out.border_score = relation.border_tension / 2;
     desire = out.aggression_score + out.border_score + out.resource_score + out.crisis_score;
-    strength_delta = country_strength_score(civ_a) - country_strength_score(civ_b);
+    strength_delta = country_strength_score(civ_a) - alliance_defensive_bloc_power(civ_b);
     if (strength_delta > 0) out.strength_score = clamp(strength_delta / 8, 0, 25);
     desire += out.strength_score;
 

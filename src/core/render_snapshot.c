@@ -1,6 +1,7 @@
 #include "core/render_snapshot.h"
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "core/profiler.h"
 #include "core/render_snapshot_events.h"
 #include "core/render_snapshot_cache.h"
 #include "core/render_snapshot_civs.h"
@@ -260,6 +261,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     int tile_key;
     int civ_key;
     int civ_visual_key;
+    int alliance_key;
     int city_key;
     int city_visual_key;
     int region_key;
@@ -317,6 +319,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     tile_key = render_snapshot_tile_revision_key();
     civ_key = render_snapshot_civs_revision_key();
     civ_visual_key = render_snapshot_civ_visual_revision_key();
+    alliance_key = dirty_revision_alliance();
     city_key = render_snapshot_cities_revision_key();
     city_visual_key = render_snapshot_city_visual_revision_key();
     region_key = render_snapshot_regions_revision_key();
@@ -335,8 +338,9 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         PROFILE_SECTION(SNAPSHOT_PROFILE_CIVS, render_snapshot_copy_civs_locked(snapshot));
         snapshot->civs_revision = civ_key;
         snapshot->civ_visual_revision = civ_visual_key;
+        snapshot->alliance_revision = alliance_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_CIVS;
-    } else { snapshot->civ_visual_revision = civ_visual_key; PROFILE_SKIP(SNAPSHOT_PROFILE_CIVS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS; }
+    } else { snapshot->civ_visual_revision = civ_visual_key; snapshot->alliance_revision = alliance_key; PROFILE_SKIP(SNAPSHOT_PROFILE_CIVS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_CIVS; }
     if (snapshot->revision == 0 || snapshot->cities_revision != city_key) {
         int complete = 0;
         PROFILE_SECTION(SNAPSHOT_PROFILE_CITIES, complete = copy_cities(snapshot, city_key));
@@ -411,6 +415,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     snapshot->revision = (unsigned int)InterlockedIncrement(&published_revision);
     last_publish_tick = (LONG)GetTickCount();
     last_publish_ms = (LONG)(last_publish_tick - start);
+    profiler_record_spike_phase(PROFILER_SPIKE_SNAPSHOT, "Snapshot publish", (int)last_publish_ms);
     render_snapshot_profile_record_publish((int)last_publish_ms, (int)(lock_start - wait_start),
                                            (int)(lock_end - lock_start),
                                            snapshot->sections_copied_mask, snapshot->sections_skipped_mask);

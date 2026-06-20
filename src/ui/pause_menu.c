@@ -58,16 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本改进：\n"
-                 "停战外交卡片现在也显示关系条和鼠标悬停详情。\n"
-                 "停战倒计时、再战风险、停战状态和历史记录保持不变。\n"
-                 "国家高亮的焦点外环已变浅，减少黑色圆圈感。\n",
+                 "新增正式同盟体系、同盟视角、同盟高亮和玩家外交操作。\n"
+                 "优化极大地图下的国家、联盟、行省等视角渲染卡顿。\n"
+                 "修复省份涂色滞后、月份展示跳跃、随机按钮首轮固定和颜色避让问题。\n"
+                 "调试性能面板现在显示更细的渲染尖峰归因。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nImproved in this version:\n"
-                 "Diplomacy truce cards now show the relation bar and hover detail tooltip.\n"
-                 "Truce countdown, re-war risk, status, and history rows are preserved.\n"
-                 "Country highlight focus halos are lighter so they no longer read as black rings.",
+                 "Formal alliance entities, Alliance map view, highlights, and player diplomacy actions.\n"
+                 "Reduced Extreme-map stutter in Alliance, Country, Province, and route-heavy views.\n"
+                 "Fixed province fill lag, ordered month presentation, setup randomization, and color avoidance.\n"
+                 "Debug / Performance now attributes render spikes by subphase.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

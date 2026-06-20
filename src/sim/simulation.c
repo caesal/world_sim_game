@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/render_snapshot_cache.h"
+#include "sim/alliance.h"
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_slots.h"
@@ -404,8 +405,10 @@ void simulation_reset_state(void) {
     month = 1;
     civ_count = 0;
     city_count = 0;
+    civilization_color_reset_manual_locks();
     civilization_uid_reset();
     event_log_clear();
+    alliance_reset();
     disorder_reset_runtime();
     fragmentation_diag_reset();
     expansion_reset();

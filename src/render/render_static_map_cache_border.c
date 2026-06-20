@@ -38,22 +38,17 @@ static int edge_differs(const RenderSnapshot *snapshot, const SnapshotTile *a,
     return a->region_id >= 0 && b->region_id >= 0 && a->region_id != b->region_id;
 }
 
-static const SnapshotTile *tile_at(const RenderSnapshot *snapshot, int x, int y) {
-    if (!snapshot || x < 0 || y < 0 || x >= snapshot->map_w || y >= snapshot->map_h) return NULL;
-    return &snapshot->tiles[y * snapshot->map_w + x];
-}
-
-static void set_pixel(MapLayerCache *cache, int x, int y, unsigned int color) {
-    if (!cache || x < 0 || y < 0 || x >= cache->width || y >= cache->height) return;
-    cache->pixels[y * cache->width + x] = color;
-}
-
 static void vertical(MapLayerCache *cache, int x, int y0, int y1,
                      int width, unsigned int color) {
     int y;
     int w;
+    int left = max(0, x - width + 1);
+    int right = min(cache->width, x + 1);
+    y0 = clamp(y0, 0, cache->height);
+    y1 = clamp(y1, 0, cache->height);
     for (y = y0; y < y1; y++) {
-        for (w = 0; w < width; w++) set_pixel(cache, x - w, y, color);
+        unsigned int *row = &cache->pixels[y * cache->width];
+        for (w = left; w < right; w++) row[w] = color;
     }
 }
 
@@ -61,8 +56,20 @@ static void horizontal(MapLayerCache *cache, int x0, int x1, int y,
                        int width, unsigned int color) {
     int x;
     int w;
-    for (x = x0; x < x1; x++) {
-        for (w = 0; w < width; w++) set_pixel(cache, x, y - w, color);
+    int top = max(0, y - width + 1);
+    int bottom = min(cache->height, y + 1);
+    x0 = clamp(x0, 0, cache->width);
+    x1 = clamp(x1, 0, cache->width);
+    if (x0 >= x1) return;
+    for (w = top; w < bottom; w++) {
+        unsigned int *row = &cache->pixels[w * cache->width];
+        for (x = x0; x < x1; x++) row[x] = color;
+    }
+}
+
+static void set_grid_pixel(MapLayerCache *cache, int x, int y, unsigned int color) {
+    if (x >= 0 && y >= 0 && x < cache->width && y < cache->height) {
+        cache->pixels[y * cache->width + x] = color;
     }
 }
 
@@ -70,11 +77,14 @@ static void draw_edge_kind(MapLayerCache *cache, const RenderSnapshot *snapshot,
                            int kind, unsigned int color, int width) {
     int x;
     int y;
-    for (y = 0; y < snapshot->map_h; y++) {
-        for (x = 0; x < snapshot->map_w; x++) {
-            const SnapshotTile *a = tile_at(snapshot, x, y);
-            const SnapshotTile *r = tile_at(snapshot, x + 1, y);
-            const SnapshotTile *b = tile_at(snapshot, x, y + 1);
+    int map_w = snapshot->map_w;
+    int map_h = snapshot->map_h;
+    const SnapshotTile *tiles = snapshot->tiles;
+    for (y = 0; y < map_h; y++) {
+        for (x = 0; x < map_w; x++) {
+            const SnapshotTile *a = &tiles[y * map_w + x];
+            const SnapshotTile *r = x + 1 < map_w ? a + 1 : NULL;
+            const SnapshotTile *b = y + 1 < map_h ? &tiles[(y + 1) * map_w + x] : NULL;
             int px = (x + 1) * MAP_LAYER_CACHE_SCALE;
             int py = (y + 1) * MAP_LAYER_CACHE_SCALE;
             if (edge_differs(snapshot, a, r, kind)) {
@@ -93,10 +103,10 @@ static void draw_grid(MapLayerCache *cache, const RenderSnapshot *snapshot) {
     int x;
     int y;
     for (x = step; x < snapshot->map_w * MAP_LAYER_CACHE_SCALE; x += step) {
-        for (y = 0; y < cache->height; y += 3) set_pixel(cache, x, y, color);
+        for (y = 0; y < cache->height; y += 3) set_grid_pixel(cache, x, y, color);
     }
     for (y = step; y < snapshot->map_h * MAP_LAYER_CACHE_SCALE; y += step) {
-        for (x = 0; x < cache->width; x += 3) set_pixel(cache, x, y, color);
+        for (x = 0; x < cache->width; x += 3) set_grid_pixel(cache, x, y, color);
     }
 }
 

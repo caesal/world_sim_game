@@ -54,18 +54,18 @@ static void fill_alliance_relation(SnapshotDiplomacyRelation *relation) {
     relation->contact_kind = DIP_CONTACT_LAND_BORDER;
     relation->last_war_winner = -1;
     relation->last_war_loser = -1;
-    relation->yearly_delta_x10 = 35;
+    relation->yearly_delta_x100 = 310;
     relation->state_years = 3;
     relation->candidate_state = DIPLOMACY_NONE;
-    relation->relation_factor_ids[0] = DIP_REL_FACTOR_CONTACT;
-    relation->relation_factor_delta_x10[0] = 5;
-    relation->relation_factor_values[0] = DIP_CONTACT_LAND_BORDER;
+    relation->relation_factor_ids[0] = DIP_REL_FACTOR_ALLIANCE;
+    relation->relation_factor_delta_x100[0] = 100;
+    relation->relation_factor_values[0] = 1;
     relation->relation_factor_ids[1] = DIP_REL_FACTOR_TRADE;
-    relation->relation_factor_delta_x10[1] = 20;
+    relation->relation_factor_delta_x100[1] = 200;
     relation->relation_factor_values[1] = 66;
-    relation->relation_factor_ids[2] = DIP_REL_FACTOR_LONG_PEACE;
-    relation->relation_factor_delta_x10[2] = 10;
-    relation->relation_factor_values[2] = 31;
+    relation->relation_factor_ids[2] = DIP_REL_FACTOR_HERITAGE;
+    relation->relation_factor_delta_x100[2] = 10;
+    relation->relation_factor_values[2] = 15;
 }
 
 static SnapshotDiplomacyRelation tab_relation(int state, int score, int tension, int conflict,
@@ -75,7 +75,7 @@ static SnapshotDiplomacyRelation tab_relation(int state, int score, int tension,
     relation.state = state;
     relation.relation_score = score;
     relation.border_tension = tension;
-    relation.trade_fit = score > 0 ? 72 : 22;
+    relation.trade_fit = score > 0 ? 62 : 22;
     relation.resource_conflict = conflict;
     relation.contact_kind = DIP_CONTACT_LAND_BORDER;
     relation.years_known = 32;
@@ -89,16 +89,16 @@ static SnapshotDiplomacyRelation tab_relation(int state, int score, int tension,
         relation.truce_initial_years = 25;
         relation.last_war_result = DIP_LAST_WAR_NEGOTIATED_TRUCE;
     }
-    relation.yearly_delta_x10 = score > 0 ? 15 : -10;
+    relation.yearly_delta_x100 = score > 0 ? 150 : -100;
     relation.relation_factor_ids[0] = DIP_REL_FACTOR_CONTACT;
-    relation.relation_factor_delta_x10[0] = 5;
+    relation.relation_factor_delta_x100[0] = 50;
     relation.relation_factor_values[0] = DIP_CONTACT_LAND_BORDER;
     relation.relation_factor_ids[1] = score > 0 ? DIP_REL_FACTOR_TRADE : DIP_REL_FACTOR_BORDER;
-    relation.relation_factor_delta_x10[1] = score > 0 ? 20 : -20;
+    relation.relation_factor_delta_x100[1] = score > 0 ? 100 : -150;
     relation.relation_factor_values[1] = score > 0 ? relation.trade_fit : tension;
-    relation.relation_factor_ids[2] = conflict >= 70 ? DIP_REL_FACTOR_RESOURCE : DIP_REL_FACTOR_LONG_PEACE;
-    relation.relation_factor_delta_x10[2] = conflict >= 70 ? -20 : 10;
-    relation.relation_factor_values[2] = conflict >= 70 ? conflict : relation.years_known;
+    relation.relation_factor_ids[2] = conflict >= 70 ? DIP_REL_FACTOR_RESOURCE : DIP_REL_FACTOR_NONE;
+    relation.relation_factor_delta_x100[2] = conflict >= 70 ? -200 : 0;
+    relation.relation_factor_values[2] = conflict >= 70 ? conflict : 0;
     return relation;
 }
 
@@ -175,32 +175,32 @@ static int render_alliance_card_bmp(const char *path, int language, int tooltip_
     fill_snapshot_civ(&snapshot, 1, "Alliance Probe B", "同盟乙", COLOR32_RGB(92, 164, 138));
     fill_alliance_relation(&relation);
     if (tooltip_variant == 1) {
-        relation.yearly_delta_x10 = 15;
+        relation.yearly_delta_x100 = 310;
     } else if (tooltip_variant == 2) {
         relation.state = DIPLOMACY_TENSE;
         relation.relation_score = -32;
-        relation.yearly_delta_x10 = -15;
+        relation.yearly_delta_x100 = -300;
         relation.relation_factor_ids[0] = DIP_REL_FACTOR_BORDER;
-        relation.relation_factor_delta_x10[0] = -20;
+        relation.relation_factor_delta_x100[0] = -150;
         relation.relation_factor_values[0] = 86;
         relation.relation_factor_ids[1] = DIP_REL_FACTOR_RESOURCE;
-        relation.relation_factor_delta_x10[1] = -10;
+        relation.relation_factor_delta_x100[1] = -200;
         relation.relation_factor_values[1] = 61;
         relation.relation_factor_ids[2] = DIP_REL_FACTOR_CONTACT;
-        relation.relation_factor_delta_x10[2] = 5;
+        relation.relation_factor_delta_x100[2] = 50;
         relation.relation_factor_values[2] = DIP_CONTACT_LAND_BORDER;
     } else if (tooltip_variant == 3) {
         relation.state = DIPLOMACY_PEACE;
         relation.relation_score = 0;
-        relation.yearly_delta_x10 = 0;
+        relation.yearly_delta_x100 = 0;
         relation.relation_factor_ids[0] = DIP_REL_FACTOR_CONTACT;
-        relation.relation_factor_delta_x10[0] = 5;
+        relation.relation_factor_delta_x100[0] = 50;
         relation.relation_factor_values[0] = DIP_CONTACT_LAND_BORDER;
         relation.relation_factor_ids[1] = DIP_REL_FACTOR_BORDER;
-        relation.relation_factor_delta_x10[1] = -5;
+        relation.relation_factor_delta_x100[1] = -50;
         relation.relation_factor_values[1] = 45;
         relation.relation_factor_ids[2] = DIP_REL_FACTOR_NONE;
-        relation.relation_factor_delta_x10[2] = 0;
+        relation.relation_factor_delta_x100[2] = 0;
     }
     snapshot.relations[0][1] = relation;
     snapshot.relations[1][0] = relation;
@@ -482,9 +482,9 @@ static int case_tooltip_factor_accounting(FILE *summary) {
     ok = diplomacy_score_tooltip_net_for_relation(0, 2, &sum, &other, &display);
     render_context_end();
     fprintf(summary,
-            "case=tooltip_factor_accounting ok=%d factor_sum_x10=%d other_x10=%d display_x10=%d label=\"+1.5/y\"\n",
+            "case=tooltip_factor_accounting ok=%d factor_sum_x100=%d other_x100=%d display_x100=%d label=\"+1.5/y\"\n",
             ok, sum, other, display);
-    return ok && display == 15 && sum + other == display;
+    return ok && display == 150 && sum + other == display;
 }
 
 int run_diplomacy_visual_probe_cases(FILE *summary) {

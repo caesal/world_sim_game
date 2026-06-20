@@ -34,6 +34,7 @@ static int civ_revision = 1;
 static int civ_visual_revision = 1;
 static int city_revision = 1;
 static int diplomacy_revision = 1;
+static int alliance_revision = 1;
 static int label_country_revision = 1;
 static int label_city_revision = 1;
 
@@ -76,6 +77,7 @@ void dirty_mark_world(void) {
     bump(&civ_visual_revision);
     bump(&city_revision);
     bump(&diplomacy_revision);
+    bump(&alliance_revision);
     bump(&label_country_revision);
     bump(&label_city_revision);
 }
@@ -88,7 +90,7 @@ void dirty_mark_territory(void) {
 }
 
 void dirty_mark_province(void) {
-    mark(DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
+    mark(DIRTY_RENDER_POLITICAL | DIRTY_RENDER_BORDERS | DIRTY_RENDER_LABELS);
     bump(&province_revision);
     bump(&label_country_revision);
 }
@@ -143,6 +145,11 @@ void dirty_mark_diplomacy(void) {
     bump(&diplomacy_revision);
 }
 
+void dirty_mark_alliance(void) {
+    mark(DIRTY_RENDER_LABELS);
+    bump(&alliance_revision);
+}
+
 void dirty_mark_all_render(void) {
     dirty_mark_world();
 }
@@ -171,6 +178,7 @@ int dirty_revision_civ(void) { return civ_revision; }
 int dirty_revision_civ_visual(void) { return civ_visual_revision; }
 int dirty_revision_city(void) { return city_revision; }
 int dirty_revision_diplomacy(void) { return diplomacy_revision; }
+int dirty_revision_alliance(void) { return alliance_revision; }
 int dirty_revision_label_country(void) { return label_country_revision; }
 int dirty_revision_label_city(void) { return label_city_revision; }
 const char *dirty_label_revision_summary(void) {

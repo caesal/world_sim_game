@@ -1,5 +1,55 @@
 # Version Log
 
+## Ver0.3.3.f
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.f.
+2. Added formal named alliance entities with membership, founder/color,
+   joining, leaving, player alliance actions, alliance map display, alliance
+   labels, and alliance-aware highlighting.
+3. Added directional diplomacy relation scoring, cached factor explanations,
+   hover tooltip presentation, and stabilized diplomacy state transitions.
+4. Added player country actions for war, peace, vassalization, alliance, and
+   leaving an alliance while preserving existing war, truce, and vassal rules.
+5. Fixed Country/Alliance/All map fill lag where city labels, borders, and
+   icons could advance while static political fill reused an old cache.
+6. Added ordered completed-month presentation, Debug / Performance queue
+   counters, and render spike attribution so 5x month display does not skip or
+   fake dates.
+7. Optimized Extreme-map 5x rendering across Alliance, Country, Province,
+   Routes, Geography, and Climate views by profiling render subphases and
+   reducing political/province fill and boundary work.
+8. Fixed UI setup randomization so first-click random values do not repeat a
+   fixed launch sequence, and hardened country color avoidance after expansion
+   with manual color locks.
+9. Updated the root README, documentation index, version log, side doc, active
+   version marker, and in-game pause-menu version summary for the Ver0.3.3.f
+   release record.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` is now `14` because alliance save state is serialized.
+- Alliance membership is tracked as a formal entity. Vassals follow overlords
+  for alliance display and defense scope, but do not vote as sovereign members.
+- The render optimizations do not change map ownership/fill semantics; they
+  reduce cache churn and make display-mode costs visible in Debug / Performance.
+- Completed months are presented in order; the top bar must not show fake dates
+  or skip completed months.
+
+Validation notes:
+
+- Ver0.3.3.f uses `WORLD_SIM_VERSION "0.3.3.f"`.
+- Focused validation evidence is recorded locally under
+  `build/validation/render_mode_stutter_afterfix4_20260619_173457/`.
+- Full Rule39 validation evidence is recorded locally under
+  `build/validation/rule39_render_mode_20260619_175053/`.
+- Rule39 reached year/month `1461/4` on an Extreme map with `1189` natural
+  regions, `46` civ slots, `38` alive civilizations, max/5x speed, and at least
+  five distinct stage-5+ civilizations.
+- Deep-sea route evidence transitioned from hidden/unrevealed deep `0` before
+  unlock to routes `88`, shallow `66`, deep `22` after unlock.
+
 ## Ver0.3.3.e
 
 Implemented fixes:

@@ -40,6 +40,7 @@ int render_snapshot_civs_revision_key(void) {
     key = combined_key(key, dirty_revision_ownership());
     key = combined_key(key, dirty_revision_province());
     key = combined_key(key, dirty_revision_diplomacy());
+    key = combined_key(key, dirty_revision_alliance());
     key = combined_key(key, civ_count * 31 + city_count);
     return combined_key(key, world_generated);
 }

@@ -1,5 +1,6 @@
 ﻿#include "render_panel_internal.h"
 
+#include "game/game_loop.h"
 #include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
@@ -7,8 +8,8 @@
 #include "ui/ui_worldgen_layout.h"
 
 void draw_mode_buttons(HDC hdc, RECT client) {
-    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Political", "Geography", "Climate", "Regions", "Routes"};
-    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"政治", "地理", "气候", "区域", "航道潜力网"};
+    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Country", "Alliance", "Geography", "Climate", "Regions", "Routes"};
+    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"国家", "同盟", "地理", "气候", "区域", "航道潜力网"};
     int i;
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);
@@ -39,7 +40,8 @@ void draw_top_bar(HDC hdc, RECT client) {
 
     ui_clay_draw_bar_shell(hdc, bar);
     ui_clay_draw_card(hdc, year_box, UI_CLAY_STATE_NORMAL);
-    snprintf(text, sizeof(text), "%s %d  %s %d", tr("Year", "年"), year, tr("Month", "月"), month);
+    snprintf(text, sizeof(text), "%s %d  %s %d", tr("Year", "年"),
+             game_loop_display_year(), tr("Month", "月"), game_loop_display_month());
     old_font = SelectObject(hdc, title_font);
     draw_center_text(hdc, year_box, text, RGB(222, 205, 132));
     SelectObject(hdc, old_font);

@@ -6,7 +6,6 @@
 #include "ui/ui_theme.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #define SCORE_SUMMARY_H 52
 #define SCORE_STATUS_ROW_H 15
@@ -74,11 +73,6 @@ static const char *candidate_label(SnapshotDiplomacyRelation own) {
 static const char *pressure_reason(SnapshotDiplomacyRelation own) {
     return own.border_tension >= 75 ? tr("border pressure high", "边境紧张") :
            tr("resource conflict high", "资源冲突");
-}
-
-static void format_delta_x10(int delta_x10, char *out, size_t size) {
-    int abs_delta = abs(delta_x10);
-    snprintf(out, size, "%c%d.%d/y", delta_x10 < 0 ? '-' : '+', abs_delta / 10, abs_delta % 10);
 }
 
 static int draw_state_status_rows(HDC hdc, UiCursor *cursor,
@@ -162,7 +156,7 @@ void draw_diplomacy_relation_score_block(HDC hdc, UiCursor *cursor, int civ_id, 
     char own_score[24], other_score[24], delta[24];
     snprintf(own_score, sizeof(own_score), "%+d", own.relation_score);
     snprintf(other_score, sizeof(other_score), "%+d", other.relation_score);
-    format_delta_x10(own.yearly_delta_x10, delta, sizeof(delta));
+    diplomacy_score_tooltip_format_delta(own.yearly_delta_x100, delta, sizeof(delta));
     draw_score_metric(hdc, a, tr("Our attitude", "我方态度"), own_score);
     draw_score_metric(hdc, b, tr("Their attitude", "对方态度"), other_score);
     draw_score_metric(hdc, c, tr("Yearly change", "年变化"), delta);

@@ -7,17 +7,17 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.3.e is a Windows graphical sandbox prototype written in C.
+Ver0.3.3.f is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.3.e is a focused diplomacy presentation cleanup over Ver0.3.3.d. It
-keeps the diplomacy-state, relation-score, alliance-highlight, and
-player-facing alliance-command base from Ver0.3.3.d, then fixes truce diplomacy
-cards so they show the normal relation bar and hover explanation, and softens
-the selected-country highlight focus halo so it no longer reads as a black
-ring.
+Ver0.3.3.f is a broad alliance, diplomacy, map-display, and presentation
+performance checkpoint over Ver0.3.3.e. It adds formal named alliance entities,
+the Alliance map view, player alliance/leave actions, directional diplomacy
+score explanations, color-avoidance hardening, ordered month presentation, and
+render-spike profiling. It also fixes the repeated Country/Alliance/Province
+fill lag and Extreme-map 5x stutter regressions found during the alliance work.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
-speed, or Phase 6 validation must use a Large map, at least 26 placed
+speed, or Phase 6 validation must use an Extreme map, at least 26 placed
 civilizations, randomized physical map parameters, randomized advanced terrain
 preferences, more than 600 natural regions, 5x/max speed until at least five
 distinct civilizations reach technology stage 5, verify deep-sea routes
@@ -25,13 +25,12 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Known follow-up: Ver0.3.3.e is based on focused build/static/text/probe
-validation plus deterministic truce-card and highlight visual evidence rather
-than full AGENTS Rule39 game-flow evidence. Future performance, UI,
-map-display, simulation-speed, diplomacy, war, vassal, collapse, enclave,
-route, marker, plague, or population balance changes must remain
-evidence-based and pass the strict validation gate for the specific scope
-involved.
+Validation note: Ver0.3.3.f includes focused build/static/text/probe validation
+and a completed Extreme-map Rule39 game-flow regression for the final
+view-stutter fix. Future performance, UI, map-display, simulation-speed,
+diplomacy, war, vassal, collapse, enclave, route, marker, plague, or population
+balance changes must remain evidence-based and pass the strict validation gate
+for the specific scope involved.
 
 You can:
 
@@ -78,6 +77,10 @@ You can:
 41. Use a dedicated Diplomacy tab to inspect contacted civilizations, relation factors, diplomatic status, and war progress
 42. See selected-country military strength, capital garrison estimates, and province garrison estimates in the Diplomacy tab
 43. Keep the year/month top bar visible above the map and reduce white repaint flashes during tab or panel interaction
+44. Create named alliances, show them in a dedicated Alliance map view, and inspect alliance-aware diplomacy state
+45. Use player country actions for war, peace, vassalization, alliance formation, and alliance withdrawal
+46. Inspect relation score factors through diplomacy tooltips and Debug / Performance render spike attribution
+47. Keep Extreme-map 5x presentation smoother across Alliance, Country, Province, Routes, Geography, and Climate views
 44. Use city stage icons for outpost, village, town, city, capital, and harbor markers
 45. Show Chinese two-character stat labels beside icons when the UI language is Chinese
 46. Keep versioned design and review documents under `docs/official` and `docs/unofficial` with version-matched filenames

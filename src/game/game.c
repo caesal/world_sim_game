@@ -91,6 +91,7 @@ static int game_request_add_civilization_from_selection_internal(const char *nam
     if (selected_civ < 0) selected_civ = before_count;
     if (use_color && selected_civ >= 0 && selected_civ < civ_count) {
         civs[selected_civ].color = color;
+        civilization_color_mark_manual(selected_civ);
     }
     event_log_push_structured(EVENT_TYPE_CIV_CREATED, EVENT_SEVERITY_INFO,
                               selected_civ, -1, -1, civs[selected_civ].capital_city, 0, 0, NULL);
@@ -160,6 +161,7 @@ void game_request_set_civilization_color_exact(int civ_id, Color32 color) {
     if (civ_id < 0 || civ_id >= civ_count) return;
     state_write_lock();
     civs[civ_id].color = color;
+    civilization_color_mark_manual(civ_id);
     mark_color_visuals_dirty();
     render_snapshot_cache_update_all();
     state_write_unlock();
@@ -206,6 +208,7 @@ void game_request_after_load_map(int restored_dynamic_state) {
     stability_decision_reset();
     stability_decision_update_all();
     load_progress_update(LOAD_STAGE_POST_LOAD, 4, 6);
+    civilization_repair_alive_colors();
     civilization_colors_debug_check();
     dirty_mark_world();
     decision_snapshot_cache_mark_all_dirty();

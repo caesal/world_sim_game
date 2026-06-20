@@ -5,6 +5,7 @@
 #include "render/map_presentation_policy.h"
 #include "render/render_context.h"
 #include "sim/diplomacy.h"
+#include "ui/ui_types.h"
 
 enum {
     HIGHLIGHT_PRIORITY_DIM = 1,
@@ -62,6 +63,28 @@ static COLORREF alliance_highlight_color(void) {
     return RGB(86, 152, 218);
 }
 
+static const AllianceSnapshotRecord *snapshot_alliance_by_id(const RenderSnapshot *snapshot, int id) {
+    int i;
+    if (!snapshot || id < 0) return NULL;
+    for (i = 0; i < snapshot->alliance_count; i++) {
+        if (snapshot->alliances[i].active && snapshot->alliances[i].id == id) return &snapshot->alliances[i];
+    }
+    return NULL;
+}
+
+static int same_display_alliance(const RenderSnapshot *snapshot, int a, int b) {
+    if (!map_highlight_valid_civ(snapshot, a) || !map_highlight_valid_civ(snapshot, b)) return 0;
+    return snapshot->civs[a].alliance_display_id >= 0 &&
+           snapshot->civs[a].alliance_display_id == snapshot->civs[b].alliance_display_id;
+}
+
+static COLORREF selected_alliance_color(const RenderSnapshot *snapshot) {
+    const AllianceSnapshotRecord *alliance;
+    if (!map_highlight_valid_civ(snapshot, selected_civ)) return alliance_highlight_color();
+    alliance = snapshot_alliance_by_id(snapshot, snapshot->civs[selected_civ].alliance_display_id);
+    return alliance ? (COLORREF)alliance->color : alliance_highlight_color();
+}
+
 static COLORREF relation_border_color(const RenderSnapshot *snapshot, int civ_id, int strong) {
     COLORREF own = map_highlight_civ_highlight_color(snapshot, civ_id, strong);
     if (!map_highlight_valid_civ(snapshot, selected_civ) || civ_id == selected_civ) return own;
@@ -69,7 +92,8 @@ static COLORREF relation_border_color(const RenderSnapshot *snapshot, int civ_id
         snapshot->wars[selected_civ][civ_id].active) return RGB(214, 70, 58);
     if (snapshot->civs[civ_id].overlord == selected_civ) return RGB(232, 200, 86);
     if (snapshot->civs[selected_civ].overlord == civ_id) return RGB(176, 112, 218);
-    if (snapshot->relations[selected_civ][civ_id].state == DIPLOMACY_ALLIANCE) {
+    if (snapshot->relations[selected_civ][civ_id].state == DIPLOMACY_ALLIANCE ||
+        same_display_alliance(snapshot, selected_civ, civ_id)) {
         return alliance_highlight_color();
     }
     return own;
@@ -103,6 +127,10 @@ static void fill_request(HighlightRequest *request, const RenderSnapshot *snapsh
                          int strong, int pulse_start, COLORREF fill_color,
                          BYTE alpha, int priority) {
     COLORREF inner = relation_border_color(snapshot, civ_id, strong);
+    if (priority == HIGHLIGHT_PRIORITY_WAR) inner = RGB(214, 70, 58);
+    else if (priority == HIGHLIGHT_PRIORITY_ALLIANCE && display_mode == DISPLAY_ALLIANCE) {
+        inner = selected_alliance_color(snapshot);
+    }
     request->civ_id = civ_id;
     request->primary = primary;
     request->secondary = secondary;
@@ -170,7 +198,9 @@ static void collect_relation_requests(const RenderSnapshot *snapshot, HighlightR
                                       int *request_count) {
     int i;
     int overlord;
+    int selected_alliance = -1;
     if (!map_highlight_valid_civ(snapshot, selected_civ)) return;
+    selected_alliance = snapshot->civs[selected_civ].alliance_display_id;
     overlord = snapshot->civs[selected_civ].overlord;
     if (map_highlight_valid_civ(snapshot, overlord)) {
         add_highlight_request(snapshot, requests, request_count, overlord, -1, -1, 0, 0,
@@ -198,17 +228,31 @@ static void collect_relation_requests(const RenderSnapshot *snapshot, HighlightR
         if (i != selected_civ && snapshot->civs[i].alive &&
             (snapshot->relations[selected_civ][i].state == DIPLOMACY_WAR ||
              snapshot->wars[selected_civ][i].active)) {
+            int enemy_alliance = snapshot->civs[i].alliance_display_id;
+            int j;
             add_highlight_request(snapshot, requests, request_count, i, -1, -1, 0, 0, 0,
                                   map_highlight_civ_highlight_color(snapshot, i, 0), 58,
                                   HIGHLIGHT_PRIORITY_WAR);
+            if (display_mode == DISPLAY_ALLIANCE && enemy_alliance >= 0) {
+                for (j = 0; j < snapshot->civ_count; j++) {
+                    if (j != selected_civ && snapshot->civs[j].alive &&
+                        snapshot->civs[j].alliance_display_id == enemy_alliance) {
+                        add_highlight_request(snapshot, requests, request_count, j, -1, -1, 0, 0, 0,
+                                              RGB(214, 70, 58), 58, HIGHLIGHT_PRIORITY_WAR);
+                    }
+                }
+            }
         }
     }
     for (i = 0; i < snapshot->civ_count; i++) {
         if (i != selected_civ && snapshot->civs[i].alive &&
-            snapshot->relations[selected_civ][i].state == DIPLOMACY_ALLIANCE &&
+            (snapshot->relations[selected_civ][i].state == DIPLOMACY_ALLIANCE ||
+             (selected_alliance >= 0 && snapshot->civs[i].alliance_display_id == selected_alliance)) &&
             !snapshot->wars[selected_civ][i].active) {
+            COLORREF color = display_mode == DISPLAY_ALLIANCE ?
+                             map_highlight_civ_highlight_color(snapshot, i, 0) : alliance_highlight_color();
             add_highlight_request(snapshot, requests, request_count, i, -1, -1, 0, 0, 0,
-                                  alliance_highlight_color(), 62, HIGHLIGHT_PRIORITY_ALLIANCE);
+                                  color, 62, HIGHLIGHT_PRIORITY_ALLIANCE);
         }
     }
 }

@@ -14,10 +14,13 @@ SOURCES := \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
 	src/game/game_crisis_probe.c \
+	src/game/game_alliance_probe.c \
+	src/game/game_alliance_render_probe.c \
 	src/game/game_diplomacy_probe.c \
 	src/game/game_diplomacy_relation_probe.c \
 	src/game/game_diplomacy_tooltip_probe.c \
 	src/game/game_diplomacy_visual_probe.c \
+	src/game/game_presentation_probe.c \
 	src/game/game_economy_probe.c \
 	src/game/game_population_probe.c \
 	src/game/game_population_corner_probe.c \
@@ -77,6 +80,7 @@ SOURCES := \
 	src/sim/civilization_slots.c \
 	src/sim/civilization_uid.c \
 	src/sim/civ_colors.c \
+	src/sim/civ_color_repair.c \
 	src/sim/disorder.c \
 	src/sim/economy.c \
 	src/sim/collapse.c \
@@ -105,7 +109,12 @@ SOURCES := \
 	src/sim/regions_spawn.c \
 	src/sim/spawn.c \
 	src/sim/expansion.c \
+	src/sim/alliance_state.c \
+	src/sim/alliance_ai.c \
+	src/sim/alliance_power.c \
+	src/sim/alliance_names.c \
 	src/sim/diplomacy.c \
+	src/sim/diplomacy_year.c \
 	src/sim/diplomacy_policy.c \
 	src/sim/diplomacy_relation_score.c \
 	src/sim/diplomacy_stability.c \
@@ -123,12 +132,15 @@ SOURCES := \
 	src/render/render.c \
 	src/render/render_layer_cache.c \
 	src/render/render_static_map_cache_border.c \
+	src/render/render_static_map_cache_fill.c \
 	src/render/render_static_map_cache.c \
 	src/render/render_static_map_cache_status.c \
 	src/render/render_static_scene.c \
 	src/render/render_context.c \
 	src/render/snapshot_ui.c \
 	src/render/render_common.c \
+	src/render/map_display_policy.c \
+	src/render/map_ownership_surface.c \
 	src/render/ui_format.c \
 	src/render/cartography_layers.c \
 	src/render/country_target_arrow.c \
@@ -149,6 +161,7 @@ SOURCES := \
 	src/render/region_render.c \
 	src/render/snapshot_map_layers.c \
 	src/render/map_labels.c \
+	src/render/map_label_alliance.c \
 	src/render/map_label_cache.c \
 	src/render/map_label_style.c \
 	src/render/route_render.c \
@@ -183,6 +196,7 @@ SOURCES := \
 	src/render/panel_worldgen.c \
 	src/render/panel_debug_worldgen.c \
 	src/render/panel_debug_controls.c \
+	src/render/panel_debug_spikes.c \
 	src/render/panel_debug_perf.c \
 	src/render/panel_debug.c \
 	src/render/panel_population.c \
@@ -199,6 +213,7 @@ SOURCES := \
 	src/ui/ui_actions.c \
 	src/ui/ui_country_target.c \
 	src/ui/ui_debug_input.c \
+	src/ui/ui_map_display.c \
 	src/ui/ui_invalidation.c \
 	src/ui/ui_notifications.c \
 	src/ui/ui_wheel.c \
