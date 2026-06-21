@@ -1,5 +1,50 @@
 # Version Log
 
+## Ver0.3.3.g
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.3.g.
+2. Added first-class Alliance right-panel list/detail routing while keeping the
+   Country tab as the first tab outside Alliance map view.
+3. Moved map-view controls into the top toolbar and limited the visible buttons
+   to Country, Alliance, Geography, Climate, Province, and Routes.
+4. Added Alliance list parity for alliance rows, no-alliance country rows,
+   extinct-country toggle behavior, and sorting.
+5. Added Alliance Detail sections for Overview, Members, Votes, History, and
+   Union progress.
+6. Added bounded persistent alliance candidate, vote, and history records with
+   save/load roundtrip coverage.
+7. Fixed stretched Alliance Overview icons with aspect-preserving icon drawing.
+8. Reworked Alliance Members into Country-list-style rows with Population,
+   Provinces, Army, Technology, and Joined year columns.
+9. Reworked Alliance Votes and History into log-card presentation; vote cards
+   display each stored member vote as a direct subrow.
+10. Updated the root README, documentation index, version log, side doc, active
+    version marker, and in-game pause-menu version summary for the Ver0.3.3.g
+    release record.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` is now `15` because alliance candidate, vote, and history
+  records are serialized.
+- Existing alliance AI rules, diplomacy scoring, war/truce/vassal rules, map
+  ownership/fill semantics, world generation, routes, plague, population,
+  economy, and balance are not intentionally changed by this checkpoint.
+- The Union tab remains display-only; no country-merge mechanic is implemented.
+
+Validation notes:
+
+- Ver0.3.3.g uses `WORLD_SIM_VERSION "0.3.3.g"`.
+- Focused Alliance UI evidence is recorded locally under
+  `build/validation/alliance_ui_polish_20260620_230000/` and
+  `build/validation/alliance_ui_polish_20260620_232052/`.
+- Rule39 reached year/month `733/1` on an Extreme map with `1115` natural
+  regions, `35` confirmed civilizations, max/5x speed, and five distinct
+  stage-5 civilizations.
+- Deep-sea route evidence transitioned from `0/0/0` before unlock to routes
+  `53`, shallow `49`, deep `4` after unlock.
+
 ## Ver0.3.3.f
 
 Implemented fixes:

@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本改进：\n"
-                 "新增正式同盟体系、同盟视角、同盟高亮和玩家外交操作。\n"
-                 "优化极大地图下的国家、联盟、行省等视角渲染卡顿。\n"
-                 "修复省份涂色滞后、月份展示跳跃、随机按钮首轮固定和颜色避让问题。\n"
-                 "调试性能面板现在显示更细的渲染尖峰归因。\n",
+                 "新增联盟列表和联盟详情面板，包含总览、成员、投票、历史和联合进度。\n"
+                 "联盟成员列表改为国家列表风格，并显示人口、省份、军队、科技和加入年份。\n"
+                 "联盟投票和历史改为日志卡片格式，投票记录会直接显示每个成员的投票。\n"
+                 "修复联盟总览图标被拉伸的问题，并补全版本与存档记录文档。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nImproved in this version:\n"
-                 "Formal alliance entities, Alliance map view, highlights, and player diplomacy actions.\n"
-                 "Reduced Extreme-map stutter in Alliance, Country, Province, and route-heavy views.\n"
-                 "Fixed province fill lag, ordered month presentation, setup randomization, and color avoidance.\n"
-                 "Debug / Performance now attributes render spikes by subphase.",
+                 "Alliance list and detail panels with Overview, Members, Votes, History, and Union progress.\n"
+                 "Country-list-style alliance member rows with population, provinces, army, technology, and joined year.\n"
+                 "Alliance votes and history now use log-card presentation with per-member vote rows.\n"
+                 "Fixed stretched Alliance overview icons and updated release/save documentation.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

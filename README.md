@@ -7,14 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.3.f is a Windows graphical sandbox prototype written in C.
+Ver0.3.3.g is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.3.f is a broad alliance, diplomacy, map-display, and presentation
-performance checkpoint over Ver0.3.3.e. It adds formal named alliance entities,
-the Alliance map view, player alliance/leave actions, directional diplomacy
-score explanations, color-avoidance hardening, ordered month presentation, and
-render-spike profiling. It also fixes the repeated Country/Alliance/Province
-fill lag and Extreme-map 5x stutter regressions found during the alliance work.
+Ver0.3.3.g is an Alliance UI, alliance records, and release metadata checkpoint
+over Ver0.3.3.f. It keeps the Ver0.3.3.f alliance and render-performance base,
+then adds first-class Alliance right-panel list/detail flows, persistent
+candidate/vote/history records, Alliance overview/member/vote/history/union
+panels, and polished Alliance detail presentation. It also preserves the
+Extreme-map 5x presentation fixes from Ver0.3.3.f.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -25,9 +25,9 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.3.f includes focused build/static/text/probe validation
-and a completed Extreme-map Rule39 game-flow regression for the final
-view-stutter fix. Future performance, UI, map-display, simulation-speed,
+Validation note: Ver0.3.3.g includes focused build/static/text/probe validation
+and uses the completed Extreme-map Rule39 game-flow evidence from the Alliance
+UI polish pass. Future performance, UI, map-display, simulation-speed,
 diplomacy, war, vassal, collapse, enclave, route, marker, plague, or population
 balance changes must remain evidence-based and pass the strict validation gate
 for the specific scope involved.
