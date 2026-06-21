@@ -13,6 +13,7 @@ typedef int (WINAPI *GdipCreateFromHDCProc)(HDC, void **);
 typedef int (WINAPI *GdipDrawImageRectIProc)(void *, void *, int, int, int, int);
 typedef int (WINAPI *GdipDeleteGraphicsProc)(void *);
 typedef int (WINAPI *GdipDisposeImageProc)(void *);
+typedef int (WINAPI *GdipGetImageDimensionProc)(void *, unsigned int *);
 
 static const char *ICON_PATHS[ICON_COUNT] = {
     "assets\\icons\\metric_battle.png",
@@ -60,6 +61,8 @@ static GdipCreateFromHDCProc gdip_create_from_hdc;
 static GdipDrawImageRectIProc gdip_draw_image_rect_i;
 static GdipDeleteGraphicsProc gdip_delete_graphics;
 static GdipDisposeImageProc gdip_dispose_image;
+static GdipGetImageDimensionProc gdip_get_image_width;
+static GdipGetImageDimensionProc gdip_get_image_height;
 static void *icon_images[ICON_COUNT];
 static int icon_load_attempted[ICON_COUNT];
 
@@ -77,6 +80,8 @@ static int ensure_gdiplus(void) {
     union { FARPROC raw; GdipDrawImageRectIProc typed; } draw_image_proc;
     union { FARPROC raw; GdipDeleteGraphicsProc typed; } delete_graphics_proc;
     union { FARPROC raw; GdipDisposeImageProc typed; } dispose_proc;
+    union { FARPROC raw; GdipGetImageDimensionProc typed; } width_proc;
+    union { FARPROC raw; GdipGetImageDimensionProc typed; } height_proc;
 
     if (gdiplus_token) return 1;
     if (!gdiplus_module) {
@@ -88,12 +93,16 @@ static int ensure_gdiplus(void) {
         draw_image_proc.raw = GetProcAddress(gdiplus_module, "GdipDrawImageRectI");
         delete_graphics_proc.raw = GetProcAddress(gdiplus_module, "GdipDeleteGraphics");
         dispose_proc.raw = GetProcAddress(gdiplus_module, "GdipDisposeImage");
+        width_proc.raw = GetProcAddress(gdiplus_module, "GdipGetImageWidth");
+        height_proc.raw = GetProcAddress(gdiplus_module, "GdipGetImageHeight");
         gdiplus_startup = startup_proc.typed;
         gdip_create_bitmap_from_file = create_bitmap_proc.typed;
         gdip_create_from_hdc = create_graphics_proc.typed;
         gdip_draw_image_rect_i = draw_image_proc.typed;
         gdip_delete_graphics = delete_graphics_proc.typed;
         gdip_dispose_image = dispose_proc.typed;
+        gdip_get_image_width = width_proc.typed;
+        gdip_get_image_height = height_proc.typed;
     }
     if (!gdiplus_startup || !gdip_create_bitmap_from_file || !gdip_create_from_hdc ||
         !gdip_draw_image_rect_i || !gdip_delete_graphics || !gdip_dispose_image) {
@@ -135,5 +144,43 @@ void draw_icon(HDC hdc, IconId icon, RECT rect, COLORREF fallback) {
         return;
     }
     gdip_draw_image_rect_i(graphics, image, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+    gdip_delete_graphics(graphics);
+}
+
+void draw_icon_fit(HDC hdc, IconId icon, RECT rect, COLORREF fallback) {
+    void *image = icon_image(icon);
+    void *graphics = NULL;
+    unsigned int image_w = 0, image_h = 0;
+    RECT fit = rect;
+    int box_w = rect.right - rect.left;
+    int box_h = rect.bottom - rect.top;
+    int draw_w, draw_h;
+
+    if (!image || !gdip_create_from_hdc || gdip_create_from_hdc(hdc, &graphics) != 0 || !graphics) {
+        int size = min(box_w, box_h);
+        RECT fallback_rect = {rect.left + (box_w - size) / 2 + 2, rect.top + (box_h - size) / 2 + 2,
+                              rect.left + (box_w + size) / 2 - 2, rect.top + (box_h + size) / 2 - 2};
+        fill_icon_fallback(hdc, fallback_rect, fallback);
+        return;
+    }
+    if (gdip_get_image_width && gdip_get_image_height) {
+        gdip_get_image_width(image, &image_w);
+        gdip_get_image_height(image, &image_h);
+    }
+    if (image_w == 0 || image_h == 0 || box_w <= 0 || box_h <= 0) {
+        image_w = image_h = 1;
+    }
+    draw_w = box_w;
+    draw_h = (int)((long long)box_w * image_h / image_w);
+    if (draw_h > box_h) {
+        draw_h = box_h;
+        draw_w = (int)((long long)box_h * image_w / image_h);
+    }
+    fit.left = rect.left + (box_w - draw_w) / 2;
+    fit.top = rect.top + (box_h - draw_h) / 2;
+    fit.right = fit.left + draw_w;
+    fit.bottom = fit.top + draw_h;
+    gdip_draw_image_rect_i(graphics, image, fit.left, fit.top,
+                           fit.right - fit.left, fit.bottom - fit.top);
     gdip_delete_graphics(graphics);
 }

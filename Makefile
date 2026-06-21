@@ -14,6 +14,7 @@ SOURCES := \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
 	src/game/game_crisis_probe.c \
+	src/game/game_alliance_record_probe.c \
 	src/game/game_alliance_probe.c \
 	src/game/game_alliance_render_probe.c \
 	src/game/game_diplomacy_probe.c \
@@ -110,6 +111,7 @@ SOURCES := \
 	src/sim/spawn.c \
 	src/sim/expansion.c \
 	src/sim/alliance_state.c \
+	src/sim/alliance_records.c \
 	src/sim/alliance_ai.c \
 	src/sim/alliance_power.c \
 	src/sim/alliance_names.c \
@@ -174,6 +176,10 @@ SOURCES := \
 	src/render/profiling_switches.c \
 	src/render/pause_menu_render.c \
 	src/render/top_notifications.c \
+	src/render/panel_alliance_model.c \
+	src/render/panel_alliance_sections.c \
+	src/render/panel_alliance_detail.c \
+	src/render/panel_alliance.c \
 	src/render/panel_country.c \
 	src/render/panel_country_actions.c \
 	src/render/panel_country_cards.c \
@@ -211,6 +217,7 @@ SOURCES := \
 	src/ui/color_picker.c \
 	src/ui/pause_menu.c \
 	src/ui/ui_actions.c \
+	src/ui/ui_alliance_panel_input.c \
 	src/ui/ui_country_target.c \
 	src/ui/ui_debug_input.c \
 	src/ui/ui_map_display.c \

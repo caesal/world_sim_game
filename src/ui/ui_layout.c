@@ -174,14 +174,23 @@ RECT get_speed_button_rect(RECT client, int index) {
 
 RECT get_mode_button_rect(RECT client, int index) {
     RECT rect;
-    int panel_x = client.right - side_panel_w + FORM_X_PAD;
-    int gap = 5;
-    int width = side_panel_w - FORM_X_PAD * 2;
+    int gap = 6;
+    int left = client.right - ui_side_panel_reserved_width() + 14;
+    int right = client.right - 14;
+    int width = right - left;
     int button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
-    rect.left = panel_x + index * (button_w + gap);
-    rect.top = TOP_BAR_H + 126;
-    rect.right = index == MAP_DISPLAY_MODE_COUNT - 1 ? panel_x + width : rect.left + button_w;
-    rect.bottom = rect.top + 28;
+    if (side_panel_collapsed || width < 360) {
+        RECT language = get_language_button_rect(client);
+        right = language.left - 10;
+        left = max(client.left + 410, right - 430);
+        width = right - left;
+        button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
+    }
+    button_w = max(54, button_w);
+    rect.left = left + index * (button_w + gap);
+    rect.top = 16;
+    rect.right = index == MAP_DISPLAY_MODE_COUNT - 1 ? right : rect.left + button_w;
+    rect.bottom = 46;
     return rect;
 }
 

@@ -3,12 +3,14 @@
 #include "core/constants.h"
 #include "core/game_types.h"
 #include "render/panel_country.h"
+#include "render/panel_alliance.h"
 #include "render/panel_country_events.h"
 #include "ui/color_picker.h"
 #include "ui/pause_menu.h"
 #include "ui/ui_debug_input.h"
 #include "ui/ui_forms.h"
 #include "ui/ui_invalidation.h"
+#include "ui/ui_alliance_panel_input.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_layout.h"
@@ -29,6 +31,10 @@ static int ui_wheel_handle_side_panel(HWND hwnd, RECT client, POINT point, int s
     if (side_panel_collapsed && side_panel_handle_hit_test(client, point.x, point.y)) return 1;
     if (side_panel_collapsed || point.x < client.right - side_panel_w) return 0;
     if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+        if (display_mode == DISPLAY_ALLIANCE && ui_alliance_panel_owns_input()) {
+            if (alliance_panel_scroll(client, -steps * 72)) ui_invalidate_side_panel(hwnd);
+            return 1;
+        }
         if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW &&
             country_recent_events_scroll_hit_test(point.x, point.y)) {
             if (country_recent_events_scroll(-steps * LOG_SCROLL_ITEMS_PER_WHEEL_NOTCH)) {

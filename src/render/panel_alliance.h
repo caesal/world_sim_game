@@ -1,0 +1,24 @@
+#ifndef WORLD_SIM_PANEL_ALLIANCE_H
+#define WORLD_SIM_PANEL_ALLIANCE_H
+
+#include <windows.h>
+
+#define ALLIANCE_PANEL_HIT_NONE -1
+#define ALLIANCE_PANEL_HIT_BACK_TO_LIST -2
+#define ALLIANCE_PANEL_HIT_TOGGLE_FALLEN -3
+#define ALLIANCE_PANEL_HIT_SORT_POPULATION -10
+#define ALLIANCE_PANEL_HIT_SORT_PROVINCES -11
+#define ALLIANCE_PANEL_HIT_SORT_ARMY -12
+#define ALLIANCE_PANEL_HIT_SORT_TREASURY -13
+#define ALLIANCE_PANEL_HIT_SORT_TECH -14
+#define ALLIANCE_PANEL_HIT_SORT_DISORDER -15
+#define ALLIANCE_PANEL_HIT_SUBTAB_BASE -30
+#define ALLIANCE_PANEL_HIT_MEMBER_SORT_BASE -60
+#define ALLIANCE_PANEL_HIT_ALLIANCE_BASE 10000
+#define ALLIANCE_PANEL_HIT_COUNTRY_BASE 20000
+
+void draw_alliance_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
+int alliance_panel_hit_test(RECT client, int mouse_x, int mouse_y);
+int alliance_panel_scroll(RECT client, int delta);
+
+#endif

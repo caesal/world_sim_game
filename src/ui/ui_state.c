@@ -43,6 +43,12 @@ int country_detail_subtab = COUNTRY_DETAIL_OVERVIEW;
 int country_decision_subtab = COUNTRY_DECISION_OVERVIEW;
 int country_detail_scroll_offsets[8] = {0};
 int country_diplomacy_view = DIPLOMACY_VIEW_PEACE;
+int selected_alliance_id = -1;
+int alliance_list_scroll_offset = 0;
+int alliance_detail_scroll_offset = 0;
+int alliance_detail_subtab = ALLIANCE_DETAIL_OVERVIEW;
+int alliance_detail_scroll_offsets[ALLIANCE_DETAIL_TAB_STORAGE_COUNT] = {0};
+int alliance_member_sort_column = ALLIANCE_MEMBER_SORT_POPULATION;
 int previous_selected_civ = -1;
 int map_highlight_civ = -1;
 int selected_civ_pulse_start_ms = 0;
@@ -81,5 +87,5 @@ const int MAP_DISPLAY_MODES[MAP_DISPLAY_MODE_COUNT] = {
     DISPLAY_CLIMATE, DISPLAY_REGIONS, DISPLAY_ROUTE_POTENTIAL
 };
 const char *MAP_DISPLAY_NAMES[MAP_DISPLAY_MODE_COUNT] = {
-    "Country", "Alliance", "Geography", "Climate", "Regions", "Routes"
+    "Country", "Alliance", "Geography", "Climate", "Province", "Routes"
 };

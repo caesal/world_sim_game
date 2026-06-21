@@ -21,12 +21,10 @@ static RECT event_scroll_track;
 static RECT event_scroll_thumb;
 static RECT event_clear_highlight_rect;
 static RECT debug_subtab_rects[DEBUG_SUBTAB_COUNT];
-static RECT debug_mode_rects[MAP_DISPLAY_MODE_COUNT];
 static RECT event_country_hit_rects[64];
 static int event_country_hit_civs[64];
 static int event_country_hit_uids[64];
 static int debug_subtab_rects_valid = 0;
-static int debug_mode_rects_valid = 0;
 static int event_filter_rects_valid = 0;
 static int event_log_rect_valid = 0;
 static int event_top_rect_valid = 0;
@@ -74,12 +72,9 @@ int debug_panel_subtab_hit_test(RECT client, int mouse_x, int mouse_y) {
     return -1;
 }
 int debug_panel_map_mode_hit_test(RECT client, int mouse_x, int mouse_y) {
-    int i;
     (void)client;
-    if (!debug_mode_rects_valid || debug_subtab != DEBUG_SUBTAB_MAP_LOG) return -1;
-    for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
-        if (point_in_rect(debug_mode_rects[i], mouse_x, mouse_y)) return i;
-    }
+    (void)mouse_x;
+    (void)mouse_y;
     return -1;
 }
 static RECT event_filter_button_rect(int index) {
@@ -244,27 +239,9 @@ static void draw_debug_subtabs(HDC hdc, UiCursor *cursor) {
     cursor->y += 10;
 }
 static void draw_debug_map_layers(HDC hdc, UiCursor *cursor) {
-    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Country", "Alliance", "Geography", "Climate", "Regions", "Routes"};
-    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"国家", "同盟", "地理", "气候", "区域", "航道潜力网"};
-    RECT row;
-    int i;
-    int gap = 5;
-    int w = (cursor->width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
     ui_section(hdc, cursor, tr("Map Layers", "地图图层"));
-    row = ui_take_rect(cursor, 28);
-    debug_mode_rects_valid = 1;
-    for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
-        RECT button = {cursor->x + i * (w + gap), row.top,
-                       i == MAP_DISPLAY_MODE_COUNT - 1 ? cursor->x + cursor->width : cursor->x + i * (w + gap) + w,
-                       row.bottom};
-        UiClayState state = ui_clay_state_for_rect(button, hover_x, hover_y,
-                                                   MAP_DISPLAY_MODES[i] == display_mode, 0);
-        debug_mode_rects[i] = button;
-        ui_clay_draw_tab(hdc, button, state);
-        draw_text_rect(hdc, button, tr(names_en[i], names_zh[i]), ui_theme_color(UI_COLOR_TEXT),
-                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS | DT_NOPREFIX);
-    }
-    cursor->y += 10;
+    ui_row_text(hdc, cursor, tr("Controls", "控件"),
+                tr("Use the top toolbar map-view buttons.", "使用顶部工具栏地图视图按钮。"));
 }
 static int matching_event_count(void) {
     int i;
@@ -427,7 +404,6 @@ void draw_debug_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_
     RECT clip;
     int saved;
     debug_subtab_rects_valid = 0;
-    debug_mode_rects_valid = 0;
     event_filter_rects_valid = 0;
     event_log_rect_valid = 0;
     event_top_rect_valid = 0;

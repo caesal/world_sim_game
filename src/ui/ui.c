@@ -12,12 +12,14 @@
 #include "ui/color_picker.h"
 #include "ui/pause_menu.h"
 #include "ui/ui_actions.h"
+#include "ui/ui_alliance_panel_input.h"
 #include "ui/ui_country_target.h"
 #include "ui/ui_debug_input.h"
 #include "ui/ui_forms.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_map_input.h"
+#include "ui/ui_map_display.h"
 #include "ui/ui_notifications.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_snapshot_read.h"
@@ -29,13 +31,11 @@
 #include <windowsx.h>
 static int tracking_mouse_leave = 0;
 static int last_panel_hover_target = -1;
-
 static void reset_side_panel_hover_tracking(void) {
     hover_x = -1;
     hover_y = -1;
     last_panel_hover_target = -1;
 }
-
 static void invalidate_panel_hover_target(HWND hwnd, int old_target, int new_target) {
     if (old_target == -2 || new_target == -2) ui_invalidate_side_panel_handle(hwnd);
     else ui_invalidate_side_panel_hover(hwnd);
@@ -47,6 +47,7 @@ static int panel_hover_target(RECT client, int x, int y) {
     if (!point_in_rect(get_side_panel_draw_rect(client), x, y)) return -1;
     if (side_panel_collapsed) return 1;
     if (panel_tab == PANEL_COUNTRY) {
+        if (display_mode == DISPLAY_ALLIANCE && ui_alliance_panel_owns_input()) return panel_tab * 100000 + ui_alliance_panel_hover_hit(client, x, y);
         if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
             tooltip_key = diplomacy_score_tooltip_hover_key(x, y);
             if (tooltip_key > 0) return 7000000 + tooltip_key;
@@ -56,10 +57,8 @@ static int panel_hover_target(RECT client, int x, int y) {
     return panel_tab * 100000 + (x / 24) * 31 + y / 24;
 }
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
-    RECT client;
-    RECT legend_toggle;
-    int i;
-    int slider;
+    RECT client, legend_toggle;
+    int i, slider;
     GetClientRect(hwnd, &client);
     if (ui_country_target_handle_left_click(hwnd, mouse_x, mouse_y)) return;
     if (color_picker_mouse_down(hwnd, client, mouse_x, mouse_y)) return;
@@ -83,6 +82,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         return;
     }
     if (point_in_rect(get_reset_view_button_rect(client), mouse_x, mouse_y)) { ui_map_view_reset(); ui_map_view_clamp(client); ui_invalidate_map_viewport(hwnd); return; }
+    if (ui_handle_top_map_display_click(hwnd, client, mouse_x, mouse_y)) return;
     if (point_in_rect(get_play_button_rect(client), mouse_x, mouse_y)) {
         game_toggle_auto_run();
         ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR);
@@ -110,6 +110,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (panel_tab == PANEL_DEBUG) {
         if (ui_handle_debug_panel_click(hwnd, client, mouse_x, mouse_y)) return;
     }
+    if (ui_handle_alliance_panel_click(hwnd, client, mouse_x, mouse_y)) return;
     if (panel_tab == PANEL_COUNTRY && mouse_x >= client.right - side_panel_w) {
         int hit = country_panel_hit_test(client, mouse_x, mouse_y);
         if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_OVERVIEW) {
@@ -227,7 +228,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
         if (hit >= 0 && ui_snapshot_civ_alive(hit)) {
-            ui_select_civ(hit, UI_SELECT_SOURCE_COUNTRY_LIST);
+            ui_select_civ_preserve_view(hit, UI_SELECT_SOURCE_COUNTRY_LIST);
             ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
             return;
         }

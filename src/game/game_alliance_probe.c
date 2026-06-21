@@ -1,5 +1,6 @@
 #include "game/game_alliance_probe.h"
 
+#include "game/game_alliance_record_probe.h"
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
 #include "core/render_snapshot.h"
@@ -478,6 +479,7 @@ int run_alliance_probe_cases(FILE *summary) {
     ok &= case_dirty_scope(summary);
     ok &= case_alliance_label_style(summary);
     ok &= case_static_cache_stale_safe(summary);
+    ok &= run_alliance_record_probe_cases(summary);
     ok &= run_alliance_render_probe_cases(summary);
     return ok;
 }

@@ -2,6 +2,7 @@
 
 #include "core/profiler.h"
 #include "game/game_loop.h"
+#include "render/panel_alliance.h"
 #include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
@@ -14,6 +15,13 @@ static void draw_side_panel_handle(HDC hdc, RECT client) {
         hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), 0, 0);
 
     ui_clay_draw_icon_button(hdc, handle, side_panel_collapsed ? "<" : ">", state);
+}
+
+static int alliance_view_should_draw_country_panel(void) {
+    const SnapshotCiv *civ;
+    if (display_mode != DISPLAY_ALLIANCE || selected_alliance_id >= 0 || selected_civ < 0) return 0;
+    civ = snapshot_ui_civ(selected_civ);
+    return civ && civ->alive && civ->alliance_display_id < 0;
 }
 
 void draw_side_panel(HDC hdc, RECT client) {
@@ -39,7 +47,10 @@ void draw_side_panel(HDC hdc, RECT client) {
     draw_panel_tabs(hdc, client);
 
     old_font = SelectObject(hdc, title_font);
-    if (panel_tab == PANEL_COUNTRY) draw_country_panel(hdc, client, x, title_font, body_font);
+    if (panel_tab == PANEL_COUNTRY && display_mode == DISPLAY_ALLIANCE &&
+        !alliance_view_should_draw_country_panel())
+        draw_alliance_panel(hdc, client, x, title_font, body_font);
+    else if (panel_tab == PANEL_COUNTRY) draw_country_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_POPULATION) draw_population_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_PLAGUE) draw_plague_panel(hdc, client, x, title_font, body_font);
     else if (panel_tab == PANEL_WORLD) draw_worldgen_panel(hdc, client, x, title_font, body_font);

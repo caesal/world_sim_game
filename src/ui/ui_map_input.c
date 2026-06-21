@@ -40,7 +40,21 @@ void ui_select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     selected_x = x;
     selected_y = y;
     owner = selected_tile_owner();
-    if (ui_snapshot_civ_alive(owner)) ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
-    else ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
+    if (ui_snapshot_civ_alive(owner)) {
+        int alliance_id = display_mode == DISPLAY_ALLIANCE ?
+                          ui_snapshot_civ_alliance_display(owner) : -1;
+        if (alliance_id >= 0) {
+            int keep_tab = selected_alliance_id >= 0;
+            int tab = keep_tab ? clamp(alliance_detail_subtab, 0, ALLIANCE_DETAIL_TAB_COUNT - 1) :
+                      ALLIANCE_DETAIL_OVERVIEW;
+            ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
+            selected_alliance_id = alliance_id;
+            alliance_detail_subtab = tab;
+            alliance_detail_scroll_offsets[tab] = 0;
+            alliance_detail_scroll_offset = 0;
+        } else {
+            ui_select_civ_preserve_view(owner, UI_SELECT_SOURCE_MAP);
+        }
+    } else ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
 }

@@ -107,6 +107,26 @@ static int read_war_state(FILE *file, int save_version, int *total_started) {
     return 0;
 }
 
+static int read_alliance_state(FILE *file, int save_version) {
+    SaveBlockHeader header;
+    size_t v14_size = offsetof(AllianceSaveState, candidate_count);
+    if (save_version < 14) {
+        alliance_reset();
+        return 1;
+    }
+    if (!read_header_any_size(file, &header, "ALLY", 1)) return 0;
+    memset(&save_alliances, 0, sizeof(save_alliances));
+    if (header.item_size == sizeof(AllianceSaveState)) {
+        if (!read_all(file, &save_alliances, sizeof(AllianceSaveState), 1)) return 0;
+    } else if (save_version == 14 && header.item_size == (int)v14_size) {
+        if (!read_all(file, &save_alliances, v14_size, 1)) return 0;
+    } else {
+        return 0;
+    }
+    alliance_restore_save_state(&save_alliances);
+    return 1;
+}
+
 int map_save_write_dynamic_state(FILE *file) {
     int total_started = 0, last_plague_city = -1, event_count = 0, event_next = 0, event_total = 0;
     int a, b;
@@ -137,13 +157,7 @@ int map_save_read_dynamic_state(FILE *file, int save_version) {
         !read_all(file, save_relations, sizeof(DiplomacyRelation), (size_t)header.count)) return -1;
     diplomacy_reset();
     for (a = 0; a < MAX_CIVS; a++) for (b = 0; b < MAX_CIVS; b++) diplomacy_restore_relation(a, b, save_relations[a * MAX_CIVS + b]);
-    if (save_version >= 14) {
-        if (!read_header(file, &header, "ALLY", sizeof(AllianceSaveState), 1) ||
-            !read_all(file, &save_alliances, sizeof(AllianceSaveState), (size_t)header.count)) return -1;
-        alliance_restore_save_state(&save_alliances);
-    } else {
-        alliance_reset();
-    }
+    if (!read_alliance_state(file, save_version)) return -1;
     if (!read_war_state(file, save_version, &total_started)) return -1;
     if (!read_header(file, &header, "WSUP", sizeof(int), MAX_CIVS) || !read_all(file, save_support, sizeof(int), (size_t)header.count)) return -1;
     if (!read_plague_city_state(file, save_version, &last_plague_city)) return -1;

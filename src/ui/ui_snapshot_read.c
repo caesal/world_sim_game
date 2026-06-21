@@ -28,3 +28,12 @@ unsigned int ui_snapshot_civ_color(int civ_id) {
     render_snapshot_release(snapshot);
     return color;
 }
+
+int ui_snapshot_civ_alliance_display(int civ_id) {
+    const RenderSnapshot *snapshot = render_snapshot_acquire();
+    int alliance_id = -1;
+    if (snapshot && civ_id >= 0 && civ_id < snapshot->civ_count && snapshot->civs[civ_id].alive)
+        alliance_id = snapshot->civs[civ_id].alliance_display_id;
+    render_snapshot_release(snapshot);
+    return alliance_id;
+}

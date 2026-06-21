@@ -18,6 +18,7 @@ static void select_civ_base(int civ_id, UiSelectSource source) {
     if (!valid_civ_id(civ_id)) return;
     if (selected_civ != civ_id) previous_selected_civ = selected_civ;
     selected_civ = civ_id;
+    selected_alliance_id = -1;
     map_highlight_civ = -1;
     selected_civ_pulse_start_ms = now_ms();
     map_highlight_pulse_start_ms = 0;
@@ -44,6 +45,7 @@ void ui_select_civ_preserve_view(int civ_id, UiSelectSource source) {
 void ui_clear_selected_civ(UiSelectSource source) {
     (void)source;
     selected_civ = -1;
+    selected_alliance_id = -1;
     previous_selected_civ = -1;
     map_highlight_civ = -1;
     selected_civ_pulse_start_ms = 0;

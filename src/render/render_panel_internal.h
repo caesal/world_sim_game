@@ -18,6 +18,7 @@ void draw_mode_buttons(HDC hdc, RECT client);
 void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int value);
 void draw_info_tab(HDC hdc, RECT client, int x, int y, HFONT title_font, HFONT body_font);
 void draw_civ_tab(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
+void draw_alliance_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_country_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_population_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 void draw_plague_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);

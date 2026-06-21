@@ -2,22 +2,23 @@
 
 #include "game/game_loop.h"
 #include "render/snapshot_ui.h"
+#include "ui/ui_map_display.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
 void draw_mode_buttons(HDC hdc, RECT client) {
-    const char *names_en[MAP_DISPLAY_MODE_COUNT] = {"Country", "Alliance", "Geography", "Climate", "Regions", "Routes"};
-    const char *names_zh[MAP_DISPLAY_MODE_COUNT] = {"国家", "同盟", "地理", "气候", "区域", "航道潜力网"};
     int i;
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);
         int mode = MAP_DISPLAY_MODES[i];
         UiClayState state = ui_clay_state_for_rect(button, hover_x, hover_y,
                                                    mode == display_mode, 0);
-        ui_clay_draw_tab(hdc, button, state);
-        draw_center_text(hdc, button, tr(names_en[i], names_zh[i]), ui_clay_text_color(state));
+        ui_clay_draw_pill_button(hdc, button, "", state);
+        draw_text_rect(hdc, button, ui_map_display_label(i, ui_language),
+                       ui_clay_text_color(state),
+                       DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
     }
 }
 
@@ -50,6 +51,7 @@ void draw_top_bar(HDC hdc, RECT client) {
     ui_clay_draw_pill_button(hdc, reset_button, tr("Reset", "重置"), reset_state);
     ui_clay_draw_pill_button(hdc, language_button, ui_language == UI_LANG_ZH ? "中文" : "EN",
                              language_state);
+    draw_mode_buttons(hdc, client);
 }
 
 int selected_tile_owner(void) {
@@ -72,7 +74,8 @@ void draw_panel_tabs(HDC hdc, RECT client) {
         UiClayState state = ui_clay_state_from_flags(
             hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), i == panel_tab, 0);
         ui_clay_draw_tab(hdc, tab, state);
-        draw_center_text(hdc, tab, tr(names_en[i], names_zh[i]), ui_clay_text_color(state));
+        draw_center_text(hdc, tab, i == PANEL_COUNTRY ? ui_primary_panel_tab_label(ui_language) :
+                         tr(names_en[i], names_zh[i]), ui_clay_text_color(state));
     }
 }
 

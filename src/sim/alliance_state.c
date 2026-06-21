@@ -30,6 +30,7 @@ static void clear_record(AllianceRecord *record, int id) {
         record->members[i] = -1;
         record->joined_year_by_civ[i] = -1;
     }
+    alliance_records_clear(id);
 }
 
 static void reset_membership(void) {
@@ -169,6 +170,8 @@ static int create_alliance_internal(int founder, int second, int min_score) {
     add_member_to_record(record, founder);
     add_member_to_record(record, second);
     sync_record_pairs(record, min_score);
+    alliance_record_history(id, ALLIANCE_HISTORY_CREATED, founder, second,
+                            ALLIANCE_VOTE_CREATE, ALLIANCE_REJECT_NONE);
     event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE, EVENT_SEVERITY_INFO,
                               founder, second, -1, -1, id, record->member_count, "");
     mark_changed();
@@ -187,6 +190,8 @@ static void disband_alliance(int alliance_id, int actor) {
         if (members[i] >= 0 && members[i] < MAX_CIVS) alliance_state.civ_alliance[members[i]] = -1;
         for (j = i + 1; j < count; j++) set_pair_peace_if_alliance(members[i], members[j]);
     }
+    alliance_record_history(alliance_id, ALLIANCE_HISTORY_DISSOLVED, actor, -1,
+                            -1, ALLIANCE_REJECT_ALLIANCE_DISSOLVED);
     record->active = 0;
     record->member_count = 0;
     event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
@@ -218,9 +223,10 @@ static void refresh_founder(AllianceRecord *record) {
 
 static void leave_member(int alliance_id, int civ_id, int cooldown_years, int kicked) {
     AllianceRecord *record;
-    int i;
+    int i, old_founder;
     if (!active_alliance(alliance_id)) return;
     record = &alliance_state.records[alliance_id];
+    old_founder = record->founder_civ_id;
     for (i = 0; i < record->member_count; i++) {
         int member = record->members[i];
         if (member != civ_id) set_pair_peace_if_alliance(civ_id, member);
@@ -230,11 +236,19 @@ static void leave_member(int alliance_id, int civ_id, int cooldown_years, int ki
         else alliance_state.voluntary_cooldown[alliance_id][civ_id] = cooldown_years;
     }
     remove_member_from_record(record, civ_id);
+    alliance_record_history(alliance_id, kicked ? ALLIANCE_HISTORY_MEMBER_REMOVED :
+                            ALLIANCE_HISTORY_MEMBER_LEFT, civ_id, -1,
+                            kicked ? ALLIANCE_VOTE_REMOVAL : -1, ALLIANCE_REJECT_NONE);
     if (record->member_count < 2) {
         disband_alliance(alliance_id, civ_id);
         return;
     }
     refresh_founder(record);
+    if (record->founder_civ_id != old_founder) {
+        alliance_record_history(alliance_id, ALLIANCE_HISTORY_LEADER_CHANGED,
+                                record->founder_civ_id, old_founder, -1,
+                                ALLIANCE_REJECT_NONE);
+    }
     sync_record_pairs(record, 0);
     event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
                               civ_id, -1, -1, -1, alliance_id, record->member_count, "");
@@ -294,6 +308,11 @@ int alliance_debug_add_member(int alliance_id, int civ_id, int min_score) {
     record = &alliance_state.records[alliance_id];
     add_member_to_record(record, civ_id);
     sync_record_pairs(record, min_score);
+    alliance_record_candidate(alliance_id, civ_id, ALLIANCE_CANDIDATE_JOIN,
+                              ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE, year, 100,
+                              ALLIANCE_CANDIDATE_PASSED, ALLIANCE_REJECT_NONE);
+    alliance_record_history(alliance_id, ALLIANCE_HISTORY_MEMBER_JOINED,
+                            civ_id, -1, ALLIANCE_VOTE_JOIN, ALLIANCE_REJECT_NONE);
     event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE, EVENT_SEVERITY_INFO,
                               record->founder_civ_id, civ_id, -1, -1,
                               alliance_id, record->member_count, "");
@@ -361,6 +380,17 @@ int alliance_copy_snapshot_records(AllianceSnapshotRecord *out_records, int max_
         dst->active = 1; dst->id = src->id; dst->founder_civ_id = src->founder_civ_id;
         dst->founded_year = src->founded_year; dst->member_count = src->member_count;
         dst->color = src->color;
+        memcpy(dst->members, src->members, sizeof(dst->members));
+        memcpy(dst->joined_year_by_civ, src->joined_year_by_civ, sizeof(dst->joined_year_by_civ));
+        dst->candidate_count = alliance_state.candidate_count[src->id];
+        dst->candidate_next = alliance_state.candidate_next[src->id];
+        dst->vote_count = alliance_state.vote_count[src->id];
+        dst->vote_next = alliance_state.vote_next[src->id];
+        dst->history_count = alliance_state.history_count[src->id];
+        dst->history_next = alliance_state.history_next[src->id];
+        memcpy(dst->candidates, alliance_state.candidates[src->id], sizeof(dst->candidates));
+        memcpy(dst->votes, alliance_state.votes[src->id], sizeof(dst->votes));
+        memcpy(dst->history, alliance_state.history[src->id], sizeof(dst->history));
         snprintf(dst->name_en, sizeof(dst->name_en), "%s", src->name_en);
         snprintf(dst->name_zh, sizeof(dst->name_zh), "%s", src->name_zh);
     }
