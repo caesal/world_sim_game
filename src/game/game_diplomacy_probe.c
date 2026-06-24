@@ -1,6 +1,7 @@
 #include "game/game.h"
 
 #include "core/render_snapshot.h"
+#include "core/render_snapshot_cache.h"
 #include "core/game_state.h"
 #include "game/game_alliance_probe.h"
 #include "game/game_diplomacy_relation_probe.h"
@@ -9,6 +10,7 @@
 #include "game/game_player_actions.h"
 #include "game/game_worldgen.h"
 #include "render/map_highlight.h"
+#include "render/panel_diplomacy_cache_key.h"
 #include "render/panel_country_diplomacy_cards.h"
 #include "render/render_context.h"
 #include "sim/civilization_slots.h"
@@ -202,6 +204,62 @@ static int same_probe_relations(DiplomacyRelation a[4][4], DiplomacyRelation b[4
     return memcmp(a, b, sizeof(DiplomacyRelation) * 16) == 0;
 }
 
+static void count_live_probe_contacts(int limit, int *known, int *contact) {
+    int a, b;
+    *known = *contact = 0;
+    for (a = 0; a < limit; a++) for (b = 0; b < limit; b++) {
+        DiplomacyRelation r;
+        if (a == b) continue;
+        r = diplomacy_relation(a, b);
+        if (r.state != DIPLOMACY_NONE) (*known)++;
+        if (r.contact_kind != DIP_CONTACT_NONE) (*contact)++;
+    }
+}
+
+static void count_snapshot_probe_contacts(const RenderSnapshot *snapshot, int limit,
+                                          int *known, int *contact) {
+    int a, b;
+    *known = *contact = 0;
+    if (!snapshot) return;
+    for (a = 0; a < limit && a < snapshot->civ_count; a++) {
+        for (b = 0; b < limit && b < snapshot->civ_count; b++) {
+            if (a == b) continue;
+            if (snapshot->relations[a][b].state != DIPLOMACY_NONE) (*known)++;
+            if (snapshot->relations[a][b].contact_kind != DIP_CONTACT_NONE) (*contact)++;
+        }
+    }
+}
+
+static int case_snapshot_diplomacy_dead_slot_budget(FILE *summary) {
+    const RenderSnapshot *snapshot;
+    int i, live_known, live_contact, snap_known, snap_contact;
+    int ok;
+    reset_probe_fixture(1);
+    extend_probe_fixture_to_four();
+    for (i = 4; i < 48 && i < MAX_CIVS; i++) {
+        civilization_reset_slot_state(i);
+        civs[i].alive = 0;
+    }
+    civ_count = 48;
+    initial_civ_count = 4;
+    diplomacy_borders_mark_dirty();
+    diplomacy_mark_contacts_dirty();
+    diplomacy_update_contacts();
+    count_live_probe_contacts(4, &live_known, &live_contact);
+    render_snapshot_shutdown();
+    render_snapshot_init();
+    render_snapshot_cache_update_budgeted(1, 1, 0, 0);
+    render_snapshot_publish_from_live_state();
+    snapshot = render_snapshot_acquire();
+    count_snapshot_probe_contacts(snapshot, 4, &snap_known, &snap_contact);
+    if (snapshot) render_snapshot_release(snapshot);
+    ok = live_contact > 0 && snap_contact == live_contact && snap_known >= live_known;
+    fprintf(summary,
+            "case=snapshot_diplomacy_dead_slot_budget ok=%d slots=%d live_known=%d live_contact=%d snapshot_known=%d snapshot_contact=%d\n",
+            ok, civ_count, live_known, live_contact, snap_known, snap_contact);
+    return ok;
+}
+
 static int case_budgeted_diplomacy_year(FILE *summary) {
     DiplomacyRelation blocking[4][4];
     DiplomacyRelation stepped[4][4];
@@ -343,6 +401,55 @@ static int case_high_pressure_can_war(FILE *summary) {
     return desire.final_desire >= desire.threshold && started && diplomacy_status(0, 1) == DIPLOMACY_WAR;
 }
 
+static int case_war_panel_cache_key(FILE *summary) {
+    RenderSnapshot *snapshot = (RenderSnapshot *)calloc(1, sizeof(*snapshot));
+    unsigned int base_key, month_key, nonwar_key, nonwar_month_key, casualty_key, peace_key, truce_key;
+    int ok = snapshot != NULL;
+    if (!snapshot) return 0;
+    snapshot->year = 440;
+    snapshot->month = 1;
+    snapshot->civ_count = 2;
+    snapshot->civs[0].alive = 1;
+    snapshot->civs[0].uid = 100;
+    snapshot->civs[0].disorder = 12;
+    snapshot->civs[0].effective_disorder = 10;
+    snapshot->civs[1].alive = 1;
+    snapshot->civs[1].uid = 101;
+    snapshot->civs[1].current_soldiers = 3000;
+    snapshot->civs[1].disorder = 20;
+    snapshot->civs[1].effective_disorder = 18;
+    snapshot->relations[0][1].state = DIPLOMACY_WAR;
+    snapshot->relations[1][0].state = DIPLOMACY_WAR;
+    snapshot->wars[0][1].active = 1;
+    snapshot->wars[0][1].attacker = 0;
+    snapshot->wars[0][1].defender = 1;
+    snapshot->wars[0][1].soldiers_a = 1200;
+    snapshot->wars[0][1].soldiers_b = 1000;
+    snapshot->war_front_flags[0][1] = 3;
+    base_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 1);
+    nonwar_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 0);
+    snapshot->month = 2;
+    month_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 1);
+    nonwar_month_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 0);
+    snapshot->wars[0][1].casualties_a = 45;
+    snapshot->wars[0][1].wins_b = 1;
+    casualty_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 1);
+    snapshot->war_peace_pressure[0][1] = 22;
+    snapshot->war_peace_pressure[1][0] = 18;
+    peace_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 1);
+    snapshot->relations[0][1].state = DIPLOMACY_TRUCE;
+    snapshot->relations[0][1].truce_years_left = 24;
+    snapshot->relations[0][1].truce_initial_years = 25;
+    truce_key = panel_diplomacy_rows_cache_key_for_view(17u, snapshot, 0, 1, 1);
+    ok = nonwar_key == nonwar_month_key && base_key != month_key && month_key != casualty_key &&
+         casualty_key != peace_key && peace_key != truce_key;
+    fprintf(summary,
+            "case=war_panel_cache_key ok=%d nonwar_month_stable=%d base=%u month=%u casualty=%u peace=%u truce=%u\n",
+            ok, nonwar_key == nonwar_month_key, base_key, month_key, casualty_key, peace_key, truce_key);
+    free(snapshot);
+    return ok;
+}
+
 int run_diplomacy_probe(void) {
     FILE *summary;
     int ok_all = 1;
@@ -350,12 +457,14 @@ int run_diplomacy_probe(void) {
     summary = fopen(DIPLOMACY_PROBE_DIR "/summary.txt", "w");
     if (!summary) return 2;
     ok_all &= case_budgeted_diplomacy_year(summary);
+    ok_all &= case_snapshot_diplomacy_dead_slot_budget(summary);
     ok_all &= case_alliance_blocks(summary);
     ok_all &= case_player_alliance_dissolve(summary);
     ok_all &= case_active_truce_penalty(summary);
     ok_all &= case_post_war_penalty(summary);
     ok_all &= case_truce_expiry_and_memory_clear(summary);
     ok_all &= case_high_pressure_can_war(summary);
+    ok_all &= case_war_panel_cache_key(summary);
     ok_all &= run_alliance_probe_cases(summary);
     ok_all &= run_diplomacy_relation_probe_cases(summary);
     ok_all &= run_diplomacy_tooltip_probe_cases(summary);

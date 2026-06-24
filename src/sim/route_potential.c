@@ -9,6 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define SHALLOW_DIRECT_PERCENT 11
 #define SHALLOW_DIAMETER_PERCENT 215
@@ -37,20 +38,13 @@ static int shallow_network_count(void);
 
 static int rp_min(int a, int b) { return a < b ? a : b; }
 static int rp_max(int a, int b) { return a > b ? a : b; }
-static int rp_clamp(int value, int lo, int hi) {
-    if (value < lo) return lo;
-    if (value > hi) return hi;
-    return value;
-}
+static int rp_clamp(int value, int lo, int hi) { return value < lo ? lo : (value > hi ? hi : value); }
 
 static void report_route_progress(WorldGenStage stage, int current, int total) {
     if (worldgen_progress_active()) worldgen_progress_update_stage(stage, current, total);
 }
 
-static int shallow_direct_limit(void) {
-    int base = rp_min(MAP_W, MAP_H) * SHALLOW_DIRECT_PERCENT / 100;
-    return rp_clamp(base, 14, 72);
-}
+static int shallow_direct_limit(void) { return rp_clamp(rp_min(MAP_W, MAP_H) * SHALLOW_DIRECT_PERCENT / 100, 14, 72); }
 
 static int shallow_diameter_limit(void) {
     return shallow_direct_limit() * SHALLOW_DIAMETER_PERCENT / 100;
@@ -126,6 +120,7 @@ static int find_route_path(int a, int b, SeaNavMode mode, int require_deep,
     MapPoint goal = {nodes[b].sea_x, nodes[b].sea_y};
     int full_count = 0;
     int truncated = 0;
+    if (mode == SEA_NAV_DEEP_ALLOWED && sea_nav_water_component(start.x, start.y) != sea_nav_water_component(goal.x, goal.y)) { stats.rejected_no_path++; return 0; }
     int count = sea_nav_find_path_mode_checked(start, goal, mode, -1,
                                                points, MAX_ROUTE_POTENTIAL_POINTS,
                                                &full_count, &truncated);
@@ -235,6 +230,7 @@ static void merge_small_shallow_networks(RouteCandidate *list, int count) {
 }
 
 static void build_shallow_edges(void) {
+    clock_t start = clock();
     int candidate_count = 0;
     int limit = shallow_direct_limit();
     int pair_total = rp_max(1, node_count * (node_count - 1) / 2);
@@ -284,6 +280,7 @@ done_collecting:
     for (int i = 0; i < node_count; i++) nodes[i].network = root(i);
     shallow_network_count();
     report_route_progress(WORLDGEN_ROUTE_POTENTIAL_SHALLOW, pair_total, pair_total);
+    stats.shallow_ms = (int)((clock() - start) * 1000 / CLOCKS_PER_SEC);
 }
 
 static int deep_pair_exists(int na, int nb) {
@@ -413,6 +410,7 @@ static void connect_remaining_deep_components(void) {
 }
 
 static void build_deep_edges(void) {
+    clock_t start = clock();
     int limit = deep_direct_limit();
     int candidate_count = 0;
     int largest = 0;
@@ -444,6 +442,7 @@ static void build_deep_edges(void) {
     report_route_progress(WORLDGEN_ROUTE_POTENTIAL_DEEP, work_total, work_total);
     stats.connected_networks = deep_component_count(&largest) <= 0 ? 0 : largest;
     stats.disconnected_networks = node_count > 0 ? shallow_network_count() - largest : 0;
+    stats.deep_ms = (int)((clock() - start) * 1000 / CLOCKS_PER_SEC);
 }
 
 void route_potential_rebuild(void) { reset_storage(); collect_nodes(); build_shallow_edges(); build_deep_edges(); }

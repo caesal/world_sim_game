@@ -21,6 +21,7 @@
 #include "ui/ui_map_input.h"
 #include "ui/ui_map_display.h"
 #include "ui/ui_notifications.h"
+#include "ui/ui_pressed_state.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_snapshot_read.h"
 #include "ui/ui_sliders.h"
@@ -84,13 +85,13 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (point_in_rect(get_reset_view_button_rect(client), mouse_x, mouse_y)) { ui_map_view_reset(); ui_map_view_clamp(client); ui_invalidate_map_viewport(hwnd); return; }
     if (ui_handle_top_map_display_click(hwnd, client, mouse_x, mouse_y)) return;
     if (point_in_rect(get_play_button_rect(client), mouse_x, mouse_y)) {
-        game_toggle_auto_run();
+        ui_pressed_control_set(hwnd, UI_PRESSED_PLAY, 0); game_toggle_auto_run();
         ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR);
         return;
     }
     for (i = 0; i < SPEED_COUNT; i++) {
         if (point_in_rect(get_speed_button_rect(client, i), mouse_x, mouse_y)) {
-            ui_set_speed(i);
+            ui_pressed_control_set(hwnd, UI_PRESSED_SPEED, i); ui_set_speed(i);
             ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR);
             return;
         }
@@ -340,7 +341,7 @@ static void handle_mouse_leave(HWND hwnd) {
     }
 }
 static void handle_mouse_up(HWND hwnd) {
-    int was_dragging_map = dragging_map;
+    int was_dragging_map = dragging_map; ui_pressed_control_clear(hwnd);
     if (color_picker_mouse_up(hwnd)) return;
     if (debug_panel_event_scrollbar_is_dragging()) { debug_panel_event_scrollbar_end_drag(); ReleaseCapture(); ui_invalidate_side_panel(hwnd); return; }
     if (dragging_panel || dragging_slider >= 0 || dragging_map) {

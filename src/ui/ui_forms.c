@@ -87,6 +87,10 @@ int ui_forms_handle_metric_change(int control_id) {
     HWND edit = metric_edit_from_id(control_id);
 
     if (suppress_form_change) return 1;
+    if (control_id == ID_INITIAL_CIVS_EDIT && form.initial_civs_edit) {
+        initial_civ_count = read_int_control_clamped(form.initial_civs_edit, initial_civ_count, 0, MAX_CIVS);
+        return 1;
+    }
     if (!edit) return 0;
     return 1;
 }
@@ -271,10 +275,7 @@ void ui_forms_translate_name_input(void) {
     }
 }
 
-void ui_forms_refresh_language(HWND hwnd) {
-    ui_forms_translate_name_input();
-    (void)hwnd;
-}
+void ui_forms_refresh_language(HWND hwnd) { ui_forms_translate_name_input(); (void)hwnd; }
 
 void ui_forms_add_civ(HWND hwnd) {
     char name[NAME_LEN];
@@ -490,9 +491,8 @@ void ui_forms_create(HWND hwnd) {
 }
 
 void ui_forms_read_world_setup_controls(void) {
-    if (form.initial_civs_edit) {
+    if (form.initial_civs_edit)
         initial_civ_count = read_int_control_clamped(form.initial_civs_edit, initial_civ_count, 0, MAX_CIVS);
-    }
 }
 
 void ui_forms_write_world_setup_controls(void) {

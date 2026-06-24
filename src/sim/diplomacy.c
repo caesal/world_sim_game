@@ -2,6 +2,7 @@
 #include "sim/expansion.h"
 #include "core/dirty_flags.h"
 #include "sim/alliance.h"
+#include "sim/alliance_contact.h"
 #include "sim/diplomacy_borders.h"
 #include "sim/diplomacy_policy.h"
 #include "sim/maritime.h"
@@ -24,6 +25,8 @@ static int diplomacy_contacts_dirty = 1;
 static void set_relation_pair_directional(int civ_a, int civ_b,
                                           DiplomacyRelation ab, DiplomacyRelation ba) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
+    if (memcmp(&diplomacy_matrix[civ_a][civ_b], &ab, sizeof(ab)) == 0 &&
+        memcmp(&diplomacy_matrix[civ_b][civ_a], &ba, sizeof(ba)) == 0) return;
     diplomacy_matrix[civ_a][civ_b] = ab;
     diplomacy_matrix[civ_b][civ_a] = ba;
     dirty_mark_diplomacy();
@@ -204,6 +207,7 @@ void diplomacy_refresh_known_relation_for_year(int civ_a, int civ_b) {
     DiplomacyRelation relation = ab;
     DiplomacyStatus old_state = ab.state;
     DiplomacyContactKind contact_kind;
+    int alliance_contact;
     int score_ab, score_ba;
     if (relation.state == DIPLOMACY_NONE) return;
     if (relation.state != DIPLOMACY_VASSAL && (!is_sovereign_actor(civ_a) || !is_sovereign_actor(civ_b))) {
@@ -214,12 +218,14 @@ void diplomacy_refresh_known_relation_for_year(int civ_a, int civ_b) {
         return;
     }
     contact_kind = diplomacy_direct_contact_kind(civ_a, civ_b);
+    alliance_contact = alliance_diplomatic_contact_between(civ_a, civ_b);
     relation.contact_kind = contact_kind;
     if (contact_kind == DIP_CONTACT_LAND_BORDER) {
         diplomacy_pair_contact_stats(civ_a, civ_b, &relation.border_length, &relation.natural_barrier);
     }
     else { relation.border_length = 0; relation.natural_barrier = 0; }
-    if (contact_kind == DIP_CONTACT_NONE && relation.state != DIPLOMACY_WAR &&
+    if (contact_kind == DIP_CONTACT_NONE && !alliance_contact &&
+        relation.state != DIPLOMACY_WAR &&
         relation.state != DIPLOMACY_TRUCE &&
         relation.state != DIPLOMACY_VASSAL &&
         relation.state != DIPLOMACY_ALLIANCE) {
@@ -304,15 +310,18 @@ void diplomacy_update_contacts(void) {
             int border = 0;
             int barrier = 0;
             DiplomacyContactKind contact_kind;
+            int alliance_contact;
             if (!is_sovereign_actor(a) || !is_sovereign_actor(b)) continue;
             contact_kind = diplomacy_direct_contact_kind(a, b);
-            if (contact_kind == DIP_CONTACT_NONE) continue;
+            alliance_contact = alliance_diplomatic_contact_between(a, b);
+            if (contact_kind == DIP_CONTACT_NONE && !alliance_contact) continue;
             relation = diplomacy_matrix[a][b];
             if (relation.state == DIPLOMACY_NONE) {
                 relation = default_relation(DIPLOMACY_PEACE, same_heritage(a, b) ? 15 : 0);
                 diplomacy_stability_force_pair(a, b, DIPLOMACY_PEACE);
-                event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
-                                          a, b, -1, -1, 0, 0, "");
+                if (contact_kind != DIP_CONTACT_NONE)
+                    event_log_push_structured(EVENT_TYPE_DIPLOMACY_PEACE, EVENT_SEVERITY_INFO,
+                                              a, b, -1, -1, 0, 0, "");
             }
             relation.contact_kind = contact_kind;
             relation.years_distant_known = 0;

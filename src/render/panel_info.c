@@ -5,6 +5,7 @@
 #include "ui/ui_map_display.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
+#include "ui/ui_pressed_state.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -13,8 +14,9 @@ void draw_mode_buttons(HDC hdc, RECT client) {
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         RECT button = get_mode_button_rect(client, i);
         int mode = MAP_DISPLAY_MODES[i];
-        UiClayState state = ui_clay_state_for_rect(button, hover_x, hover_y,
-                                                   mode == display_mode, 0);
+        int pressed = ui_pressed_control_is_active(UI_PRESSED_MAP_MODE, i);
+        UiClayState state = ui_clay_state_from_flags(
+            point_in_rect_local(button, hover_x, hover_y), pressed, mode == display_mode, 0);
         ui_clay_draw_pill_button(hdc, button, "", state);
         draw_text_rect(hdc, button, ui_map_display_label(i, ui_language),
                        ui_clay_text_color(state),

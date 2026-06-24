@@ -16,6 +16,7 @@
 
 void fill_rect(HDC hdc, RECT rect, COLORREF color);
 void fill_rect_alpha(HDC hdc, RECT rect, COLORREF color, BYTE alpha);
+COLORREF readable_text_color(COLORREF background);
 void draw_text_line(HDC hdc, int x, int y, const char *text, COLORREF color);
 void draw_center_text(HDC hdc, RECT rect, const char *text, COLORREF color);
 void draw_text_rect(HDC hdc, RECT rect, const char *text, COLORREF color, unsigned int format);

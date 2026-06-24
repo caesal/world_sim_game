@@ -2,7 +2,6 @@
 
 #include "render/panel_alliance_detail.h"
 #include "render/panel_alliance_model.h"
-#include "render/panel_country_cards.h"
 #include "render/render_context.h"
 #include "render_panel_internal.h"
 #include "ui/ui_clay_primitives.h"
@@ -48,6 +47,11 @@ static const char *alliance_name(const RenderSnapshot *snapshot, int alliance_id
     return ui_language == UI_LANG_ZH ? record->name_zh : record->name_en;
 }
 
+static const char *civ_name(const RenderSnapshot *snapshot, int civ_id) {
+    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return "-";
+    return ui_language == UI_LANG_ZH ? snapshot->civs[civ_id].name_zh : snapshot->civs[civ_id].name_en;
+}
+
 static const char *status_label(int war_count) {
     return war_count > 0 ? tr("War", "战争") : tr("Peace", "和平");
 }
@@ -56,15 +60,22 @@ static COLORREF status_color(int war_count) {
     return war_count > 0 ? RGB(112, 58, 52) : RGB(56, 88, 64);
 }
 
+COLORREF alliance_panel_probe_no_alliance_badge_color(void) { return RGB(128, 128, 128); }
+int alliance_panel_probe_country_row_badge_count(void) { return 2; }
+
 static void metric_text(int value, char *out, int out_size) {
     format_metric_value(value, out, out_size);
 }
 
 static const char *sort_column_label(int column) {
-    static const char *en[COUNTRY_SORT_COUNT] = {"Pop", "Prov", "Army", "Treas", "Tech", "Chaos"};
-    static const char *zh[COUNTRY_SORT_COUNT] = {"人口", "省份", "军队", "国库", "科技", "混乱"};
+    static const char *en[COUNTRY_SORT_COUNT] = {"Population", "Provinces", "Army", "Treasury", "Technology", "Members"};
+    static const char *zh[COUNTRY_SORT_COUNT] = {"人口", "省份", "军队", "国库", "科技", "成员"};
     return tr(en[clamp(column, 0, COUNTRY_SORT_COUNT - 1)],
               zh[clamp(column, 0, COUNTRY_SORT_COUNT - 1)]);
+}
+
+const char *alliance_panel_probe_sort_label(int column) {
+    return sort_column_label(column);
 }
 
 static const AlliancePanelModel *panel_model(const RenderSnapshot *snapshot) {
@@ -74,8 +85,17 @@ static const AlliancePanelModel *panel_model(const RenderSnapshot *snapshot) {
 
 static void draw_badge(HDC hdc, RECT rect, COLORREF color, const char *text) {
     fill_rect(hdc, rect, color);
-    draw_text_rect(hdc, rect, text, ui_theme_color(UI_COLOR_TEXT),
+    draw_text_rect(hdc, rect, text, readable_text_color(color),
                    DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
+}
+
+static void row_badge_rects(RECT rect, RECT *type_rect, RECT *status_rect) {
+    if (type_rect) *type_rect = (RECT){rect.right - 218, rect.top + 6, rect.right - 88, rect.top + 25};
+    if (status_rect) *status_rect = (RECT){rect.right - 82, rect.top + 6, rect.right - 8, rect.top + 25};
+}
+
+void alliance_panel_probe_badge_rects(RECT row, RECT *type_rect, RECT *war_rect) {
+    row_badge_rects(row, type_rect, war_rect);
 }
 
 static void draw_count_cards(HDC hdc, const AlliancePanelLayout *layout,
@@ -126,14 +146,28 @@ static void draw_metric(HDC hdc, RECT rect, const char *label, int value, COLORR
                    text, color, DT_SINGLELINE | DT_CENTER | DT_END_ELLIPSIS);
 }
 
+static void draw_row_metrics(HDC hdc, RECT rect, const AlliancePanelRow *row) {
+    int metric_w = (rect.right - rect.left - 16) / 6;
+    RECT metric = {rect.left + 8, rect.top + 31, rect.left + 8 + metric_w - 4, rect.top + 68};
+    draw_metric(hdc, metric, metric_label("Population", "人口"), row->population, ui_theme_color(UI_COLOR_TEXT));
+    metric.left += metric_w; metric.right += metric_w;
+    draw_metric(hdc, metric, metric_label("Provinces", "省份"), row->provinces, RGB(190, 204, 216));
+    metric.left += metric_w; metric.right += metric_w;
+    draw_metric(hdc, metric, metric_label("Army", "军队"), row->military, RGB(204, 172, 112));
+    metric.left += metric_w; metric.right += metric_w;
+    draw_metric(hdc, metric, metric_label("Treasury", "国库"), row->treasury, RGB(207, 184, 104));
+    metric.left += metric_w; metric.right += metric_w;
+    draw_metric(hdc, metric, metric_label("Technology", "科技"), row->tech_stage, RGB(147, 176, 214));
+    metric.left += metric_w; metric.right += metric_w;
+    draw_metric(hdc, metric, metric_label("Members", "成员"), row->member_count, RGB(190, 204, 216));
+}
+
 static void draw_alliance_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
                               const AlliancePanelRow *row, int selected) {
     RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
+    RECT type_rect, status_rect;
     RECT name_rect = {rect.left + 32, rect.top + 5, rect.right - 226, rect.top + 27};
-    RECT type_rect = {rect.right - 218, rect.top + 6, rect.right - 88, rect.top + 25};
-    RECT status_rect = {rect.right - 82, rect.top + 6, rect.right - 8, rect.top + 25};
-    int metric_w = (rect.right - rect.left - 16) / 6;
-    RECT metric = {rect.left + 8, rect.top + 31, rect.left + 8 + metric_w - 4, rect.top + 68};
+    row_badge_rects(rect, &type_rect, &status_rect);
 
     ui_clay_draw_card(hdc, rect, selected ? UI_CLAY_STATE_SELECTED : UI_CLAY_STATE_NORMAL);
     fill_rect(hdc, swatch, (COLORREF)row->color);
@@ -141,17 +175,25 @@ static void draw_alliance_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot
                    ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_badge(hdc, type_rect, RGB(62, 72, 94), tr("Defensive Alliance", "防御同盟"));
     draw_badge(hdc, status_rect, status_color(row->war_count), status_label(row->war_count));
-    draw_metric(hdc, metric, metric_label("Members", "成员"), row->member_count, RGB(190, 204, 216));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_metric(hdc, metric, metric_label("Pop", "人口"), row->population, ui_theme_color(UI_COLOR_TEXT));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_metric(hdc, metric, metric_label("Army", "军队"), row->military, RGB(204, 172, 112));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_metric(hdc, metric, metric_label("Strength", "实力"), row->strength, RGB(178, 198, 142));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_metric(hdc, metric, metric_label("Tech", "科技"), row->tech_stage, RGB(147, 176, 214));
-    metric.left += metric_w; metric.right += metric_w;
-    draw_metric(hdc, metric, metric_label("War", "战争"), row->war_count, status_color(row->war_count));
+    draw_row_metrics(hdc, rect, row);
+}
+
+static void draw_country_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
+                             const AlliancePanelRow *row, int selected) {
+    RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
+    RECT alliance_rect, status_rect;
+    RECT name_rect = {rect.left + 32, rect.top + 5, rect.right - 226, rect.top + 27};
+    char text[160];
+    row_badge_rects(rect, &alliance_rect, &status_rect);
+    ui_clay_draw_card(hdc, rect, selected ? UI_CLAY_STATE_SELECTED : UI_CLAY_STATE_NORMAL);
+    fill_rect(hdc, swatch, (COLORREF)row->color);
+    snprintf(text, sizeof(text), "%c  %.80s", snapshot->civs[row->civ_id].symbol,
+             civ_name(snapshot, row->civ_id));
+    draw_text_rect(hdc, name_rect, text, ui_theme_color(UI_COLOR_TEXT),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_badge(hdc, alliance_rect, alliance_panel_probe_no_alliance_badge_color(), tr("No Alliance", "未结盟"));
+    draw_badge(hdc, status_rect, status_color(row->war_count), status_label(row->war_count));
+    draw_row_metrics(hdc, rect, row);
 }
 
 static void build_layout(RECT client, AlliancePanelLayout *layout,
@@ -295,7 +337,7 @@ void draw_alliance_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT bo
                 ALLIANCE_PANEL_HIT_COUNTRY_BASE + row->civ_id)) {
                 if (row->kind == ALLIANCE_PANEL_ROW_ALLIANCE)
                     draw_alliance_row(hdc, layout.rows[row_index], snapshot, row, 0);
-                else draw_country_summary_card(hdc, layout.rows[row_index], row->civ_id, row->civ_id == selected_civ);
+                else draw_country_row(hdc, layout.rows[row_index], snapshot, row, row->civ_id == selected_civ);
                 row_index++;
             }
         }

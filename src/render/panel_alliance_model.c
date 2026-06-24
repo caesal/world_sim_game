@@ -116,7 +116,7 @@ static int row_sort_value(const AlliancePanelRow *row, int column) {
         case COUNTRY_SORT_ARMY: return row->military;
         case COUNTRY_SORT_TREASURY: return row->treasury;
         case COUNTRY_SORT_TECH: return row->tech_stage * 100 + clamp(row->tech_progress, 0, 99);
-        case COUNTRY_SORT_DISORDER: return row->disorder;
+        case COUNTRY_SORT_DISORDER: return row->member_count;
         default: return row->population;
     }
 }

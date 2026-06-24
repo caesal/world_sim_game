@@ -359,20 +359,15 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_REGIONS); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_REGIONS; }
     if (snapshot->revision == 0 || snapshot->diplomacy_revision != diplomacy_key) {
         int complete = 0;
-        if (base_snapshot && !render_snapshot_cache_diplomacy_ready(diplomacy_key)) {
-            PROFILE_SKIP(SNAPSHOT_PROFILE_DIPLOMACY);
+        PROFILE_SECTION(SNAPSHOT_PROFILE_DIPLOMACY, complete = copy_diplomacy(snapshot, diplomacy_key));
+        if (complete) {
+            snapshot->diplomacy_revision = diplomacy_key;
+            snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
+        } else if (base_snapshot) {
+            render_snapshot_copy_diplomacy_section(snapshot, base_snapshot);
             snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
         } else {
-            PROFILE_SECTION(SNAPSHOT_PROFILE_DIPLOMACY, complete = copy_diplomacy(snapshot, diplomacy_key));
-            if (complete) {
-                snapshot->diplomacy_revision = diplomacy_key;
-                snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
-            } else if (base_snapshot) {
-                render_snapshot_copy_diplomacy_section(snapshot, base_snapshot);
-                snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
-            } else {
-                snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
-            }
+            snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY;
         }
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_DIPLOMACY); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_DIPLOMACY; }
     if (world_generated && (snapshot->revision == 0 || snapshot->lanes_revision != lane_key)) {

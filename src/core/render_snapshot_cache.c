@@ -76,6 +76,19 @@ static void track_pair_key(int key, int total_pairs) {
     tracked_pair_dirty = clamp(total_pairs, 0, MAX_CIVS * MAX_CIVS);
 }
 
+static int diplomacy_pair_relevant(int a, int b) {
+    if (a < 0 || b < 0 || a >= civ_count || b >= civ_count || a >= MAX_CIVS || b >= MAX_CIVS) return 0;
+    if (a == b) return civs[a].alive;
+    return civs[a].alive && civs[b].alive;
+}
+
+static int diplomacy_relevant_pair_count(int civ_limit) {
+    int a, b, count = 0;
+    for (a = 0; a < civ_limit; a++) for (b = 0; b < civ_limit; b++)
+        if (diplomacy_pair_relevant(a, b)) count++;
+    return count;
+}
+
 static void copy_relation(SnapshotDiplomacyRelation *dst, DiplomacyRelation rel, int a, int b) {
     DiplomacyRelationBreakdown breakdown = diplomacy_relation_breakdown(a, b);
     int i;
@@ -233,7 +246,7 @@ void render_snapshot_cache_update_budgeted(int city_budget, int pair_budget,
     int city_limit = clamp(city_count, 0, MAX_CITIES);
     int scanned = 0, updated = 0, total_pairs = civ_limit * civ_limit;
     track_city_key(city_key, city_limit);
-    track_pair_key(pair_key, total_pairs);
+    track_pair_key(pair_key, diplomacy_relevant_pair_count(civ_limit));
     if (city_budget < 1) city_budget = 1;
     while (scanned < MAX_CITIES && updated < city_budget) {
         int id = (city_cursor + scanned) % MAX_CITIES;
@@ -251,7 +264,8 @@ void render_snapshot_cache_update_budgeted(int city_budget, int pair_budget,
         int id = (pair_cursor + scanned) % total_pairs;
         int a = id / civ_limit, b = id % civ_limit;
         scanned++;
-        if (!pair_cache[a][b].valid || pair_cache[a][b].key != pair_key) {
+        if (diplomacy_pair_relevant(a, b) &&
+            (!pair_cache[a][b].valid || pair_cache[a][b].key != pair_key)) {
             refresh_pair(a, b, pair_key);
             if (tracked_pair_dirty > 0) tracked_pair_dirty--;
             updated++;
@@ -285,8 +299,10 @@ void render_snapshot_cache_update_all(void) {
     }
     for (a = 0; a < civ_limit; a++) {
         for (b = 0; b < civ_limit; b++) {
-            refresh_pair(a, b, pair_key);
-            updated++;
+            if (diplomacy_pair_relevant(a, b)) {
+                refresh_pair(a, b, pair_key);
+                updated++;
+            }
         }
     }
     if (world_generated) {
@@ -317,7 +333,7 @@ static int city_dirty_count(int key) {
 
 static int pair_dirty_count(int key) {
     int civ_limit = clamp(civ_count, 0, MAX_CIVS);
-    track_pair_key(key, civ_limit * civ_limit);
+    track_pair_key(key, diplomacy_relevant_pair_count(civ_limit));
     return tracked_pair_dirty;
 }
 
@@ -357,8 +373,21 @@ int render_snapshot_cache_diplomacy_pair(int a, int b, int key,
                                          int *peace_pressure) {
     DiplomacyPairCache *entry;
     if (a < 0 || b < 0 || a >= civ_count || b >= civ_count || a >= MAX_CIVS || b >= MAX_CIVS) return 0;
+    if (tracked_pair_key != key) track_pair_key(key, diplomacy_relevant_pair_count(clamp(civ_count, 0, MAX_CIVS)));
+    if (!diplomacy_pair_relevant(a, b)) {
+        if (relation) memset(relation, 0, sizeof(*relation));
+        if (war) memset(war, 0, sizeof(*war));
+        if (front_flags) *front_flags = 0;
+        if (peace_pressure) *peace_pressure = 0;
+        copy_pair_cached++;
+        return 1;
+    }
     entry = &pair_cache[a][b];
-    if (!entry->valid || entry->key != key) { copy_pair_stale++; return 0; }
+    if (!entry->valid || entry->key != key) {
+        copy_pair_stale++;
+        refresh_pair(a, b, key);
+        if (tracked_pair_dirty > 0) tracked_pair_dirty--;
+    }
     if (relation) *relation = entry->relation;
     if (war) *war = entry->war;
     if (front_flags) *front_flags = entry->front_flags;

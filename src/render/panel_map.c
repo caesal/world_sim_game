@@ -6,6 +6,7 @@
 #include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
+#include "ui/ui_pressed_state.h"
 #include "ui/ui_theme.h"
 
 static void draw_side_panel_handle(HDC hdc, RECT client) {
@@ -78,7 +79,8 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     RECT status_rect = {398, client.bottom - 40, client.right - panel_w - 12, client.bottom - 8};
     int play_hot = point_in_rect_local(play, hover_x, hover_y);
     UiClayState play_state = ui_clay_state_from_flags(
-        play_hot, play_hot && (GetKeyState(VK_LBUTTON) & 0x8000), auto_run, 0);
+        play_hot, ui_pressed_control_is_active(UI_PRESSED_PLAY, 0) ||
+        (play_hot && (GetKeyState(VK_LBUTTON) & 0x8000)), auto_run, 0);
     int i;
 
     profiler_snapshot(&profiler);
@@ -96,7 +98,8 @@ void draw_bottom_bar(HDC hdc, RECT client) {
         RECT button = get_speed_button_rect(client, i);
         int hot = point_in_rect_local(button, hover_x, hover_y);
         UiClayState state = ui_clay_state_from_flags(
-            hot, hot && (GetKeyState(VK_LBUTTON) & 0x8000), i == speed_index, 0);
+            hot, ui_pressed_control_is_active(UI_PRESSED_SPEED, i) ||
+            (hot && (GetKeyState(VK_LBUTTON) & 0x8000)), i == speed_index, 0);
         ui_clay_draw_icon_button(hdc, button, speed_button_icon(i), state);
     }
 
@@ -138,6 +141,31 @@ static void draw_legend_item(HDC hdc, int x, int y, COLORREF color, const char *
 
 static void draw_legend_group(HDC hdc, int x, int y, const char *name) {
     draw_text_line(hdc, x, y, name, RGB(156, 174, 184));
+}
+
+static int alliance_legend_army(const RenderSnapshot *snapshot, const AllianceSnapshotRecord *alliance) {
+    int i, total = 0;
+    for (i = 0; snapshot && alliance && i < alliance->member_count && i < MAX_CIVS; i++) {
+        int member = alliance->members[i];
+        if (member >= 0 && member < snapshot->civ_count && snapshot->civs[member].alive)
+            total += snapshot->civs[member].current_soldiers;
+    }
+    return total;
+}
+
+int panel_map_probe_alliance_legend_before(const RenderSnapshot *snapshot, int a_index, int b_index) {
+    const AllianceSnapshotRecord *a;
+    const AllianceSnapshotRecord *b;
+    int army_a, army_b;
+    if (!snapshot || a_index < 0 || b_index < 0 ||
+        a_index >= snapshot->alliance_count || b_index >= snapshot->alliance_count) return 0;
+    a = &snapshot->alliances[a_index];
+    b = &snapshot->alliances[b_index];
+    if (a->member_count != b->member_count) return a->member_count > b->member_count;
+    army_a = alliance_legend_army(snapshot, a);
+    army_b = alliance_legend_army(snapshot, b);
+    if (army_a != army_b) return army_a > army_b;
+    return a->id < b->id;
 }
 
 static RECT legend_centered_rect(int cx, int cy, int size) {
@@ -284,7 +312,8 @@ static void draw_legend_capital_pair_item(HDC hdc, int x, int y) {
 
 static int draw_alliance_legend(HDC hdc, int x, int y, int line_h) {
     const RenderSnapshot *snapshot = snapshot_ui_current();
-    int i;
+    int i, active_count = 0;
+    int order[ALLIANCE_MAX];
     int drawn = 0;
     draw_legend_group(hdc, x, y, tr("Alliances", "同盟"));
     y += line_h;
@@ -292,23 +321,43 @@ static int draw_alliance_legend(HDC hdc, int x, int y, int line_h) {
         draw_legend_item(hdc, x, y, RGB(124, 132, 136), tr("No alliances", "无同盟"));
         return y + line_h;
     }
-    for (i = 0; i < snapshot->alliance_count && drawn < 8; i++) {
-        const AllianceSnapshotRecord *alliance = &snapshot->alliances[i];
+    for (i = 0; i < snapshot->alliance_count && i < ALLIANCE_MAX; i++) {
+        int j;
+        if (!snapshot->alliances[i].active) continue;
+        for (j = active_count; j > 0; j--) {
+            if (!panel_map_probe_alliance_legend_before(snapshot, i, order[j - 1])) break;
+            order[j] = order[j - 1];
+        }
+        order[j] = i;
+        active_count++;
+    }
+    if (active_count <= 0) {
+        draw_legend_item(hdc, x, y, RGB(124, 132, 136), tr("No alliances", "无同盟"));
+        return y + line_h;
+    }
+    for (i = 0; i < active_count && drawn < 8; i++) {
+        const AllianceSnapshotRecord *alliance = &snapshot->alliances[order[i]];
         char label[128];
         const char *name = ui_language == UI_LANG_ZH ? alliance->name_zh : alliance->name_en;
-        if (!alliance->active) continue;
         snprintf(label, sizeof(label), "%s (%d)", name, alliance->member_count);
         draw_legend_item(hdc, x, y, (COLORREF)alliance->color, label);
         y += line_h;
         drawn++;
     }
-    if (drawn < snapshot->alliance_count) {
+    if (drawn < active_count) {
         char more[48];
-        snprintf(more, sizeof(more), "+%d %s", snapshot->alliance_count - drawn, tr("more", "更多"));
+        snprintf(more, sizeof(more), "+%d %s", active_count - drawn, tr("more", "更多"));
         draw_text_line(hdc, x + 22, y, more, RGB(174, 186, 190));
         y += line_h;
     }
     return y;
+}
+
+static void draw_legend_background(HDC hdc, RECT box) {
+    HBRUSH border = CreateSolidBrush(ui_theme_color(UI_COLOR_PANEL_LINE));
+    fill_rect_alpha(hdc, box, ui_theme_color(UI_COLOR_PANEL), 166);
+    FrameRect(hdc, &box, border);
+    DeleteObject(border);
 }
 
 void draw_map_legend(HDC hdc, RECT client) {
@@ -345,7 +394,7 @@ void draw_map_legend(HDC hdc, RECT client) {
     if (IsRectEmpty(&box)) return;
     collapsed = map_legend_collapsed || (box.bottom - box.top <= 40);
 
-    ui_clay_draw_card(hdc, box, UI_CLAY_STATE_NORMAL);
+    draw_legend_background(hdc, box);
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, box.left, box.top, box.right, box.bottom);
     toggle_state = ui_clay_state_for_rect(toggle, hover_x, hover_y, 0, 0);

@@ -2,6 +2,7 @@
 
 #include "core/game_state.h"
 #include "sim/alliance.h"
+#include "sim/alliance_contact.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
 
@@ -147,15 +148,18 @@ int diplomacy_relation_score_from_legacy(int score) {
 
 int diplomacy_relation_score_apply_year(int civ_a, int civ_b, DiplomacyRelation relation) {
     DiplomacyRelationBreakdown b;
-    int total_x100, new_score, active_delta;
+    int total_x100, new_score, active_delta, alliance_contact;
     memset(&b, 0, sizeof(b));
     if (!valid_alive(civ_a) || !valid_alive(civ_b) || relation.state == DIPLOMACY_NONE) {
         breakdowns[civ_a][civ_b] = b;
         return 0;
     }
+    alliance_contact = alliance_diplomatic_contact_between(civ_a, civ_b);
     if (relation.state == DIPLOMACY_ALLIANCE) add_factor(&b, DIP_REL_FACTOR_ALLIANCE, 100, 1);
-    else if (relation.contact_kind != DIP_CONTACT_NONE) add_factor(&b, DIP_REL_FACTOR_CONTACT, 50, relation.contact_kind);
-    if (relation.contact_kind != DIP_CONTACT_NONE && civs[civ_a].heritage == civs[civ_b].heritage)
+    else if (relation.contact_kind != DIP_CONTACT_NONE || alliance_contact)
+        add_factor(&b, DIP_REL_FACTOR_CONTACT, 50, alliance_contact ? 4 : relation.contact_kind);
+    if ((relation.contact_kind != DIP_CONTACT_NONE || alliance_contact) &&
+        civs[civ_a].heritage == civs[civ_b].heritage)
         add_factor(&b, DIP_REL_FACTOR_HERITAGE, 10, 15);
     if (relation.trade_fit >= 70) add_factor(&b, DIP_REL_FACTOR_TRADE, 200, relation.trade_fit);
     else if (relation.trade_fit >= 40) add_factor(&b, DIP_REL_FACTOR_TRADE, 100, relation.trade_fit);

@@ -188,7 +188,7 @@ static int stale_ui_indicator_needed(void) {
     return render_static_map_cache_needs_work() || !render_static_scene_complete();
 }
 
-static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
+static void draw_legacy_ui_nonblocking(HDC hdc, RECT client, int draw_legend) {
     MapLayout layout = get_map_layout(client);
     DWORD start;
     if (render_layer_cache_ensure(hdc, &ui_cache, client, layout, side_panel_w, display_mode)) {
@@ -199,7 +199,7 @@ static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Top/bottom bar");
         draw_map_frame_overlay(ui_cache.dc, client);
-        if (profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) {
+        if (draw_legend && profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) {
             start = GetTickCount();
             draw_map_legend(ui_cache.dc, client);
             record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
@@ -222,7 +222,7 @@ static void draw_legacy_ui_nonblocking(HDC hdc, RECT client) {
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Top/bottom bar");
         draw_map_frame_overlay(hdc, client);
-        if (profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) {
+        if (draw_legend && profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) {
             start = GetTickCount();
             draw_map_legend(hdc, client);
             record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
@@ -328,7 +328,7 @@ static void render_world(HDC hdc, RECT client) {
     if (load_progress_active()) {
         RECT viewport = get_map_viewport_rect(client);
         fill_rect(hdc, client, RGB(13, 17, 21));
-        draw_legacy_ui_nonblocking(hdc, client);
+        draw_legacy_ui_nonblocking(hdc, client, 1);
         fill_rect(hdc, viewport, RGB(13, 17, 21));
         draw_load_progress_overlay(hdc, client);
         return;
@@ -336,7 +336,7 @@ static void render_world(HDC hdc, RECT client) {
     if (progress.active) {
         RECT viewport = get_map_viewport_rect(client);
         fill_rect(hdc, client, RGB(13, 17, 21));
-        draw_legacy_ui_nonblocking(hdc, client);
+        draw_legacy_ui_nonblocking(hdc, client, 1);
         fill_rect(hdc, viewport, RGB(13, 17, 21));
         draw_worldgen_progress_overlay(hdc, client);
         return;
@@ -404,7 +404,7 @@ static void render_world(HDC hdc, RECT client) {
         dirty_clear_render_labels();
     }
     phase_start = GetTickCount();
-    draw_legacy_ui_nonblocking(hdc, client);
+    draw_legacy_ui_nonblocking(hdc, client, 1);
     draw_worldgen_progress_overlay(hdc, client);
     draw_load_progress_overlay(hdc, client);
     record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "UI chrome/panel");
@@ -420,7 +420,7 @@ void paint_window(HWND hwnd) {
     int height;
     int ui_only;
     int continue_static_work;
-    int deferred_for_input = 0, progress_active;
+    int deferred_for_input = 0, progress_active, legend_paint;
     DWORD now = GetTickCount();
 
     GetClientRect(hwnd, &client);
@@ -430,23 +430,23 @@ void paint_window(HWND hwnd) {
     render_context_begin(snapshot);
     ui_only = can_paint_ui_only(client, ps.rcPaint);
     continue_static_work = render_static_map_cache_needs_work();
-    worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active();
+    worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active(); legend_paint = rects_intersect(ps.rcPaint, get_map_legend_box_rect(client));
     if (ui_only) {
         DWORD phase_start = GetTickCount();
         draw_partial_ui(hdc, client, ps.rcPaint);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Partial UI paint");
-    } else if (!progress_active && !last_full_paint_had_progress_overlay &&
+    } else if (!progress_active && !legend_paint && !last_full_paint_had_progress_overlay &&
                static_presentation_safe_for_defer(client, get_map_layout(client), snapshot) &&
                render_input_waiting() &&
                blit_cached_window(hdc, width, height)) {
         deferred_for_input = 1;
-    } else if (!progress_active &&
+    } else if (!progress_active && !legend_paint &&
                should_defer_presentation_map_paint(now, client, get_map_layout(client), snapshot) &&
                blit_cached_window(hdc, width, height)) {
         deferred_for_input = 1;
         {
             DWORD phase_start = GetTickCount();
-            draw_legacy_ui_nonblocking(hdc, client);
+            draw_legacy_ui_nonblocking(hdc, client, 0);
             record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Deferred UI paint");
         }
     } else if (render_layer_cache_ensure(hdc, &window_backbuffer, client, get_map_layout(client), side_panel_w, display_mode)) {

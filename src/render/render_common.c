@@ -50,6 +50,12 @@ void fill_rect_alpha(HDC hdc, RECT rect, COLORREF color, BYTE alpha) {
     DeleteObject(bitmap);
 }
 
+COLORREF readable_text_color(COLORREF background) {
+    int r = GetRValue(background), g = GetGValue(background), b = GetBValue(background);
+    int luminance = (r * 299 + g * 587 + b * 114) / 1000;
+    return luminance >= 150 ? RGB(18, 22, 24) : RGB(248, 246, 236);
+}
+
 void draw_text_line(HDC hdc, int x, int y, const char *text, COLORREF color) {
     WCHAR wide_text[512];
     int len;

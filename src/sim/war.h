@@ -57,6 +57,7 @@ int war_vassal_support_casualties(int vassal);
 int war_peace_pressure_between(int civ_id, int other_id);
 int war_total_started_count(void);
 void war_end_direct_for_civ(int civ_id);
+void war_transfer_civ_identity(int from_civ, int to_civ);
 int war_end_direct_for_civ_no_winner(int civ_id, int last_war_result,
                                      int truce_years, int relation_score);
 int war_start_independence(int attacker, int defender);

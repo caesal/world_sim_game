@@ -1,5 +1,59 @@
 # Version Log
 
+## Ver0.3.4
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.4.
+2. Optimized Extreme-map route-potential/world-generation timing while
+   preserving route unlock behavior.
+3. Added immediate pressed/selected feedback for speed and map-view controls.
+4. Standardized map legend backgrounds at 65 percent opacity without changing
+   map-layer opacity.
+5. Added alliance diplomatic contact for alliance candidate qualification,
+   relation-score growth, join voting, and UI explanations without changing war
+   reachability, route, exploration, or adjacency semantics.
+6. Reworked Alliance Votes and History cards with candidate countdowns,
+   previous vote results, member result boxes, event-card formatting, and
+   clearer retryable failure states.
+7. Implemented automatic 800-year alliance union with structured history,
+   event-log, and notification records.
+8. Fixed diplomacy snapshot refresh starvation so Country > Diplomacy panels do
+   not show empty contacted-neighbor groups when live relations exist.
+9. Fixed Country Detail diplomacy/war panel cache invalidation so war cards
+   update while open without rebuilding unrelated detail views every month.
+10. Fixed Alliance list badge alignment, no-alliance War/Peace state display,
+    alliance legend sorting, stale cross-alliance applications, 30/10-year join
+    vote timing, waiting-next-vote progress refresh, and candidate-as-voter
+    historical display.
+11. Updated the root README, documentation index, version log, side doc, active
+    version marker, and in-game pause-menu version summary for Ver0.3.4.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `15`; this release uses the alliance
+  candidate/vote/history serialization introduced in Ver0.3.3.g.
+- Automatic alliance union is now real gameplay at the 800-year eligibility
+  point. It merges formal members into a new independent country, dissolves the
+  alliance, and records structured events.
+- Existing alliance AI thresholds, vote probabilities, war/truce/vassal rules,
+  map ownership/fill semantics, world generation semantics, plague, population,
+  economy, and balance constants are not intentionally changed by this
+  checkpoint.
+
+Validation notes:
+
+- Ver0.3.4 uses `WORLD_SIM_VERSION "0.3.4"`.
+- Focused probes passed for presentation, diplomacy/alliance lifecycle, and
+  worldgen/route timing.
+- Rule39 release evidence is recorded locally under
+  `build/validation/ver0.3.4_rule39/`.
+- Rule39 reached year/month `1277/9` on an Extreme map with `1077` natural
+  regions, `26` initial placed civilizations, max/5x speed, and more than five
+  distinct stage-5 civilizations.
+- Deep-sea route evidence transitioned from `deep 0` before stage unlock to
+  `deep 40` after unlock.
+
 ## Ver0.3.3.g
 
 Implemented fixes:

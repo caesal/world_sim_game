@@ -11,7 +11,6 @@
 #include "ui/ui_theme.h"
 #include <stdio.h>
 #include <string.h>
-
 typedef enum {
     PANEL_CACHE_COLLAPSED,
     PANEL_CACHE_COUNTRY_LIST,
@@ -53,7 +52,6 @@ static const char *panel_kind_names[PANEL_CACHE_COUNT] = {
     "collapsed", "country-list", "country-detail", "population",
     "plague", "worldgen", "debug-map", "debug-perf"
 };
-
 static RECT panel_rect_for(RECT client) {
     return get_side_panel_draw_rect(client);
 }
@@ -61,7 +59,6 @@ static RECT panel_rect_for(RECT client) {
 static unsigned int mix_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
 }
-
 static unsigned int snapshot_base_key(const RenderSnapshot *snapshot, PanelCacheKind kind) {
     unsigned int key = 2166136261u;
     key = mix_key(key, kind);
@@ -71,7 +68,6 @@ static unsigned int snapshot_base_key(const RenderSnapshot *snapshot, PanelCache
     key = mix_key(key, snapshot->map_h);
     return key;
 }
-
 static int selected_civ_uid(const RenderSnapshot *snapshot) {
     if (!snapshot || selected_civ < 0 || selected_civ >= snapshot->civ_count) return 0;
     return snapshot->civs[selected_civ].uid;
@@ -81,14 +77,12 @@ static const SnapshotCiv *selected_snapshot_civ(const RenderSnapshot *snapshot) 
     return (!snapshot || selected_civ < 0 || selected_civ >= snapshot->civ_count) ? NULL : &snapshot->civs[selected_civ];
 }
 static int key_bucket(int value, int bucket) { return bucket <= 1 ? value : (value >= 0 ? value / bucket : -((-value + bucket - 1) / bucket)); }
-
 static unsigned int mix_text_key(unsigned int key, const char *text) {
     int i;
     if (!text) return mix_key(key, 0);
     for (i = 0; text[i]; i++) key = key * 16777619u ^ (unsigned char)text[i];
     return key;
 }
-
 static unsigned int mix_country_summary_key(unsigned int key, CountrySummary s) {
     int i, values[] = {s.population, s.territory, s.cities, s.ports, s.food, s.livestock,
                        s.wood, s.stone, s.minerals, s.water, s.pop_capacity, s.money,
@@ -251,11 +245,18 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot, PanelCacheK
     civ = selected_snapshot_civ(snapshot);
     key = mix_key(key, selected_civ_uid(snapshot));
     tab = clamp(country_detail_subtab, 0, COUNTRY_DETAIL_TAB_COUNT - 1);
+    if (display_mode == DISPLAY_ALLIANCE && selected_alliance_id >= 0) {
+        key = mix_key(mix_key(key, selected_alliance_id), alliance_detail_subtab);
+        key = mix_key(mix_key(key, snapshot->alliance_revision), snapshot->diplomacy_revision);
+        if (alliance_detail_subtab == ALLIANCE_DETAIL_VOTES || alliance_detail_subtab == ALLIANCE_DETAIL_UNION)
+            key = mix_key(key, snapshot->year);
+        return mix_key(key, snapshot->civs_revision);
+    }
     if (tab == COUNTRY_DETAIL_OVERVIEW) {
         key = mix_header_key(key, civ, 1);
         if (civ) key = mix_country_summary_key(key, civ->summary);
         key = mix_decision_key(key, civ);
-        key = panel_diplomacy_rows_cache_key(key, snapshot, selected_civ, 0);
+        key = panel_diplomacy_rows_cache_key_for_view(key, snapshot, selected_civ, 0, 0);
         key = mix_key(key, snapshot->plague_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_RESOURCES) {
@@ -287,7 +288,8 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot, PanelCacheK
         key = mix_top_city_rows_key(key, snapshot, civ);
     } else if (tab == COUNTRY_DETAIL_DIPLOMACY) {
         key = mix_header_key(key, civ, 0);
-        key = panel_diplomacy_rows_cache_key(key, snapshot, selected_civ, 1);
+        key = panel_diplomacy_rows_cache_key_for_view(
+            key, snapshot, selected_civ, 1, country_diplomacy_view == DIPLOMACY_VIEW_WAR);
         key = mix_key(key, snapshot->diplomacy_revision);
         key = mix_key(key, snapshot->events_revision);
     } else if (tab == COUNTRY_DETAIL_DISORDER) {
@@ -407,14 +409,19 @@ static void rebuild_panel_cache(PanelViewCache *cache, RECT client, RECT panel,
     force_refresh = 0;
 }
 
-static void draw_hover_overlay(HDC hdc, RECT panel, PanelCacheKind kind) {
+static int hover_overlay_active(RECT panel, PanelCacheKind kind) {
     if (kind != PANEL_CACHE_COUNTRY_DETAIL ||
-        panel_tab != PANEL_COUNTRY ||
-        country_detail_subtab != COUNTRY_DETAIL_DIPLOMACY) return;
+        panel_tab != PANEL_COUNTRY) return 0;
+    if (display_mode == DISPLAY_ALLIANCE) {
+        if (selected_alliance_id < 0 || alliance_detail_subtab != ALLIANCE_DETAIL_VOTES) return 0;
+    } else if (country_detail_subtab != COUNTRY_DETAIL_DIPLOMACY) return 0;
     if (hover_x < panel.left || hover_x >= panel.right ||
-        hover_y < panel.top || hover_y >= panel.bottom) return;
-    if (diplomacy_score_tooltip_hover_key(hover_x, hover_y) <= 0) return;
-    diplomacy_score_tooltip_draw(hdc, panel);
+        hover_y < panel.top || hover_y >= panel.bottom) return 0;
+    return diplomacy_score_tooltip_hover_key(hover_x, hover_y) > 0;
+}
+
+static void draw_hover_overlay(HDC hdc, RECT panel, PanelCacheKind kind) {
+    if (hover_overlay_active(panel, kind)) diplomacy_score_tooltip_draw(hdc, panel);
 }
 
 void panel_view_model_cache_draw(HDC hdc, RECT client) {
@@ -439,7 +446,7 @@ void panel_view_model_cache_draw(HDC hdc, RECT client) {
     else if (should_rebuild(cache, kind, ui_key, data_key)) {
         rebuild_panel_cache(cache, client, panel, ui_key, data_key);
     }
-    if (hover_repaint_pending && cache->valid) {
+    if (hover_repaint_pending && cache->valid && !hover_overlay_active(panel, kind)) {
         draw_side_panel(hdc, client);
         hover_repaint_pending = 0;
         return;

@@ -69,6 +69,8 @@ typedef struct {
     int small_shallow_network_count;
     int average_shallow_network_size;
     int isolated_small_network_count;
+    int shallow_ms;
+    int deep_ms;
 } RoutePotentialStats;
 
 void route_potential_reset(void);

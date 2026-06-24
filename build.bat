@@ -12,6 +12,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_player_actions.c ^
   src\game\game_vassal_actions.c ^
   src\game\game_worldgen.c ^
+  src\game\game_worldgen_probe.c ^
   src\game\game_crisis_probe.c ^
   src\game\game_alliance_record_probe.c ^
   src\game\game_alliance_probe.c ^
@@ -30,6 +31,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\io\map_save_state.c ^
   src\core\event_log.c ^
   src\core\event_log_classify.c ^
+  src\core\game_notifications.c ^
   src\core\event_log_history.c ^
   src\core\event_log_store.c ^
   src\core\city_display.c ^
@@ -111,7 +113,9 @@ src\sim\spawn.c ^
 src\sim\expansion.c ^
 src\sim\alliance_state.c ^
 src\sim\alliance_records.c ^
+src\sim\alliance_contact.c ^
 src\sim\alliance_ai.c ^
+src\sim\alliance_union.c ^
 src\sim\alliance_power.c ^
 src\sim\alliance_names.c ^
 src\sim\diplomacy.c ^
@@ -124,6 +128,7 @@ src\sim\diplomacy_year.c ^
   src\sim\diplomacy_names.c ^
   src\sim\war_desire.c ^
   src\sim\war.c ^
+  src\sim\war_transfer.c ^
   src\sim\war_economy.c ^
   src\sim\war_front.c ^
   src\sim\war_player_peace.c ^
@@ -177,6 +182,9 @@ src\sim\diplomacy_year.c ^
   src\render\top_notifications.c ^
   src\render\panel_alliance_model.c ^
   src\render\panel_alliance_sections.c ^
+  src\render\panel_alliance_vote_state.c ^
+  src\render\panel_alliance_votes.c ^
+  src\render\panel_alliance_history.c ^
   src\render\panel_alliance_detail.c ^
   src\render\panel_alliance.c ^
   src\render\panel_country.c ^
@@ -222,6 +230,7 @@ src\sim\diplomacy_year.c ^
   src\ui\ui_map_display.c ^
   src\ui\ui_invalidation.c ^
   src\ui\ui_notifications.c ^
+  src\ui\ui_pressed_state.c ^
   src\ui\ui_wheel.c ^
   src\ui\ui_worldgen_layout.c ^
   src\ui\ui_state.c ^

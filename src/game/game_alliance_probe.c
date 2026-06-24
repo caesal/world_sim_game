@@ -183,7 +183,8 @@ static int case_ai_lifecycle(FILE *summary) {
     for (seed = 0; seed < 200 && !joined; seed++) {
         reset_fixture(5); created = alliance_debug_create_pair(0, 1, 80);
         set_pair(2, 0, 100, 100, DIPLOMACY_PEACE); set_pair(2, 1, 100, 100, DIPLOMACY_PEACE);
-        alliance_debug_set_join_years(2, created, 19); srand((unsigned int)seed); alliance_update_year();
+        alliance_debug_set_join_years(2, created, ALLIANCE_JOIN_FIRST_VOTE_YEARS - 1);
+        srand((unsigned int)seed); alliance_update_year();
         joined = alliance_for_civ(2) == created; if (joined) join_seed = seed;
     }
     reset_fixture(5); created = alliance_debug_create_pair(0, 1, 80); alliance_debug_add_member(created, 2, 80);

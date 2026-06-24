@@ -3,6 +3,7 @@
 #include "game/game_loop.h"
 #include "render/panel_alliance.h"
 #include "render/panel_alliance_model.h"
+#include "render/panel_country_diplomacy_tooltip.h"
 #include "render/render_context.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_selection.h"
@@ -37,6 +38,8 @@ int ui_alliance_panel_owns_input(void) {
 }
 
 int ui_alliance_panel_hover_hit(RECT client, int mouse_x, int mouse_y) {
+    int tooltip_key = diplomacy_score_tooltip_hover_key(mouse_x, mouse_y);
+    if (tooltip_key > 0) return 50000 + tooltip_key;
     return alliance_panel_hit_test(client, mouse_x, mouse_y);
 }
 
@@ -53,7 +56,7 @@ int ui_handle_alliance_panel_click(HWND hwnd, RECT client, int mouse_x, int mous
         ui_invalidate_side_panel(hwnd);
         return 1;
     }
-    if (hit <= ALLIANCE_PANEL_HIT_SORT_POPULATION && hit >= ALLIANCE_PANEL_HIT_SORT_DISORDER) {
+    if (hit <= ALLIANCE_PANEL_HIT_SORT_POPULATION && hit >= ALLIANCE_PANEL_HIT_SORT_MEMBERS) {
         int column = ALLIANCE_PANEL_HIT_SORT_POPULATION - hit;
         if (country_sort_column == column) country_sort_descending = !country_sort_descending;
         else { country_sort_column = column; country_sort_descending = 1; }

@@ -9,6 +9,8 @@
 #define ALLIANCE_CANDIDATE_RECORD_CAP 32
 #define ALLIANCE_VOTE_RECORD_CAP 32
 #define ALLIANCE_HISTORY_RECORD_CAP 128
+#define ALLIANCE_JOIN_FIRST_VOTE_YEARS 30
+#define ALLIANCE_JOIN_RETRY_VOTE_YEARS 10
 
 typedef enum {
     ALLIANCE_CMD_OK = 0,
@@ -76,7 +78,8 @@ typedef enum {
     ALLIANCE_HISTORY_MEMBER_LEFT = 6,
     ALLIANCE_HISTORY_MEMBER_REMOVED = 7,
     ALLIANCE_HISTORY_LEADER_CHANGED = 8,
-    ALLIANCE_HISTORY_DISSOLVED = 9
+    ALLIANCE_HISTORY_DISSOLVED = 9,
+    ALLIANCE_HISTORY_UNION_FORMED = 10
 } AllianceHistoryType;
 
 typedef struct {
@@ -194,6 +197,8 @@ void alliance_year_work_begin(AllianceYearWork *work);
 int alliance_update_year_step(AllianceYearWork *work, int work_budget);
 int alliance_year_last_step_ms(void);
 int alliance_year_peak_step_ms(void);
+int alliance_union_try(int alliance_id);
+int alliance_union_update_year_step(AllianceYearWork *work);
 
 int alliance_for_civ(int civ_id);
 int alliance_display_for_civ(int civ_id);

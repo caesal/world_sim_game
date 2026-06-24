@@ -1,7 +1,9 @@
 #include "render/panel_alliance_detail.h"
 
 #include "render/icons.h"
+#include "render/panel_alliance_history.h"
 #include "render/panel_alliance_sections.h"
+#include "render/panel_alliance_votes.h"
 #include "render/render_common.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
@@ -138,18 +140,19 @@ static void draw_union(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot
     ui_clay_draw_progress_bar(hdc, ui_take_rect(cursor, 14), progress, 100, RGB(104, 158, 186));
     cursor->y += 8;
     ui_row_text(hdc, cursor, tr("Status", "状态"),
-                remaining == 0 ? tr("Eligible; status only.", "已符合资格；仅显示状态。") :
+                remaining == 0 ? tr("Eligible for automatic union.", "已符合自动联合资格。") :
                 tr("Not yet eligible.", "尚未符合资格。"));
     ui_row_text(hdc, cursor, tr("Scope", "范围"),
-                tr("Union formation is not implemented in this pass.", "本次不实现国家合并。"));
+                tr("At 800 stable years, formal members merge into a new country.",
+                   "稳定满800年后，正式成员会合并为一个新国家。"));
 }
 
 int alliance_detail_content_height(const RenderSnapshot *snapshot, const AlliancePanelRow *row) {
     if (!snapshot || !row) return 0;
     switch (clamp(alliance_detail_subtab, 0, ALLIANCE_DETAIL_TAB_COUNT - 1)) {
         case ALLIANCE_DETAIL_MEMBERS: return alliance_sections_members_height(snapshot, row);
-        case ALLIANCE_DETAIL_VOTES: return alliance_sections_votes_height(snapshot, row);
-        case ALLIANCE_DETAIL_HISTORY: return alliance_sections_history_height(snapshot, row);
+        case ALLIANCE_DETAIL_VOTES: return alliance_votes_content_height(snapshot, row);
+        case ALLIANCE_DETAIL_HISTORY: return alliance_history_content_height(snapshot, row);
         case ALLIANCE_DETAIL_UNION: return 220;
         default: return 250;
     }
@@ -159,8 +162,8 @@ void alliance_detail_draw_content(HDC hdc, UiCursor *cursor, const RenderSnapsho
                                   const AlliancePanelRow *row) {
     switch (clamp(alliance_detail_subtab, 0, ALLIANCE_DETAIL_TAB_COUNT - 1)) {
         case ALLIANCE_DETAIL_MEMBERS: alliance_sections_draw_members(hdc, cursor, snapshot, row); break;
-        case ALLIANCE_DETAIL_VOTES: alliance_sections_draw_votes(hdc, cursor, snapshot, row); break;
-        case ALLIANCE_DETAIL_HISTORY: alliance_sections_draw_history(hdc, cursor, snapshot, row); break;
+        case ALLIANCE_DETAIL_VOTES: alliance_votes_draw_content(hdc, cursor, snapshot, row); break;
+        case ALLIANCE_DETAIL_HISTORY: alliance_history_draw_content(hdc, cursor, snapshot, row); break;
         case ALLIANCE_DETAIL_UNION: draw_union(hdc, cursor, snapshot, row); break;
         default: draw_overview(hdc, cursor, snapshot, row); break;
     }

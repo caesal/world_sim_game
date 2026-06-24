@@ -68,7 +68,12 @@ UiClayStyle ui_clay_style(UiClaySurface surface, UiClayState state) {
             style.border = clay_mix(style.border, RGB(154, 174, 174), 22);
             break;
         case UI_CLAY_STATE_PRESSED:
-            style.fill = clay_mix(style.fill, style.shadow, 24);
+            style.fill = RGB(91, 84, 119);
+            style.border = RGB(154, 144, 184);
+            style.highlight = RGB(128, 118, 158);
+            style.shadow = RGB(34, 31, 45);
+            style.shadow_soft = RGB(43, 39, 56);
+            style.text = RGB(255, 248, 226);
             style.shadow_offset = max(1, style.shadow_offset - 1);
             break;
         case UI_CLAY_STATE_SELECTED:

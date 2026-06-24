@@ -19,6 +19,8 @@ typedef struct {
 
 static unsigned char water[SEA_NAV_MAX_CELLS];
 static unsigned char land_dist[SEA_NAV_MAX_CELLS];
+static int water_component[SEA_NAV_MAX_CELLS];
+static int component_queue[SEA_NAV_MAX_CELLS];
 static int nav_cost[SEA_NAV_MAX_CELLS];
 static int nav_prev[SEA_NAV_MAX_CELLS];
 static int nav_seen[SEA_NAV_MAX_CELLS];
@@ -34,6 +36,7 @@ static int cached_h = 0;
 
 static int idx_xy(int x, int y) { return y * MAP_W + x; }
 static int in_bounds(int x, int y) { return x >= 0 && x < MAP_W && y >= 0 && y < MAP_H; }
+static void rebuild_water_components(void);
 static void ensure_nav_field(void);
 
 int sea_nav_is_water(int x, int y) {
@@ -93,9 +96,36 @@ static void rebuild_nav_field(void) {
         }
     }
     for (x = 0; x < total; x++) if (land_dist[x] > 30) land_dist[x] = 30;
+    rebuild_water_components();
     cached_revision = dirty_revision_coast();
     cached_w = MAP_W;
     cached_h = MAP_H;
+}
+
+static void rebuild_water_components(void) {
+    static const int dirs[4][2] = {{1,0},{0,1},{-1,0},{0,-1}};
+    int total = MAP_W * MAP_H;
+    int component = 0;
+    int i;
+    for (i = 0; i < total; i++) water_component[i] = water[i] ? -1 : 0;
+    for (i = 0; i < total; i++) {
+        int head = 0, tail = 0;
+        if (water_component[i] != -1) continue;
+        water_component[i] = ++component;
+        component_queue[tail++] = i;
+        while (head < tail) {
+            int cur = component_queue[head++];
+            int x = cur % MAP_W, y = cur / MAP_W, d;
+            for (d = 0; d < 4; d++) {
+                int nx = x + dirs[d][0], ny = y + dirs[d][1], nidx;
+                if (!in_bounds(nx, ny)) continue;
+                nidx = idx_xy(nx, ny);
+                if (water_component[nidx] != -1) continue;
+                water_component[nidx] = component;
+                component_queue[tail++] = nidx;
+            }
+        }
+    }
 }
 
 static void ensure_nav_field(void) {
@@ -108,6 +138,12 @@ int sea_nav_distance_to_land(int x, int y) {
     ensure_nav_field();
     if (!in_bounds(x, y)) return 0;
     return land_dist[idx_xy(x, y)];
+}
+
+int sea_nav_water_component(int x, int y) {
+    ensure_nav_field();
+    if (!in_bounds(x, y) || !water[idx_xy(x, y)]) return 0;
+    return water_component[idx_xy(x, y)];
 }
 
 int sea_nav_segment_water(MapPoint a, MapPoint b) {

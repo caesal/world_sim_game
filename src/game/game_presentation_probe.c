@@ -3,13 +3,19 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "game/game_loop.h"
+#include "render/panel_alliance.h"
 #include "render/panel_alliance_detail.h"
+#include "render/panel_alliance_history.h"
 #include "render/panel_alliance_model.h"
+#include "render/panel_alliance_vote_state.h"
+#include "render/panel_alliance_votes.h"
+#include "render/panel_country_diplomacy_tooltip.h"
 #include "sim/alliance.h"
 #include "sim/civilization_slots.h"
 #include "sim/simulation.h"
 #include "sim/simulation_worker.h"
 #include "ui/ui_map_display.h"
+#include "ui/ui_pressed_state.h"
 #include "ui/ui_types.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -18,6 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+int panel_map_probe_alliance_legend_before(const RenderSnapshot *snapshot, int a_index, int b_index);
 
 #define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
@@ -201,10 +209,29 @@ static int case_map_display_alliance_tab(FILE *summary) {
     return ok;
 }
 
+static int case_pressed_feedback_state(FILE *summary) {
+    int ok = 1;
+    ui_pressed_control_clear(NULL);
+    ok &= !ui_pressed_control_is_active(UI_PRESSED_SPEED, SPEED_COUNT - 1);
+    ui_pressed_control_set(NULL, UI_PRESSED_SPEED, SPEED_COUNT - 1);
+    ok &= ui_pressed_control_is_active(UI_PRESSED_SPEED, SPEED_COUNT - 1);
+    ok &= !ui_pressed_control_is_active(UI_PRESSED_MAP_MODE, 1);
+    ui_pressed_control_set(NULL, UI_PRESSED_MAP_MODE, 1);
+    ok &= ui_pressed_control_is_active(UI_PRESSED_MAP_MODE, 1);
+    ok &= !ui_pressed_control_is_active(UI_PRESSED_SPEED, SPEED_COUNT - 1);
+    ui_pressed_control_clear(NULL);
+    ok &= !ui_pressed_control_is_active(UI_PRESSED_MAP_MODE, 1);
+    fprintf(summary, "case=pressed_feedback_state ok=%d speed_index=%d map_mode_index=1\n",
+            ok, SPEED_COUNT - 1);
+    return ok;
+}
+
 static int case_alliance_panel_model(FILE *summary) {
     RenderSnapshot *snapshot = (RenderSnapshot *)calloc(1, sizeof(*snapshot));
     const AlliancePanelModel *model;
     const AlliancePanelRow *row;
+    int original_language = ui_language;
+    RECT probe_row = {10, 20, 410, 90}, type_a, war_a, type_b, war_b;
     int ok = snapshot != NULL;
     if (!snapshot) {
         fprintf(summary, "case=alliance_panel_model ok=0 reason=alloc\n");
@@ -266,16 +293,182 @@ static int case_alliance_panel_model(FILE *summary) {
     ok &= row && row->population == 325 && row->military == 35 && row->treasury == 3300 &&
           row->latest_join_year == 30 && row->tech_stage == 3;
     ok &= row && row->war_count == 1 && row->leader_civ == 1;
+    ui_language = UI_LANG_EN;
+    ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_POPULATION), "Population") == 0;
+    ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_PROVINCES), "Provinces") == 0;
+    ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_ARMY), "Army") == 0;
+    ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_TREASURY), "Treasury") == 0;
+    ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_TECH), "Technology") == 0;
+    ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_DISORDER), "Members") == 0;
+    ok &= alliance_panel_probe_country_row_badge_count() == 2 && alliance_panel_probe_no_alliance_badge_color() == RGB(128, 128, 128);
+    alliance_panel_probe_badge_rects(probe_row, &type_a, &war_a);
+    alliance_panel_probe_badge_rects(probe_row, &type_b, &war_b);
+    ok &= EqualRect(&type_a, &type_b) && EqualRect(&war_a, &war_b);
     model = alliance_panel_model_get(snapshot, 1, COUNTRY_SORT_POPULATION, 1);
     ok &= model && model->show_fallen == 1 && model->alliance_row_count == 0 &&
           model->no_alliance_country_count == 1 && model->rows[0].civ_id == 4;
     model = alliance_panel_model_get(snapshot, 0, COUNTRY_SORT_TREASURY, 0);
     ok &= model && model->sort_column == COUNTRY_SORT_TREASURY && model->sort_descending == 0;
+    snapshot->alliance_count = 2; snapshot->alliances[1] = snapshot->alliances[0];
+    snapshot->alliances[1].id = 3; snapshot->alliances[1].members[0] = 2;
+    snapshot->alliances[1].members[1] = 3; snapshot->civs[3].current_soldiers = 25;
+    ok &= panel_map_probe_alliance_legend_before(snapshot, 1, 0);
+    ui_language = original_language;
     fprintf(summary,
             "case=alliance_panel_model ok=%d rows=%d alliances=%d no_alliance=%d pop=%d military=%d wars=%d leader=%d\n",
             ok, model ? model->row_count : -1, model ? model->alliance_row_count : -1,
             model ? model->no_alliance_country_count : -1, row ? row->population : -1,
             row ? row->military : -1, row ? row->war_count : -1, row ? row->leader_civ : -1);
+    free(snapshot);
+    return ok;
+}
+
+static void init_alliance_ui_probe_snapshot(RenderSnapshot *snapshot) {
+    memset(snapshot, 0, sizeof(*snapshot));
+    snapshot->year = 122;
+    snapshot->civ_count = 3;
+    snapshot->alliance_count = 1;
+    snapshot->alliances[0].active = 1;
+    snapshot->alliances[0].id = 7;
+    snapshot->alliances[0].founded_year = 90;
+    snapshot->alliances[0].member_count = 2;
+    snapshot->alliances[0].members[0] = 1;
+    snapshot->alliances[0].members[1] = 2;
+    snapshot->alliances[0].joined_year_by_civ[1] = 90;
+    snapshot->alliances[0].joined_year_by_civ[2] = 121;
+    snprintf(snapshot->alliances[0].name_en, sizeof(snapshot->alliances[0].name_en), "Probe Alliance");
+    snprintf(snapshot->alliances[0].name_zh, sizeof(snapshot->alliances[0].name_zh), "探针联盟");
+    snapshot->civs[0].alive = 1;
+    snapshot->civs[0].symbol = 'C';
+    snprintf(snapshot->civs[0].name_en, sizeof(snapshot->civs[0].name_en), "Candidate");
+    snprintf(snapshot->civs[0].name_zh, sizeof(snapshot->civs[0].name_zh), "候选国");
+    snapshot->civs[1].alive = 1;
+    snapshot->civs[1].symbol = 'A';
+    snprintf(snapshot->civs[1].name_en, sizeof(snapshot->civs[1].name_en), "Member A");
+    snprintf(snapshot->civs[1].name_zh, sizeof(snapshot->civs[1].name_zh), "成员甲");
+    snapshot->civs[2].alive = 1;
+    snapshot->civs[2].symbol = 'B';
+    snprintf(snapshot->civs[2].name_en, sizeof(snapshot->civs[2].name_en), "Member B");
+    snprintf(snapshot->civs[2].name_zh, sizeof(snapshot->civs[2].name_zh), "成员乙");
+}
+
+static void init_vote_record(AllianceVoteRecord *vote, int year) {
+    int i;
+    memset(vote, 0, sizeof(*vote));
+    vote->active = 1;
+    vote->alliance_id = 7;
+    vote->vote_year = year;
+    vote->vote_type = ALLIANCE_VOTE_JOIN;
+    vote->target_civ_id = 0;
+    vote->yes_count = 1;
+    vote->no_count = 1;
+    vote->passed = 0;
+    vote->rejection_reason = ALLIANCE_REJECT_VOTE_FAILED;
+    for (i = 0; i < MAX_CIVS; i++) vote->member_votes[i] = ALLIANCE_MEMBER_VOTE_NA;
+    vote->member_votes[1] = ALLIANCE_MEMBER_VOTE_YES;
+    vote->member_votes[2] = ALLIANCE_MEMBER_VOTE_NO;
+}
+
+static AllianceCandidateRecord make_candidate(int candidate_year, int progress,
+                                              int status, int reason, int updated_year) {
+    AllianceCandidateRecord candidate;
+    memset(&candidate, 0, sizeof(candidate));
+    candidate.active = 1;
+    candidate.alliance_id = 7;
+    candidate.civ_id = 0;
+    candidate.type = ALLIANCE_CANDIDATE_JOIN;
+    candidate.initiated_by = ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE;
+    candidate.candidate_year = candidate_year;
+    candidate.qualification_progress = progress;
+    candidate.status = status;
+    candidate.rejection_reason = reason;
+    candidate.updated_year = updated_year;
+    return candidate;
+}
+
+static int case_alliance_vote_history_ui_semantics(FILE *summary) {
+    RenderSnapshot *snapshot = (RenderSnapshot *)calloc(1, sizeof(*snapshot));
+    AllianceCandidateRecord first, voting, retry, recent, old, passed;
+    AllianceVoteRecord vote;
+    AllianceHistoryRecord history;
+    char sentence[320];
+    int original_language = ui_language;
+    int remaining = -1, total = -1, progress = -1;
+    int retry_remaining = -1, retry_total = -1, retry_progress = -1;
+    const char *first_label, *voting_label, *retry_label, *not_passed_label, *retry_without_vote_label;
+    int visible_recent, visible_old, visible_passed, symbols_ok, history_ok, order_ok, tooltip_ok, voter_ok;
+    int ok = snapshot != NULL;
+    if (!snapshot) {
+        fprintf(summary, "case=alliance_vote_history_ui_semantics ok=0 reason=alloc\n");
+        return 0;
+    }
+    init_alliance_ui_probe_snapshot(snapshot);
+    init_vote_record(&vote, 120);
+    first = make_candidate(112, 25, ALLIANCE_CANDIDATE_ACTIVE,
+                           ALLIANCE_REJECT_NONE, 112);
+    voting = make_candidate(93, 100, ALLIANCE_CANDIDATE_ACTIVE,
+                            ALLIANCE_REJECT_NONE, 122);
+    retry = make_candidate(100, 100, ALLIANCE_CANDIDATE_ACTIVE,
+                           ALLIANCE_REJECT_VOTE_FAILED, 120);
+    passed = make_candidate(60, 100, ALLIANCE_CANDIDATE_PASSED,
+                            ALLIANCE_REJECT_NONE, 72);
+    recent = make_candidate(60, 100, ALLIANCE_CANDIDATE_REJECTED,
+                            ALLIANCE_REJECT_VOTE_FAILED, 72);
+    old = make_candidate(60, 100, ALLIANCE_CANDIDATE_REJECTED,
+                         ALLIANCE_REJECT_VOTE_FAILED, 71);
+    ui_language = UI_LANG_EN;
+    first_label = alliance_votes_probe_candidate_status_label(snapshot, &first, NULL);
+    voting_label = alliance_votes_probe_candidate_status_label(snapshot, &voting, NULL);
+    snapshot->year = 121;
+    not_passed_label = alliance_votes_probe_candidate_status_label(snapshot, &retry, &vote);
+    snapshot->year = 122;
+    retry_label = alliance_votes_probe_candidate_status_label(snapshot, &retry, &vote);
+    retry_without_vote_label = alliance_votes_probe_candidate_status_label(snapshot, &retry, NULL);
+    progress = alliance_votes_probe_phase_progress(snapshot, &first, NULL, &remaining, &total);
+    retry_progress = alliance_votes_probe_phase_progress(snapshot, &retry, &vote,
+                                                        &retry_remaining, &retry_total);
+    visible_recent = alliance_votes_probe_candidate_visible(snapshot, &recent);
+    visible_old = alliance_votes_probe_candidate_visible(snapshot, &old);
+    visible_passed = alliance_vote_state_visible(snapshot, &snapshot->alliances[0], &passed);
+    order_ok = alliance_vote_state_candidate_before(snapshot, &snapshot->alliances[0], &first, &passed);
+    voter_ok = alliance_vote_state_vote_member_count(&snapshot->alliances[0], &vote) == 1 &&
+               !alliance_vote_state_member_can_vote(&snapshot->alliances[0], 2, 0, vote.vote_year);
+    diplomacy_score_tooltip_begin();
+    diplomacy_score_tooltip_register_bar((RECT){10, 10, 110, 22}, 0, 1);
+    tooltip_ok = diplomacy_score_tooltip_hover_key(20, 16) > 0;
+    symbols_ok = strcmp(alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_NO), "X") == 0 &&
+                 strcmp(alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_YES),
+                        alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_NA)) != 0 &&
+                 strcmp(alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_ABSTAIN),
+                        alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_NA)) != 0;
+    memset(&history, 0, sizeof(history));
+    history.active = 1;
+    history.alliance_id = 7;
+    history.event_year = 122;
+    history.event_type = ALLIANCE_HISTORY_VOTE_FAILED;
+    history.civ_id = 0;
+    history.target_civ_id = -1;
+    history.vote_type = ALLIANCE_VOTE_JOIN;
+    history.rejection_reason = ALLIANCE_REJECT_VOTE_FAILED;
+    alliance_history_probe_sentence(sentence, sizeof(sentence), snapshot, &history);
+    history_ok = strstr(sentence, " / ") == NULL && strstr(sentence, " -") == NULL &&
+                 strstr(sentence, "waiting for the next vote") != NULL;
+    ok &= strcmp(first_label, "First vote countdown") == 0 && progress == 36 &&
+          remaining == 19 && total == ALLIANCE_JOIN_FIRST_VOTE_YEARS;
+    ok &= strcmp(voting_label, "Waiting for vote result") == 0;
+    ok &= strcmp(not_passed_label, "Not passed") == 0;
+    ok &= strcmp(retry_label, "Waiting for next vote") == 0 &&
+          retry_progress == 20 && retry_remaining == 8 &&
+          retry_total == ALLIANCE_JOIN_RETRY_VOTE_YEARS;
+    ok &= strcmp(retry_without_vote_label, "Waiting for next vote") != 0;
+    ok &= visible_recent && visible_passed && !visible_old && order_ok &&
+          tooltip_ok && symbols_ok && history_ok && voter_ok;
+    ui_language = original_language;
+    fprintf(summary,
+            "case=alliance_vote_history_ui_semantics ok=%d first=%s progress=%d rem=%d/%d vote_year=%s not_passed=%s retry=%s retry_progress=%d rem=%d/%d recent=%d passed_recent=%d old=%d order=%d voters=%d tooltip=%d symbols=%d history_ok=%d sentence=\"%s\"\n",
+            ok, first_label, progress, remaining, total, voting_label, not_passed_label,
+            retry_label, retry_progress, retry_remaining, retry_total, visible_recent,
+            visible_passed, visible_old, order_ok, voter_ok, tooltip_ok, symbols_ok, history_ok, sentence);
     free(snapshot);
     return ok;
 }
@@ -291,7 +484,9 @@ int run_presentation_probe(void) {
     ok &= case_bar_redraw_not_blocked(summary);
     ok &= case_alliance_year_step(summary);
     ok &= case_map_display_alliance_tab(summary);
+    ok &= case_pressed_feedback_state(summary);
     ok &= case_alliance_panel_model(summary);
+    ok &= case_alliance_vote_history_ui_semantics(summary);
     fprintf(summary, "overall_ok=%d\n", ok);
     fclose(summary);
     printf("presentation probe summary: %s\\summary.txt\n", PRESENTATION_PROBE_DIR);

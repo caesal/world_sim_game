@@ -6,6 +6,7 @@
 #include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
+#include "ui/ui_pressed_state.h"
 
 const char *ui_map_display_label(int mode_index, int language) {
     static const char *names_en[MAP_DISPLAY_MODE_COUNT] = {
@@ -40,6 +41,7 @@ int ui_handle_top_map_display_click(HWND hwnd, RECT client, int mouse_x, int mou
     int i;
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         if (point_in_rect(get_mode_button_rect(client, i), mouse_x, mouse_y)) {
+            ui_pressed_control_set(hwnd, UI_PRESSED_MAP_MODE, i);
             return ui_set_map_display_mode(hwnd, i);
         }
     }

@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/profiler.h"
 #include "sim/diplomacy.h"
+#include "sim/alliance_contact.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
 
@@ -16,6 +17,7 @@ enum {
     ALLIANCE_YEAR_CREATION,
     ALLIANCE_YEAR_JOIN,
     ALLIANCE_YEAR_KICK,
+    ALLIANCE_YEAR_UNION,
     ALLIANCE_YEAR_POST_SANITIZE,
     ALLIANCE_YEAR_DONE
 };
@@ -33,6 +35,14 @@ static int no_hard_pair_block(int civ_a, int civ_b) {
     return diplomacy_current_contact_kind(civ_a, civ_b) != DIP_CONTACT_NONE &&
            state != DIPLOMACY_WAR && state != DIPLOMACY_TRUCE &&
            state != DIPLOMACY_VASSAL && !war_active_between(civ_a, civ_b);
+}
+
+static int no_join_pair_block(int candidate, int member, int alliance_id) {
+    DiplomacyStatus state = diplomacy_status(candidate, member);
+    return alliance_diplomatic_contact_source(candidate, alliance_id, member) !=
+           ALLIANCE_DIP_CONTACT_NONE &&
+           state != DIPLOMACY_WAR && state != DIPLOMACY_TRUCE &&
+           state != DIPLOMACY_VASSAL && !war_active_between(candidate, member);
 }
 
 static int vote_roll(int chance_percent) {
@@ -94,11 +104,32 @@ static int join_block_reason(int candidate, int alliance_id) {
         state->kicked_cooldown[alliance_id][candidate] > 0) return ALLIANCE_REJECT_COOLDOWN_ACTIVE;
     for (i = 0; i < count; i++) {
         int member = alliance_formal_member_at(alliance_id, i);
-        if (!sovereign_alive(member) || !no_hard_pair_block(candidate, member))
+        if (!sovereign_alive(member) || !no_join_pair_block(candidate, member, alliance_id))
             return ALLIANCE_REJECT_HARD_BLOCKER;
         if (relation_score(candidate, member) < 60) return ALLIANCE_REJECT_RELATION_BELOW_THRESHOLD;
     }
     return ALLIANCE_REJECT_NONE;
+}
+
+static int active_join_candidate_record(AllianceSaveState *state, int alliance_id, int candidate) {
+    int i;
+    if (!state || alliance_id < 0 || alliance_id >= ALLIANCE_MAX) return 0;
+    for (i = 0; i < ALLIANCE_CANDIDATE_RECORD_CAP; i++) {
+        AllianceCandidateRecord *record = &state->candidates[alliance_id][i];
+        if (record->active && record->type == ALLIANCE_CANDIDATE_JOIN &&
+            record->civ_id == candidate && record->status == ALLIANCE_CANDIDATE_ACTIVE)
+            return 1;
+    }
+    return 0;
+}
+
+static int candidate_has_open_join_work(AllianceSaveState *state, int candidate) {
+    int id;
+    for (id = 0; state && id < state->next_id && id < ALLIANCE_MAX; id++) {
+        if (state->join_years[candidate][id] > 0 ||
+            active_join_candidate_record(state, id, candidate)) return 1;
+    }
+    return 0;
 }
 
 static void process_join_vote(AllianceSaveState *state, int candidate, int id) {
@@ -106,11 +137,15 @@ static void process_join_vote(AllianceSaveState *state, int candidate, int id) {
     signed char votes[MAX_CIVS];
     int reason = join_block_reason(candidate, id);
     if (reason != ALLIANCE_REJECT_NONE) {
-        if (state->join_years[candidate][id] > 0) {
+        if (state->join_years[candidate][id] > 0 ||
+            active_join_candidate_record(state, id, candidate)) {
             alliance_record_candidate(id, candidate, ALLIANCE_CANDIDATE_JOIN,
                                       ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE,
-                                      year - state->join_years[candidate][id] + 1,
+                                      state->join_years[candidate][id] > 0 ?
+                                      year - state->join_years[candidate][id] + 1 : year,
                                       0, ALLIANCE_CANDIDATE_BLOCKED, reason);
+            alliance_record_history(id, ALLIANCE_HISTORY_VOTE_FAILED, candidate, -1,
+                                    ALLIANCE_VOTE_JOIN, reason);
         }
         state->join_years[candidate][id] = 0;
         return;
@@ -118,9 +153,12 @@ static void process_join_vote(AllianceSaveState *state, int candidate, int id) {
     years = ++state->join_years[candidate][id];
     alliance_record_candidate(id, candidate, ALLIANCE_CANDIDATE_JOIN,
                               ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE,
-                              year - years + 1, clamp(years * 100 / 20, 0, 100),
+                              year - years + 1,
+                              clamp(years * 100 / ALLIANCE_JOIN_FIRST_VOTE_YEARS, 0, 100),
                               ALLIANCE_CANDIDATE_ACTIVE, ALLIANCE_REJECT_NONE);
-    if (years < 20 || ((years - 20) % 5) != 0) return;
+    if (years < ALLIANCE_JOIN_FIRST_VOTE_YEARS ||
+        ((years - ALLIANCE_JOIN_FIRST_VOTE_YEARS) % ALLIANCE_JOIN_RETRY_VOTE_YEARS) != 0)
+        return;
     for (i = 0; i < MAX_CIVS; i++) votes[i] = ALLIANCE_MEMBER_VOTE_NA;
     for (i = 0; i < count; i++) {
         int member = alliance_formal_member_at(id, i);
@@ -139,7 +177,7 @@ static void process_join_vote(AllianceSaveState *state, int candidate, int id) {
                               ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE,
                               year - years + 1, 100,
                               all_yes ? ALLIANCE_CANDIDATE_PASSED :
-                              ALLIANCE_CANDIDATE_REJECTED,
+                              ALLIANCE_CANDIDATE_ACTIVE,
                               all_yes ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
     if (all_yes) alliance_debug_add_member(id, candidate, 0);
 }
@@ -245,13 +283,19 @@ static int step_join(AllianceSaveState *state, AllianceYearWork *work) {
     int limit = min(civ_count, MAX_CIVS);
     while (work->candidate < limit) {
         int id;
-        if (!sovereign_alive(work->candidate) || alliance_for_civ(work->candidate) >= 0) {
+        if (!sovereign_alive(work->candidate) ||
+            (alliance_for_civ(work->candidate) >= 0 &&
+             !candidate_has_open_join_work(state, work->candidate))) {
             work->candidate++; work->alliance_id = 0; continue;
         }
         if (work->alliance_id >= state->next_id || work->alliance_id >= ALLIANCE_MAX) {
             work->candidate++; work->alliance_id = 0; continue;
         }
         id = work->alliance_id++;
+        if (alliance_for_civ(work->candidate) >= 0 &&
+            state->join_years[work->candidate][id] <= 0 &&
+            !active_join_candidate_record(state, id, work->candidate))
+            continue;
         process_join_vote(state, work->candidate, id);
         return 1;
     }
@@ -307,6 +351,10 @@ int alliance_update_year_step(AllianceYearWork *work, int work_budget) {
                 break;
             case ALLIANCE_YEAR_KICK:
                 if (step_kick(state, work)) remaining--;
+                else alliance_year_next_phase(work, ALLIANCE_YEAR_UNION);
+                break;
+            case ALLIANCE_YEAR_UNION:
+                if (alliance_union_update_year_step(work)) remaining--;
                 else alliance_year_next_phase(work, ALLIANCE_YEAR_POST_SANITIZE);
                 break;
             case ALLIANCE_YEAR_POST_SANITIZE:
