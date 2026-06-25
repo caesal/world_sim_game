@@ -2,6 +2,8 @@
 
 #include "core/game_types.h"
 #include "core/worldgen_progress.h"
+#include "data/country_names.h"
+#include "data/province_names.h"
 #include "game/game_worldgen.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
@@ -15,6 +17,8 @@
 #include "world/world_gen.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 static WorldGenConfig probe_config(void) {
     WorldGenConfig config = DEFAULT_WORLD_GEN_CONFIG;
@@ -49,6 +53,60 @@ static void reset_probe_world(void) {
     world_generated = 0;
 }
 
+static void count_heritage_queue(int count, int counts[CIV_HERITAGE_COUNT]) {
+    int queue[MAX_CIVS];
+    memset(counts, 0, sizeof(int) * CIV_HERITAGE_COUNT);
+    srand((unsigned int)(7700 + count));
+    simulation_seed_build_default_heritage_queue(count, queue);
+    for (int i = 0; i < count; i++) {
+        if (queue[i] >= 0 && queue[i] < CIV_HERITAGE_COUNT) counts[queue[i]]++;
+    }
+}
+
+static int distribution_ok(const int counts[CIV_HERITAGE_COUNT], int total) {
+    int min_count = total, max_count = 0, sum = 0;
+    for (int h = 0; h < CIV_HERITAGE_COUNT; h++) {
+        if (counts[h] < min_count) min_count = counts[h];
+        if (counts[h] > max_count) max_count = counts[h];
+        sum += counts[h];
+    }
+    return sum == total && max_count - min_count <= 1;
+}
+
+static int check_heritage_setup(FILE *file) {
+    int ok = CIV_HERITAGE_COUNT == 4;
+    int counts[CIV_HERITAGE_COUNT];
+    int distribution_all_ok = 1;
+    int west = country_name_count_for_heritage(CIV_HERITAGE_WESTERN);
+    int east = country_name_count_for_heritage(CIV_HERITAGE_EASTERN);
+    int south = country_name_count_for_heritage(CIV_HERITAGE_SOUTHERN);
+    int north = country_name_count_for_heritage(CIV_HERITAGE_NORTHERN);
+    int province_ok = province_name_count_for_heritage(CIV_HERITAGE_NORTHERN) ==
+                      province_name_count_for_heritage(CIV_HERITAGE_WESTERN) &&
+                      province_name_count_for_heritage(CIV_HERITAGE_SOUTHERN) ==
+                      province_name_count_for_heritage(CIV_HERITAGE_EASTERN) &&
+                      strcmp(province_name_localized_for_heritage(CIV_HERITAGE_NORTHERN, 0, 0),
+                             province_name_localized_for_heritage(CIV_HERITAGE_WESTERN, 0, 0)) == 0 &&
+                      strcmp(province_name_localized_for_heritage(CIV_HERITAGE_SOUTHERN, 0, 0),
+                             province_name_localized_for_heritage(CIV_HERITAGE_EASTERN, 0, 0)) == 0;
+    int labels_ok = strcmp(civilization_heritage_label(CIV_HERITAGE_WESTERN, 0), "Western") == 0 &&
+                    strcmp(civilization_heritage_label(CIV_HERITAGE_EASTERN, 0), "Eastern") == 0 &&
+                    strcmp(civilization_heritage_label(CIV_HERITAGE_SOUTHERN, 0), "Southern") == 0 &&
+                    strcmp(civilization_heritage_label(CIV_HERITAGE_NORTHERN, 0), "Northern") == 0;
+    ok &= west == 200 && east == 200 && south == 200 && north == 200 && province_ok && labels_ok;
+    fprintf(file, "case=heritage_name_pools ok=%d country_counts=%d/%d/%d/%d province_reuse=%d labels=%d\n",
+            ok, west, east, south, north, province_ok, labels_ok);
+    for (int i = 0; i < 4; i++) {
+        int total = i == 0 ? 4 : i == 1 ? 5 : i == 2 ? 6 : 26;
+        count_heritage_queue(total, counts);
+        distribution_all_ok &= distribution_ok(counts, total);
+        fprintf(file, "case=heritage_distribution count=%d counts=%d/%d/%d/%d ok=%d\n",
+                total, counts[0], counts[1], counts[2], counts[3],
+                distribution_ok(counts, total));
+    }
+    return ok && distribution_all_ok;
+}
+
 int run_worldgen_probe(void) {
     WorldGenConfig config = probe_config();
     RoutePotentialStats route_stats;
@@ -56,10 +114,12 @@ int run_worldgen_probe(void) {
     unsigned long start_ms;
     unsigned long route_start_ms;
     FILE *file;
+    int ok;
 
     CreateDirectoryA("logs", NULL);
     file = fopen("logs/worldgen_probe.txt", "w");
     if (!file) return 1;
+    ok = check_heritage_setup(file);
     reset_probe_world();
     worldgen_progress_begin();
     start_ms = GetTickCount();
@@ -94,6 +154,16 @@ int run_worldgen_probe(void) {
             route_stats.disconnected_networks, route_stats.rejected_no_path,
             route_stats.rejected_no_deep_water, route_stats.rejected_near_shore,
             route_stats.rejected_truncated);
+    {
+        int placed_counts[CIV_HERITAGE_COUNT] = {0};
+        for (int i = 0; i < civ_count; i++) if (civs[i].heritage >= 0 && civs[i].heritage < CIV_HERITAGE_COUNT)
+            placed_counts[civs[i].heritage]++;
+        ok &= distribution_ok(placed_counts, civ_count);
+        fprintf(file, "case=heritage_distribution_generated civs=%d counts=%d/%d/%d/%d ok=%d\n",
+                civ_count, placed_counts[0], placed_counts[1], placed_counts[2], placed_counts[3],
+                distribution_ok(placed_counts, civ_count));
+    }
+    fprintf(file, "overall_ok=%d\n", ok);
     fclose(file);
-    return 0;
+    return ok ? 0 : 1;
 }

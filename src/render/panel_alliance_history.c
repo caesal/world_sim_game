@@ -37,6 +37,7 @@ static const char *history_label(int type) {
         case ALLIANCE_HISTORY_MEMBER_JOINED: return tr("Member joined", "成员加入");
         case ALLIANCE_HISTORY_MEMBER_LEFT: return tr("Member left", "成员离开");
         case ALLIANCE_HISTORY_MEMBER_REMOVED: return tr("Member removed", "成员被清退");
+        case ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT: return tr("War removal", "战败清退");
         case ALLIANCE_HISTORY_LEADER_CHANGED: return tr("Leader changed", "领袖变更");
         case ALLIANCE_HISTORY_DISSOLVED: return tr("Alliance dissolved", "联盟解散");
         case ALLIANCE_HISTORY_UNION_FORMED: return tr("Union formed", "联合形成");
@@ -53,6 +54,7 @@ static COLORREF history_color(const AllianceHistoryRecord *h) {
         h->rejection_reason == ALLIANCE_REJECT_VOTE_FAILED) return RGB(132, 112, 58);
     if (h->event_type == ALLIANCE_HISTORY_VOTE_FAILED ||
         h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED ||
+        h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT ||
         h->event_type == ALLIANCE_HISTORY_DISSOLVED) return RGB(148, 68, 62);
     return RGB(92, 145, 175);
 }
@@ -93,6 +95,8 @@ static void history_sentence(char *out, int out_size, const RenderSnapshot *snap
             snprintf(out, out_size, "%s 离开联盟。", a);
         else if (h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED)
             snprintf(out, out_size, "%s 被清退。", a);
+        else if (h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT)
+            snprintf(out, out_size, "%s国因战败被清退。", a);
         else if (h->event_type == ALLIANCE_HISTORY_CREATED)
             snprintf(out, out_size, "%s 创建。", alliance);
         else if (h->event_type == ALLIANCE_HISTORY_DISSOLVED)
@@ -118,6 +122,8 @@ static void history_sentence(char *out, int out_size, const RenderSnapshot *snap
             snprintf(out, out_size, "%s left the alliance.", a);
         else if (h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED)
             snprintf(out, out_size, "%s was removed.", a);
+        else if (h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT)
+            snprintf(out, out_size, "%s was removed after military defeat.", a);
         else if (h->event_type == ALLIANCE_HISTORY_CREATED)
             snprintf(out, out_size, "%s was created.", alliance);
         else if (h->event_type == ALLIANCE_HISTORY_DISSOLVED)
@@ -137,6 +143,7 @@ static void draw_history_card(HDC hdc, UiCursor *cursor, const RenderSnapshot *s
     RECT line = {card.left + 10, card.top + 5, card.right - 10, card.top + 27};
     RECT status = {card.right - 100, card.top + 7, card.right - 8, card.top + 25};
     char text[320];
+    line.right = status.left - 8;
     fill_rect(hdc, card, ui_theme_color(UI_COLOR_PANEL_SOFT));
     stripe.right = stripe.left + 4;
     fill_rect(hdc, stripe, history_color(h));

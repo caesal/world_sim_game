@@ -7,15 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.4 is a Windows graphical sandbox prototype written in C.
+Ver0.3.4.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.4 is an alliance lifecycle, diplomacy presentation, worldgen
-performance, and UI polish checkpoint over Ver0.3.3.g. It keeps the
-first-class Alliance right-panel experience, then hardens candidate/vote/history
-records, alliance diplomatic contact, 30/10-year join-vote timing, stale
-application closure, automatic 800-year alliance union, diplomacy snapshot
-refresh, war-panel cache refresh, top-toolbar feedback, map legends, route
-potential generation, and 5x presentation/render smoothness.
+Ver0.3.4.a is a checkpoint over Ver0.3.4 before the next expansion/render
+stutter pass. It keeps the Ver0.3.4 alliance lifecycle baseline, then freezes
+the current forced war-defeat alliance-exit stack, forced-breakup cooldown,
+alliance history/event-log polish, alliance name reuse fix, four-heritage
+country-name pools, and diplomacy tooltip stability work.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -26,9 +24,11 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.4 includes build/static/text/probe validation plus a
-fresh Extreme-map Rule39 game-flow run for the release stack. Future
-performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
+Validation note: Ver0.3.4.a is a source/tag checkpoint over the current working
+state. The earlier Ver0.3.4 Rule39 run remains historical evidence for the
+previous release stack; this checkpoint must not be described as full
+release-ready acceptance unless a fresh Rule39 run for Ver0.3.4.a is completed.
+Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope
 involved.

@@ -410,14 +410,16 @@ static void rebuild_panel_cache(PanelViewCache *cache, RECT client, RECT panel,
 }
 
 static int hover_overlay_active(RECT panel, PanelCacheKind kind) {
+    int scope = SCORE_TOOLTIP_SCOPE_NONE;
     if (kind != PANEL_CACHE_COUNTRY_DETAIL ||
         panel_tab != PANEL_COUNTRY) return 0;
-    if (display_mode == DISPLAY_ALLIANCE) {
-        if (selected_alliance_id < 0 || alliance_detail_subtab != ALLIANCE_DETAIL_VOTES) return 0;
-    } else if (country_detail_subtab != COUNTRY_DETAIL_DIPLOMACY) return 0;
+    if (display_mode == DISPLAY_ALLIANCE && selected_alliance_id >= 0 &&
+        alliance_detail_subtab == ALLIANCE_DETAIL_VOTES) scope = SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES;
+    else if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) scope = SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY;
+    else return 0;
     if (hover_x < panel.left || hover_x >= panel.right ||
         hover_y < panel.top || hover_y >= panel.bottom) return 0;
-    return diplomacy_score_tooltip_hover_key(hover_x, hover_y) > 0;
+    return diplomacy_score_tooltip_hover_key_for_scope(scope, hover_x, hover_y) > 0;
 }
 
 static void draw_hover_overlay(HDC hdc, RECT panel, PanelCacheKind kind) {
@@ -447,9 +449,7 @@ void panel_view_model_cache_draw(HDC hdc, RECT client) {
         rebuild_panel_cache(cache, client, panel, ui_key, data_key);
     }
     if (hover_repaint_pending && cache->valid && !hover_overlay_active(panel, kind)) {
-        draw_side_panel(hdc, client);
-        hover_repaint_pending = 0;
-        return;
+        draw_side_panel(hdc, client); hover_repaint_pending = 0; return;
     }
     hover_repaint_pending = 0;
     BitBlt(hdc, panel.left, panel.top, panel.right - panel.left, panel.bottom - panel.top,

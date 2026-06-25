@@ -349,10 +349,10 @@ DiplomacyRelation diplomacy_relation(int civ_a, int civ_b) {
 }
 void diplomacy_record_war_result_kind(int winner, int loser, DiplomacyLastWarResult result) {
     DiplomacyRelation win_rel, lose_rel;
-    int winner_score = -25, loser_score = -45;
+    int winner_score = -25, loser_score = -65;
     if (winner < 0 || winner >= MAX_CIVS || loser < 0 || loser >= MAX_CIVS || winner == loser) return;
     if (!diplomacy_policy_last_war_result_has_winner(result)) result = DIP_LAST_WAR_MILITARY;
-    if (result == DIP_LAST_WAR_SURRENDER || result == DIP_LAST_WAR_DECISIVE) { winner_score = -30; loser_score = -60; }
+    if (result == DIP_LAST_WAR_SURRENDER || result == DIP_LAST_WAR_DECISIVE) { winner_score = -35; loser_score = -80; }
     win_rel = diplomacy_matrix[winner][loser];
     lose_rel = diplomacy_matrix[loser][winner];
     if (win_rel.state == DIPLOMACY_NONE) win_rel = default_relation(DIPLOMACY_PEACE, winner_score);

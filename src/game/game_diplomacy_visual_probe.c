@@ -204,13 +204,13 @@ static int render_alliance_card_bmp(const char *path, int language, int tooltip_
     }
     snapshot.relations[0][1] = relation;
     snapshot.relations[1][0] = relation;
-    diplomacy_score_tooltip_begin();
+    diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
     hover_x = tooltip_variant ? 80 : -10000;
     hover_y = tooltip_variant ? 92 : -10000;
     render_context_begin(&snapshot);
     cursor = ui_cursor(12, 12, width - 24, height - 24);
     draw_diplomacy_relation_card(mem, &cursor, 0, 1, DIPLOMACY_VIEW_ALLIANCE);
-    if (tooltip_variant) diplomacy_score_tooltip_draw(mem, client);
+    diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY); if (tooltip_variant) diplomacy_score_tooltip_draw(mem, client);
     render_context_end();
     ok = write_bmp_from_bits(path, &info, bits, width, height);
 cleanup:

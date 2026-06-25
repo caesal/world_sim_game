@@ -64,14 +64,16 @@ static int case_late_tooltip_hit(FILE *summary) {
         RECT rect = {10, i * 56, 210, i * 56 + 52};
         diplomacy_score_tooltip_register_bar(rect, 0, i);
     }
+    diplomacy_score_tooltip_commit();
     first_ok = diplomacy_score_tooltip_hit_test(20, 1 * 56 + 8, &first_civ, &first_other);
     hit_ok = diplomacy_score_tooltip_hit_test(20, late * 56 + 8, &hit_civ, &hit_other);
     key_ok = diplomacy_score_tooltip_hover_key(20, late * 56 + 8) == 1 + late;
     diplomacy_score_tooltip_net_for_relation(hit_civ, hit_other, &sum, &other, &display);
     render_context_end();
     fprintf(summary,
-            "case=late_tooltip_hit registered=%d first=%d/%d late=%d/%d key=%d summary_region=1 sum=%d other_delta=%d display=%d\n",
-            diplomacy_score_tooltip_registered_count(), first_civ, first_other,
+            "case=late_tooltip_hit active=%d build=%d scope=%d first=%d/%d late=%d/%d key=%d summary_region=1 sum=%d other_delta=%d display=%d\n",
+            diplomacy_score_tooltip_registered_count(), diplomacy_score_tooltip_build_count(),
+            diplomacy_score_tooltip_active_scope(), first_civ, first_other,
             hit_civ, hit_other, key_ok, sum, other, display);
     return diplomacy_score_tooltip_registered_count() == count - 1 &&
            first_ok && first_civ == 0 && first_other == 1 &&
@@ -103,7 +105,7 @@ static int case_overlay_stable_after_base(FILE *summary) {
     HGDIOBJ old_bitmap = NULL;
     RECT bounds = {0, 0, width, height};
     int old_hover_x = hover_x, old_hover_y = hover_y;
-    int first_pixels = 0, second_pixels = 0, key_ok = 0;
+    int first_pixels = 0, second_pixels = 0, key_ok = 0, stable_after_begin = 0;
     memset(&info, 0, sizeof(info));
     info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
     info.bmiHeader.biWidth = width;
@@ -116,11 +118,17 @@ static int case_overlay_stable_after_base(FILE *summary) {
         old_bitmap = SelectObject(mem, bitmap);
         tooltip_probe_snapshot(&snapshot, 3);
         render_context_begin(&snapshot);
-        diplomacy_score_tooltip_begin();
+        diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
         diplomacy_score_tooltip_register_bar((RECT){10, 10, 210, 62}, 0, 1);
+        diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
         hover_x = 20;
         hover_y = 20;
-        key_ok = diplomacy_score_tooltip_hover_key(hover_x, hover_y) > 0;
+        key_ok = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY,
+                                                             hover_x, hover_y) > 0;
+        diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
+        stable_after_begin = diplomacy_score_tooltip_build_count() == 0 &&
+                             diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY,
+                                                                         hover_x, hover_y) > 0;
         fill_probe_pixels((unsigned int *)bits, width * height, bg);
         diplomacy_score_tooltip_draw(mem, bounds);
         first_pixels = changed_probe_pixels((unsigned int *)bits, width * height, bg);
@@ -138,9 +146,27 @@ static int case_overlay_stable_after_base(FILE *summary) {
     if (mem) DeleteDC(mem);
     if (screen) ReleaseDC(NULL, screen);
     fprintf(summary,
-            "case=tooltip_overlay_stable_after_base key=%d first_pixels=%d second_pixels=%d\n",
-            key_ok, first_pixels, second_pixels);
-    return key_ok && first_pixels > 256 && second_pixels == first_pixels;
+            "case=tooltip_overlay_stable_after_base key=%d stable_after_begin=%d first_pixels=%d second_pixels=%d\n",
+            key_ok, stable_after_begin, first_pixels, second_pixels);
+    return key_ok && stable_after_begin && first_pixels > 256 && second_pixels == first_pixels;
+}
+
+static int case_scope_isolation(FILE *summary) {
+    int country_key, alliance_key, stale_country_key, civ = -1, other = -1;
+    diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
+    diplomacy_score_tooltip_register_bar((RECT){10, 10, 110, 42}, 0, 1);
+    diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
+    country_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY, 20, 20);
+    diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
+    diplomacy_score_tooltip_register_bar((RECT){10, 10, 110, 42}, 2, 3);
+    diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
+    stale_country_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY, 20, 20);
+    alliance_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES, 20, 20);
+    diplomacy_score_tooltip_hit_test(20, 20, &civ, &other);
+    fprintf(summary, "case=tooltip_scope_isolation country_key=%d stale_country_key=%d alliance_key=%d active=%d/%d scope=%d\n",
+            country_key, stale_country_key, alliance_key, civ, other, diplomacy_score_tooltip_active_scope());
+    return country_key > 0 && stale_country_key == 0 && alliance_key > 0 &&
+           civ == 2 && other == 3 && diplomacy_score_tooltip_active_scope() == SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES;
 }
 
 static int case_delta_formatting(FILE *summary) {
@@ -160,5 +186,6 @@ static int case_delta_formatting(FILE *summary) {
 int run_diplomacy_tooltip_probe_cases(FILE *summary) {
     return case_late_tooltip_hit(summary) &&
            case_overlay_stable_after_base(summary) &&
+           case_scope_isolation(summary) &&
            case_delta_formatting(summary);
 }

@@ -12,13 +12,8 @@
 
 static AllianceSaveState alliance_state;
 
-static int valid_alive(int civ_id) {
-    return civ_id >= 0 && civ_id < civ_count && civ_id < MAX_CIVS && civs[civ_id].alive;
-}
-
-static int sovereign(int civ_id) {
-    return valid_alive(civ_id) && vassal_overlord(civ_id) < 0;
-}
+static int valid_alive(int civ_id) { return civ_id >= 0 && civ_id < civ_count && civ_id < MAX_CIVS && civs[civ_id].alive; }
+static int sovereign(int civ_id) { return valid_alive(civ_id) && vassal_overlord(civ_id) < 0; }
 
 static void clear_record(AllianceRecord *record, int id) {
     int i;
@@ -29,14 +24,15 @@ static void clear_record(AllianceRecord *record, int id) {
     for (i = 0; i < MAX_CIVS; i++) {
         record->members[i] = -1;
         record->joined_year_by_civ[i] = -1;
+        alliance_state.join_years[i][id] = 0;
+        alliance_state.kick_years[id][i] = 0;
+        alliance_state.voluntary_cooldown[id][i] = 0;
+        alliance_state.kicked_cooldown[id][i] = 0;
     }
     alliance_records_clear(id);
 }
 
-static void reset_membership(void) {
-    int i;
-    for (i = 0; i < MAX_CIVS; i++) alliance_state.civ_alliance[i] = -1;
-}
+static void reset_membership(void) { int i; for (i = 0; i < MAX_CIVS; i++) alliance_state.civ_alliance[i] = -1; }
 
 void alliance_reset(void) {
     int i;
@@ -46,19 +42,19 @@ void alliance_reset(void) {
     alliance_power_cache_reset();
 }
 
-static int active_alliance(int alliance_id) {
-    return alliance_id >= 0 && alliance_id < alliance_state.next_id &&
-           alliance_state.records[alliance_id].active;
+static int active_alliance(int alliance_id) { return alliance_id >= 0 && alliance_id < alliance_state.next_id && alliance_state.records[alliance_id].active; }
+static void mark_changed(void) { dirty_mark_diplomacy(); dirty_mark_alliance(); alliance_power_cache_reset(); }
+static void reset_pair_score(int civ_a, int civ_b) { diplomacy_relation_score_reset_pair(civ_a, civ_b); }
+static int pair_forced_cooldown(int civ_a, int civ_b) { return civ_a >= 0 && civ_a < MAX_CIVS && civ_b >= 0 && civ_b < MAX_CIVS && (alliance_state.create_years[civ_a][civ_b] < 0 || alliance_state.create_years[civ_b][civ_a] < 0); }
+static void set_pair_forced_cooldown(int civ_a, int civ_b, int years) {
+    if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
+    alliance_state.create_years[civ_a][civ_b] = alliance_state.create_years[civ_b][civ_a] = years > 0 ? -years : 0;
 }
-
-static void mark_changed(void) {
-    dirty_mark_diplomacy();
-    dirty_mark_alliance();
-    alliance_power_cache_reset();
-}
-
-static void reset_pair_score(int civ_a, int civ_b) {
-    diplomacy_relation_score_reset_pair(civ_a, civ_b);
+static int member_pair_cooldown_active(int alliance_id, int civ_id) {
+    int i;
+    if (!active_alliance(alliance_id)) return 0;
+    for (i = 0; i < alliance_state.records[alliance_id].member_count; i++) if (pair_forced_cooldown(civ_id, alliance_state.records[alliance_id].members[i])) return 1;
+    return 0;
 }
 
 static DiplomacyRelation ensure_known_relation(int civ_a, int civ_b, int fallback_score) {
@@ -114,6 +110,9 @@ static int set_pair_peace_if_alliance(int civ_a, int civ_b) {
 
 static int allocate_alliance(void) {
     int id;
+    for (id = 0; id < alliance_state.next_id && id < ALLIANCE_MAX; id++) {
+        if (!alliance_state.records[id].active) { clear_record(&alliance_state.records[id], id); return id; }
+    }
     if (alliance_state.next_id >= ALLIANCE_MAX) return -1;
     id = alliance_state.next_id++;
     clear_record(&alliance_state.records[id], id);
@@ -122,13 +121,19 @@ static int allocate_alliance(void) {
 
 static void assign_name(AllianceRecord *record) {
     int count = alliance_name_base_count();
-    int base = count > 0 ? record->id % count : 0;
-    int suffix;
+    int base = 0, i, best_count;
+    if (count > 256) count = 256;
+    for (i = 0; i < count; i++) {
+        if (alliance_state.name_use_count[i] == 0) { base = i; break; }
+    }
+    if (i >= count && count > 0) {
+        best_count = alliance_state.name_use_count[0];
+        for (i = 1; i < count; i++) if (alliance_state.name_use_count[i] < best_count) { best_count = alliance_state.name_use_count[i]; base = i; }
+    }
     if (base < 0 || base >= 256) base = 0;
-    suffix = ++alliance_state.name_use_count[base];
     record->base_name_index = base;
-    record->suffix_number = suffix;
-    alliance_format_name(base, suffix, record->name_en, sizeof(record->name_en),
+    record->suffix_number = ++alliance_state.name_use_count[base];
+    alliance_format_name(base, record->suffix_number, record->name_en, sizeof(record->name_en),
                          record->name_zh, sizeof(record->name_zh));
 }
 
@@ -174,11 +179,12 @@ static int create_alliance_internal(int founder, int second, int min_score) {
                             ALLIANCE_VOTE_CREATE, ALLIANCE_REJECT_NONE);
     event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE, EVENT_SEVERITY_INFO,
                               founder, second, -1, -1, id, record->member_count, "");
+    alliance_state.create_years[founder][second] = alliance_state.create_years[second][founder] = 0;
     mark_changed();
     return id;
 }
 
-static void disband_alliance(int alliance_id, int actor) {
+static void disband_alliance(int alliance_id, int actor, int emit_event) {
     AllianceRecord *record;
     int members[MAX_CIVS];
     int count, i, j;
@@ -194,8 +200,8 @@ static void disband_alliance(int alliance_id, int actor) {
                             -1, ALLIANCE_REJECT_ALLIANCE_DISSOLVED);
     record->active = 0;
     record->member_count = 0;
-    event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
-                              actor, -1, -1, -1, alliance_id, count, "");
+    if (emit_event) event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
+                                             actor, -1, -1, -1, alliance_id, count, "");
     mark_changed();
 }
 
@@ -221,9 +227,9 @@ static void refresh_founder(AllianceRecord *record) {
     if (valid_alive(record->founder_civ_id)) record->color = civs[record->founder_civ_id].color;
 }
 
-static void leave_member(int alliance_id, int civ_id, int cooldown_years, int kicked) {
+static void leave_member(int alliance_id, int civ_id, int cooldown_years, int kicked, int emit_event) {
     AllianceRecord *record;
-    int i, old_founder;
+    int i, old_founder, hist_type;
     if (!active_alliance(alliance_id)) return;
     record = &alliance_state.records[alliance_id];
     old_founder = record->founder_civ_id;
@@ -236,11 +242,12 @@ static void leave_member(int alliance_id, int civ_id, int cooldown_years, int ki
         else alliance_state.voluntary_cooldown[alliance_id][civ_id] = cooldown_years;
     }
     remove_member_from_record(record, civ_id);
-    alliance_record_history(alliance_id, kicked ? ALLIANCE_HISTORY_MEMBER_REMOVED :
-                            ALLIANCE_HISTORY_MEMBER_LEFT, civ_id, -1,
+    hist_type = kicked == 2 ? ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT :
+                (kicked ? ALLIANCE_HISTORY_MEMBER_REMOVED : ALLIANCE_HISTORY_MEMBER_LEFT);
+    alliance_record_history(alliance_id, hist_type, civ_id, -1,
                             kicked ? ALLIANCE_VOTE_REMOVAL : -1, ALLIANCE_REJECT_NONE);
     if (record->member_count < 2) {
-        disband_alliance(alliance_id, civ_id);
+        disband_alliance(alliance_id, civ_id, emit_event);
         return;
     }
     refresh_founder(record);
@@ -250,9 +257,16 @@ static void leave_member(int alliance_id, int civ_id, int cooldown_years, int ki
                                 ALLIANCE_REJECT_NONE);
     }
     sync_record_pairs(record, 0);
-    event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
-                              civ_id, -1, -1, -1, alliance_id, record->member_count, "");
+    if (emit_event) event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
+                                             civ_id, -1, -1, -1, alliance_id, record->member_count, "");
     mark_changed();
+}
+
+static int join_cooldown_active(int alliance_id, int civ_id) {
+    if (!active_alliance(alliance_id) || civ_id < 0 || civ_id >= MAX_CIVS) return 1;
+    return alliance_state.voluntary_cooldown[alliance_id][civ_id] > 0 ||
+           alliance_state.kicked_cooldown[alliance_id][civ_id] > 0 ||
+           member_pair_cooldown_active(alliance_id, civ_id);
 }
 
 AllianceCommandResult alliance_player_form_or_join(int source_civ, int target_civ) {
@@ -269,13 +283,17 @@ AllianceCommandResult alliance_player_form_or_join(int source_civ, int target_ci
                                                     ALLIANCE_CMD_DIFFERENT_ALLIANCES;
     }
     if (source_alliance < 0 && target_alliance < 0) {
+        if (pair_forced_cooldown(source_civ, target_civ)) return ALLIANCE_CMD_BLOCKED;
         return create_alliance_internal(source_civ, target_civ, 80) >= 0 ?
                ALLIANCE_CMD_OK : ALLIANCE_CMD_NO_SLOT;
     }
-    if (source_alliance < 0) return alliance_debug_add_member(target_alliance, source_civ, 80) ?
+    if (source_alliance < 0) {
+        if (join_cooldown_active(target_alliance, source_civ)) return ALLIANCE_CMD_BLOCKED;
+        return alliance_debug_add_member(target_alliance, source_civ, 80) ?
                               ALLIANCE_CMD_OK : ALLIANCE_CMD_BLOCKED;
-    return alliance_debug_add_member(source_alliance, target_civ, 80) ?
-           ALLIANCE_CMD_OK : ALLIANCE_CMD_BLOCKED;
+    }
+    if (join_cooldown_active(source_alliance, target_civ)) return ALLIANCE_CMD_BLOCKED;
+    return alliance_debug_add_member(source_alliance, target_civ, 80) ? ALLIANCE_CMD_OK : ALLIANCE_CMD_BLOCKED;
 }
 
 AllianceCommandResult alliance_player_leave(int source_civ) {
@@ -284,17 +302,29 @@ AllianceCommandResult alliance_player_leave(int source_civ) {
     if (vassal_overlord(source_civ) >= 0) return ALLIANCE_CMD_SOURCE_VASSAL;
     alliance_id = alliance_for_civ(source_civ);
     if (!active_alliance(alliance_id)) return ALLIANCE_CMD_NO_ALLIANCE;
-    if (alliance_member_count(alliance_id) <= 2) disband_alliance(alliance_id, source_civ);
-    else leave_member(alliance_id, source_civ, 10, 0);
+    if (alliance_member_count(alliance_id) <= 2) disband_alliance(alliance_id, source_civ, 1);
+    else leave_member(alliance_id, source_civ, 10, 0, 1);
     return ALLIANCE_CMD_OK;
 }
 
 int alliance_break_for_player_war(int civ_a, int civ_b) {
     int alliance_id = alliance_display_for_civ(civ_a);
     if (alliance_id < 0 || alliance_id != alliance_display_for_civ(civ_b)) return 0;
-    if (alliance_for_civ(civ_a) == alliance_id) leave_member(alliance_id, civ_a, 0, 0);
-    else if (alliance_for_civ(civ_b) == alliance_id) leave_member(alliance_id, civ_b, 0, 0);
+    if (alliance_for_civ(civ_a) == alliance_id) leave_member(alliance_id, civ_a, 0, 0, 1);
+    else if (alliance_for_civ(civ_b) == alliance_id) leave_member(alliance_id, civ_b, 0, 0, 1);
     else set_pair_peace_if_alliance(civ_a, civ_b);
+    return 1;
+}
+
+int alliance_force_member_exit_for_war_defeat(int alliance_id, int civ_id, int cooldown_years) {
+    AllianceRecord *record;
+    int members[MAX_CIVS], count, i;
+    if (!active_alliance(alliance_id) || !alliance_is_formal_member(alliance_id, civ_id)) return 0;
+    record = &alliance_state.records[alliance_id];
+    count = record->member_count;
+    memcpy(members, record->members, sizeof(members));
+    for (i = 0; i < count; i++) if (members[i] != civ_id) set_pair_forced_cooldown(civ_id, members[i], cooldown_years);
+    leave_member(alliance_id, civ_id, cooldown_years, 2, 0);
     return 1;
 }
 
@@ -374,10 +404,10 @@ int alliance_copy_snapshot_records(AllianceSnapshotRecord *out_records, int max_
     for (i = 0; i < alliance_state.next_id && i < ALLIANCE_MAX; i++) {
         AllianceRecord *src = &alliance_state.records[i];
         AllianceSnapshotRecord *dst;
-        if (!src->active || count >= max_records) continue;
+        if ((!src->active && alliance_state.history_count[src->id] <= 0) || count >= max_records) continue;
         dst = &out_records[count++];
         memset(dst, 0, sizeof(*dst));
-        dst->active = 1; dst->id = src->id; dst->founder_civ_id = src->founder_civ_id;
+        dst->active = src->active; dst->id = src->id; dst->founder_civ_id = src->founder_civ_id;
         dst->founded_year = src->founded_year; dst->member_count = src->member_count;
         dst->color = src->color;
         memcpy(dst->members, src->members, sizeof(dst->members));
@@ -397,9 +427,7 @@ int alliance_copy_snapshot_records(AllianceSnapshotRecord *out_records, int max_
     return count;
 }
 
-void alliance_copy_save_state(AllianceSaveState *out_state) {
-    if (out_state) *out_state = alliance_state;
-}
+void alliance_copy_save_state(AllianceSaveState *out_state) { if (out_state) *out_state = alliance_state; }
 
 void alliance_restore_save_state(const AllianceSaveState *state) {
     if (state) alliance_state = *state;
@@ -407,13 +435,11 @@ void alliance_restore_save_state(const AllianceSaveState *state) {
     alliance_power_cache_reset();
 }
 
-AllianceSaveState *alliance_internal_state(void) {
-    return &alliance_state;
-}
+AllianceSaveState *alliance_internal_state(void) { return &alliance_state; }
 
 int alliance_debug_kick_member(int alliance_id, int civ_id, int cooldown_years) {
     if (!active_alliance(alliance_id) || !alliance_is_formal_member(alliance_id, civ_id)) return 0;
-    leave_member(alliance_id, civ_id, cooldown_years, 1);
+    leave_member(alliance_id, civ_id, cooldown_years, 1, 1);
     return 1;
 }
 
@@ -453,21 +479,11 @@ void alliance_sanitize_loaded(void) {
     if (changed) mark_changed();
 }
 
-void alliance_debug_set_create_years(int civ_a, int civ_b, int years) {
-    if (civ_a >= 0 && civ_a < MAX_CIVS && civ_b >= 0 && civ_b < MAX_CIVS) {
-        alliance_state.create_years[civ_a][civ_b] = alliance_state.create_years[civ_b][civ_a] = years;
-    }
-}
+void alliance_debug_set_create_years(int civ_a, int civ_b, int years) { if (civ_a >= 0 && civ_a < MAX_CIVS && civ_b >= 0 && civ_b < MAX_CIVS) alliance_state.create_years[civ_a][civ_b] = alliance_state.create_years[civ_b][civ_a] = years; }
 
-void alliance_debug_set_join_years(int civ_id, int alliance_id, int years) {
-    if (civ_id >= 0 && civ_id < MAX_CIVS && alliance_id >= 0 && alliance_id < ALLIANCE_MAX)
-        alliance_state.join_years[civ_id][alliance_id] = years;
-}
+void alliance_debug_set_join_years(int civ_id, int alliance_id, int years) { if (civ_id >= 0 && civ_id < MAX_CIVS && alliance_id >= 0 && alliance_id < ALLIANCE_MAX) alliance_state.join_years[civ_id][alliance_id] = years; }
 
-void alliance_debug_set_kick_years(int alliance_id, int civ_id, int years) {
-    if (civ_id >= 0 && civ_id < MAX_CIVS && alliance_id >= 0 && alliance_id < ALLIANCE_MAX)
-        alliance_state.kick_years[alliance_id][civ_id] = years;
-}
+void alliance_debug_set_kick_years(int alliance_id, int civ_id, int years) { if (civ_id >= 0 && civ_id < MAX_CIVS && alliance_id >= 0 && alliance_id < ALLIANCE_MAX) alliance_state.kick_years[alliance_id][civ_id] = years; }
 
 void alliance_debug_set_cooldown(int alliance_id, int civ_id, int voluntary, int years) {
     if (civ_id < 0 || civ_id >= MAX_CIVS || alliance_id < 0 || alliance_id >= ALLIANCE_MAX) return;

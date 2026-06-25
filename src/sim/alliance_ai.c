@@ -104,6 +104,8 @@ static int join_block_reason(int candidate, int alliance_id) {
         state->kicked_cooldown[alliance_id][candidate] > 0) return ALLIANCE_REJECT_COOLDOWN_ACTIVE;
     for (i = 0; i < count; i++) {
         int member = alliance_formal_member_at(alliance_id, i);
+        if (state->create_years[candidate][member] < 0 || state->create_years[member][candidate] < 0)
+            return ALLIANCE_REJECT_COOLDOWN_ACTIVE;
         if (!sovereign_alive(member) || !no_join_pair_block(candidate, member, alliance_id))
             return ALLIANCE_REJECT_HARD_BLOCKER;
         if (relation_score(candidate, member) < 60) return ALLIANCE_REJECT_RELATION_BELOW_THRESHOLD;
@@ -268,11 +270,16 @@ static int step_creation(AllianceSaveState *state, AllianceYearWork *work) {
     int limit = min(civ_count, MAX_CIVS);
     while (work->civ_a < limit) {
         int b;
-        if (!sovereign_alive(work->civ_a) || alliance_for_civ(work->civ_a) >= 0) {
-            work->civ_a++; work->civ_b = work->civ_a + 1; continue;
-        }
         if (work->civ_b >= limit) { work->civ_a++; work->civ_b = work->civ_a + 1; continue; }
         b = work->civ_b++;
+        if (state->create_years[work->civ_a][b] < 0 || state->create_years[b][work->civ_a] < 0) {
+            int cd = state->create_years[work->civ_a][b] < state->create_years[b][work->civ_a] ?
+                     state->create_years[work->civ_a][b] : state->create_years[b][work->civ_a];
+            if (++cd > 0) cd = 0;
+            state->create_years[work->civ_a][b] = state->create_years[b][work->civ_a] = cd;
+            return 1;
+        }
+        if (!sovereign_alive(work->civ_a) || alliance_for_civ(work->civ_a) >= 0) continue;
         process_creation_vote(state, work->civ_a, b);
         return 1;
     }

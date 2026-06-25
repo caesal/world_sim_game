@@ -25,8 +25,14 @@ static int entry_counts[CIV_HERITAGE_COUNT];
 static int loaded;
 static int lint_warnings;
 
+static int valid_heritage_or_default(int heritage) {
+    return heritage >= 0 && heritage < CIV_HERITAGE_COUNT ? heritage : CIV_HERITAGE_WESTERN;
+}
+
 static int normalize_heritage(int heritage) {
-    return heritage == CIV_HERITAGE_EASTERN ? CIV_HERITAGE_EASTERN : CIV_HERITAGE_WESTERN;
+    heritage = valid_heritage_or_default(heritage);
+    return heritage == CIV_HERITAGE_EASTERN || heritage == CIV_HERITAGE_SOUTHERN ?
+        CIV_HERITAGE_EASTERN : CIV_HERITAGE_WESTERN;
 }
 
 static int contains_text(const char *text, const char *needle) {
@@ -265,10 +271,11 @@ static int choose_name_id(int heritage, const NaturalRegion *region, int region_
 }
 
 static void collect_used(int heritage, unsigned char *used) {
+    int pool_heritage = normalize_heritage(heritage);
     memset(used, 0, PROVINCE_NAME_MAX);
     for (int i = 0; i < region_count; i++) {
         int id = natural_regions[i].name_id;
-        if (natural_regions[i].name_heritage != heritage) continue;
+        if (normalize_heritage(natural_regions[i].name_heritage) != pool_heritage) continue;
         if (province_name_valid_id_for_heritage(heritage, id)) used[id] = 1;
     }
 }
@@ -308,7 +315,7 @@ int province_names_assign_region_for_heritage(int region_id, int heritage) {
     static unsigned char used[PROVINCE_NAME_MAX];
     NaturalRegion *region;
     int id;
-    heritage = normalize_heritage(heritage);
+    heritage = valid_heritage_or_default(heritage);
     if (region_id < 0 || region_id >= region_count) return 0;
     region = &natural_regions[region_id];
     if (!region->alive || region->tile_count <= 0) return 0;

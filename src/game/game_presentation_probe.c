@@ -435,6 +435,7 @@ static int case_alliance_vote_history_ui_semantics(FILE *summary) {
                !alliance_vote_state_member_can_vote(&snapshot->alliances[0], 2, 0, vote.vote_year);
     diplomacy_score_tooltip_begin();
     diplomacy_score_tooltip_register_bar((RECT){10, 10, 110, 22}, 0, 1);
+    diplomacy_score_tooltip_commit();
     tooltip_ok = diplomacy_score_tooltip_hover_key(20, 16) > 0;
     symbols_ok = strcmp(alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_NO), "X") == 0 &&
                  strcmp(alliance_votes_probe_vote_symbol(ALLIANCE_MEMBER_VOTE_YES),

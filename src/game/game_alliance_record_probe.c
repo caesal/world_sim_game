@@ -12,7 +12,10 @@
 #include "sim/population.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
+#include "sim/vassal.h"
 #include "sim/war.h"
+#include "sim/war_resolution.h"
+#include "world/terrain_query.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -23,6 +26,7 @@ static void init_record_probe_civ(int id, const char *name) {
     civs[id].custom_name = 1;
     civs[id].alive = 1;
     civs[id].capital_city = id;
+    civs[id].color = COLOR32_RGB(90 + id * 24, 120 + id * 17, 170 + id * 9);
     civs[id].treasury = 100 + id;
 }
 
@@ -57,6 +61,69 @@ static void init_union_region_city(int id, int owner, int x) {
     world[3][x].province_id = id;
     world[3][x].region_id = id;
     population_init_city(id, city->population);
+}
+
+static void add_record_probe_neighbor(int a, int b) {
+    NaturalRegion *ra = &natural_regions[a];
+    NaturalRegion *rb = &natural_regions[b];
+    if (ra->neighbor_count < MAX_REGION_NEIGHBORS) ra->neighbors[ra->neighbor_count++] = b;
+    if (rb->neighbor_count < MAX_REGION_NEIGHBORS) rb->neighbors[rb->neighbor_count++] = a;
+}
+
+static int record_probe_owned_regions(int owner) {
+    int i, count = 0;
+    for (i = 0; i < region_count; i++)
+        if (natural_regions[i].alive && natural_regions[i].owner_civ == owner) count++;
+    return count;
+}
+
+static int record_probe_event_count(EventLogType type) {
+    int i, count = 0;
+    for (i = 0; i < event_log_count; i++)
+        if (event_log_get_type(i) == type) count++;
+    return count;
+}
+
+static int reset_war_settlement_fixture(int allied, int extra_member, int severe) {
+    int i, alliance_id = -1;
+    set_active_map_size(MAP_SIZE_SMALL);
+    alliance_reset(); diplomacy_reset(); war_reset(); plague_reset(); event_log_clear();
+    game_clear_world_tiles();
+    memset(natural_regions, 0, sizeof(natural_regions));
+    memset(cities, 0, sizeof(cities));
+    civ_count = extra_member ? 4 : 3;
+    city_count = extra_member ? 22 : 21;
+    region_count = city_count;
+    world_generated = 1;
+    year = 1000; month = 1;
+    for (i = 0; i < civ_count; i++) {
+        init_record_probe_civ(i, i == 0 ? "Winner" : i == 1 ? "Loser" :
+                              i == 2 ? "Ally A" : "Ally B");
+        civs[i].capital_city = i == 0 ? 0 : i == 1 ? 10 : i == 2 ? 20 : 21;
+        civs[i].cohesion = i == 1 && severe ? 3 : 7;
+        civs[i].disorder = i == 1 && severe ? 85 : 20;
+        civs[i].treasury = i == 1 ? 1000 : 800;
+        civs[i].treasury_cap = 1000;
+    }
+    for (i = 0; i < 10; i++) {
+        init_union_region_city(i, 0, 3 + i);
+        init_union_region_city(10 + i, 1, 20 + i);
+        add_record_probe_neighbor(i, 10 + i);
+    }
+    init_union_region_city(20, 2, 40);
+    if (extra_member) init_union_region_city(21, 3, 42);
+    terrain_stats_invalidate_cache();
+    world_recalculate_territory();
+    population_sync_all();
+    diplomacy_borders_mark_dirty();
+    diplomacy_mark_contacts_dirty();
+    diplomacy_update_contacts();
+    if (allied) {
+        alliance_id = alliance_debug_create_pair(1, 2, 80);
+        if (extra_member) alliance_debug_add_member(alliance_id, 3, 80);
+    }
+    event_log_clear();
+    return alliance_id;
 }
 
 static void reset_contact_probe_fixture(void) {
@@ -299,6 +366,126 @@ static int case_alliance_union_auto_merge(FILE *summary) {
     return ok;
 }
 
+static int case_war_result_relation_scores(FILE *summary) {
+    DiplomacyRelation win_rel, lose_rel;
+    int ok = 1;
+    reset_war_settlement_fixture(0, 0, 0);
+    diplomacy_record_war_result_kind(0, 1, DIP_LAST_WAR_MILITARY);
+    win_rel = diplomacy_relation(0, 1);
+    lose_rel = diplomacy_relation(1, 0);
+    ok &= win_rel.relation_score == -25 && lose_rel.relation_score == -65;
+    diplomacy_reset();
+    diplomacy_record_war_result_kind(0, 1, DIP_LAST_WAR_SURRENDER);
+    win_rel = diplomacy_relation(0, 1);
+    lose_rel = diplomacy_relation(1, 0);
+    ok &= win_rel.relation_score == -35 && lose_rel.relation_score == -80;
+    diplomacy_reset();
+    diplomacy_record_war_result_kind(0, 1, DIP_LAST_WAR_DECISIVE);
+    win_rel = diplomacy_relation(0, 1);
+    lose_rel = diplomacy_relation(1, 0);
+    ok &= win_rel.relation_score == -35 && lose_rel.relation_score == -80;
+    fprintf(summary,
+            "case=war_result_relation_scores ok=%d military=%d/%d surrender=%d/%d decisive=%d/%d\n",
+            ok, -25, -65, -35, -80, win_rel.relation_score, lose_rel.relation_score);
+    return ok;
+}
+
+static int case_war_settlement_alliance_exit(FILE *summary) {
+    AllianceSaveState *state;
+    AllianceCommandResult blocked, after_decay;
+    int id, ok = 1, no_before_regions, no_after_regions, no_before_treasury, no_after_treasury;
+    int forced_before_regions, forced_after_regions, forced_before_treasury, forced_after_treasury;
+    int no_indemnity_before, no_indemnity_after, forced_indemnity_before, forced_indemnity_after;
+    int cooldown_before, cooldown_after;
+    int forced_active, forced_left, forced_vassal;
+    int rejoin_alliance, forced_event_ok = 0;
+    EventLogEntry forced_event;
+    char en[256] = "", zh[256] = "";
+    reset_war_settlement_fixture(0, 0, 0);
+    no_before_regions = record_probe_owned_regions(1);
+    no_before_treasury = civs[1].treasury;
+    no_indemnity_before = record_probe_event_count(EVENT_TYPE_TREASURY_INDEMNITY);
+    war_apply_outcome_with_result(0, 1, WAR_OUTCOME_ATTACKER_WIN, 2, 1000, 100, DIP_LAST_WAR_MILITARY);
+    no_after_regions = record_probe_owned_regions(1);
+    no_after_treasury = civs[1].treasury;
+    no_indemnity_after = record_probe_event_count(EVENT_TYPE_TREASURY_INDEMNITY);
+    ok &= no_after_regions < no_before_regions && no_after_treasury < no_before_treasury;
+    ok &= no_indemnity_after > no_indemnity_before && vassal_overlord(1) < 0;
+
+    id = reset_war_settlement_fixture(1, 1, 0);
+    forced_before_regions = record_probe_owned_regions(1);
+    forced_before_treasury = civs[1].treasury;
+    forced_indemnity_before = record_probe_event_count(EVENT_TYPE_TREASURY_INDEMNITY);
+    war_apply_outcome_with_result(0, 1, WAR_OUTCOME_ATTACKER_WIN, 2, 1000, 100, DIP_LAST_WAR_MILITARY);
+    state = alliance_internal_state();
+    forced_after_regions = record_probe_owned_regions(1);
+    forced_after_treasury = civs[1].treasury;
+    forced_indemnity_after = record_probe_event_count(EVENT_TYPE_TREASURY_INDEMNITY);
+    for (int i = 0; i < event_log_count; i++) {
+        if (!event_log_get_entry(i, &forced_event) || forced_event.type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT) continue;
+        event_log_format_entry_data(&forced_event, 0, en, sizeof(en));
+        event_log_format_entry_data(&forced_event, 1, zh, sizeof(zh));
+        forced_event_ok = forced_event.civ_id == 1 && forced_event.target_id == 0 && forced_event.param_a == id &&
+                          forced_event.param_b != 0 && strchr(forced_event.raw_message, '\t') &&
+                          strstr(en, "Loser") && strstr(en, "Winner") && !strstr(en, "Unknown country") &&
+                          strstr(zh, "Loser") && strstr(zh, "Winner") && !strstr(zh, "未知国家");
+    }
+    cooldown_before = state->kicked_cooldown[id][1];
+    forced_active = state->records[id].active;
+    forced_left = alliance_for_civ(1) < 0;
+    forced_vassal = vassal_overlord(1);
+    blocked = alliance_player_form_or_join(1, 2);
+    for (int i = 0; i < 100; i++) alliance_update_year();
+    cooldown_after = state->kicked_cooldown[id][1];
+    after_decay = alliance_player_form_or_join(1, 2);
+    rejoin_alliance = alliance_for_civ(1);
+    ok &= id >= 0 && forced_active && forced_left;
+    ok &= forced_after_regions == forced_before_regions && forced_after_treasury == forced_before_treasury;
+    ok &= forced_indemnity_after == forced_indemnity_before && forced_vassal < 0;
+    ok &= forced_event_ok;
+    ok &= cooldown_before == 100 && blocked == ALLIANCE_CMD_BLOCKED;
+    ok &= cooldown_after == 0 && after_decay == ALLIANCE_CMD_OK && rejoin_alliance == id;
+    fprintf(summary, "case=war_forced_alliance_exit_event ok=%d en=%s zh=%s\n", forced_event_ok, en, zh);
+    fprintf(summary,
+            "case=war_settlement_alliance_exit ok=%d no_alliance_regions=%d/%d treasury=%d/%d indemnity=%d/%d forced_regions=%d/%d forced_treasury=%d/%d forced_active=%d forced_left=%d forced_event=%d cooldown=%d/%d blocked=%d rejoin=%d rejoin_alliance=%d id=%d vassal=%d\n",
+            ok, no_before_regions, no_after_regions, no_before_treasury, no_after_treasury,
+            no_indemnity_before, no_indemnity_after, forced_before_regions, forced_after_regions,
+            forced_before_treasury, forced_after_treasury, forced_active, forced_left, forced_event_ok,
+            cooldown_before, cooldown_after, blocked, after_decay, rejoin_alliance, id, forced_vassal);
+    return ok;
+}
+
+static int case_war_settlement_edge_cases(FILE *summary) {
+    AllianceSaveState *state;
+    int id, ok = 1, disband_history = 0, removed_history = 0, i;
+    int two_member_active, two_member_cooldown;
+    id = reset_war_settlement_fixture(1, 0, 0);
+    war_apply_outcome_with_result(0, 1, WAR_OUTCOME_ATTACKER_WIN, 2, 1000, 100, DIP_LAST_WAR_MILITARY);
+    state = alliance_internal_state();
+    ok &= id >= 0 && !state->records[id].active && alliance_for_civ(1) < 0 &&
+          alliance_for_civ(2) < 0 && state->kicked_cooldown[id][1] == 100;
+    two_member_active = state->records[id].active;
+    two_member_cooldown = state->kicked_cooldown[id][1];
+    for (i = 0; i < ALLIANCE_HISTORY_RECORD_CAP; i++) {
+        AllianceHistoryRecord *h = &state->history[id][i];
+        if (h->active && h->event_type == ALLIANCE_HISTORY_DISSOLVED) disband_history = 1;
+        if (h->active && h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT && h->civ_id == 1)
+            removed_history = 1;
+    }
+    ok &= disband_history && removed_history && vassal_overlord(1) < 0;
+
+    id = reset_war_settlement_fixture(1, 1, 1);
+    war_apply_outcome_with_result(0, 1, WAR_OUTCOME_ATTACKER_WIN, 3, 1000, 100, DIP_LAST_WAR_DECISIVE);
+    state = alliance_internal_state();
+    ok &= id >= 0 && alliance_for_civ(1) < 0 && state->kicked_cooldown[id][1] == 100;
+    ok &= vassal_overlord(1) == 0;
+    fprintf(summary,
+            "case=war_settlement_edge_cases ok=%d two_member_active=%d cooldown=%d removed_history=%d disband_history=%d severe_vassal=%d\n",
+            ok, two_member_active, two_member_cooldown,
+            removed_history, disband_history, vassal_overlord(1));
+    return ok;
+}
+
 int run_alliance_record_probe_cases(FILE *summary) {
     int ok = 1;
     ok &= case_alliance_record_roundtrip(summary);
@@ -306,5 +493,8 @@ int run_alliance_record_probe_cases(FILE *summary) {
     ok &= case_alliance_retryable_vote_records(summary);
     ok &= case_alliance_stale_join_application_closed(summary);
     ok &= case_alliance_union_auto_merge(summary);
+    ok &= case_war_result_relation_scores(summary);
+    ok &= case_war_settlement_alliance_exit(summary);
+    ok &= case_war_settlement_edge_cases(summary);
     return ok;
 }

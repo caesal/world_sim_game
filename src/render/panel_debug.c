@@ -168,6 +168,7 @@ static int event_matches_filter(int index) {
                    type == EVENT_TYPE_DIPLOMACY_TENSE ||
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
+                   type == EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT ||
                    type == EVENT_TYPE_TREASURY_INDEMNITY ||
                    type == EVENT_TYPE_STABILITY_PROJECT ||
                    type == EVENT_TYPE_MERCENARIES_HIRED;
@@ -278,6 +279,22 @@ static void draw_event_country_chip(HDC hdc, RECT *line, int civ_id, const Event
     add_event_country_hit(chip, civ_id, snapshot->uid);
     line->left = chip.right + 6;
 }
+static void draw_event_alliance_chip(HDC hdc, RECT *line, const EventLogEntry *entry) {
+    char text[96];
+    SIZE size;
+    RECT chip;
+    Color32 color;
+    if (!entry || entry->type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT || line->left >= line->right - 18) return;
+    color = entry->param_b ? (Color32)entry->param_b : RGB(86, 152, 218);
+    event_log_alliance_snapshot_name(entry, ui_language, text, sizeof(text));
+    measure_text_utf8(hdc, text, &size);
+    chip = (RECT){line->left, line->top, min(line->left + size.cx + 20, line->right), line->top + 22};
+    if (chip.right <= chip.left + 10) return;
+    fill_rect_alpha(hdc, chip, color, 112);
+    draw_text_rect(hdc, (RECT){chip.left + 6, chip.top, chip.right - 6, chip.bottom}, text,
+                   readable_text_color(color), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    line->left = chip.right + 6;
+}
 static void draw_event_country_chips(HDC hdc, RECT line, const EventLogEntry *entry) {
     int ids[3];
     int i;
@@ -291,6 +308,7 @@ static void draw_event_country_chips(HDC hdc, RECT line, const EventLogEntry *en
         else if (i == 1) draw_event_country_chip(hdc, &line, ids[i], &entry->target_snapshot);
         else draw_event_country_chip(hdc, &line, ids[i], &entry->param_a_snapshot);
     }
+    draw_event_alliance_chip(hdc, &line, entry);
 }
 static int event_card_height(HDC hdc, int index, int width) {
     char text[EVENT_LOG_LEN * 3];

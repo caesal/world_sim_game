@@ -93,6 +93,23 @@ static void draw_country_chip(HDC hdc, RECT *line, int civ_id, const EventCivSna
     line->left = chip.right + 6;
 }
 
+static void draw_alliance_chip(HDC hdc, RECT *line, const EventLogEntry *entry) {
+    char text[96];
+    SIZE size;
+    RECT chip;
+    Color32 color;
+    if (!entry || entry->type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT || line->left >= line->right - 18) return;
+    color = entry->param_b ? (Color32)entry->param_b : RGB(86, 152, 218);
+    event_log_alliance_snapshot_name(entry, ui_language, text, sizeof(text));
+    measure_text_utf8(hdc, text, &size);
+    chip = (RECT){line->left, line->top, min(line->left + size.cx + 20, line->right), line->top + 22};
+    if (chip.right <= chip.left + 10) return;
+    fill_rect_alpha(hdc, chip, color, 112);
+    draw_text_rect(hdc, (RECT){chip.left + 6, chip.top, chip.right - 6, chip.bottom}, text,
+                   readable_text_color(color), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    line->left = chip.right + 6;
+}
+
 static RECT draw_country_chips(HDC hdc, RECT line, const EventLogEntry *entry) {
     draw_country_chip(hdc, &line, entry->civ_id, &entry->civ_snapshot);
     if (entry->target_id != entry->civ_id) {
@@ -102,6 +119,7 @@ static RECT draw_country_chips(HDC hdc, RECT line, const EventLogEntry *entry) {
         entry->param_a != entry->civ_id && entry->param_a != entry->target_id) {
         draw_country_chip(hdc, &line, entry->param_a, &entry->param_a_snapshot);
     }
+    draw_alliance_chip(hdc, &line, entry);
     return line;
 }
 

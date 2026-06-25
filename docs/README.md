@@ -10,13 +10,14 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.4, this release update intentionally excludes `docs/official`.
-The current changes are focused prototype alliance lifecycle, UI/data
-presentation, diplomacy cache, worldgen performance, and validation notes only.
+For Ver0.3.4.a, this release update intentionally excludes `docs/official`.
+The current changes are a prototype checkpoint for alliance lifecycle,
+war-defeat alliance exits, four-heritage country-name data, diplomacy tooltip
+stability, and validation notes only.
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
-- `docs/unofficial/ver0.3.4_side_doc.md`
+- `docs/unofficial/ver0.3.4.a_side_doc.md`
 
 The working version log is:
 

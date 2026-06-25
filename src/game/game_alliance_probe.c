@@ -135,6 +135,19 @@ static int case_name_allocation(FILE *summary) {
     return no_suffix && roman_suffix;
 }
 
+static int case_alliance_slot_reuse(FILE *summary) {
+    AllianceSaveState *s; int first, reused, high, exhaust, clean = 0, i;
+    reset_fixture(4); first = alliance_debug_create_pair(0, 1, 80); alliance_player_leave(0); reused = alliance_debug_create_pair(2, 3, 80);
+    reset_fixture(4); s = alliance_internal_state(); s->next_id = ALLIANCE_MAX;
+    for (i = 0; i < ALLIANCE_MAX; i++) { s->records[i].active = 1; s->records[i].id = i; }
+    s->records[5].active = 0; s->join_years[0][5] = 44; s->kick_years[5][1] = 55; s->voluntary_cooldown[5][2] = 66; s->kicked_cooldown[5][3] = 77; s->candidate_count[5] = 3; s->vote_count[5] = 4; s->history_count[5] = 5;
+    high = alliance_debug_create_pair(0, 1, 80);
+    clean = high == 5 && s->records[5].active && s->records[5].member_count == 2 && s->candidate_count[5] == 0 && s->vote_count[5] == 0 && s->history_count[5] == 1 && !s->join_years[0][5] && !s->kick_years[5][1] && !s->voluntary_cooldown[5][2] && !s->kicked_cooldown[5][3];
+    reset_fixture(4); s = alliance_internal_state(); s->next_id = ALLIANCE_MAX; for (i = 0; i < ALLIANCE_MAX; i++) { s->records[i].active = 1; s->records[i].id = i; }
+    exhaust = alliance_debug_create_pair(0, 1, 80);
+    fprintf(summary, "case=alliance_slot_reuse first=%d reused=%d high=%d exhaust=%d clean=%d next_id=%d\n", first, reused, high, exhaust, clean, s->next_id);
+    return first == 0 && reused == 0 && high == 5 && exhaust < 0 && clean;
+}
 static int case_player_actions(FILE *summary) {
     GamePlayerActionResult create, join, diff, vassal_block, leave;
     int alliance_a, alliance_b, member_count, vassal_display, vassal_formal, founder_after_leave;
@@ -474,6 +487,7 @@ static int case_static_cache_stale_safe(FILE *summary) {
 int run_alliance_probe_cases(FILE *summary) {
     int ok = 1;
     ok &= case_name_allocation(summary);
+    ok &= case_alliance_slot_reuse(summary);
     ok &= case_player_actions(summary);
     ok &= case_ai_lifecycle(summary);
     ok &= case_defensive_power(summary);

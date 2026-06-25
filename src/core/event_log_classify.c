@@ -36,6 +36,7 @@ EventLogSeverity event_log_severity_from_type(EventLogType type) {
         case EVENT_TYPE_BATTLE_RESOLVED:
         case EVENT_TYPE_VASSAL_INDEPENDENCE_WAR:
         case EVENT_TYPE_TREASURY_INDEMNITY:
+        case EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT:
         case EVENT_TYPE_MERCENARIES_HIRED:
         case EVENT_TYPE_COLLAPSE_FAILED:
         case EVENT_TYPE_PLAGUE_STARTED:

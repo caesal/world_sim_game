@@ -1,200 +1,200 @@
-001	Valorian Dominion	瓦洛里亚领邦
-002	Aurelian Empire	奥瑞利亚帝国
-003	Drakemarch Kingdom	龙境王国
-004	Ironvale Confederacy	铁谷邦联
-005	Eldergate Realm	古门王国
-006	Stormcrown Dominion	风暴冠领
-007	Ashenford Kingdom	灰津王国
-008	Silvermere Union	银泽联盟
-009	Highspire Empire	高塔帝国
-010	Blackthorn Dominion	黑棘领邦
-011	Emberfall Realm	烬落王国
-012	Frosthaven Kingdom	霜港王国
-013	Goldenreach League	金境联盟
-014	Ravencrest Dominion	鸦岭领邦
-015	Sunspire Empire	日塔帝国
-016	Shadowfen Realm	影沼王国
-017	Thornwatch Kingdom	棘望王国
-018	Moonvale Compact	月谷盟约
-019	Redwyvern Dominion	赤翼龙领
-020	Whiteharbor League	白港联盟
-021	Stormveil Kingdom	风幕王国
-022	Ironhold Empire	铁堡帝国
-023	Duskmere Dominion	暮泽领邦
-024	Brightwater Republic	明水共和国
-025	Wolfguard Kingdom	狼卫王国
-026	Starfall Dominion	星落领邦
-027	Crownhold Empire	王冠堡帝国
-028	Westmarch Realm	西境王国
-029	Ebonreach Kingdom	乌境王国
-030	Dawncrest League	晨岭联盟
-031	Stonehaven Dominion	石港领邦
-032	Dragonmere Empire	龙泽帝国
-033	Frostmarch Kingdom	霜境王国
-034	Amberfall Republic	琥珀瀑共和国
-035	Silverthorn Dominion	银棘领邦
-036	Nightvale Realm	夜谷王国
-037	Goldspire Empire	金塔帝国
-038	Ashbourne Kingdom	灰溪王国
-039	Redhaven Dominion	赤港领邦
-040	Ironcrown Compact	铁冠盟约
-041	Blackwater League	黑水联盟
-042	Stormridge Kingdom	风暴岭王国
-043	Greystone Dominion	灰石领邦
-044	Windmere Republic	风泽共和国
-045	Eldoria Empire	艾尔多利亚帝国
-046	Northreach Kingdom	北境王国
-047	Sunhaven Dominion	日港领邦
-048	Ravenhold Realm	鸦堡王国
-049	Frostspire Union	霜塔联盟
-050	Emberwatch Kingdom	烬望王国
-051	Valemarch Dominion	谷境领邦
-052	Dragonfall Empire	龙陨帝国
-053	Whitecrest League	白岭联盟
-054	Shadowreach Kingdom	影境王国
-055	Goldthorn Dominion	金棘领邦
-056	Ashenreach Realm	灰境王国
-057	Ironmere Confederacy	铁泽邦联
-058	Stormhold Empire	风暴堡帝国
-059	Silvergate Kingdom	银门王国
-060	Blackspire Dominion	黑塔领邦
-061	Dawnmere Republic	晨泽共和国
-062	Wolfmere Kingdom	狼泽王国
-063	Redcrown Dominion	赤冠领邦
-064	Frostgate Realm	霜门王国
-065	Moonspire Compact	月塔盟约
-066	Starhaven Dominion	星港领邦
-067	Stonefall Kingdom	石陨王国
-068	Embercrown Empire	烬冠帝国
-069	Highmere Union	高泽联盟
-070	Ravenwatch Dominion	鸦望领邦
-071	Goldenvale Kingdom	金谷王国
-072	Nightspire Realm	夜塔王国
-073	Ironwatch Dominion	铁望领邦
-074	Brightspire Republic	明塔共和国
-075	Stormfall Empire	风暴陨帝国
-076	Shadowgate Kingdom	影门王国
-077	Whitevale League	白谷联盟
-078	Ashthorn Dominion	灰棘领邦
-079	Dragonwatch Realm	龙望王国
-080	Silvercrown Kingdom	银冠王国
-081	Redmere Dominion	赤泽领邦
-082	Frostvale Compact	霜谷盟约
-083	Sunfall Empire	日陨帝国
-084	Blackhold Kingdom	黑堡王国
-085	Windspire Republic	风塔共和国
-086	Stonecrown Dominion	石冠领邦
-087	Moonhaven Realm	月港王国
-088	Amberreach League	琥珀境联盟
-089	Crowngate Empire	王冠门帝国
-090	Wolfthorn Kingdom	狼棘王国
-091	Eldermarch Dominion	古境领邦
-092	Ironfall Union	铁陨联盟
-093	Starspire Kingdom	星塔王国
-094	Shadowmere Dominion	影泽领邦
-095	Goldwatch Republic	金望共和国
-096	Stormthorn Empire	风暴棘帝国
-097	Ravenfall Kingdom	鸦落王国
-098	Whitewatch Dominion	白望领邦
-099	Ashenvale Realm	灰谷王国
-100	Dragoncrown Empire	龙冠帝国
-101	Vermillion Dominion	朱砂领邦
-102	Obsidian Marches	黑曜边境
-103	Argent Throne	银辉王座
-104	Crimson Concord	绯红协约
-105	Sapphire Dominion	蓝宝石领邦
-106	Ivory Covenant	象牙誓盟
-107	Onyx Empire	缟玛瑙帝国
-108	Celestine Realm	苍穹王国
-109	Scarlet Republic	猩红共和国
-110	Verdant League	苍翠联盟
-111	Gilded Sovereignty	镀金主权国
-112	Azure Compact	苍蓝盟约
-113	Umbral Kingdom	幽影王国
-114	Solarian Empire	日耀帝国
-115	Nocturne Dominion	夜曲领邦
-116	Imperium of Vael	瓦埃尔帝权
-117	Crownlands of Arken	阿肯王冠领
-118	Dominion of Kaelor	凯洛尔领邦
-119	Realm of Veyr	维尔王国
-120	Empire of Thalor	塔洛尔帝国
-121	Kingdom of Maerwyn	梅尔温王国
-122	Republic of Caldris	卡尔德里斯共和国
-123	League of Varros	瓦罗斯联盟
-124	Covenant of Eryndor	艾林多誓盟
-125	Marches of Duskfall	暮陨边境
-126	Throne of Eldrath	艾尔德拉斯王座
-127	Free Cities of Orvain	奥尔维恩自由城邦
-128	Confederacy of Stonehelm	石盔邦联
-129	Grand Duchy of Ravenspire	鸦塔大公国
-130	High Kingdom of Solmere	索尔米尔高王国
-131	Dominion of Ironreach	铁境领邦
-132	Empire of Goldwyn	戈德温帝国
-133	Kingdom of Frostbarrow	霜丘王国
-134	Crown of Emberlyn	烬琳王冠国
-135	Republic of Starhaven	星港共和国
-136	League of Silvercoast	银岸联盟
-137	Covenant of Blackmere	黑泽誓盟
-138	Principality of Westvale	西谷公国
-139	The Ashen Crown	灰烬王冠
-140	The Crimson Throne	绯红王座
-141	The Iron Dominion	铁之领邦
-142	The Golden Concord	黄金协约
-143	The Obsidian League	黑曜联盟
-144	The Silver Covenant	白银誓盟
-145	The Stormborn Realm	风暴裔王国
-146	The Raven Banner	鸦旗国
-147	The Dragon Throne	龙之王座
-148	The Frostbound Kingdom	霜缚王国
-149	The Sunward Empire	向阳帝国
-150	The Moonlit Compact	月辉盟约
-151	The Black Banner	黑旗国
-152	The Ivory Realm	象牙王国
-153	The Gilded March	镀金边境
-154	The Sapphire Coast	蓝宝石海岸
-155	The Verdant Crown	苍翠王冠
-156	The Ember Dynasty	烬火王朝
-157	The Starforged League	星铸联盟
-158	The Thorned Dominion	棘刺领邦
-159	The Highborn Covenant	高裔誓盟
-160	The Nightfall Realm	夜陨王国
-161	Arkenvale Dominion	阿肯谷领邦
-162	Vaelorian Empire	瓦洛里安帝国
-163	Thalorian Kingdom	塔洛里安王国
-164	Caldrisian Republic	卡尔德里斯共和国
-165	Eryndorian Covenant	艾林多誓盟
-166	Varric League	瓦里克联盟
-167	Maerwyn Compact	梅尔温盟约
-168	Solmere Crownlands	索尔米尔王冠领
-169	Duskfall Marches	暮陨边境
-170	Ironhelm Dominion	铁盔领邦
-171	Goldwyn Empire	戈德温帝国
-172	Frostbarrow Kingdom	霜丘王国
-173	Emberlyn Realm	烬琳王国
-174	Starhaven Republic	星港共和国
-175	Silvercoast League	银岸联盟
-176	Blackmere Covenant	黑泽誓盟
-177	Westvale Principality	西谷公国
-178	Ravenspire Duchy	鸦塔公国
-179	Stormborn Dominion	风暴裔领邦
-180	Dragonhelm Empire	龙盔帝国
-181	Ashenmoor Kingdom	灰沼王国
-182	Crownmere Realm	冠泽王国
-183	Ironbrook Confederacy	铁溪邦联
-184	Goldwater League	金水联盟
-185	Frostpine Kingdom	霜松王国
-186	Emberstone Dominion	烬石领邦
-187	Starfall Republic	星落共和国
-188	Silverbrook Compact	银溪盟约
-189	Blackpine Realm	黑松王国
-190	Westwatch Kingdom	西望王国
-191	Thornmere Dominion	棘泽领邦
-192	Ravenmoor League	鸦沼联盟
-193	Dragonvale Empire	龙谷帝国
-194	Stormwater Republic	风暴水共和国
-195	Ashengate Kingdom	灰门王国
-196	Crownwatch Dominion	冠望领邦
-197	Ironvale Republic	铁谷共和国
-198	Goldenmarch Empire	金境帝国
-199	Frostwater League	霜水联盟
-200	Embervale Dominion	烬谷领邦
+001	Aurelia	奥瑞利亚国
+002	Valentia	瓦伦提亚国
+003	Marcellon	马塞伦国
+004	Lusenta	卢森塔国
+005	Hohenfeld	霍恩费尔德国
+006	Eisenmark	艾森马克国
+007	Castellia	卡斯特利亚国
+008	Verolen	维罗伦国
+009	Albrech	阿尔布雷希国
+010	Rosenheim	罗森海姆国
+011	Severin	塞维伦国
+012	Ostermark	奥斯特马克国
+013	Gratia	格拉提亚国
+014	Reinhold	莱因霍尔国
+015	Malvia	马尔维亚国
+016	Carolven	卡罗文国
+017	Brunthal	布伦塔尔国
+018	Victorren	维克托伦国
+019	Septia	塞普提亚国
+020	Adelburg	阿德尔堡国
+021	Friedthal	弗里德塔尔国
+022	Bruntia	布伦提亚国
+023	Wendnum	温德努姆国
+024	Carofurt	卡罗弗特国
+025	Wendkeim	温德凯姆国
+026	Wolfregen	沃尔夫雷根国
+027	Adelnum	阿德尔努姆国
+028	Helmrion	赫尔姆里昂国
+029	Quintna	昆图纳国
+030	Eisenheim	艾森海姆国
+031	Quintgard	昆图加德国
+032	Adelon	阿德尔伦国
+033	Lothheim	洛特海姆国
+034	Maxiland	马克西兰德国
+035	Franfeld	弗兰费尔德国
+036	Lothmark	洛特马克国
+037	Magnumark	马格努马克国
+038	Rosensia	罗森西亚国
+039	Leodoren	莱奥多伦国
+040	Helmregen	赫尔姆雷根国
+041	Adelheim	阿德尔海姆国
+042	Victorlingen	维克托林根国
+043	Luciheim	卢修海姆国
+044	Rosenregen	罗森雷根国
+045	Leothal	莱奥塔尔国
+046	Rheintia	莱因提亚国
+047	Tiberfeld	蒂贝尔费尔德国
+048	Wendon	温德伦国
+049	Eberburg	埃伯堡国
+050	Marceberg	马塞贝格国
+051	Veromark	维罗马克国
+052	Eisensia	艾森西亚国
+053	Rosenrion	罗森里昂国
+054	Gunthertor	君特托尔国
+055	Claudthal	克劳狄塔尔国
+056	Victortia	维克托提亚国
+057	Guntherfurt	君特弗特国
+058	Sigion	西吉伦国
+059	Reginum	雷吉努姆国
+060	Wendhold	温德霍尔德国
+061	Rosenia	罗森利亚国
+062	Leoia	莱奥利亚国
+063	Magnurion	马格努里昂国
+064	Quintnum	昆图努姆国
+065	Verotor	维罗托尔国
+066	Albewald	阿尔贝瓦尔德国
+067	Wendburg	温德堡国
+068	Dietmark	狄特马克国
+069	Octaland	奥克塔兰德国
+070	Dietmund	狄特穆恩德国
+071	Regiia	雷吉利亚国
+072	Rudoltia	鲁道提亚国
+073	Eisenburg	艾森堡国
+074	Valenvia	瓦伦维亚国
+075	Regidoren	雷吉多伦国
+076	Eberbruck	埃伯布吕克国
+077	Brunhold	布伦霍尔德国
+078	Wolfia	沃尔夫利亚国
+079	Carorion	卡罗里昂国
+080	Seveland	塞维兰德国
+081	Valenthal	瓦伦塔尔国
+082	Hohentia	霍恩提亚国
+083	Rheinburg	莱因堡国
+084	Adeldoren	阿德尔多伦国
+085	Rudolhold	鲁道霍尔德国
+086	Rudolberg	鲁道贝格国
+087	Maxina	马克西纳国
+088	Sevesia	塞维西亚国
+089	Franhold	弗兰霍尔德国
+090	Tiberfurt	蒂贝尔弗特国
+091	Octafurt	奥克塔弗特国
+092	Septwald	塞普瓦尔德国
+093	Helmkeim	赫尔姆凯姆国
+094	Regithal	雷吉塔尔国
+095	Tiberthal	蒂贝尔塔尔国
+096	Cornelberg	科尔内贝格国
+097	Adelmark	阿德尔马克国
+098	Octafeld	奥克塔费尔德国
+099	Sevemund	塞维穆恩德国
+100	Septtor	塞普托尔国
+101	Carona	卡罗纳国
+102	Friedberg	弗里德贝格国
+103	Lusenkeim	卢森凯姆国
+104	Wolfdoren	沃尔夫多伦国
+105	Carovia	卡罗维亚国
+106	Dietberg	狄特贝格国
+107	Friedkeim	弗里德凯姆国
+108	Quintsia	昆图西亚国
+109	Rheinfurt	莱因弗特国
+110	Lothfeld	洛特费尔德国
+111	Cornelon	科尔内伦国
+112	Victorgard	维克托加德国
+113	Albegard	阿尔贝加德国
+114	Wendtor	温德托尔国
+115	Ebernum	埃伯努姆国
+116	Marcevia	马塞维亚国
+117	Eisengard	艾森加德国
+118	Hohengard	霍恩加德国
+119	Ottokeim	奥托凯姆国
+120	Rudolia	鲁道利亚国
+121	Rosenberg	罗森贝格国
+122	Victormund	维克托穆恩德国
+123	Rudolfeld	鲁道费尔德国
+124	Marcekeim	马塞凯姆国
+125	Septbruck	塞普布吕克国
+126	Dietmont	狄特蒙特国
+127	Sigisia	西吉西亚国
+128	Franbruck	弗兰布吕克国
+129	Octaheim	奥克塔海姆国
+130	Rheinbruck	莱因布吕克国
+131	Auron	奥瑞伦国
+132	Wolfberg	沃尔夫贝格国
+133	Siginum	西吉努姆国
+134	Eberhold	埃伯霍尔德国
+135	Hohenregen	霍恩雷根国
+136	Tibervia	蒂贝尔维亚国
+137	Lucimund	卢修穆恩德国
+138	Verofurt	维罗弗特国
+139	Lothtia	洛特提亚国
+140	Helmmont	赫尔姆蒙特国
+141	Lothwald	洛特瓦尔德国
+142	Albelingen	阿尔贝林根国
+143	Lusennum	卢森努姆国
+144	Hohenthal	霍恩塔尔国
+145	Franregen	弗兰雷根国
+146	Ottoland	奥托兰德国
+147	Magnuia	马格努利亚国
+148	Rudolsia	鲁道西亚国
+149	Maxiwald	马克西瓦尔德国
+150	Octamark	奥克塔马克国
+151	Regibruck	雷吉布吕克国
+152	Leokeim	莱奥凯姆国
+153	Guntherhold	君特霍尔德国
+154	Franheim	弗兰海姆国
+155	Sigifurt	西吉弗特国
+156	Octaia	奥克塔利亚国
+157	Claudia	克劳狄利亚国
+158	Brungard	布伦加德国
+159	Quintia	昆图利亚国
+160	Sigiia	西吉利亚国
+161	Brunlingen	布伦林根国
+162	Rheinthal	莱因塔尔国
+163	Marcethal	马塞塔尔国
+164	Adelberg	阿德尔贝格国
+165	Veroburg	维罗堡国
+166	Regiregen	雷吉雷根国
+167	Lusenregen	卢森雷根国
+168	Lucitor	卢修托尔国
+169	Adelmund	阿德尔穆恩德国
+170	Victorregen	维克托雷根国
+171	Victorfurt	维克托弗特国
+172	Adelrion	阿德尔里昂国
+173	Lothgard	洛特加德国
+174	Maxidoren	马克西多伦国
+175	Dietwald	狄特瓦尔德国
+176	Lucitia	卢修提亚国
+177	Eisenwald	艾森瓦尔德国
+178	Lusenia	卢森利亚国
+179	Leoberg	莱奥贝格国
+180	Wolfmund	沃尔夫穆恩德国
+181	Regihold	雷吉霍尔德国
+182	Lucikeim	卢修凯姆国
+183	Sigina	西吉纳国
+184	Valenburg	瓦伦堡国
+185	Guntherregen	君特雷根国
+186	Wolfsia	沃尔夫西亚国
+187	Cornelgard	科尔内加德国
+188	Octaberg	奥克塔贝格国
+189	Castelnum	卡斯特努姆国
+190	Friedland	弗里德兰德国
+191	Claudfurt	克劳狄弗特国
+192	Eberland	埃伯兰德国
+193	Carotia	卡罗提亚国
+194	Marcemund	马塞穆恩德国
+195	Marcetia	马塞提亚国
+196	Wolfkeim	沃尔夫凯姆国
+197	Rudolwald	鲁道瓦尔德国
+198	Brunmont	布伦蒙特国
+199	Verolingen	维罗林根国
+200	Castelwald	卡斯特瓦尔德国

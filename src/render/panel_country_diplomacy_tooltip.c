@@ -36,8 +36,12 @@ typedef enum {
     TOOLTIP_GROUP_COUNT
 } TooltipFactorGroup;
 
-static ScoreTooltipHit tooltip_hits[SCORE_TOOLTIP_MAX];
-static int tooltip_hit_count;
+static ScoreTooltipHit tooltip_build_hits[SCORE_TOOLTIP_MAX];
+static int tooltip_build_hit_count;
+static int tooltip_build_scope = SCORE_TOOLTIP_SCOPE_NONE;
+static ScoreTooltipHit tooltip_active_hits[SCORE_TOOLTIP_MAX];
+static int tooltip_active_hit_count;
+static int tooltip_active_scope = SCORE_TOOLTIP_SCOPE_NONE;
 
 static SnapshotDiplomacyRelation tooltip_relation(int civ_id, int other_id) {
     const RenderSnapshot *snapshot = snapshot_ui_current();
@@ -125,27 +129,52 @@ int diplomacy_score_tooltip_net_for_relation(int civ_id, int other_id,
 }
 
 void diplomacy_score_tooltip_begin(void) {
-    tooltip_hit_count = 0;
+    diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
+}
+
+void diplomacy_score_tooltip_begin_scope(int scope) {
+    tooltip_build_hit_count = 0;
+    tooltip_build_scope = scope;
 }
 
 void diplomacy_score_tooltip_register_bar(RECT rect, int civ_id, int other_id) {
-    if (tooltip_hit_count >= SCORE_TOOLTIP_MAX) return;
-    tooltip_hits[tooltip_hit_count].rect = rect;
-    tooltip_hits[tooltip_hit_count].civ_id = civ_id;
-    tooltip_hits[tooltip_hit_count].other_id = other_id;
-    tooltip_hit_count++;
+    if (tooltip_build_hit_count >= SCORE_TOOLTIP_MAX) return;
+    tooltip_build_hits[tooltip_build_hit_count].rect = rect;
+    tooltip_build_hits[tooltip_build_hit_count].civ_id = civ_id;
+    tooltip_build_hits[tooltip_build_hit_count].other_id = other_id;
+    tooltip_build_hit_count++;
+}
+
+void diplomacy_score_tooltip_commit(void) {
+    diplomacy_score_tooltip_commit_scope(tooltip_build_scope);
+}
+
+void diplomacy_score_tooltip_commit_scope(int scope) {
+    if (scope != tooltip_build_scope) return;
+    memcpy(tooltip_active_hits, tooltip_build_hits,
+           (size_t)tooltip_build_hit_count * sizeof(tooltip_active_hits[0]));
+    tooltip_active_hit_count = tooltip_build_hit_count;
+    tooltip_active_scope = scope;
 }
 
 int diplomacy_score_tooltip_registered_count(void) {
-    return tooltip_hit_count;
+    return tooltip_active_hit_count;
+}
+
+int diplomacy_score_tooltip_build_count(void) {
+    return tooltip_build_hit_count;
+}
+
+int diplomacy_score_tooltip_active_scope(void) {
+    return tooltip_active_scope;
 }
 
 int diplomacy_score_tooltip_hit_test(int mouse_x, int mouse_y, int *civ_id, int *other_id) {
     int i;
-    for (i = 0; i < tooltip_hit_count; i++) {
-        if (!point_in_rect(tooltip_hits[i].rect, mouse_x, mouse_y)) continue;
-        if (civ_id) *civ_id = tooltip_hits[i].civ_id;
-        if (other_id) *other_id = tooltip_hits[i].other_id;
+    for (i = 0; i < tooltip_active_hit_count; i++) {
+        if (!point_in_rect(tooltip_active_hits[i].rect, mouse_x, mouse_y)) continue;
+        if (civ_id) *civ_id = tooltip_active_hits[i].civ_id;
+        if (other_id) *other_id = tooltip_active_hits[i].other_id;
         return 1;
     }
     return 0;
@@ -159,10 +188,15 @@ int diplomacy_score_tooltip_hover_key(int mouse_x, int mouse_y) {
     return 1 + civ_id * MAX_CIVS + other_id;
 }
 
+int diplomacy_score_tooltip_hover_key_for_scope(int scope, int mouse_x, int mouse_y) {
+    if (tooltip_active_scope != scope) return 0;
+    return diplomacy_score_tooltip_hover_key(mouse_x, mouse_y);
+}
+
 static int hovered_hit(void) {
     int i;
-    for (i = 0; i < tooltip_hit_count; i++) {
-        if (point_in_rect(tooltip_hits[i].rect, hover_x, hover_y)) return i;
+    for (i = 0; i < tooltip_active_hit_count; i++) {
+        if (point_in_rect(tooltip_active_hits[i].rect, hover_x, hover_y)) return i;
     }
     return -1;
 }
@@ -360,15 +394,17 @@ void diplomacy_score_tooltip_draw(HDC hdc, RECT bounds) {
     UiClaySemanticStyle semantic;
     HFONT header_font = NULL;
     HGDIOBJ old_font = NULL;
+    const ScoreTooltipHit *hit_info;
     if (hit < 0 || !hdc) return;
-    relation = tooltip_relation(tooltip_hits[hit].civ_id, tooltip_hits[hit].other_id);
-    diplomacy_score_tooltip_net_for_relation(tooltip_hits[hit].civ_id, tooltip_hits[hit].other_id,
+    hit_info = &tooltip_active_hits[hit];
+    relation = tooltip_relation(hit_info->civ_id, hit_info->other_id);
+    diplomacy_score_tooltip_net_for_relation(hit_info->civ_id, hit_info->other_id,
                                              &factor_sum, &other_x100, &display_x100);
     for (g = 0; g < TOOLTIP_GROUP_COUNT; g++) {
         TooltipFactorGroup group = (TooltipFactorGroup)g;
-        if (!group_visible(relation, group, tooltip_hits[hit].civ_id, tooltip_hits[hit].other_id)) continue;
+        if (!group_visible(relation, group, hit_info->civ_id, hit_info->other_id)) continue;
         visible_groups++;
-        group_rows += count_group_rows(relation, group, tooltip_hits[hit].civ_id, tooltip_hits[hit].other_id);
+        group_rows += count_group_rows(relation, group, hit_info->civ_id, hit_info->other_id);
     }
     if (other_x100) group_rows++;
     height = SCORE_TOOLTIP_PAD * 2 + SCORE_TOOLTIP_HEADER_H + SCORE_TOOLTIP_SUBTITLE_H +
@@ -407,9 +443,9 @@ void diplomacy_score_tooltip_draw(HDC hdc, RECT bounds) {
     inner.top += SCORE_TOOLTIP_BAR_H + SCORE_TOOLTIP_GAP;
     for (g = 0; g < TOOLTIP_GROUP_COUNT; g++) {
         TooltipFactorGroup group = (TooltipFactorGroup)g;
-        if (!group_visible(relation, group, tooltip_hits[hit].civ_id, tooltip_hits[hit].other_id)) continue;
+        if (!group_visible(relation, group, hit_info->civ_id, hit_info->other_id)) continue;
         draw_group(hdc, &inner, relation, group,
-                   tooltip_hits[hit].civ_id, tooltip_hits[hit].other_id, positive, negative);
+                   hit_info->civ_id, hit_info->other_id, positive, negative);
         inner.top += SCORE_TOOLTIP_GAP;
     }
     if (other_x100) {

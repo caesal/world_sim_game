@@ -19,6 +19,8 @@ typedef enum {
 typedef enum {
     CIV_HERITAGE_WESTERN = 0,
     CIV_HERITAGE_EASTERN = 1,
+    CIV_HERITAGE_SOUTHERN = 2,
+    CIV_HERITAGE_NORTHERN = 3,
     CIV_HERITAGE_COUNT
 } CivilizationHeritage;
 

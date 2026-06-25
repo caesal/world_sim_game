@@ -296,7 +296,7 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
 }
 
 static const char *heritage_label(int heritage) {
-    return heritage == CIV_HERITAGE_EASTERN ? tr("Eastern", "东方") : tr("Western", "西方");
+    return civilization_heritage_label(heritage, ui_language);
 }
 
 void draw_country_detail_content(HDC hdc, UiCursor *cursor, RECT viewport,

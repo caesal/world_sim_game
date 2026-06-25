@@ -11,7 +11,16 @@ static int is_default_manual_name(const char *name) {
 }
 
 int civilization_heritage_or_default(int heritage) {
-    return heritage == CIV_HERITAGE_EASTERN ? CIV_HERITAGE_EASTERN : CIV_HERITAGE_WESTERN;
+    return heritage >= 0 && heritage < CIV_HERITAGE_COUNT ? heritage : CIV_HERITAGE_WESTERN;
+}
+
+const char *civilization_heritage_label(int heritage, int language) {
+    switch (civilization_heritage_or_default(heritage)) {
+        case CIV_HERITAGE_EASTERN: return language == 1 ? "东方" : "Eastern";
+        case CIV_HERITAGE_SOUTHERN: return language == 1 ? "南方" : "Southern";
+        case CIV_HERITAGE_NORTHERN: return language == 1 ? "北方" : "Northern";
+        default: return language == 1 ? "西方" : "Western";
+    }
 }
 
 int civilization_pick_unused_name_id_for_heritage(int heritage) {

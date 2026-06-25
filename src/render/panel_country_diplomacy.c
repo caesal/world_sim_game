@@ -447,7 +447,7 @@ void draw_country_diplomacy_tab(HDC hdc, UiCursor *cursor, RECT viewport,
                                  cursor ? cursor->bottom : viewport.bottom);
     int saved;
     country_diplomacy_hit_reset();
-    diplomacy_score_tooltip_begin();
+    diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
     saved = SaveDC(hdc);
     IntersectClipRect(hdc, viewport.left, viewport.top + DIPLOMACY_STICKY_H,
                       viewport.right, viewport.bottom);
@@ -463,6 +463,7 @@ void draw_country_diplomacy_tab(HDC hdc, UiCursor *cursor, RECT viewport,
               ui_theme_color(UI_COLOR_PANEL));
     ui_section(hdc, &fixed, tr("Diplomacy", "外交"));
     draw_diplomacy_view_tabs(hdc, &fixed, civ_id);
+    diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
     diplomacy_score_tooltip_draw(hdc, viewport);
     if (cursor) cursor->y = content.y;
 }

@@ -1,6 +1,7 @@
 #include "sim/war_resolution.h"
 
 #include "core/dirty_flags.h"
+#include "sim/alliance.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/economy.h"
@@ -10,7 +11,10 @@
 #include "sim/simulation.h"
 #include "sim/vassal.h"
 
+#include <stdio.h>
 #include <stdlib.h>
+
+#define WAR_DEFEAT_ALLIANCE_EXIT_COOLDOWN_YEARS 100
 
 static int is_valid_civ_id(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
@@ -333,21 +337,39 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
         loser = attacker;
     }
     if (winner >= 0 && loser >= 0 && is_valid_civ_id(winner) && is_valid_civ_id(loser)) {
-        int cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
+        int cession_count = 0;
         int transferred;
         int indemnity_offsets = 0;
         int indemnity_spent = 0;
+        int forced_alliance_exit = 0;
+        int loser_alliance = alliance_for_civ(loser);
+        Color32 loser_alliance_color = loser_alliance >= 0 ? alliance_color(loser_alliance) : 0;
+        char loser_alliance_payload[EVENT_LOG_LEN];
+        snprintf(loser_alliance_payload, sizeof(loser_alliance_payload), "%s\t%s",
+                 loser_alliance >= 0 ? alliance_name_en(loser_alliance) : "",
+                 loser_alliance >= 0 ? alliance_name_zh(loser_alliance) : "");
         diplomacy_record_war_result_kind(winner, loser, (DiplomacyLastWarResult)last_war_result);
-        cession_count = apply_indemnity_offset(loser, winner, cession_count,
-                                               &indemnity_offsets, &indemnity_spent);
-        transferred = transfer_side_border_regions(loser, winner, cession_count);
-        if (indemnity_offsets > 0) {
-            event_log_push_structured(EVENT_TYPE_TREASURY_INDEMNITY, EVENT_SEVERITY_WARNING,
-                                      loser, winner, indemnity_spent, -1,
-                                      indemnity_offsets, transferred, "");
+        forced_alliance_exit = alliance_force_member_exit_for_war_defeat(
+            loser_alliance, loser, WAR_DEFEAT_ALLIANCE_EXIT_COOLDOWN_YEARS);
+        if (forced_alliance_exit) {
+            transferred = 0;
+            event_log_push_structured(EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT, EVENT_SEVERITY_WARNING,
+                                      loser, winner, -1, -1, loser_alliance,
+                                      (int)loser_alliance_color, loser_alliance_payload);
+        } else {
+            cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
+            cession_count = apply_indemnity_offset(loser, winner, cession_count,
+                                                   &indemnity_offsets, &indemnity_spent);
+            transferred = transfer_side_border_regions(loser, winner, cession_count);
+            if (indemnity_offsets > 0) {
+                event_log_push_structured(EVENT_TYPE_TREASURY_INDEMNITY, EVENT_SEVERITY_WARNING,
+                                          loser, winner, indemnity_spent, -1,
+                                          indemnity_offsets, transferred, "");
+            }
+            if (transferred == 0) disorder_add_war_pressure(loser, 10);
         }
-        if (transferred == 0) disorder_add_war_pressure(loser, 10);
-        if (transferred == 0 || (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3) ||
+        if ((!forced_alliance_exit && transferred == 0) ||
+            (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3) ||
             (civs[loser].disorder >= 92 && civs[loser].cohesion <= 4)) {
             vassal_make(winner, loser, margin >= 3 ? 18 : 25);
         } else {

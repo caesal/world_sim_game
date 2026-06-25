@@ -79,7 +79,8 @@ typedef enum {
     ALLIANCE_HISTORY_MEMBER_REMOVED = 7,
     ALLIANCE_HISTORY_LEADER_CHANGED = 8,
     ALLIANCE_HISTORY_DISSOLVED = 9,
-    ALLIANCE_HISTORY_UNION_FORMED = 10
+    ALLIANCE_HISTORY_UNION_FORMED = 10,
+    ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT = 11
 } AllianceHistoryType;
 
 typedef struct {
@@ -214,6 +215,7 @@ const char *alliance_name_zh(int alliance_id);
 AllianceCommandResult alliance_player_form_or_join(int source_civ, int target_civ);
 AllianceCommandResult alliance_player_leave(int source_civ);
 int alliance_break_for_player_war(int civ_a, int civ_b);
+int alliance_force_member_exit_for_war_defeat(int alliance_id, int civ_id, int cooldown_years);
 
 int alliance_own_power(int civ_id);
 int alliance_defensive_bloc_power(int civ_id);

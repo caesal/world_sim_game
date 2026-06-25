@@ -194,7 +194,8 @@ typedef enum {
     EVENT_TYPE_STABILITY_PROJECT,
     EVENT_TYPE_MERCENARIES_HIRED,
     EVENT_TYPE_DIPLOMACY_ALLIANCE,
-    EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED
+    EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED,
+    EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT
 } EventLogType;
 
 typedef enum {
@@ -250,6 +251,7 @@ void event_log_clear(void);
 const char *event_log_get(int index);
 void event_log_format_entry(int index, int language, char *out, size_t out_size);
 void event_log_format_entry_data(const EventLogEntry *entry, int language, char *out, size_t out_size);
+void event_log_alliance_snapshot_name(const EventLogEntry *entry, int language, char *out, size_t out_size);
 EventLogType event_log_get_type(int index);
 int event_log_get_entry(int index, EventLogEntry *out);
 int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id);

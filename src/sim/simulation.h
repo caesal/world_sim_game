@@ -17,6 +17,7 @@ void civilization_assign_generated_name_for_heritage(Civilization *civ, int heri
 void civilization_set_custom_name(Civilization *civ, const char *name);
 void civilization_migrate_loaded_names(void);
 int civilization_heritage_or_default(int heritage);
+const char *civilization_heritage_label(int heritage, int language);
 void civilization_apply_input_name(Civilization *civ, const char *name, int pick_default, int heritage);
 int world_city_site_has_room(int x, int y, int owner, int radius);
 int world_nearby_enemy_border(int owner, int x, int y, int radius);
@@ -39,6 +40,7 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
                                       int innovation, int preferred_x, int preferred_y);
 int simulation_last_created_civ_id(void);
 void simulation_reset_state(void);
+void simulation_seed_build_default_heritage_queue(int count, int *heritage_queue);
 void simulation_seed_default_civilizations(void);
 void simulation_apply_civilization_edit(int civ_id, const char *name, char symbol,
                                         int military, int logistics,

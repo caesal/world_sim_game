@@ -1,5 +1,64 @@
 # Version Log
 
+## Ver0.3.4.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.4.a.
+2. Added war-defeat settlement behavior that can force a defeated formal
+   alliance member out of its current alliance before cession or indemnity.
+3. Added structured Event Log text and cards for forced war-defeat alliance
+   exits so the loser, winner, and alliance are identified instead of showing
+   an unknown-country fallback.
+4. Added alliance history entries for members removed because of military
+   defeat, including preserved history display for dissolved alliances.
+5. Added a forced-breakup pair cooldown so two countries split by war-defeat
+   alliance exit do not immediately recreate or rejoin around the same pair.
+6. Reworked alliance slot/name reuse so inactive slots can be reused while all
+   192 base alliance names are used once before per-name Roman suffixes appear.
+7. Added four country-name heritage pools: Western, Eastern, Southern, and
+   Northern, with 200 bilingual names each.
+8. Updated generated-civilization heritage assignment so initial civilizations
+   are split across the four heritage pools with count differences of at most
+   one and seed-randomized remainder assignment.
+9. Kept same-heritage affinity equality-only: same heritage receives the
+   existing cultural closeness effects; different heritages are all treated the
+   same.
+10. Routed Northern province names through the Western province pool and
+    Southern province names through the Eastern province pool.
+11. Stabilized diplomacy score tooltip hit registration by separating build
+    hits from committed active hits and scoping Country Diplomacy vs Alliance
+    Votes tooltip hover tests.
+12. Updated the root README, documentation index, version log, side doc, and
+    active version marker for Ver0.3.4.a.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `15`.
+- This checkpoint intentionally does not include the upcoming early-expansion
+  stutter fix; expansion, political fill, border cache, city icon, and label
+  cache performance diagnosis remains the next work item.
+- Existing war reachability, alliance vote timing, alliance union eligibility,
+  map ownership/fill semantics, world generation semantics, plague,
+  population, economy, and balance constants are not intentionally changed by
+  this checkpoint except for the explicit forced war-defeat alliance-exit and
+  forced-breakup cooldown behavior above.
+
+Validation notes:
+
+- Ver0.3.4.a uses `WORLD_SIM_VERSION "0.3.4.a"`.
+- This is a source/tag checkpoint over the current working stack before the
+  expansion/render stutter pass.
+- Canonical `world_sim.exe` and `cmd /c build.bat` builds were attempted first
+  but could not overwrite the running locked executable; temporary-target
+  `make` and temporary-output `build.bat` validation passed.
+- Focused validation passed for `git diff --check`, `make check-text`, `.c`
+  include scan, touched `.c/.h` line counts, touched-file mojibake scan,
+  `--probe-presentation`, `--probe-diplomacy`, and `--probe-worldgen`.
+- The earlier Ver0.3.4 Rule39 folder remains historical evidence for Ver0.3.4
+  only. Do not claim full Ver0.3.4.a release-ready acceptance unless a fresh
+  Rule39 run is completed for this checkpoint.
+
 ## Ver0.3.4
 
 Implemented fixes:

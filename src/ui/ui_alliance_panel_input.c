@@ -38,7 +38,7 @@ int ui_alliance_panel_owns_input(void) {
 }
 
 int ui_alliance_panel_hover_hit(RECT client, int mouse_x, int mouse_y) {
-    int tooltip_key = diplomacy_score_tooltip_hover_key(mouse_x, mouse_y);
+    int tooltip_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES, mouse_x, mouse_y);
     if (tooltip_key > 0) return 50000 + tooltip_key;
     return alliance_panel_hit_test(client, mouse_x, mouse_y);
 }

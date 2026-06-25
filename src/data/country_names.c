@@ -16,7 +16,7 @@ static int entry_counts[CIV_HERITAGE_COUNT];
 static int loaded;
 
 static int normalize_heritage(int heritage) {
-    return heritage == CIV_HERITAGE_EASTERN ? CIV_HERITAGE_EASTERN : CIV_HERITAGE_WESTERN;
+    return heritage >= 0 && heritage < CIV_HERITAGE_COUNT ? heritage : CIV_HERITAGE_WESTERN;
 }
 
 static FILE *open_data_file(const char *name) {
@@ -60,6 +60,8 @@ static void load_country_names(void) {
     loaded = 1;
     load_pool(CIV_HERITAGE_WESTERN, "country_names_western_200_bilingual.tsv");
     load_pool(CIV_HERITAGE_EASTERN, "country_names_eastern_200_bilingual.tsv");
+    load_pool(CIV_HERITAGE_SOUTHERN, "country_names_southern_200_bilingual.tsv");
+    load_pool(CIV_HERITAGE_NORTHERN, "country_names_northern_200_bilingual.tsv");
 }
 
 int country_name_count_for_heritage(int heritage) {

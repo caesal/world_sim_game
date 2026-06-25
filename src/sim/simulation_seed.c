@@ -31,11 +31,39 @@ static int default_trait_for_index(int index, int metric) {
     return 4 + ((index * 3 + metric * 5) % 5);
 }
 
+void simulation_seed_build_default_heritage_queue(int count, int *heritage_queue) {
+    int order[CIV_HERITAGE_COUNT];
+    int counts[CIV_HERITAGE_COUNT] = {0};
+    int base, remainder, pos = 0;
+    int i;
+    if (!heritage_queue) return;
+    count = clamp(count, 0, MAX_CIVS);
+    base = count / CIV_HERITAGE_COUNT;
+    remainder = count % CIV_HERITAGE_COUNT;
+    for (i = 0; i < CIV_HERITAGE_COUNT; i++) order[i] = i;
+    for (i = CIV_HERITAGE_COUNT - 1; i > 0; i--) {
+        int j = rnd(i + 1);
+        int tmp = order[i];
+        order[i] = order[j];
+        order[j] = tmp;
+    }
+    for (i = 0; i < CIV_HERITAGE_COUNT; i++) counts[i] = base;
+    for (i = 0; i < remainder; i++) counts[order[i]]++;
+    for (i = 0; i < CIV_HERITAGE_COUNT; i++) {
+        for (int j = 0; j < counts[i] && pos < count; j++) heritage_queue[pos++] = i;
+    }
+    for (i = count - 1; i > 0; i--) {
+        int j = rnd(i + 1);
+        int tmp = heritage_queue[i];
+        heritage_queue[i] = heritage_queue[j];
+        heritage_queue[j] = tmp;
+    }
+}
+
 void simulation_seed_default_civilizations(void) {
     int requested = initial_civ_count;
     int count = clamp(requested, 0, MAX_CIVS);
     int heritage_queue[MAX_CIVS];
-    int western_count = (count + 1) / 2;
     int placed = 0;
     int i;
 
@@ -43,13 +71,7 @@ void simulation_seed_default_civilizations(void) {
         event_log_push_structured(EVENT_TYPE_WORLD_GENERATION_NOTICE, EVENT_SEVERITY_WARNING,
                                   -1, -1, 1, -1, requested, MAX_CIVS, "");
     }
-    for (i = 0; i < count; i++) heritage_queue[i] = i < western_count ? CIV_HERITAGE_WESTERN : CIV_HERITAGE_EASTERN;
-    for (i = count - 1; i > 0; i--) {
-        int j = rnd(i + 1);
-        int tmp = heritage_queue[i];
-        heritage_queue[i] = heritage_queue[j];
-        heritage_queue[j] = tmp;
-    }
+    simulation_seed_build_default_heritage_queue(count, heritage_queue);
     for (i = 0; i < count; i++) {
         int ok = add_civilization_at_with_heritage("", default_symbol_for_index(i), heritage_queue[i],
                                                    default_trait_for_index(i, 0), default_trait_for_index(i, 1),

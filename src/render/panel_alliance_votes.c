@@ -356,7 +356,7 @@ void alliance_votes_draw_content(HDC hdc, UiCursor *cursor, const RenderSnapshot
                                  const AlliancePanelRow *row) {
     const AllianceSnapshotRecord *record = alliance_panel_snapshot_record(snapshot, row->alliance_id);
     int i, shown = 0, order[ALLIANCE_CANDIDATE_RECORD_CAP], candidate_count;
-    diplomacy_score_tooltip_begin();
+    diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
     ui_section(hdc, cursor, tr("Candidate Applications", "候选申请"));
     candidate_count = ordered_candidate_indices(snapshot, record, order, ALLIANCE_CANDIDATE_RECORD_CAP);
     for (i = 0; i < candidate_count; i++) {
@@ -372,6 +372,7 @@ void alliance_votes_draw_content(HDC hdc, UiCursor *cursor, const RenderSnapshot
         if (record->votes[idx].active) { draw_vote_card(hdc, cursor, snapshot, record, &record->votes[idx]); shown++; }
     }
     if (!shown) ui_row_text(hdc, cursor, tr("Votes", "投票"), tr("No active votes", "暂无投票"));
+    diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
 }
 
 int alliance_votes_content_height(const RenderSnapshot *snapshot, const AlliancePanelRow *row) {

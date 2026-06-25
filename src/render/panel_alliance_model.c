@@ -12,7 +12,7 @@ const AllianceSnapshotRecord *alliance_panel_snapshot_record(const RenderSnapsho
     if (!snapshot || alliance_id < 0) return NULL;
     for (i = 0; i < snapshot->alliance_count; i++) {
         const AllianceSnapshotRecord *record = &snapshot->alliances[i];
-        if (record->active && record->id == alliance_id) return record;
+        if (record->id == alliance_id) return record;
     }
     return NULL;
 }
@@ -161,7 +161,7 @@ static void rebuild_model(const RenderSnapshot *snapshot, int show_fallen,
     cached_model.sort_descending = sort_descending ? 1 : 0;
     for (i = 0; i < snapshot->alliance_count && cached_model.row_count < ALLIANCE_MAX + MAX_CIVS; i++) {
         const AllianceSnapshotRecord *record = &snapshot->alliances[i];
-        if (!record->active || show_fallen) continue;
+        if (show_fallen ? record->active : !record->active) continue;
         fill_alliance_row(snapshot, record, &cached_model.rows[cached_model.row_count++]);
         cached_model.alliance_row_count++;
     }

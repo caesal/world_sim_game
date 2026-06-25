@@ -11,6 +11,7 @@
 #include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
+#include "sim/war_desire.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -444,6 +445,31 @@ static int case_alliance_block_reason(FILE *summary) {
     return strcmp(reason, "truce") == 0;
 }
 
+static int case_four_heritage_affinity(FILE *summary) {
+    DiplomacyRelation r;
+    int same_ok = 1, diff_ok = 1, annual_ok = 1, war_ok = 1;
+    for (int h = 0; h < CIV_HERITAGE_COUNT; h++) {
+        reset_relation_probe_fixture();
+        civs[0].heritage = h; civs[1].heritage = h;
+        diplomacy_mark_contacts_dirty(); diplomacy_update_contacts();
+        same_ok &= diplomacy_relation(0, 1).relation_score == 15;
+        war_ok &= war_desire_calculate(0, 1, diplomacy_relation(0, 1)).heritage_affinity_penalty == 8;
+        r = diplomacy_relation(0, 1);
+        diplomacy_relation_score_begin_year();
+        diplomacy_relation_score_apply_year(0, 1, r);
+        annual_ok &= factor_delta(diplomacy_relation_breakdown(0, 1), DIP_REL_FACTOR_HERITAGE) == 10;
+        diplomacy_relation_score_end_year();
+        reset_relation_probe_fixture();
+        civs[0].heritage = h; civs[1].heritage = (h + 1) % CIV_HERITAGE_COUNT;
+        diplomacy_mark_contacts_dirty(); diplomacy_update_contacts();
+        diff_ok &= diplomacy_relation(0, 1).relation_score == 0;
+        war_ok &= war_desire_calculate(0, 1, diplomacy_relation(0, 1)).heritage_affinity_penalty == 0;
+    }
+    fprintf(summary, "case=four_heritage_affinity same_bonus=%d annual=%d war=%d different_none=%d count=%d\n",
+            same_ok, annual_ok, war_ok, diff_ok, CIV_HERITAGE_COUNT);
+    return same_ok && annual_ok && war_ok && diff_ok && CIV_HERITAGE_COUNT == 4;
+}
+
 int run_diplomacy_relation_probe_cases(FILE *summary) {
     int ok = 1;
     ok &= case_directional_scores(summary);
@@ -461,5 +487,6 @@ int run_diplomacy_relation_probe_cases(FILE *summary) {
     ok &= case_tense_recovery_stability(summary);
     ok &= case_peace_grouping_stability(summary);
     ok &= case_alliance_block_reason(summary);
+    ok &= case_four_heritage_affinity(summary);
     return ok;
 }

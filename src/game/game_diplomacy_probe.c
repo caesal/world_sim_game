@@ -3,6 +3,7 @@
 #include "core/render_snapshot.h"
 #include "core/render_snapshot_cache.h"
 #include "core/game_state.h"
+#include "game/game_alliance_lifecycle_probe.h"
 #include "game/game_alliance_probe.h"
 #include "game/game_diplomacy_relation_probe.h"
 #include "game/game_diplomacy_tooltip_probe.h"
@@ -465,6 +466,7 @@ int run_diplomacy_probe(void) {
     ok_all &= case_truce_expiry_and_memory_clear(summary);
     ok_all &= case_high_pressure_can_war(summary);
     ok_all &= case_war_panel_cache_key(summary);
+    ok_all &= run_alliance_lifecycle_extra_probe_cases(summary);
     ok_all &= run_alliance_probe_cases(summary);
     ok_all &= run_diplomacy_relation_probe_cases(summary);
     ok_all &= run_diplomacy_tooltip_probe_cases(summary);

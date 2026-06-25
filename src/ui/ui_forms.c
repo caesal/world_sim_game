@@ -204,7 +204,7 @@ void ui_forms_write_civ(int civ_id) {
 }
 
 static void ui_randomize_civilization_form(HWND hwnd) {
-    int heritage = rnd(2) == 0 ? CIV_HERITAGE_WESTERN : CIV_HERITAGE_EASTERN;
+    int heritage = civilization_heritage_or_default(rnd(CIV_HERITAGE_COUNT));
     int name_id = civilization_pick_unused_name_id_for_heritage(heritage);
     char symbol_text[2] = {random_unused_symbol(), '\0'};
     set_window_text_utf8(form.name_edit, country_name_localized_for_heritage(heritage, name_id, ui_language));

@@ -50,7 +50,7 @@ static int panel_hover_target(RECT client, int x, int y) {
     if (panel_tab == PANEL_COUNTRY) {
         if (display_mode == DISPLAY_ALLIANCE && ui_alliance_panel_owns_input()) return panel_tab * 100000 + ui_alliance_panel_hover_hit(client, x, y);
         if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
-            tooltip_key = diplomacy_score_tooltip_hover_key(x, y);
+            tooltip_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY, x, y);
             if (tooltip_key > 0) return 7000000 + tooltip_key;
         }
         return panel_tab * 100000 + country_panel_hit_test(client, x, y);

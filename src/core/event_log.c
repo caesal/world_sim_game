@@ -53,6 +53,7 @@ static const char *event_type_label(EventLogType type, int language) {
         case EVENT_TYPE_DIPLOMACY_TENSE: return zh ? "外交紧张" : "Diplomatic tension";
         case EVENT_TYPE_DIPLOMACY_ALLIANCE: return zh ? "外交同盟" : "Diplomatic alliance";
         case EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED: return zh ? "同盟结束" : "Alliance ended";
+        case EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT: return zh ? "战败退盟" : "Forced alliance exit";
         case EVENT_TYPE_TREASURY_INDEMNITY: return zh ? "战争赔款" : "War indemnity";
         case EVENT_TYPE_STABILITY_PROJECT: return zh ? "国库维稳" : "Treasury stability";
         case EVENT_TYPE_MERCENARIES_HIRED: return zh ? "雇佣兵" : "Mercenaries";
@@ -144,6 +145,14 @@ static const char *event_civ_name(int civ_id, const EventCivSnapshot *snapshot, 
     if (snapshot && snapshot->uid > 0) return language ? snapshot->name_zh : snapshot->name_en;
     if (civ_id < 0 || civ_id >= civ_count) return language ? "未知国家" : "Unknown country";
     return civilization_display_name_for_language(civ_id, language);
+}
+void event_log_alliance_snapshot_name(const EventLogEntry *entry, int language, char *out, size_t out_size) {
+    const char *raw = entry ? entry->raw_message : "";
+    const char *sep = raw ? strchr(raw, '\t') : NULL;
+    if (!out || out_size == 0) return;
+    if (sep && language) snprintf(out, out_size, "%s", sep + 1);
+    else if (sep) snprintf(out, out_size, "%.*s", (int)(sep - raw), raw);
+    else snprintf(out, out_size, "%s", raw && raw[0] ? raw : (language ? "未知同盟" : "Unknown alliance"));
 }
 static void localized_raw_fallback(const EventLogEntry *entry, int language, char *out, size_t out_size) {
     const char *raw = entry->raw_message;
@@ -324,6 +333,13 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
         case EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED:
             snprintf(out, out_size, zh ? "%s与%s结束同盟。" : "%s and %s ended their alliance.", civ, target);
             return;
+        case EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT: {
+            char alliance[EVENT_LOG_LEN];
+            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size, zh ? "%s在与%s的战争中失利，被迫退出%s。" :
+                     "%s lost the war against %s and was forced out of %s.", civ, target, alliance);
+            return;
+        }
         case EVENT_TYPE_TREASURY_INDEMNITY:
             snprintf(out, out_size,
                      zh ? "%s向%s支付赔款，抵消%d个割地；实际割让%d个，花费%d。" :
