@@ -24,3 +24,6 @@ saves/
 logs/uiux_phase4_evidence/
 logs/validation/
 logs/worldgen_probe.txt
+logs/expansion_perf_probe.txt
+logs/expansion_perf_before_after_*.txt
+logs/expansion_border_zoom.bmp

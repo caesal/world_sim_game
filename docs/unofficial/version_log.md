@@ -1,5 +1,52 @@
 # Version Log
 
+## Ver0.3.4.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.4.b.
+2. Added an early-expansion performance probe for Extreme-map political/static
+   map cache rebuild behavior.
+3. Optimized static map border overlay rebuilds so small ownership/province
+   changes can use incremental border updates instead of broad full-overlay
+   rebuilds.
+4. Fixed the incremental border update visual regression by redrawing the full
+   affected neighborhood after clearing, preserving exact output compared with
+   a full border rebuild.
+5. Verified country and province borders stay continuous solid pixel lines in
+   the focused probe while the map grid remains dotted.
+6. Changed province border color to `RGB(104, 76, 46)` so province boundaries
+   read as a warmer brown while country borders remain darker and thicker.
+7. Updated build lists and command-line probe routing for
+   `--probe-expansion-perf`.
+8. Updated the root README, documentation index, version log, side doc, active
+   version marker, and generated-log ignore rules for Ver0.3.4.b.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `15`.
+- No expansion rules, ownership semantics, political fill semantics, city icon
+  rules, diplomacy, war, alliance behavior, name generation, or save format are
+  intentionally changed by this checkpoint.
+- Dotted map grid rendering is preserved. The continuous-line requirement
+  applies to country and province borders, not to the grid overlay.
+
+Validation notes:
+
+- Ver0.3.4.b uses `WORLD_SIM_VERSION "0.3.4.b"`.
+- Canonical `make -B world_sim.exe` and `cmd /c build.bat` were attempted
+  first but could not overwrite the running locked executable; temporary-target
+  `make` and temporary-output `build.bat` validation passed.
+- Focused expansion-border validation passed with incremental-vs-full border
+  bitmap equality, province color presence, country/province continuity checks,
+  and dotted-grid preservation.
+- Focused validation passed for `git diff --check`, `make check-text`, `.c`
+  include scan, touched `.c/.h` line counts, touched-file mojibake scan,
+  `--probe-expansion-perf`, `--probe-presentation`, `--probe-diplomacy`, and
+  `--probe-worldgen`.
+- Full AGENTS Rule39 validation must still be rerun before claiming broad
+  release-ready/gameplay acceptance for this checkpoint.
+
 ## Ver0.3.4.a
 
 Implemented fixes:

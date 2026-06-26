@@ -7,13 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.4.a is a Windows graphical sandbox prototype written in C.
+Ver0.3.4.b is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.4.a is a checkpoint over Ver0.3.4 before the next expansion/render
-stutter pass. It keeps the Ver0.3.4 alliance lifecycle baseline, then freezes
-the current forced war-defeat alliance-exit stack, forced-breakup cooldown,
-alliance history/event-log polish, alliance name reuse fix, four-heritage
-country-name pools, and diplomacy tooltip stability work.
+Ver0.3.4.b is a checkpoint over Ver0.3.4.a for early-expansion map-border
+performance and border visual correctness. It keeps the Ver0.3.4.a alliance
+lifecycle, forced war-defeat alliance-exit, four-heritage country-name, and
+diplomacy tooltip stability baseline, then adds incremental static border
+overlay updates with exactness checks, continuous country/province border
+coverage, and the warmer province-border color `RGB(104, 76, 46)`.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -24,10 +25,10 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.4.a is a source/tag checkpoint over the current working
+Validation note: Ver0.3.4.b is a source/tag checkpoint over the current working
 state. The earlier Ver0.3.4 Rule39 run remains historical evidence for the
 previous release stack; this checkpoint must not be described as full
-release-ready acceptance unless a fresh Rule39 run for Ver0.3.4.a is completed.
+release-ready acceptance unless a fresh Rule39 run for Ver0.3.4.b is completed.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

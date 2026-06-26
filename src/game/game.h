@@ -43,5 +43,6 @@ int run_diplomacy_probe(void);
 int run_population_probe(void);
 int run_presentation_probe(void);
 int run_worldgen_probe(void);
+int run_expansion_perf_probe(void);
 
 #endif

@@ -404,8 +404,9 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
                cache_matches(&fill_cache, target_fill_key)) {
         DWORD step_start = GetTickCount();
         render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_BORDER);
-        if (rebuild_overlay_layer(hdc, &border_cache, NULL)) {
+        if (ensure_cache(hdc, &border_cache)) {
             render_static_map_cache_build_border_pixels(&border_cache, render_context_snapshot());
+            border_cache.display = display_mode; border_cache.valid = 1;
             mark_cache_valid(&border_cache, border_key, 1); profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
             if (border_key == live_border_key) dirty_clear_render_borders();
         }
@@ -430,8 +431,9 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
     } else if (!built_primary_step && border_needs) {
         DWORD step_start = GetTickCount();
         render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_BORDER);
-        if (rebuild_overlay_layer(hdc, &border_cache, NULL)) {
+        if (ensure_cache(hdc, &border_cache)) {
             render_static_map_cache_build_border_pixels(&border_cache, render_context_snapshot());
+            border_cache.display = display_mode; border_cache.valid = 1;
             mark_cache_valid(&border_cache, border_key, 1); profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
             if (border_key == live_border_key) dirty_clear_render_borders();
         }

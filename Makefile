@@ -13,6 +13,7 @@ SOURCES := \
 	src/game/game_player_actions.c \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
+	src/game/game_expansion_perf_probe.c \
 	src/game/game_worldgen_probe.c \
 	src/game/game_crisis_probe.c \
 	src/game/game_alliance_lifecycle_probe.c \
