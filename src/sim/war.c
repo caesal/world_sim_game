@@ -8,6 +8,7 @@
 #include "sim/population.h"
 #include "sim/population_military.h"
 #include "sim/simulation.h"
+#include "sim/alliance_military.h"
 #include "sim/stability_decision.h"
 #include "sim/technology.h"
 #include "sim/vassal.h"
@@ -433,11 +434,13 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     if (war->years % WAR_BATTLE_INTERVAL_YEARS != 0) return;
     update_supply_state(war);
     effective_a = scaled_soldiers_for_battle(war->attacker,
-                                             war->soldiers_a + war->temporary_soldiers_a +
-                                             side_support_soldiers(war->attacker), 0);
+                                              war->soldiers_a + war->temporary_soldiers_a +
+                                              side_support_soldiers(war->attacker) +
+                                              alliance_military_support_for_war(war, 1), 0);
     effective_b = scaled_soldiers_for_battle(war->defender,
-                                             war->soldiers_b + war->temporary_soldiers_b +
-                                             side_support_soldiers(war->defender), 1);
+                                              war->soldiers_b + war->temporary_soldiers_b +
+                                              side_support_soldiers(war->defender) +
+                                              alliance_military_support_for_war(war, 0), 1);
     chance_a = effective_a * 1000 / max(1, effective_a + effective_b);
     chance_b = 1000 - chance_a;
     chance_a += technology_battle_chance_bonus(war->attacker) * 10;
@@ -466,8 +469,10 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     war->casualties_b += casualties_b;
     apply_population_casualties(war->attacker, regular_casualties_a);
     apply_population_casualties(war->defender, regular_casualties_b);
-    war->support_casualties_a += apply_support_casualties(war->attacker);
-    war->support_casualties_b += apply_support_casualties(war->defender);
+    war->support_casualties_a += apply_support_casualties(war->attacker) +
+                                 alliance_military_apply_support_casualties(war, 1);
+    war->support_casualties_b += apply_support_casualties(war->defender) +
+                                 alliance_military_apply_support_casualties(war, 0);
     cap_deployed_to_national(war->attacker);
     cap_deployed_to_national(war->defender);
     peace_a = peace_desire(war->attacker, war->casualties_a, war->initial_soldiers_a, war->initial_national_a);
@@ -490,11 +495,5 @@ void war_update_year(void) {
     while (!war_update_year_step(&cursor, 8, &tail_cut_done, &changed)) {}
 }
 const char *war_outcome_name(WarOutcome outcome) {
-    switch (outcome) {
-        case WAR_OUTCOME_NONE: return "None";
-        case WAR_OUTCOME_ATTACKER_WIN: return "Attacker Win";
-        case WAR_OUTCOME_DEFENDER_WIN: return "Defender Win";
-        case WAR_OUTCOME_STALEMATE: return "Stalemate";
-        default: return "Unknown";
-    }
+    return war_outcome_name_impl(outcome);
 }

@@ -16,10 +16,13 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ALLIANCE_UNION_YEARS 800
-
 static int alive_civ(int civ_id) {
     return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
+}
+
+int alliance_union_required_years_for_type(int alliance_type) {
+    return alliance_type == ALLIANCE_TYPE_MILITARY ? ALLIANCE_UNION_MILITARY_YEARS :
+           ALLIANCE_UNION_DEFENSIVE_YEARS;
 }
 
 static int collect_members(const AllianceRecord *record, int *members, int *latest_join_year) {
@@ -186,7 +189,8 @@ int alliance_union_try(int alliance_id) {
     record = &state->records[alliance_id];
     if (!record->active) return 0;
     count = collect_members(record, members, &latest_join);
-    if (count < 2 || year - latest_join < ALLIANCE_UNION_YEARS) return 0;
+    if (count < 2 || year - latest_join < alliance_union_required_years_for_type(state->alliance_type[alliance_id]))
+        return 0;
     founder = record->founder_civ_id;
     if (!alive_civ(founder) || !alliance_is_formal_member(alliance_id, founder)) return 0;
     new_civ = civilization_allocate_slot(1);

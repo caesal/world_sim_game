@@ -18,6 +18,8 @@ static unsigned int mix_war_key(unsigned int key, const RenderSnapshot *snapshot
     key = mix_key(key, war->soldiers_b);
     key = mix_key(key, war->temporary_soldiers_a);
     key = mix_key(key, war->temporary_soldiers_b);
+    key = mix_key(key, war->alliance_reinforcements_a);
+    key = mix_key(key, war->alliance_reinforcements_b);
     key = mix_key(key, war->casualties_a);
     key = mix_key(key, war->casualties_b);
     key = mix_key(key, war->support_casualties_a);

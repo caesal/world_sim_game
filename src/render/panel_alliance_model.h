@@ -24,6 +24,7 @@ typedef struct {
     int tech_stage;
     int tech_progress;
     int war_count;
+    int type;
     int founded_year;
     int latest_join_year;
     Color32 color;
@@ -46,6 +47,7 @@ typedef struct {
 
 const AlliancePanelModel *alliance_panel_model_get(const RenderSnapshot *snapshot, int show_fallen,
                                                    int sort_column, int sort_descending);
+int alliance_panel_row_type_group(const AlliancePanelRow *row);
 const AlliancePanelRow *alliance_panel_model_find_alliance(const AlliancePanelModel *model,
                                                            int alliance_id);
 const AllianceSnapshotRecord *alliance_panel_snapshot_record(const RenderSnapshot *snapshot,

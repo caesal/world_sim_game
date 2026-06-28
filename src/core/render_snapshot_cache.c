@@ -10,6 +10,7 @@
 #include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
+#include "sim/alliance_military.h"
 #include "sim/war_front.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -121,6 +122,8 @@ static void copy_war(SnapshotWar *dst, ActiveWar war) {
     dst->support_casualties_b = war.support_casualties_b;
     dst->temporary_soldiers_a = war.temporary_soldiers_a;
     dst->temporary_soldiers_b = war.temporary_soldiers_b;
+    dst->alliance_reinforcements_a = alliance_military_support_for_war(&war, 1);
+    dst->alliance_reinforcements_b = alliance_military_support_for_war(&war, 0);
     dst->wins_a = war.wins_a; dst->wins_b = war.wins_b; dst->years = war.years;
 }
 

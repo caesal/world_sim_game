@@ -7,14 +7,13 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.4.b is a Windows graphical sandbox prototype written in C.
+Ver0.3.5 is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.4.b is a checkpoint over Ver0.3.4.a for early-expansion map-border
-performance and border visual correctness. It keeps the Ver0.3.4.a alliance
-lifecycle, forced war-defeat alliance-exit, four-heritage country-name, and
-diplomacy tooltip stability baseline, then adds incremental static border
-overlay updates with exactness checks, continuous country/province border
-coverage, and the warmer province-border color `RGB(104, 76, 46)`.
+Ver0.3.5 advances the alliance system with Military Alliances, weighted
+Alliance Council votes, council-seat UI, military-alliance war reinforcement
+rules, revised alliance vote probabilities, vote-year council snapshots, and
+self-consistent candidate/vote history display. It builds on the Ver0.3.4.b
+border-cache checkpoint while keeping the prior map-fill and border semantics.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -25,10 +24,11 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.4.b is a source/tag checkpoint over the current working
-state. The earlier Ver0.3.4 Rule39 run remains historical evidence for the
-previous release stack; this checkpoint must not be described as full
-release-ready acceptance unless a fresh Rule39 run for Ver0.3.4.b is completed.
+Validation note: Ver0.3.5 has focused build and probe validation for the
+Military Alliance, Alliance Council, diplomacy, presentation, and worldgen
+paths. The earlier Ver0.3.4 Rule39 run remains historical evidence for the
+previous release stack; Ver0.3.5 must not be described as full release-ready
+acceptance unless a fresh Rule39 run for Ver0.3.5 is completed.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

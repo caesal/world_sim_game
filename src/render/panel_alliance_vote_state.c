@@ -1,4 +1,5 @@
 #include "render/panel_alliance_vote_state.h"
+#include "render/panel_alliance_council.h"
 
 static int ring_index(int next, int cap, int newest_offset) {
     int index = next - 1 - newest_offset;
@@ -8,7 +9,8 @@ static int ring_index(int next, int cap, int newest_offset) {
 
 static int retryable_reason(int type, int reason) {
     return reason == ALLIANCE_REJECT_VOTE_FAILED &&
-           (type == ALLIANCE_CANDIDATE_JOIN || type == ALLIANCE_CANDIDATE_REMOVAL);
+           (type == ALLIANCE_CANDIDATE_JOIN || type == ALLIANCE_CANDIDATE_REMOVAL ||
+            type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE);
 }
 
 static int terminal_reason(const AllianceCandidateRecord *candidate) {
@@ -16,16 +18,30 @@ static int terminal_reason(const AllianceCandidateRecord *candidate) {
            !retryable_reason(candidate->type, candidate->rejection_reason);
 }
 
+static int first_vote_years_for_type(int type) {
+    return type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_REMOVAL_FIRST_VOTE_YEARS :
+           ALLIANCE_JOIN_FIRST_VOTE_YEARS;
+}
+
+static int retry_vote_years_for_type(int type) {
+    if (type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE) return ALLIANCE_MILITARY_RETRY_YEARS;
+    return type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_REMOVAL_RETRY_VOTE_YEARS :
+           ALLIANCE_JOIN_RETRY_VOTE_YEARS;
+}
+
 static int elapsed_candidate_years(const RenderSnapshot *snapshot,
                                    const AllianceCandidateRecord *candidate) {
-    int from_progress = clamp(candidate->qualification_progress, 0, 100) * ALLIANCE_JOIN_FIRST_VOTE_YEARS / 100;
+    int first_years = first_vote_years_for_type(candidate ? candidate->type : ALLIANCE_CANDIDATE_JOIN);
+    int from_progress = clamp(candidate->qualification_progress, 0, 100) * first_years / 100;
     int from_year = snapshot ? max(0, snapshot->year - candidate->candidate_year + 1) : 0;
-    return max(from_progress, min(from_year, ALLIANCE_JOIN_FIRST_VOTE_YEARS));
+    return max(from_progress, min(from_year, first_years));
 }
 
 int alliance_vote_state_vote_type(const AllianceCandidateRecord *candidate) {
-    return candidate && candidate->type == ALLIANCE_CANDIDATE_REMOVAL ?
-           ALLIANCE_VOTE_REMOVAL : ALLIANCE_VOTE_JOIN;
+    if (candidate && candidate->type == ALLIANCE_CANDIDATE_REMOVAL) return ALLIANCE_VOTE_REMOVAL;
+    if (candidate && candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE)
+        return ALLIANCE_VOTE_MILITARY_UPGRADE;
+    return ALLIANCE_VOTE_JOIN;
 }
 
 const AllianceVoteRecord *alliance_vote_state_previous_vote(const AllianceSnapshotRecord *record,
@@ -55,12 +71,16 @@ static int vote_window_year(const RenderSnapshot *snapshot,
     if (!snapshot || !candidate || terminal_reason(candidate)) return 0;
     if (last_vote && last_vote->passed) return 0;
     if (last_vote && retryable_reason(candidate->type, last_vote->rejection_reason)) {
+        int retry_years = retry_vote_years_for_type(candidate->type);
         since = max(0, snapshot->year - last_vote->vote_year);
-        return since >= ALLIANCE_JOIN_RETRY_VOTE_YEARS && since % ALLIANCE_JOIN_RETRY_VOTE_YEARS == 0;
+        return since >= retry_years && since % retry_years == 0;
     }
+    if (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE)
+        return candidate->status == ALLIANCE_CANDIDATE_ACTIVE;
     years = max(0, snapshot->year - candidate->candidate_year + 1);
-    return years >= ALLIANCE_JOIN_FIRST_VOTE_YEARS &&
-           ((years - ALLIANCE_JOIN_FIRST_VOTE_YEARS) % ALLIANCE_JOIN_RETRY_VOTE_YEARS) == 0;
+    return years >= first_vote_years_for_type(candidate->type) &&
+           ((years - first_vote_years_for_type(candidate->type)) %
+            retry_vote_years_for_type(candidate->type)) == 0;
 }
 
 AllianceCandidatePhase alliance_vote_state_phase(const RenderSnapshot *snapshot,
@@ -96,15 +116,16 @@ int alliance_vote_state_progress(const RenderSnapshot *snapshot, const AllianceC
     int value = 100, remaining = 0, total = 1;
     if (phase == ALLIANCE_CANDIDATE_PHASE_FIRST_COUNTDOWN) {
         int years = elapsed_candidate_years(snapshot, candidate);
-        total = ALLIANCE_JOIN_FIRST_VOTE_YEARS;
-        remaining = max(0, ALLIANCE_JOIN_FIRST_VOTE_YEARS - years);
-        value = years * 100 / ALLIANCE_JOIN_FIRST_VOTE_YEARS;
+        total = first_vote_years_for_type(candidate ? candidate->type : ALLIANCE_CANDIDATE_JOIN);
+        remaining = max(0, total - years);
+        value = years * 100 / max(1, total);
     } else if (phase == ALLIANCE_CANDIDATE_PHASE_WAIT_RETRY) {
+        int retry_years = retry_vote_years_for_type(candidate ? candidate->type : ALLIANCE_CANDIDATE_JOIN);
         int waited = snapshot && last_vote ? min(max(0, snapshot->year - last_vote->vote_year),
-                                                 ALLIANCE_JOIN_RETRY_VOTE_YEARS) : 0;
-        total = ALLIANCE_JOIN_RETRY_VOTE_YEARS;
-        remaining = max(0, ALLIANCE_JOIN_RETRY_VOTE_YEARS - waited);
-        value = waited * 100 / ALLIANCE_JOIN_RETRY_VOTE_YEARS;
+                                                 retry_years) : 0;
+        total = retry_years;
+        remaining = max(0, retry_years - waited);
+        value = waited * 100 / retry_years;
     }
     if (remaining_out) *remaining_out = remaining;
     if (total_out) *total_out = total;
@@ -164,8 +185,15 @@ int alliance_vote_state_candidate_member_count(const RenderSnapshot *snapshot,
                                                const AllianceVoteRecord *last_vote) {
     int i, count = 0;
     int vote_year = alliance_vote_state_candidate_vote_year(snapshot, candidate, last_vote);
+    int subject = candidate && candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ?
+                  -1 : (candidate ? candidate->civ_id : -1);
+    if (alliance_council_vote_has_snapshot(record, last_vote)) {
+        for (i = 0; i < MAX_CIVS; i++)
+            if (alliance_council_vote_units_for_member(record, last_vote, i) > 0) count++;
+        return count;
+    }
     for (i = 0; record && candidate && i < record->member_count && i < MAX_CIVS; i++) {
-        if (alliance_vote_state_member_can_vote(record, record->members[i], candidate->civ_id, vote_year))
+        if (alliance_vote_state_member_can_vote(record, record->members[i], subject, vote_year))
             count++;
     }
     return count;
@@ -174,7 +202,13 @@ int alliance_vote_state_candidate_member_count(const RenderSnapshot *snapshot,
 int alliance_vote_state_vote_member_count(const AllianceSnapshotRecord *record,
                                           const AllianceVoteRecord *vote) {
     int i, count = 0;
-    int subject = vote && vote->vote_type != ALLIANCE_VOTE_CREATE ? vote->target_civ_id : -1;
+    int subject = vote && vote->vote_type != ALLIANCE_VOTE_CREATE &&
+                  vote->vote_type != ALLIANCE_VOTE_MILITARY_UPGRADE ? vote->target_civ_id : -1;
+    if (alliance_council_vote_has_snapshot(record, vote)) {
+        for (i = 0; i < MAX_CIVS; i++)
+            if (alliance_council_vote_units_for_member(record, vote, i) > 0) count++;
+        return count;
+    }
     for (i = 0; record && vote && i < record->member_count && i < MAX_CIVS; i++) {
         if (alliance_vote_state_member_can_vote(record, record->members[i], subject, vote->vote_year))
             count++;

@@ -1,5 +1,63 @@
 # Version Log
 
+## Ver0.3.5
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.
+2. Added Military Alliances as an evolved alliance type with automatic
+   leader-initiated upgrade voting.
+3. Added Alliance Council vote weights with 1000 internal units and 80 displayed
+   council seats.
+4. Added 8-year council elections and immediate council recalculation when
+   alliance members join or leave.
+5. Added Military Alliance war support, weighted indemnity sharing, and the
+   rule that Military Alliances do not use defensive forced-exit settlement to
+   avoid cession or indemnity.
+6. Added weighted Military Alliance upgrade and join voting with 2/3 and 3/4
+   displayed thresholds.
+7. Updated candidate timing and vote probabilities for the current alliance
+   lifecycle rules.
+8. Added the Alliance Council visual section with 80 visible seats, threshold
+   chips, election timing, member seat rows, and central dais alignment.
+9. Added vote-year council snapshots so historical Military Alliance votes keep
+   their original eligible-voter allocation after later elections or member
+   changes.
+10. Fixed Military Alliance join vote display so the candidate does not vote in
+    its own join vote and passed join votes cannot display below `61 / 80`.
+11. Updated build lists and focused probes for Military Alliance and council
+    behavior.
+12. Updated the root README, documentation index, version log, side doc, and
+    active version marker for Ver0.3.5.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` is now `17`.
+- Defensive Alliance join voting remains all-member approval.
+- Military Alliance join voting uses weighted council votes and requires strict
+  approval above the displayed `61 / 80` threshold.
+- Military Alliance upgrade voting uses weighted council votes and requires
+  strict approval above the displayed `54 / 80` threshold.
+- Defensive Alliance union eligibility remains 800 years; Military Alliance
+  union eligibility is 500 years.
+- No map ownership/fill, world-generation, route-potential, plague, population,
+  or economy behavior is intentionally changed by this checkpoint.
+
+Validation notes:
+
+- Ver0.3.5 uses `WORLD_SIM_VERSION "0.3.5"`.
+- Canonical `make -B world_sim.exe` passed.
+- Canonical `cmd /c build.bat` passed.
+- Focused validation passed for `git diff --check`, `make check-text`, `.c`
+  include scan, touched/new `.c/.h` line counts, `--probe-military-alliance`,
+  `--probe-presentation`, `--probe-diplomacy`, and `--probe-worldgen`.
+- `--probe-military-alliance` reported `case=military_join_vote_snapshot ok=1`
+  with `yes=62`, `no=18`, `candidate_seats=0`, `fail_yes=60`, and
+  `fail_passed=0`.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5. Do not claim
+  full release-ready/gameplay acceptance until a fresh Rule39 run is completed
+  for this checkpoint.
+
 ## Ver0.3.4.b
 
 Implemented fixes:

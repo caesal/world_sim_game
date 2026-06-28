@@ -60,6 +60,15 @@ static COLORREF status_color(int war_count) {
     return war_count > 0 ? RGB(112, 58, 52) : RGB(56, 88, 64);
 }
 
+static const char *alliance_type_label(int type) {
+    return type == ALLIANCE_TYPE_MILITARY ? tr("Military Alliance", "军事同盟") :
+                                            tr("Defensive Alliance", "防御同盟");
+}
+
+static COLORREF alliance_type_color(int type) {
+    return type == ALLIANCE_TYPE_MILITARY ? RGB(76, 64, 128) : RGB(62, 72, 94);
+}
+
 COLORREF alliance_panel_probe_no_alliance_badge_color(void) { return RGB(128, 128, 128); }
 int alliance_panel_probe_country_row_badge_count(void) { return 2; }
 
@@ -173,7 +182,7 @@ static void draw_alliance_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot
     fill_rect(hdc, swatch, (COLORREF)row->color);
     draw_text_rect(hdc, name_rect, alliance_name(snapshot, row->alliance_id),
                    ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_badge(hdc, type_rect, RGB(62, 72, 94), tr("Defensive Alliance", "防御同盟"));
+    draw_badge(hdc, type_rect, alliance_type_color(row->type), alliance_type_label(row->type));
     draw_badge(hdc, status_rect, status_color(row->war_count), status_label(row->war_count));
     draw_row_metrics(hdc, rect, row);
 }
@@ -281,7 +290,7 @@ static void draw_summary(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
     draw_text_rect(hdc, name_rect, alliance_name(snapshot, row->alliance_id),
                    ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     snprintf(text, sizeof(text), "%s | %s %s | %s %d | %s %d | %s %s | %s %s",
-             tr("Defensive Alliance", "防御同盟"), tr("Status", "状态"), status_label(row->war_count),
+             alliance_type_label(row->type), tr("Status", "状态"), status_label(row->war_count),
              tr("Members", "成员"), row->member_count, tr("Vassals", "附庸"), row->vassal_count,
              tr("Pop", "人口"), pop, tr("Army", "军队"), mil);
     draw_text_rect(hdc, summary, text, ui_theme_color(UI_COLOR_TEXT_MUTED),

@@ -1,6 +1,7 @@
 #include "render/panel_alliance_detail.h"
 
 #include "render/icons.h"
+#include "render/panel_alliance_council.h"
 #include "render/panel_alliance_history.h"
 #include "render/panel_alliance_sections.h"
 #include "render/panel_alliance_votes.h"
@@ -28,11 +29,21 @@ static const char *status_label(int war_count) {
     return war_count > 0 ? tr("War", "战争") : tr("Peace", "和平");
 }
 
+static const char *alliance_type_label(int type) {
+    return type == ALLIANCE_TYPE_MILITARY ? tr("Military Alliance", "军事同盟") :
+                                            tr("Defensive Alliance", "防御同盟");
+}
+
+static COLORREF alliance_type_color(int type) {
+    return type == ALLIANCE_TYPE_MILITARY ? RGB(76, 64, 128) : RGB(104, 142, 174);
+}
+
 const char *alliance_detail_vote_type_label(int type) {
     switch (type) {
         case ALLIANCE_VOTE_CREATE: return tr("Creation vote", "创建投票");
         case ALLIANCE_VOTE_JOIN: return tr("Join vote", "加入投票");
         case ALLIANCE_VOTE_REMOVAL: return tr("Removal vote", "清退投票");
+        case ALLIANCE_VOTE_MILITARY_UPGRADE: return tr("Upgrade Vote", "升级投票");
         default: return tr("Vote", "投票");
     }
 }
@@ -93,8 +104,8 @@ static void draw_overview(HDC hdc, UiCursor *cursor, const RenderSnapshot *snaps
     OverviewCard cards[9];
     int i;
     memset(cards, 0, sizeof(cards));
-    cards[0] = (OverviewCard){ICON_COUNTRY_DEFENSE, tr("Type", "类型"), "", RGB(104, 142, 174)};
-    snprintf(cards[0].value, sizeof(cards[0].value), "%s", tr("Defensive Alliance", "防御同盟"));
+    cards[0] = (OverviewCard){ICON_COUNTRY_DEFENSE, tr("Type", "类型"), "", alliance_type_color(row->type)};
+    snprintf(cards[0].value, sizeof(cards[0].value), "%s", alliance_type_label(row->type));
     cards[1] = (OverviewCard){ICON_BATTLE, tr("Status", "状态"), "", row->war_count ? RGB(170, 82, 74) : RGB(90, 150, 96)};
     snprintf(cards[1].value, sizeof(cards[1].value), "%s", status_label(row->war_count));
     cards[2] = (OverviewCard){ICON_TERRITORY, tr("Founded year", "成立年份"), "", RGB(154, 128, 74)};
@@ -119,14 +130,16 @@ static void draw_overview(HDC hdc, UiCursor *cursor, const RenderSnapshot *snaps
         draw_overview_card(hdc, grid3_rect(row_rect, 2), &cards[i + 2]);
         cursor->y += 8;
     }
+    alliance_council_draw_overview(hdc, cursor, snapshot, row);
 }
 
 static void draw_union(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot,
                        const AlliancePanelRow *row) {
     int latest = row->latest_join_year > 0 ? row->latest_join_year : row->founded_year;
     int elapsed = max(0, snapshot->year - latest);
-    int remaining = max(0, 800 - elapsed);
-    int progress = clamp(elapsed * 100 / 800, 0, 100);
+    int target = alliance_union_required_years_for_type(row->type);
+    int remaining = max(0, target - elapsed);
+    int progress = clamp(elapsed * 100 / max(1, target), 0, 100);
     char text[128];
     ui_section(hdc, cursor, tr("Union Eligibility", "联合资格"));
     snprintf(text, sizeof(text), "%d", latest);
@@ -143,6 +156,9 @@ static void draw_union(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot
                 remaining == 0 ? tr("Eligible for automatic union.", "已符合自动联合资格。") :
                 tr("Not yet eligible.", "尚未符合资格。"));
     ui_row_text(hdc, cursor, tr("Scope", "范围"),
+                row->type == ALLIANCE_TYPE_MILITARY ?
+                tr("At 500 stable years, formal members merge into a new country.",
+                   "稳定满500年后，正式成员会合并为一个新国家。") :
                 tr("At 800 stable years, formal members merge into a new country.",
                    "稳定满800年后，正式成员会合并为一个新国家。"));
 }
@@ -154,7 +170,7 @@ int alliance_detail_content_height(const RenderSnapshot *snapshot, const Allianc
         case ALLIANCE_DETAIL_VOTES: return alliance_votes_content_height(snapshot, row);
         case ALLIANCE_DETAIL_HISTORY: return alliance_history_content_height(snapshot, row);
         case ALLIANCE_DETAIL_UNION: return 220;
-        default: return 250;
+        default: return 580;
     }
 }
 

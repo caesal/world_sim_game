@@ -349,8 +349,10 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
                  loser_alliance >= 0 ? alliance_name_en(loser_alliance) : "",
                  loser_alliance >= 0 ? alliance_name_zh(loser_alliance) : "");
         diplomacy_record_war_result_kind(winner, loser, (DiplomacyLastWarResult)last_war_result);
-        forced_alliance_exit = alliance_force_member_exit_for_war_defeat(
-            loser_alliance, loser, WAR_DEFEAT_ALLIANCE_EXIT_COOLDOWN_YEARS);
+        if (alliance_type(loser_alliance) != ALLIANCE_TYPE_MILITARY) {
+            forced_alliance_exit = alliance_force_member_exit_for_war_defeat(
+                loser_alliance, loser, WAR_DEFEAT_ALLIANCE_EXIT_COOLDOWN_YEARS);
+        }
         if (forced_alliance_exit) {
             transferred = 0;
             event_log_push_structured(EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT, EVENT_SEVERITY_WARNING,
@@ -360,6 +362,8 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
             cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
             cession_count = apply_indemnity_offset(loser, winner, cession_count,
                                                    &indemnity_offsets, &indemnity_spent);
+            if (indemnity_spent > 0 && alliance_type(alliance_for_civ(winner)) == ALLIANCE_TYPE_MILITARY)
+                alliance_council_distribute_indemnity(alliance_for_civ(winner), indemnity_spent);
             transferred = transfer_side_border_regions(loser, winner, cession_count);
             if (indemnity_offsets > 0) {
                 event_log_push_structured(EVENT_TYPE_TREASURY_INDEMNITY, EVENT_SEVERITY_WARNING,

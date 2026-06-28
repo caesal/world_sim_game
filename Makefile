@@ -18,6 +18,8 @@ SOURCES := \
 	src/game/game_crisis_probe.c \
 	src/game/game_alliance_lifecycle_probe.c \
 	src/game/game_alliance_record_probe.c \
+	src/game/game_military_alliance_probe.c \
+	src/game/game_military_alliance_rules_probe.c \
 	src/game/game_alliance_probe.c \
 	src/game/game_alliance_render_probe.c \
 	src/game/game_diplomacy_probe.c \
@@ -115,11 +117,14 @@ SOURCES := \
 	src/sim/spawn.c \
 	src/sim/expansion.c \
 	src/sim/alliance_state.c \
+	src/sim/alliance_query.c \
+	src/sim/alliance_council.c \
 	src/sim/alliance_records.c \
 	src/sim/alliance_contact.c \
 	src/sim/alliance_ai.c \
 	src/sim/alliance_union.c \
 	src/sim/alliance_power.c \
+	src/sim/alliance_military.c \
 	src/sim/alliance_names.c \
 	src/sim/diplomacy.c \
 	src/sim/diplomacy_year.c \
@@ -137,6 +142,7 @@ SOURCES := \
 	src/sim/war_player_peace.c \
 	src/sim/war_query.c \
 	src/sim/war_resolution.c \
+	src/sim/war_names.c \
 	src/sim/war_state.c \
 	src/render/render.c \
 	src/render/render_layer_cache.c \
@@ -188,6 +194,7 @@ SOURCES := \
 	src/render/panel_alliance_vote_state.c \
 	src/render/panel_alliance_votes.c \
 	src/render/panel_alliance_history.c \
+	src/render/panel_alliance_council.c \
 	src/render/panel_alliance_detail.c \
 	src/render/panel_alliance.c \
 	src/render/panel_country.c \

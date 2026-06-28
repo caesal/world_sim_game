@@ -16,7 +16,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#define MAP_SAVE_VERSION 15
+#define MAP_SAVE_VERSION 17
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {

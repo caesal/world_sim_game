@@ -202,7 +202,7 @@ static int case_ai_lifecycle(FILE *summary) {
     }
     reset_fixture(5); created = alliance_debug_create_pair(0, 1, 80); alliance_debug_add_member(created, 2, 80);
     set_pair(0, 2, -10, 100, DIPLOMACY_ALLIANCE); set_pair(1, 2, -10, 100, DIPLOMACY_ALLIANCE);
-    alliance_debug_set_kick_years(created, 2, 19); alliance_update_year();
+    alliance_debug_set_kick_years(created, 2, ALLIANCE_REMOVAL_FIRST_VOTE_YEARS - 1); alliance_update_year();
     kicked = alliance_for_civ(2) < 0 && alliance_internal_state()->kicked_cooldown[created][2] == 100;
     fprintf(summary,
             "case=alliance_ai_lifecycle create_seed=%d created=%d join_seed=%d joined=%d kicked=%d cooldown=%d\n",

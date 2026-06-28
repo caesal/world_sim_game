@@ -64,5 +64,6 @@ int war_start_independence(int attacker, int defender);
 void war_copy_save_state(ActiveWar *wars, int war_count, int *support, int support_count, int *total_started);
 void war_restore_save_state(const ActiveWar *wars, int war_count, const int *support, int support_count, int total_started);
 const char *war_outcome_name(WarOutcome outcome);
+const char *war_outcome_name_impl(WarOutcome outcome);
 
 #endif

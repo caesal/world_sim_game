@@ -53,6 +53,7 @@ static void fill_alliance_row(const RenderSnapshot *snapshot, const AllianceSnap
     row->civ_id = -1;
     row->leader_civ = -1;
     row->member_count = record->member_count;
+    row->type = record->type;
     row->founded_year = record->founded_year;
     row->latest_join_year = record->founded_year;
     row->color = record->color;
@@ -121,10 +122,15 @@ static int row_sort_value(const AlliancePanelRow *row, int column) {
     }
 }
 
+int alliance_panel_row_type_group(const AlliancePanelRow *row) {
+    if (!row || row->kind == ALLIANCE_PANEL_ROW_COUNTRY) return 2;
+    return row->type == ALLIANCE_TYPE_MILITARY ? 0 : 1;
+}
+
 static int row_should_move_before(const AlliancePanelRow *a, const AlliancePanelRow *b,
                                   int sort_column, int descending) {
-    int av, bv;
-    if (a->kind != b->kind) return a->kind == ALLIANCE_PANEL_ROW_ALLIANCE;
+    int av, bv, ag = alliance_panel_row_type_group(a), bg = alliance_panel_row_type_group(b);
+    if (ag != bg) return ag < bg;
     av = row_sort_value(a, sort_column);
     bv = row_sort_value(b, sort_column);
     if (av != bv) return descending ? av > bv : av < bv;

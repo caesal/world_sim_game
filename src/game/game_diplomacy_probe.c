@@ -454,23 +454,26 @@ static int case_war_panel_cache_key(FILE *summary) {
 int run_diplomacy_probe(void) {
     FILE *summary;
     int ok_all = 1;
+    int ok;
     ensure_probe_dirs();
     summary = fopen(DIPLOMACY_PROBE_DIR "/summary.txt", "w");
     if (!summary) return 2;
-    ok_all &= case_budgeted_diplomacy_year(summary);
-    ok_all &= case_snapshot_diplomacy_dead_slot_budget(summary);
-    ok_all &= case_alliance_blocks(summary);
-    ok_all &= case_player_alliance_dissolve(summary);
-    ok_all &= case_active_truce_penalty(summary);
-    ok_all &= case_post_war_penalty(summary);
-    ok_all &= case_truce_expiry_and_memory_clear(summary);
-    ok_all &= case_high_pressure_can_war(summary);
-    ok_all &= case_war_panel_cache_key(summary);
-    ok_all &= run_alliance_lifecycle_extra_probe_cases(summary);
-    ok_all &= run_alliance_probe_cases(summary);
-    ok_all &= run_diplomacy_relation_probe_cases(summary);
-    ok_all &= run_diplomacy_tooltip_probe_cases(summary);
-    ok_all &= run_diplomacy_visual_probe_cases(summary);
+#define RUN_CASE(expr) do { ok = (expr); ok_all &= ok; fprintf(summary, "group=%s ok=%d\n", #expr, ok); } while (0)
+    RUN_CASE(case_budgeted_diplomacy_year(summary));
+    RUN_CASE(case_snapshot_diplomacy_dead_slot_budget(summary));
+    RUN_CASE(case_alliance_blocks(summary));
+    RUN_CASE(case_player_alliance_dissolve(summary));
+    RUN_CASE(case_active_truce_penalty(summary));
+    RUN_CASE(case_post_war_penalty(summary));
+    RUN_CASE(case_truce_expiry_and_memory_clear(summary));
+    RUN_CASE(case_high_pressure_can_war(summary));
+    RUN_CASE(case_war_panel_cache_key(summary));
+    RUN_CASE(run_alliance_lifecycle_extra_probe_cases(summary));
+    RUN_CASE(run_alliance_probe_cases(summary));
+    RUN_CASE(run_diplomacy_relation_probe_cases(summary));
+    RUN_CASE(run_diplomacy_tooltip_probe_cases(summary));
+    RUN_CASE(run_diplomacy_visual_probe_cases(summary));
+#undef RUN_CASE
     fprintf(summary, "overall_ok=%d\n", ok_all);
     fclose(summary);
     printf("diplomacy probe summary: %s\\summary.txt\n", DIPLOMACY_PROBE_DIR);

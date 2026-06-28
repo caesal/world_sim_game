@@ -191,6 +191,8 @@ typedef struct {
     int support_casualties_b;
     int temporary_soldiers_a;
     int temporary_soldiers_b;
+    int alliance_reinforcements_a;
+    int alliance_reinforcements_b;
     int wins_a;
     int wins_b;
     int years;

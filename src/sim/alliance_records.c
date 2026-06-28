@@ -39,6 +39,8 @@ void alliance_records_clear(int alliance_id) {
     memset(state->candidates[alliance_id], 0, sizeof(state->candidates[alliance_id]));
     memset(state->votes[alliance_id], 0, sizeof(state->votes[alliance_id]));
     memset(state->history[alliance_id], 0, sizeof(state->history[alliance_id]));
+    memset(state->vote_council_valid[alliance_id], 0, sizeof(state->vote_council_valid[alliance_id]));
+    memset(state->vote_council_units[alliance_id], 0, sizeof(state->vote_council_units[alliance_id]));
 }
 
 void alliance_record_history(int alliance_id, int event_type, int civ_id, int target_civ_id,
@@ -92,17 +94,19 @@ void alliance_record_candidate(int alliance_id, int civ_id, int type, int initia
     record->rejection_reason = reason;
     record->updated_year = year;
     if (is_new) {
+        int vote_type = type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_VOTE_REMOVAL :
+                        (type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ?
+                         ALLIANCE_VOTE_MILITARY_UPGRADE : ALLIANCE_VOTE_JOIN);
         alliance_record_history(alliance_id, ALLIANCE_HISTORY_CANDIDATE_APPEARED,
-                                civ_id, -1, type == ALLIANCE_CANDIDATE_REMOVAL ?
-                                ALLIANCE_VOTE_REMOVAL : ALLIANCE_VOTE_JOIN, reason);
+                                civ_id, -1, vote_type, reason);
     } else {
         dirty_mark_alliance();
     }
 }
 
-void alliance_record_vote(int alliance_id, int vote_type, int target_civ_id, int secondary_civ_id,
-                          const signed char *member_votes, int yes_count, int no_count,
-                          int passed, int reason) {
+static void record_vote_impl(int alliance_id, int vote_type, int target_civ_id, int secondary_civ_id,
+                             const signed char *member_votes, const int *council_units,
+                             int yes_count, int no_count, int passed, int reason) {
     AllianceSaveState *state = alliance_internal_state();
     AllianceVoteRecord *record;
     int slot;
@@ -122,6 +126,10 @@ void alliance_record_vote(int alliance_id, int vote_type, int target_civ_id, int
     record->passed = passed;
     record->rejection_reason = reason;
     if (member_votes) memcpy(record->member_votes, member_votes, sizeof(record->member_votes));
+    memset(state->vote_council_units[alliance_id][slot], 0, sizeof(state->vote_council_units[alliance_id][slot]));
+    state->vote_council_valid[alliance_id][slot] = council_units ? 1 : 0;
+    if (council_units) memcpy(state->vote_council_units[alliance_id][slot],
+                             council_units, sizeof(state->vote_council_units[alliance_id][slot]));
     state->vote_next[alliance_id] = ring_slot(slot + 1, ALLIANCE_VOTE_RECORD_CAP);
     if (state->vote_count[alliance_id] < ALLIANCE_VOTE_RECORD_CAP)
         state->vote_count[alliance_id]++;
@@ -130,4 +138,18 @@ void alliance_record_vote(int alliance_id, int vote_type, int target_civ_id, int
     alliance_record_history(alliance_id, passed ? ALLIANCE_HISTORY_VOTE_PASSED :
                             ALLIANCE_HISTORY_VOTE_FAILED, target_civ_id,
                             secondary_civ_id, vote_type, reason);
+}
+
+void alliance_record_vote(int alliance_id, int vote_type, int target_civ_id, int secondary_civ_id,
+                          const signed char *member_votes, int yes_count, int no_count,
+                          int passed, int reason) {
+    record_vote_impl(alliance_id, vote_type, target_civ_id, secondary_civ_id, member_votes, NULL,
+                     yes_count, no_count, passed, reason);
+}
+
+void alliance_record_weighted_vote(int alliance_id, int vote_type, int target_civ_id, int secondary_civ_id,
+                                   const signed char *member_votes, const int *council_units,
+                                   int yes_count, int no_count, int passed, int reason) {
+    record_vote_impl(alliance_id, vote_type, target_civ_id, secondary_civ_id, member_votes,
+                     council_units, yes_count, no_count, passed, reason);
 }

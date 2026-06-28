@@ -10,14 +10,14 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.4.b, this release update intentionally excludes `docs/official`.
-The current changes are a prototype checkpoint for early-expansion static
-border-cache performance, continuous country/province border rendering, province
-border color polish, and validation notes only.
+For Ver0.3.5, this release update intentionally excludes `docs/official`.
+The current changes are a prototype checkpoint for Military Alliances, weighted
+Alliance Council voting, council UI presentation, and alliance vote-record
+consistency.
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
-- `docs/unofficial/ver0.3.4.b_side_doc.md`
+- `docs/unofficial/ver0.3.5_side_doc.md`
 
 The working version log is:
 

@@ -324,6 +324,8 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
         int enemy = own_is_attacker ? war.soldiers_b : war.soldiers_a;
         int own_merc = own_is_attacker ? war.temporary_soldiers_a : war.temporary_soldiers_b;
         int enemy_merc = own_is_attacker ? war.temporary_soldiers_b : war.temporary_soldiers_a;
+        int own_alliance = own_is_attacker ? war.alliance_reinforcements_a : war.alliance_reinforcements_b;
+        int enemy_alliance = own_is_attacker ? war.alliance_reinforcements_b : war.alliance_reinforcements_a;
         int own_loss = own_is_attacker ? war.casualties_a + war.support_casualties_a :
                        war.casualties_b + war.support_casualties_b;
         int enemy_loss = own_is_attacker ? war.casualties_b + war.support_casualties_b :
@@ -342,6 +344,12 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                               enemy_civ ? enemy_civ->color : RGB(160, 120, 120));
         if (own_merc > 0 || enemy_merc > 0) {
             snprintf(a, sizeof(a), "%s +%d / +%d", tr("Merc", "雇佣兵"), own_merc, enemy_merc);
+            draw_text_rect(hdc, ui_take_rect(cursor, 20), a, ui_theme_color(UI_COLOR_TEXT_MUTED),
+                           DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+        }
+        if (own_alliance > 0 || enemy_alliance > 0) {
+            snprintf(a, sizeof(a), "%s +%d / +%d", tr("Alliance Reinforcements", "同盟援军"),
+                     own_alliance, enemy_alliance);
             draw_text_rect(hdc, ui_take_rect(cursor, 20), a, ui_theme_color(UI_COLOR_TEXT_MUTED),
                            DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
         }
@@ -448,7 +456,9 @@ int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view)
     int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
     if (relation.state == DIPLOMACY_WAR) {
         SnapshotWar war = card_war(civ_id, other_id);
-        return war.temporary_soldiers_a > 0 || war.temporary_soldiers_b > 0 ? 264 : 244;
+        int extra = (war.temporary_soldiers_a > 0 || war.temporary_soldiers_b > 0 ? 20 : 0) +
+                    (war.alliance_reinforcements_a > 0 || war.alliance_reinforcements_b > 0 ? 20 : 0);
+        return 244 + extra;
     }
     if (relation.state == DIPLOMACY_TRUCE) return 150 + diplomacy_relation_score_block_height(civ_id, other_id);
     if (direct_vassal) return 162;

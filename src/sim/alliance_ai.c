@@ -17,6 +17,8 @@ enum {
     ALLIANCE_YEAR_CREATION,
     ALLIANCE_YEAR_JOIN,
     ALLIANCE_YEAR_KICK,
+    ALLIANCE_YEAR_COUNCIL,
+    ALLIANCE_YEAR_MILITARY,
     ALLIANCE_YEAR_UNION,
     ALLIANCE_YEAR_POST_SANITIZE,
     ALLIANCE_YEAR_DONE
@@ -57,11 +59,16 @@ static int join_chance(int score) {
     return clamp(10 + (score - 60) * 5 / 4, 10, 60);
 }
 
-static int kick_yes_chance(int score) {
+int alliance_military_join_vote_yes_chance_for_relation(int score) {
+    if (score < 80) return 0;
+    if (score >= 100) return 50;
+    return clamp(15 + ((score - 80) * 35 + 10) / 20, 15, 50);
+}
+
+int alliance_removal_vote_yes_chance_for_relation(int score) {
+    if (score < 15) return 100;
     if (score >= 60) return 0;
-    if (score < 0) return 100;
-    if (score <= 30) return 100 - score * 45 / 30;
-    return 55 - (score - 30) * 30 / 29;
+    return clamp(100 - ((score - 15) * 65 + 22) / 44, 35, 100);
 }
 
 static int relation_score(int civ_a, int civ_b) {
@@ -136,6 +143,8 @@ static int candidate_has_open_join_work(AllianceSaveState *state, int candidate)
 
 static void process_join_vote(AllianceSaveState *state, int candidate, int id) {
     int years, i, all_yes = 1, yes = 0, no = 0, count = alliance_member_count(id);
+    int military = alliance_type(id) == ALLIANCE_TYPE_MILITARY;
+    int council_units[MAX_CIVS];
     signed char votes[MAX_CIVS];
     int reason = join_block_reason(candidate, id);
     if (reason != ALLIANCE_REJECT_NONE) {
@@ -161,20 +170,30 @@ static void process_join_vote(AllianceSaveState *state, int candidate, int id) {
     if (years < ALLIANCE_JOIN_FIRST_VOTE_YEARS ||
         ((years - ALLIANCE_JOIN_FIRST_VOTE_YEARS) % ALLIANCE_JOIN_RETRY_VOTE_YEARS) != 0)
         return;
-    for (i = 0; i < MAX_CIVS; i++) votes[i] = ALLIANCE_MEMBER_VOTE_NA;
+    for (i = 0; i < MAX_CIVS; i++) { votes[i] = ALLIANCE_MEMBER_VOTE_NA; council_units[i] = 0; }
     for (i = 0; i < count; i++) {
         int member = alliance_formal_member_at(id, i);
-        if (!vote_roll(join_chance(relation_score(member, candidate)))) {
+        int chance = military ? alliance_military_join_vote_yes_chance_for_relation(relation_score(member, candidate)) :
+                     join_chance(relation_score(member, candidate));
+        int units = military ? state->council_vote_units[id][member] : 1;
+        if (military && member >= 0 && member < MAX_CIVS) council_units[member] = units;
+        if (!vote_roll(chance)) {
             all_yes = 0;
             votes[member] = ALLIANCE_MEMBER_VOTE_NO;
-            no++;
+            no += units;
         } else {
             votes[member] = ALLIANCE_MEMBER_VOTE_YES;
-            yes++;
+            yes += units;
         }
     }
-    alliance_record_vote(id, ALLIANCE_VOTE_JOIN, candidate, -1, votes, yes, no, all_yes,
-                         all_yes ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
+    if (military) all_yes = yes * 4 > ALLIANCE_COUNCIL_TOTAL_UNITS * 3;
+    if (military)
+        alliance_record_weighted_vote(id, ALLIANCE_VOTE_JOIN, candidate, -1, votes, council_units,
+                                      yes, no, all_yes,
+                                      all_yes ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
+    else
+        alliance_record_vote(id, ALLIANCE_VOTE_JOIN, candidate, -1, votes, yes, no, all_yes,
+                             all_yes ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
     alliance_record_candidate(id, candidate, ALLIANCE_CANDIDATE_JOIN,
                               ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE,
                               year - years + 1, 100,
@@ -216,15 +235,18 @@ static void process_kick_vote(AllianceSaveState *state, int id, int target, int 
     years = ++state->kick_years[id][target];
     alliance_record_candidate(id, target, ALLIANCE_CANDIDATE_REMOVAL,
                               ALLIANCE_CANDIDATE_INITIATOR_ALLIANCE,
-                              year - years + 1, clamp(years * 100 / 20, 0, 100),
+                              year - years + 1,
+                              clamp(years * 100 / ALLIANCE_REMOVAL_FIRST_VOTE_YEARS, 0, 100),
                               ALLIANCE_CANDIDATE_ACTIVE, ALLIANCE_REJECT_NONE);
-    if (years < 20 || ((years - 20) % 5) != 0) return;
+    if (years < ALLIANCE_REMOVAL_FIRST_VOTE_YEARS ||
+        ((years - ALLIANCE_REMOVAL_FIRST_VOTE_YEARS) % ALLIANCE_REMOVAL_RETRY_VOTE_YEARS) != 0)
+        return;
     for (i = 0; i < MAX_CIVS; i++) votes[i] = ALLIANCE_MEMBER_VOTE_NA;
     for (i = 0; i < count; i++) {
         int member = alliance_formal_member_at(id, i);
         if (member == target) continue;
         voters++;
-        if (vote_roll(kick_yes_chance(relation_score(member, target)))) {
+        if (vote_roll(alliance_removal_vote_yes_chance_for_relation(relation_score(member, target)))) {
             votes[member] = ALLIANCE_MEMBER_VOTE_YES;
             yes++;
         } else {
@@ -358,6 +380,14 @@ int alliance_update_year_step(AllianceYearWork *work, int work_budget) {
                 break;
             case ALLIANCE_YEAR_KICK:
                 if (step_kick(state, work)) remaining--;
+                else alliance_year_next_phase(work, ALLIANCE_YEAR_COUNCIL);
+                break;
+            case ALLIANCE_YEAR_COUNCIL:
+                if (alliance_council_update_year_step(work)) remaining--;
+                else alliance_year_next_phase(work, ALLIANCE_YEAR_MILITARY);
+                break;
+            case ALLIANCE_YEAR_MILITARY:
+                if (alliance_military_update_year_step(work)) remaining--;
                 else alliance_year_next_phase(work, ALLIANCE_YEAR_UNION);
                 break;
             case ALLIANCE_YEAR_UNION:

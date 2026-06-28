@@ -11,6 +11,24 @@
 #define ALLIANCE_HISTORY_RECORD_CAP 128
 #define ALLIANCE_JOIN_FIRST_VOTE_YEARS 30
 #define ALLIANCE_JOIN_RETRY_VOTE_YEARS 10
+#define ALLIANCE_REMOVAL_FIRST_VOTE_YEARS 30
+#define ALLIANCE_REMOVAL_RETRY_VOTE_YEARS 10
+#define ALLIANCE_COUNCIL_TOTAL_UNITS 1000
+#define ALLIANCE_COUNCIL_DISPLAY_SEATS 80
+#define ALLIANCE_COUNCIL_VISUAL_SEATS ALLIANCE_COUNCIL_DISPLAY_SEATS
+#define ALLIANCE_COUNCIL_DISPLAY_TWO_THIRDS_THRESHOLD 54
+#define ALLIANCE_COUNCIL_DISPLAY_THREE_QUARTERS_THRESHOLD 61
+#define ALLIANCE_COUNCIL_ELECTION_YEARS 8
+#define ALLIANCE_MILITARY_ELIGIBLE_YEARS 300
+#define ALLIANCE_MILITARY_RETRY_YEARS 10
+#define ALLIANCE_MILITARY_UPGRADE_YES_CHANCE 60
+#define ALLIANCE_UNION_DEFENSIVE_YEARS 800
+#define ALLIANCE_UNION_MILITARY_YEARS 500
+
+typedef enum {
+    ALLIANCE_TYPE_DEFENSIVE = 0,
+    ALLIANCE_TYPE_MILITARY = 1
+} AllianceType;
 
 typedef enum {
     ALLIANCE_CMD_OK = 0,
@@ -28,7 +46,8 @@ typedef enum {
 
 typedef enum {
     ALLIANCE_CANDIDATE_JOIN = 0,
-    ALLIANCE_CANDIDATE_REMOVAL = 1
+    ALLIANCE_CANDIDATE_REMOVAL = 1,
+    ALLIANCE_CANDIDATE_MILITARY_UPGRADE = 2
 } AllianceCandidateType;
 
 typedef enum {
@@ -47,7 +66,8 @@ typedef enum {
 typedef enum {
     ALLIANCE_VOTE_CREATE = 0,
     ALLIANCE_VOTE_JOIN = 1,
-    ALLIANCE_VOTE_REMOVAL = 2
+    ALLIANCE_VOTE_REMOVAL = 2,
+    ALLIANCE_VOTE_MILITARY_UPGRADE = 3
 } AllianceVoteType;
 
 typedef enum {
@@ -80,7 +100,15 @@ typedef enum {
     ALLIANCE_HISTORY_LEADER_CHANGED = 8,
     ALLIANCE_HISTORY_DISSOLVED = 9,
     ALLIANCE_HISTORY_UNION_FORMED = 10,
-    ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT = 11
+    ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT = 11,
+    ALLIANCE_HISTORY_MILITARY_UPGRADE_INITIATED = 12,
+    ALLIANCE_HISTORY_MILITARY_UPGRADE_PASSED = 13,
+    ALLIANCE_HISTORY_MILITARY_UPGRADE_FAILED = 14,
+    ALLIANCE_HISTORY_UPGRADED_TO_MILITARY = 15,
+    ALLIANCE_HISTORY_DOWNGRADED_LEADER_COLLAPSED = 16,
+    ALLIANCE_HISTORY_DOWNGRADED_LEADER_FELL = 17,
+    ALLIANCE_HISTORY_DOWNGRADED_LEADER_TRANSFERRED = 18,
+    ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED = 19
 } AllianceHistoryType;
 
 typedef struct {
@@ -143,6 +171,15 @@ typedef struct {
     int founded_year;
     int member_count;
     Color32 color;
+    int type;
+    int council_last_election_year;
+    int council_next_election_year;
+    int council_vote_units[MAX_CIVS];
+    int council_population_permille[MAX_CIVS];
+    int council_province_permille[MAX_CIVS];
+    int military_upgrade_cooldown;
+    int military_upgrade_active;
+    int military_upgrade_start_year;
     int members[MAX_CIVS];
     int joined_year_by_civ[MAX_CIVS];
     int candidate_count;
@@ -156,6 +193,8 @@ typedef struct {
     AllianceHistoryRecord history[ALLIANCE_HISTORY_RECORD_CAP];
     char name_en[ALLIANCE_NAME_LEN];
     char name_zh[ALLIANCE_NAME_LEN];
+    int vote_council_valid[ALLIANCE_VOTE_RECORD_CAP];
+    int vote_council_units[ALLIANCE_VOTE_RECORD_CAP][MAX_CIVS];
 } AllianceSnapshotRecord;
 
 typedef struct {
@@ -177,6 +216,17 @@ typedef struct {
     AllianceCandidateRecord candidates[ALLIANCE_MAX][ALLIANCE_CANDIDATE_RECORD_CAP];
     AllianceVoteRecord votes[ALLIANCE_MAX][ALLIANCE_VOTE_RECORD_CAP];
     AllianceHistoryRecord history[ALLIANCE_MAX][ALLIANCE_HISTORY_RECORD_CAP];
+    int alliance_type[ALLIANCE_MAX];
+    int council_last_election_year[ALLIANCE_MAX];
+    int council_next_election_year[ALLIANCE_MAX];
+    int council_vote_units[ALLIANCE_MAX][MAX_CIVS];
+    int council_population_permille[ALLIANCE_MAX][MAX_CIVS];
+    int council_province_permille[ALLIANCE_MAX][MAX_CIVS];
+    int military_upgrade_cooldown[ALLIANCE_MAX];
+    int military_upgrade_active[ALLIANCE_MAX];
+    int military_upgrade_start_year[ALLIANCE_MAX];
+    int vote_council_valid[ALLIANCE_MAX][ALLIANCE_VOTE_RECORD_CAP];
+    int vote_council_units[ALLIANCE_MAX][ALLIANCE_VOTE_RECORD_CAP][MAX_CIVS];
 } AllianceSaveState;
 
 typedef struct {
@@ -200,6 +250,7 @@ int alliance_year_last_step_ms(void);
 int alliance_year_peak_step_ms(void);
 int alliance_union_try(int alliance_id);
 int alliance_union_update_year_step(AllianceYearWork *work);
+int alliance_union_required_years_for_type(int alliance_type);
 
 int alliance_for_civ(int civ_id);
 int alliance_display_for_civ(int civ_id);
@@ -208,6 +259,7 @@ int alliance_founder(int alliance_id);
 int alliance_member_order(int alliance_id, int civ_id);
 int alliance_formal_member_at(int alliance_id, int index);
 int alliance_is_formal_member(int alliance_id, int civ_id);
+int alliance_type(int alliance_id);
 Color32 alliance_color(int alliance_id);
 const char *alliance_name_en(int alliance_id);
 const char *alliance_name_zh(int alliance_id);
@@ -231,17 +283,30 @@ int alliance_debug_create_pair(int founder_civ, int second_civ, int min_score);
 int alliance_debug_add_member(int alliance_id, int civ_id, int min_score);
 int alliance_debug_kick_member(int alliance_id, int civ_id, int cooldown_years);
 AllianceSaveState *alliance_internal_state(void);
+void alliance_council_recalculate(int alliance_id, int record_history);
+int alliance_council_update_year_step(AllianceYearWork *work);
+int alliance_council_visual_seats_for_member(const AllianceSnapshotRecord *record,
+                                             int civ_id, int total_visual_seats);
+int alliance_council_distribute_indemnity(int alliance_id, int amount);
+int alliance_military_update_year_step(AllianceYearWork *work);
+int alliance_military_eligible(int alliance_id);
+void alliance_military_downgrade(int alliance_id, int history_type);
 void alliance_records_clear(int alliance_id);
 void alliance_record_candidate(int alliance_id, int civ_id, int type, int initiated_by,
                                int candidate_year, int progress, int status, int reason);
 void alliance_record_vote(int alliance_id, int vote_type, int target_civ_id, int secondary_civ_id,
                           const signed char *member_votes, int yes_count, int no_count,
                           int passed, int reason);
+void alliance_record_weighted_vote(int alliance_id, int vote_type, int target_civ_id, int secondary_civ_id,
+                                   const signed char *member_votes, const int *council_units,
+                                   int yes_count, int no_count, int passed, int reason);
 void alliance_record_history(int alliance_id, int event_type, int civ_id, int target_civ_id,
                              int vote_type, int reason);
 void alliance_debug_set_create_years(int civ_a, int civ_b, int years);
 void alliance_debug_set_join_years(int civ_id, int alliance_id, int years);
 void alliance_debug_set_kick_years(int alliance_id, int civ_id, int years);
 void alliance_debug_set_cooldown(int alliance_id, int civ_id, int voluntary, int years);
+int alliance_removal_vote_yes_chance_for_relation(int score);
+int alliance_military_join_vote_yes_chance_for_relation(int score);
 
 #endif
