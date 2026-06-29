@@ -3,6 +3,7 @@
 #include "core/profiler.h"
 #include "game/game_loop.h"
 #include "render/panel_alliance.h"
+#include "render/panel_map_speed_badge.h"
 #include "render/snapshot_ui.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
@@ -67,16 +68,8 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     int panel_w = ui_side_panel_reserved_width();
     RECT bar = {0, client.bottom - BOTTOM_BAR_H, client.right - panel_w, client.bottom};
     RECT play = get_play_button_rect(client);
-    char text[256];
-    const char *speed_name_zh[SPEED_COUNT] = {"观察 10秒/月", "慢速 5秒/月", "正常 1秒/月", "快速 0.25秒/月", "极速 0.1秒/月"};
-    const char *speed_name = ui_language == UI_LANG_ZH ? speed_name_zh[speed_index] : SPEED_NAMES[speed_index];
-    int actual_ms = game_loop_actual_ms_per_month();
     int pending = game_loop_pending_months();
     RuntimeProfilerSnapshot profiler;
-    const char *render_status;
-    const char *sim_status;
-    char actual_text[32];
-    RECT status_rect = {398, client.bottom - 40, client.right - panel_w - 12, client.bottom - 8};
     int play_hot = point_in_rect_local(play, hover_x, hover_y);
     UiClayState play_state = ui_clay_state_from_flags(
         play_hot, ui_pressed_control_is_active(UI_PRESSED_PLAY, 0) ||
@@ -84,12 +77,6 @@ void draw_bottom_bar(HDC hdc, RECT client) {
     int i;
 
     profiler_snapshot(&profiler);
-    render_status = profiler.render_avg_ms <= 18 ? tr("smooth", "流畅") :
-                    profiler.render_avg_ms <= 33 ? tr("busy", "繁忙") : tr("slow", "偏慢");
-    sim_status = !auto_run ? tr("paused", "已暂停") :
-                 game_loop_simulation_overloaded() ? tr("overloaded", "过载") : tr("stable", "稳定");
-    if (actual_ms > 0) snprintf(actual_text, sizeof(actual_text), "%.1fs/%s", actual_ms / 1000.0, tr("month", "月"));
-    else snprintf(actual_text, sizeof(actual_text), "--");
 
     ui_clay_draw_bar_shell(hdc, bar);
     ui_clay_draw_icon_button(hdc, play, auto_run ? "||" : ">", play_state);
@@ -103,13 +90,9 @@ void draw_bottom_bar(HDC hdc, RECT client) {
         ui_clay_draw_icon_button(hdc, button, speed_button_icon(i), state);
     }
 
-    snprintf(text, sizeof(text), "%s: %s %dms | %s: %s %s/%s | %s: %s | %s: %d | %s: %s",
-             tr("Render", "渲染"), render_status, profiler.render_avg_ms,
-             tr("Sim target", "模拟目标"), speed_name, speed_seconds_text(speed_index), tr("month", "月"),
-             tr("Actual", "实际"), actual_text, tr("Queue", "队列"), pending,
-             tr("Status", "状态"), sim_status);
-    draw_text_rect(hdc, status_rect, text, RGB(225, 230, 235),
-                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    panel_map_draw_bottom_status_chips(hdc, client, panel_w, ui_language,
+                                       profiler.render_avg_ms, pending, auto_run,
+                                       game_loop_simulation_overloaded());
 }
 
 void draw_map_frame_overlay(HDC hdc, RECT client) {
@@ -131,6 +114,7 @@ void draw_map_frame_overlay(HDC hdc, RECT client) {
     DeleteObject(outer);
     DeleteObject(inner);
     DeleteObject(line);
+    panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
 }
 
 static void draw_legend_item(HDC hdc, int x, int y, COLORREF color, const char *name) {

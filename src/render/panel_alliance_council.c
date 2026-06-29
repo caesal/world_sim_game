@@ -162,6 +162,15 @@ int alliance_council_display_seats_for_member(const AllianceSnapshotRecord *reco
     return 0;
 }
 
+int alliance_council_previous_display_seats_for_member(const AllianceSnapshotRecord *record, int civ_id) {
+    AllianceCouncilDisplayMember members[MAX_CIVS];
+    int i, count;
+    if (!record || !record->council_previous_valid) return -1;
+    count = build_display_members_from_units(record->council_previous_vote_units, members, MAX_CIVS);
+    for (i = 0; i < count; i++) if (members[i].member_civ == civ_id) return members[i].display_seats;
+    return -1;
+}
+
 static int vote_snapshot_index(const AllianceSnapshotRecord *record, const AllianceVoteRecord *vote) {
     uintptr_t base, ptr, span, stride;
     if (!record || !vote) return -1;
@@ -380,23 +389,30 @@ static void draw_percent_text(HDC hdc, RECT rect, int permille) {
 }
 
 static void draw_member_row(HDC hdc, RECT r, const RenderSnapshot *snapshot,
+                            const AllianceSnapshotRecord *record,
                             const AllianceCouncilDisplayMember *member, int row_index) {
     RECT chip = {r.left + 6, r.top + 3, r.left + 116, r.bottom - 3};
+    int previous;
     char text[96];
     if (!snapshot || !member || member->member_civ < 0 || member->member_civ >= snapshot->civ_count) return;
+    previous = alliance_council_previous_display_seats_for_member(record, member->member_civ);
     fill_rect(hdc, r, row_index % 2 ? RGB(20, 36, 40) : RGB(18, 32, 36));
     fill_rect(hdc, chip, snapshot->civs[member->member_civ].color);
     draw_text_rect(hdc, chip, civ_name(snapshot, member->member_civ),
                    readable_text_color(snapshot->civs[member->member_civ].color),
                    DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
-    snprintf(text, sizeof(text), "%d / %d", member->display_seats, ALLIANCE_COUNCIL_DISPLAY_SEATS);
-    draw_text_rect(hdc, (RECT){r.left + 126, r.top, r.left + 202, r.bottom}, text,
+    snprintf(text, sizeof(text), "%d", member->display_seats);
+    draw_text_rect(hdc, (RECT){r.left + 122, r.top, r.left + 158, r.bottom}, text,
                    ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    if (previous >= 0) snprintf(text, sizeof(text), "%d", previous);
+    else snprintf(text, sizeof(text), "-");
+    draw_text_rect(hdc, (RECT){r.left + 160, r.top, r.left + 214, r.bottom}, text,
+                   ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     snprintf(text, sizeof(text), "%d.%d%%", member->display_seats * 1000 / ALLIANCE_COUNCIL_DISPLAY_SEATS / 10,
              member->display_seats * 1000 / ALLIANCE_COUNCIL_DISPLAY_SEATS % 10);
-    draw_text_rect(hdc, (RECT){r.left + 204, r.top, r.left + 258, r.bottom}, text,
+    draw_text_rect(hdc, (RECT){r.left + 216, r.top, r.left + 260, r.bottom}, text,
                    ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_percent_text(hdc, (RECT){r.left + 260, r.top, r.left + 326, r.bottom}, member->population_permille);
+    draw_percent_text(hdc, (RECT){r.left + 262, r.top, r.left + 326, r.bottom}, member->population_permille);
     draw_percent_text(hdc, (RECT){r.left + 328, r.top, r.right - 4, r.bottom}, member->province_permille);
 }
 
@@ -458,13 +474,16 @@ void alliance_council_draw_overview(HDC hdc, UiCursor *cursor, const RenderSnaps
     draw_text_rect(hdc, (RECT){header.left + 6, header.top, header.left + 124, header.bottom},
                    tr("Country", "国家"), ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, (RECT){header.left + 126, header.top, header.left + 202, header.bottom},
+    draw_text_rect(hdc, (RECT){header.left + 122, header.top, header.left + 158, header.bottom},
                    tr("Votes", "票数"), ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, (RECT){header.left + 204, header.top, header.left + 258, header.bottom},
+    draw_text_rect(hdc, (RECT){header.left + 160, header.top, header.left + 214, header.bottom},
+                   tr("Previous", "上届票数"), ui_theme_color(UI_COLOR_TEXT_DIM),
+                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, (RECT){header.left + 216, header.top, header.left + 260, header.bottom},
                    tr("Share", "占比"), ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    draw_text_rect(hdc, (RECT){header.left + 260, header.top, header.left + 326, header.bottom},
+    draw_text_rect(hdc, (RECT){header.left + 262, header.top, header.left + 326, header.bottom},
                    tr("Population", "人口"), ui_theme_color(UI_COLOR_TEXT_DIM),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_text_rect(hdc, (RECT){header.left + 328, header.top, header.right - 4, header.bottom},
@@ -472,6 +491,6 @@ void alliance_council_draw_overview(HDC hdc, UiCursor *cursor, const RenderSnaps
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     for (i = 0; i < visible_rows; i++) {
         RECT r = {inner.left, header.bottom + i * 24, inner.right, header.bottom + i * 24 + 22};
-        draw_member_row(hdc, r, snapshot, &members[i], i);
+        draw_member_row(hdc, r, snapshot, record, &members[i], i);
     }
 }

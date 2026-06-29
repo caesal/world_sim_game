@@ -17,6 +17,7 @@ void debug_panel_event_scrollbar_begin_drag(int mouse_y);
 int debug_panel_event_scrollbar_drag(int mouse_y);
 void debug_panel_event_scrollbar_end_drag(void);
 int debug_panel_event_scrollbar_is_dragging(void);
+int debug_panel_probe_event_type_matches_filter(int type, int filter);
 void debug_panel_event_log_scroll(int item_delta);
 void debug_panel_event_log_top(void);
 

@@ -112,6 +112,7 @@ static int read_alliance_state(FILE *file, int save_version) {
     size_t v14_size = offsetof(AllianceSaveState, candidate_count);
     size_t v15_size = offsetof(AllianceSaveState, alliance_type);
     size_t v16_size = offsetof(AllianceSaveState, vote_council_valid);
+    size_t v17_size = offsetof(AllianceSaveState, council_previous_valid);
     if (save_version < 14) {
         alliance_reset();
         return 1;
@@ -126,6 +127,8 @@ static int read_alliance_state(FILE *file, int save_version) {
         if (!read_all(file, &save_alliances, v15_size, 1)) return 0;
     } else if (save_version <= 16 && header.item_size == (int)v16_size) {
         if (!read_all(file, &save_alliances, v16_size, 1)) return 0;
+    } else if (save_version <= 17 && header.item_size == (int)v17_size) {
+        if (!read_all(file, &save_alliances, v17_size, 1)) return 0;
     } else {
         return 0;
     }

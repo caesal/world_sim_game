@@ -18,12 +18,14 @@
 #define ALLIANCE_COUNCIL_VISUAL_SEATS ALLIANCE_COUNCIL_DISPLAY_SEATS
 #define ALLIANCE_COUNCIL_DISPLAY_TWO_THIRDS_THRESHOLD 54
 #define ALLIANCE_COUNCIL_DISPLAY_THREE_QUARTERS_THRESHOLD 61
-#define ALLIANCE_COUNCIL_ELECTION_YEARS 8
+#define ALLIANCE_COUNCIL_ELECTION_YEARS 16
 #define ALLIANCE_MILITARY_ELIGIBLE_YEARS 300
 #define ALLIANCE_MILITARY_RETRY_YEARS 10
 #define ALLIANCE_MILITARY_UPGRADE_YES_CHANCE 60
 #define ALLIANCE_UNION_DEFENSIVE_YEARS 800
 #define ALLIANCE_UNION_MILITARY_YEARS 500
+#define ALLIANCE_UNION_PROPOSER_DELAY_YEARS 10
+#define ALLIANCE_UNION_RETRY_YEARS 25
 
 typedef enum {
     ALLIANCE_TYPE_DEFENSIVE = 0,
@@ -47,7 +49,8 @@ typedef enum {
 typedef enum {
     ALLIANCE_CANDIDATE_JOIN = 0,
     ALLIANCE_CANDIDATE_REMOVAL = 1,
-    ALLIANCE_CANDIDATE_MILITARY_UPGRADE = 2
+    ALLIANCE_CANDIDATE_MILITARY_UPGRADE = 2,
+    ALLIANCE_CANDIDATE_UNION = 3
 } AllianceCandidateType;
 
 typedef enum {
@@ -67,7 +70,8 @@ typedef enum {
     ALLIANCE_VOTE_CREATE = 0,
     ALLIANCE_VOTE_JOIN = 1,
     ALLIANCE_VOTE_REMOVAL = 2,
-    ALLIANCE_VOTE_MILITARY_UPGRADE = 3
+    ALLIANCE_VOTE_MILITARY_UPGRADE = 3,
+    ALLIANCE_VOTE_UNION = 4
 } AllianceVoteType;
 
 typedef enum {
@@ -108,7 +112,11 @@ typedef enum {
     ALLIANCE_HISTORY_DOWNGRADED_LEADER_COLLAPSED = 16,
     ALLIANCE_HISTORY_DOWNGRADED_LEADER_FELL = 17,
     ALLIANCE_HISTORY_DOWNGRADED_LEADER_TRANSFERRED = 18,
-    ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED = 19
+    ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED = 19,
+    ALLIANCE_HISTORY_UNION_VOTE_INITIATED = 20,
+    ALLIANCE_HISTORY_UNION_VOTE_PASSED = 21,
+    ALLIANCE_HISTORY_UNION_VOTE_FAILED = 22,
+    ALLIANCE_HISTORY_UNION_ABSORBED = 23
 } AllianceHistoryType;
 
 typedef struct {
@@ -175,6 +183,8 @@ typedef struct {
     int council_last_election_year;
     int council_next_election_year;
     int council_vote_units[MAX_CIVS];
+    int council_previous_valid;
+    int council_previous_vote_units[MAX_CIVS];
     int council_population_permille[MAX_CIVS];
     int council_province_permille[MAX_CIVS];
     int military_upgrade_cooldown;
@@ -227,6 +237,8 @@ typedef struct {
     int military_upgrade_start_year[ALLIANCE_MAX];
     int vote_council_valid[ALLIANCE_MAX][ALLIANCE_VOTE_RECORD_CAP];
     int vote_council_units[ALLIANCE_MAX][ALLIANCE_VOTE_RECORD_CAP][MAX_CIVS];
+    int council_previous_valid[ALLIANCE_MAX];
+    int council_previous_vote_units[ALLIANCE_MAX][MAX_CIVS];
 } AllianceSaveState;
 
 typedef struct {
@@ -251,6 +263,8 @@ int alliance_year_peak_step_ms(void);
 int alliance_union_try(int alliance_id);
 int alliance_union_update_year_step(AllianceYearWork *work);
 int alliance_union_required_years_for_type(int alliance_type);
+int alliance_union_vote_yes_chance_from_ratio_permille(int avg_ratio_permille);
+int alliance_union_proposer_cooldown_remaining(int alliance_id, int proposer_civ);
 
 int alliance_for_civ(int civ_id);
 int alliance_display_for_civ(int civ_id);

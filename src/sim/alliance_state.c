@@ -29,10 +29,12 @@ static void clear_record(AllianceRecord *record, int id) {
         alliance_state.voluntary_cooldown[id][i] = 0;
         alliance_state.kicked_cooldown[id][i] = 0;
         alliance_state.council_vote_units[id][i] = 0;
+        alliance_state.council_previous_vote_units[id][i] = 0;
         alliance_state.council_population_permille[id][i] = 0;
         alliance_state.council_province_permille[id][i] = 0;
     }
     alliance_state.alliance_type[id] = ALLIANCE_TYPE_DEFENSIVE;
+    alliance_state.council_previous_valid[id] = 0;
     alliance_state.council_last_election_year[id] = 0;
     alliance_state.council_next_election_year[id] = 0;
     alliance_state.military_upgrade_cooldown[id] = 0;
@@ -54,16 +56,9 @@ void alliance_reset(void) {
 static int active_alliance(int alliance_id) { return alliance_id >= 0 && alliance_id < alliance_state.next_id && alliance_state.records[alliance_id].active; }
 static void mark_changed(void) { dirty_mark_diplomacy(); dirty_mark_alliance(); alliance_power_cache_reset(); }
 static void reset_pair_score(int civ_a, int civ_b) { diplomacy_relation_score_reset_pair(civ_a, civ_b); }
-static int pair_forced_cooldown(int civ_a, int civ_b) { return civ_a >= 0 && civ_a < MAX_CIVS && civ_b >= 0 && civ_b < MAX_CIVS && (alliance_state.create_years[civ_a][civ_b] < 0 || alliance_state.create_years[civ_b][civ_a] < 0); }
 static void set_pair_forced_cooldown(int civ_a, int civ_b, int years) {
     if (civ_a < 0 || civ_a >= MAX_CIVS || civ_b < 0 || civ_b >= MAX_CIVS || civ_a == civ_b) return;
     alliance_state.create_years[civ_a][civ_b] = alliance_state.create_years[civ_b][civ_a] = years > 0 ? -years : 0;
-}
-static int member_pair_cooldown_active(int alliance_id, int civ_id) {
-    int i;
-    if (!active_alliance(alliance_id)) return 0;
-    for (i = 0; i < alliance_state.records[alliance_id].member_count; i++) if (pair_forced_cooldown(civ_id, alliance_state.records[alliance_id].members[i])) return 1;
-    return 0;
 }
 
 static DiplomacyRelation ensure_known_relation(int civ_a, int civ_b, int fallback_score) {
@@ -274,11 +269,21 @@ static void leave_member(int alliance_id, int civ_id, int cooldown_years, int ki
     mark_changed();
 }
 
-static int join_cooldown_active(int alliance_id, int civ_id) {
-    if (!active_alliance(alliance_id) || civ_id < 0 || civ_id >= MAX_CIVS) return 1;
-    return alliance_state.voluntary_cooldown[alliance_id][civ_id] > 0 ||
-           alliance_state.kicked_cooldown[alliance_id][civ_id] > 0 ||
-           member_pair_cooldown_active(alliance_id, civ_id);
+static void clear_player_pair_blocks(int civ_a, int civ_b) {
+    if (civ_a >= 0 && civ_a < MAX_CIVS && civ_b >= 0 && civ_b < MAX_CIVS) {
+        alliance_state.create_years[civ_a][civ_b] = alliance_state.create_years[civ_b][civ_a] = 0;
+    }
+}
+
+static void clear_player_join_blocks(int alliance_id, int civ_id) {
+    int i;
+    if (!active_alliance(alliance_id) || civ_id < 0 || civ_id >= MAX_CIVS) return;
+    alliance_state.join_years[civ_id][alliance_id] = 0;
+    alliance_state.kick_years[alliance_id][civ_id] = 0;
+    alliance_state.voluntary_cooldown[alliance_id][civ_id] = 0;
+    alliance_state.kicked_cooldown[alliance_id][civ_id] = 0;
+    for (i = 0; i < alliance_state.records[alliance_id].member_count; i++)
+        clear_player_pair_blocks(civ_id, alliance_state.records[alliance_id].members[i]);
 }
 
 AllianceCommandResult alliance_player_form_or_join(int source_civ, int target_civ) {
@@ -295,16 +300,16 @@ AllianceCommandResult alliance_player_form_or_join(int source_civ, int target_ci
                                                     ALLIANCE_CMD_DIFFERENT_ALLIANCES;
     }
     if (source_alliance < 0 && target_alliance < 0) {
-        if (pair_forced_cooldown(source_civ, target_civ)) return ALLIANCE_CMD_BLOCKED;
+        clear_player_pair_blocks(source_civ, target_civ);
         return create_alliance_internal(source_civ, target_civ, 80) >= 0 ?
                ALLIANCE_CMD_OK : ALLIANCE_CMD_NO_SLOT;
     }
     if (source_alliance < 0) {
-        if (join_cooldown_active(target_alliance, source_civ)) return ALLIANCE_CMD_BLOCKED;
+        clear_player_join_blocks(target_alliance, source_civ);
         return alliance_debug_add_member(target_alliance, source_civ, 80) ?
-                              ALLIANCE_CMD_OK : ALLIANCE_CMD_BLOCKED;
+                               ALLIANCE_CMD_OK : ALLIANCE_CMD_BLOCKED;
     }
-    if (join_cooldown_active(source_alliance, target_civ)) return ALLIANCE_CMD_BLOCKED;
+    clear_player_join_blocks(source_alliance, target_civ);
     return alliance_debug_add_member(source_alliance, target_civ, 80) ? ALLIANCE_CMD_OK : ALLIANCE_CMD_BLOCKED;
 }
 

@@ -2,10 +2,12 @@
 
 #include "core/game_state.h"
 #include "core/render_snapshot.h"
+#include "game/game_player_actions.h"
 #include "render/panel_alliance_history.h"
 #include "sim/alliance.h"
 #include "sim/alliance_names.h"
 #include "sim/diplomacy.h"
+#include "sim/war.h"
 #include "ui/ui_types.h"
 #include "ui/ui_widgets.h"
 
@@ -26,7 +28,7 @@ static void init_civ(int id, const char *name) {
 
 static void reset_fixture(int count) {
     int i;
-    alliance_reset(); diplomacy_reset();
+    alliance_reset(); diplomacy_reset(); war_reset();
     civ_count = count; world_generated = 1; year = 1200; month = 1;
     for (i = 0; i < count; i++) init_civ(i, i == 0 ? "Founder" : i == 1 ? "Loser" : "Candidate");
 }
@@ -60,7 +62,8 @@ static int case_forced_breakup_pair_cooldown(FILE *summary) {
     dissolved = id >= 0 && !state->records[id].active && alliance_for_civ(0) < 0 && alliance_for_civ(1) < 0;
     cd_set = state->create_years[0][1] == -100 && state->create_years[1][0] == -100 &&
              state->kicked_cooldown[id][1] == 100;
-    blocked_create = alliance_player_form_or_join(0, 1) == ALLIANCE_CMD_BLOCKED && alliance_for_civ(0) < 0;
+    alliance_update_year();
+    blocked_create = alliance_for_civ(0) < 0 && alliance_for_civ(1) < 0 && state->create_years[0][1] < 0;
     for (i = 0; i < ALLIANCE_HISTORY_RECORD_CAP; i++)
         if (state->history[id][i].active && state->history[id][i].event_type ==
             ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT) history = 1;
@@ -86,6 +89,32 @@ static int case_join_blocked_by_pair_cooldown(FILE *summary) {
     fprintf(summary, "case=forced_pair_join_block ok=%d joined=%d join_years=%d pair_cd=%d\n",
             blocked, alliance_for_civ(2), state->join_years[2][id], state->create_years[2][1]);
     return blocked;
+}
+
+static void set_truce_pair(int a, int b) {
+    DiplomacyRelation rel;
+    memset(&rel, 0, sizeof(rel));
+    rel.state = DIPLOMACY_TRUCE; rel.relation_score = 30; rel.years_known = 1;
+    rel.truce_years_left = 20; rel.truce_initial_years = 20; rel.overlord = -1; rel.vassal = -1;
+    diplomacy_restore_relation(a, b, rel); diplomacy_restore_relation(b, a, rel);
+}
+
+static int case_player_alliance_override(FILE *summary) {
+    AllianceSaveState *state;
+    int truce_ok, cooldown_ok, id;
+    reset_fixture(3);
+    set_truce_pair(0, 1);
+    truce_ok = game_player_form_alliance(0, 1) == GAME_PLAYER_ACTION_OK && alliance_for_civ(0) >= 0;
+    reset_fixture(3);
+    id = alliance_debug_create_pair(0, 1, 80);
+    state = alliance_internal_state();
+    alliance_force_member_exit_for_war_defeat(id, 1, 100);
+    cooldown_ok = game_player_form_alliance(1, 0) == GAME_PLAYER_ACTION_OK &&
+                  alliance_for_civ(1) == alliance_for_civ(0) &&
+                  state->kicked_cooldown[id][1] == 0 && state->create_years[0][1] == 0;
+    fprintf(summary, "case=player_alliance_override ok=%d truce=%d cooldown=%d alliance=%d\n",
+            truce_ok && cooldown_ok, truce_ok, cooldown_ok, alliance_for_civ(1));
+    return truce_ok && cooldown_ok;
 }
 
 static int case_war_removal_sentence_and_bmp(FILE *summary) {
@@ -183,6 +212,7 @@ int run_alliance_lifecycle_extra_probe_cases(FILE *summary) {
     int ok = 1;
     ok &= case_forced_breakup_pair_cooldown(summary);
     ok &= case_join_blocked_by_pair_cooldown(summary);
+    ok &= case_player_alliance_override(summary);
     ok &= case_war_removal_sentence_and_bmp(summary);
     ok &= case_alliance_name_allocation(summary);
     return ok;

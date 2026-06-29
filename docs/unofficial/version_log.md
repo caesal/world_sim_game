@@ -1,5 +1,62 @@
 # Version Log
 
+## Ver0.3.5.a
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.a.
+2. Reworked alliance union from automatic new-civilization creation into
+   proposer-led absorption. The proposer keeps its name, color, capital,
+   diplomacy, and wars while absorbed formal members are folded into it.
+3. Added council-style union proposal timing, proposer cooldown, weighted
+   voting, and strict 3/4 pass behavior for eligible unions.
+4. Updated union records and event visibility so union completion can appear in
+   global Debug/Event Log views and country recent-event cards.
+5. Improved civil-unrest and enclave successor color selection so new countries
+   avoid parent, border-neighbor, and sibling-successor colors after final
+   ownership is known.
+6. Polished the speed/status UI with a compact map-viewport `Nms` badge and
+   chip-style bottom status display while preserving visible Queue values in
+   English and Chinese.
+7. Made Alliance Votes relation bars passive hover-only tooltip targets so
+   mouse-down/click does not look or behave like a button.
+8. Updated build lists and focused probes for presentation, diplomacy,
+   military-alliance, union, and collapse-color validation.
+9. Updated the root README, documentation index, version log, side doc, and
+   active version marker for Ver0.3.5.a.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` is now `18` because alliance state persists previous
+  council vote and council vote snapshot data needed by the current vote UI and
+  union/council records.
+- Defensive Alliance union eligibility remains 800 years.
+- Military Alliance union eligibility remains 500 years.
+- Union no longer creates a new civilization identity; the successful proposer
+  absorbs the other formal members.
+- Player-visible union, alliance, and event-log text remains structured and
+  localized; no raw gameplay event strings are intentionally added.
+- No map ownership/fill, world-generation, route-potential, plague,
+  population, economy, or province-border semantics are intentionally changed
+  by this checkpoint.
+
+Validation notes:
+
+- Ver0.3.5.a uses `WORLD_SIM_VERSION "0.3.5.a"`.
+- Canonical `make -B world_sim.exe` passed.
+- Canonical `cmd /c build.bat` passed.
+- Focused validation passed for `git diff --check`, `make check-text`, `.c`
+  include scan, touched/new `.c/.h` line counts, `--probe-presentation`,
+  `--probe-diplomacy`, `--probe-military-alliance`,
+  `--probe-collapse-colors`, and `--probe-worldgen`.
+- Key focused evidence included `case=map_speed_status ok=1`,
+  `case=alliance_union_vote_absorption ok=1`,
+  `case=union_proposer_timing ok=1`, and collapse-color probe rows with
+  successful parent, border, and sibling distance checks.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5.a. Do not claim
+  full release-ready/gameplay acceptance until a fresh Rule39 run is completed
+  for this checkpoint.
+
 ## Ver0.3.5
 
 Implemented fixes:

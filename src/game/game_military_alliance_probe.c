@@ -368,9 +368,9 @@ static int case_election_and_upgrade(FILE *out) {
     year = before - 1; alliance_year_work_begin(&work);
     while (alliance_council_update_year_step(&work)) {}
     before = state->council_last_election_year[id] == 1000;
-    year = 1008; alliance_year_work_begin(&work);
+    year = 1000 + ALLIANCE_COUNCIL_ELECTION_YEARS; alliance_year_work_begin(&work);
     while (alliance_council_update_year_step(&work)) {}
-    at = state->council_last_election_year[id] == 1008;
+    at = state->council_last_election_year[id] == 1000 + ALLIANCE_COUNCIL_ELECTION_YEARS;
     state->records[id].founded_year = year - 299;
     age299 = !alliance_military_eligible(id);
     state->records[id].founded_year = year - 300;

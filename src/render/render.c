@@ -5,6 +5,7 @@
 #include "core/profiler.h"
 #include "core/render_snapshot.h"
 #include "core/render_snapshot_keys.h"
+#include "game/game_loop.h"
 #include "render/cartography_layers.h"
 #include "render/country_target_arrow.h"
 #include "render/diplomacy_map_anim.h"
@@ -12,6 +13,7 @@
 #include "render/map_highlight.h"
 #include "render/pause_menu_render.h"
 #include "render/panel_view_model_cache.h"
+#include "render/panel_map_speed_badge.h"
 #include "render/plague_visual.h"
 #include "render/profiling_switches.h"
 #include "render/render_context.h"
@@ -39,14 +41,11 @@ static int city_overlay_cached_visual_revision = -1;
 static char overlay_last_reason_text[48] = "cold";
 static DWORD last_full_map_paint_tick;
 static int last_full_paint_had_progress_overlay;
-
 #define record_render_phase(start, category, name) profiler_record_spike_phase((category), (name), (int)(GetTickCount() - (start)))
 #define record_render_subphase(start, category, subphase, name) profiler_record_render_subphase((subphase), (category), (name), (int)(GetTickCount() - (start)))
-
 static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layout) {
     if (profiling_switch_enabled(PROFILING_SWITCH_HIGHLIGHT)) draw_country_highlight(hdc, client, layout);
 }
-
 static int draw_preview_layer(HDC hdc, RECT client, MapLayout layout, LayerCache *cache,
                               int *counter, const char *reuse, const char *skip) {
     if (render_layer_cache_preview_presentable(cache, client, display_mode)) {
@@ -56,14 +55,12 @@ static int draw_preview_layer(HDC hdc, RECT client, MapLayout layout, LayerCache
     } else snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "%s", skip);
     return 0;
 }
-
 static unsigned int route_overlay_key(const RenderSnapshot *snapshot) {
     unsigned int key = 2166136261u;
     key = render_layer_mix_key(key, snapshot ? snapshot->lanes_revision : 0);
     key = render_layer_mix_key(key, selected_civ);
     return render_layer_mix_key(key, display_mode);
 }
-
 static int draw_route_overlay_presentation(HDC hdc, RECT client, MapLayout layout,
                                            const RenderSnapshot *snapshot) {
     unsigned int key;
@@ -105,7 +102,6 @@ static int draw_route_overlay_presentation(HDC hdc, RECT client, MapLayout layou
     render_layer_cache_transparent_viewport(hdc, client, &route_overlay_cache);
     return 1;
 }
-
 static unsigned int city_overlay_key(const RenderSnapshot *snapshot) {
     unsigned int key = 2166136261u;
     key = render_layer_mix_key(key, snapshot ? snapshot->map_w : 0);
@@ -244,6 +240,8 @@ static int rects_intersect(RECT a, RECT b) {
 }
 
 static int rect_contains_rect(RECT o, RECT i) { return i.left >= o.left && i.top >= o.top && i.right <= o.right && i.bottom <= o.bottom && i.right > i.left && i.bottom > i.top; }
+static RECT speed_badge_dirty_rect(RECT client) { RECT r = panel_map_actual_speed_badge_rect(client); InflateRect(&r, 2, 2); return r; }
+static int paint_is_speed_badge_update(RECT client, RECT paint) { RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom}, badge = speed_badge_dirty_rect(client); return rect_contains_rect(badge, paint) || (rects_intersect(paint, bottom) && rects_intersect(paint, badge) && paint.left >= client.left && paint.right <= client.right && paint.top >= badge.top && paint.bottom <= client.bottom); }
 
 static int paint_is_ui_chrome_only(RECT client, RECT paint) {
     RECT top = {client.left, client.top, client.right, TOP_BAR_H}, bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
@@ -252,18 +250,20 @@ static int paint_is_ui_chrome_only(RECT client, RECT paint) {
     if (!side_panel_collapsed && handle.left < side.left) side.left = handle.left;
     return rect_contains_rect(top, paint) || rect_contains_rect(bottom, paint) ||
            rect_contains_rect(side, paint) || rect_contains_rect(handle, paint) ||
-           rect_contains_rect(handle_dirty, paint);
+           rect_contains_rect(handle_dirty, paint) || paint_is_speed_badge_update(client, paint);
 }
 
 static void draw_partial_ui(HDC hdc, RECT client, RECT paint) {
     RECT top = {client.left, client.top, client.right, TOP_BAR_H};
     RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
     RECT panel = get_side_panel_draw_rect(client);
+    RECT badge = speed_badge_dirty_rect(client);
     if (rects_intersect(paint, top)) {
         draw_top_bar(hdc, client);
         if (stale_ui_indicator_needed()) draw_stale_ui_indicator(hdc, client);
     }
     if (rects_intersect(paint, bottom)) draw_bottom_bar(hdc, client);
+    if (rects_intersect(paint, badge)) panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
     if (rects_intersect(paint, panel)) {
         if (side_panel_collapsed) {
             panel_view_model_cache_draw(hdc, client);

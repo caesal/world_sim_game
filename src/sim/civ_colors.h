@@ -6,9 +6,13 @@
 Color32 civilization_pick_auto_color(int civ_id, int seed_region);
 Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
                                          int parent_civ_id, int seed_region);
+Color32 civilization_pick_distinct_color_for_regions(int civ_id, Color32 preferred_color,
+                                                     int parent_civ_id, int seed_region,
+                                                     const int *regions, int region_count);
 Color32 civilization_preview_distinct_color(int civ_id, Color32 preferred_color,
                                             int parent_civ_id, int seed_region);
 int civilization_colors_too_similar_for_display(Color32 a, Color32 b);
+int civilization_color_display_distance(Color32 a, Color32 b);
 void civilization_color_reset_manual_locks(void);
 void civilization_color_mark_manual(int civ_id);
 int civilization_color_manual_locked(int civ_id);

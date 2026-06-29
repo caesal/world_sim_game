@@ -10,7 +10,7 @@ static int ring_index(int next, int cap, int newest_offset) {
 static int retryable_reason(int type, int reason) {
     return reason == ALLIANCE_REJECT_VOTE_FAILED &&
            (type == ALLIANCE_CANDIDATE_JOIN || type == ALLIANCE_CANDIDATE_REMOVAL ||
-            type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE);
+            type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE || type == ALLIANCE_CANDIDATE_UNION);
 }
 
 static int terminal_reason(const AllianceCandidateRecord *candidate) {
@@ -19,11 +19,13 @@ static int terminal_reason(const AllianceCandidateRecord *candidate) {
 }
 
 static int first_vote_years_for_type(int type) {
+    if (type == ALLIANCE_CANDIDATE_UNION) return 1;
     return type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_REMOVAL_FIRST_VOTE_YEARS :
            ALLIANCE_JOIN_FIRST_VOTE_YEARS;
 }
 
 static int retry_vote_years_for_type(int type) {
+    if (type == ALLIANCE_CANDIDATE_UNION) return ALLIANCE_UNION_RETRY_YEARS;
     if (type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE) return ALLIANCE_MILITARY_RETRY_YEARS;
     return type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_REMOVAL_RETRY_VOTE_YEARS :
            ALLIANCE_JOIN_RETRY_VOTE_YEARS;
@@ -41,6 +43,7 @@ int alliance_vote_state_vote_type(const AllianceCandidateRecord *candidate) {
     if (candidate && candidate->type == ALLIANCE_CANDIDATE_REMOVAL) return ALLIANCE_VOTE_REMOVAL;
     if (candidate && candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE)
         return ALLIANCE_VOTE_MILITARY_UPGRADE;
+    if (candidate && candidate->type == ALLIANCE_CANDIDATE_UNION) return ALLIANCE_VOTE_UNION;
     return ALLIANCE_VOTE_JOIN;
 }
 
@@ -75,7 +78,8 @@ static int vote_window_year(const RenderSnapshot *snapshot,
         since = max(0, snapshot->year - last_vote->vote_year);
         return since >= retry_years && since % retry_years == 0;
     }
-    if (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE)
+    if (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ||
+        candidate->type == ALLIANCE_CANDIDATE_UNION)
         return candidate->status == ALLIANCE_CANDIDATE_ACTIVE;
     years = max(0, snapshot->year - candidate->candidate_year + 1);
     return years >= first_vote_years_for_type(candidate->type) &&
@@ -185,11 +189,15 @@ int alliance_vote_state_candidate_member_count(const RenderSnapshot *snapshot,
                                                const AllianceVoteRecord *last_vote) {
     int i, count = 0;
     int vote_year = alliance_vote_state_candidate_vote_year(snapshot, candidate, last_vote);
-    int subject = candidate && candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ?
+    int subject = candidate && (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ||
+                  candidate->type == ALLIANCE_CANDIDATE_UNION) ?
                   -1 : (candidate ? candidate->civ_id : -1);
     if (alliance_council_vote_has_snapshot(record, last_vote)) {
-        for (i = 0; i < MAX_CIVS; i++)
-            if (alliance_council_vote_units_for_member(record, last_vote, i) > 0) count++;
+        for (i = 0; record && candidate && i < record->member_count && i < MAX_CIVS; i++) {
+            int member = record->members[i];
+            if (alliance_vote_state_member_can_vote(record, member, subject, vote_year) &&
+                alliance_council_vote_units_for_member(record, last_vote, member) > 0) count++;
+        }
         return count;
     }
     for (i = 0; record && candidate && i < record->member_count && i < MAX_CIVS; i++) {
@@ -203,7 +211,8 @@ int alliance_vote_state_vote_member_count(const AllianceSnapshotRecord *record,
                                           const AllianceVoteRecord *vote) {
     int i, count = 0;
     int subject = vote && vote->vote_type != ALLIANCE_VOTE_CREATE &&
-                  vote->vote_type != ALLIANCE_VOTE_MILITARY_UPGRADE ? vote->target_civ_id : -1;
+                  vote->vote_type != ALLIANCE_VOTE_MILITARY_UPGRADE &&
+                  vote->vote_type != ALLIANCE_VOTE_UNION ? vote->target_civ_id : -1;
     if (alliance_council_vote_has_snapshot(record, vote)) {
         for (i = 0; i < MAX_CIVS; i++)
             if (alliance_council_vote_units_for_member(record, vote, i) > 0) count++;

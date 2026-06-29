@@ -54,15 +54,14 @@ static const char *event_type_label(EventLogType type, int language) {
         case EVENT_TYPE_DIPLOMACY_ALLIANCE: return zh ? "外交同盟" : "Diplomatic alliance";
         case EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED: return zh ? "同盟结束" : "Alliance ended";
         case EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT: return zh ? "战败退盟" : "Forced alliance exit";
+        case EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION: return zh ? "联合完成" : "Union completed";
         case EVENT_TYPE_TREASURY_INDEMNITY: return zh ? "战争赔款" : "War indemnity";
         case EVENT_TYPE_STABILITY_PROJECT: return zh ? "国库维稳" : "Treasury stability";
         case EVENT_TYPE_MERCENARIES_HIRED: return zh ? "雇佣兵" : "Mercenaries";
         default: return zh ? "事件" : "Event";
     }
 }
-static int event_param_a_is_civ(EventLogType type) {
-    return type == EVENT_TYPE_VASSAL_TRANSFERRED;
-}
+static int event_param_a_is_civ(EventLogType type) { return type == EVENT_TYPE_VASSAL_TRANSFERRED; }
 static void event_snapshot_civ(EventCivSnapshot *snapshot, int civ_id) {
     if (!snapshot) return;
     memset(snapshot, 0, sizeof(*snapshot));
@@ -131,8 +130,7 @@ void event_log_push(const char *text) {
     event_log_push_structured(type, event_log_severity_from_type(type), -1, -1, -1, -1, 0, 0, text);
 }
 void event_log_clear(void) {
-    memset(event_log, 0, sizeof(event_log));
-    memset(event_log_entries, 0, sizeof(event_log_entries));
+    memset(event_log, 0, sizeof(event_log)); memset(event_log_entries, 0, sizeof(event_log_entries));
     event_log_store_clear();
     event_log_history_clear();
     event_log_count = 0;
@@ -181,8 +179,6 @@ static void localized_raw_fallback(const EventLogEntry *entry, int language, cha
         snprintf(out, out_size, "调试提示：已修复%d个国家颜色的可读性。", entry->param_a);
     } else if (strstr(raw, "Collapse blocked: invalid country")) {
         snprintf(out, out_size, "崩溃被阻止：国家无效。");
-    } else if (strstr(raw, "VASSAL_RELEASE_FAILED_NO_OVERLORD")) {
-        snprintf(out, out_size, "附庸操作失败：找不到有效宗主。");
     } else {
         snprintf(out, out_size, "系统事件：%s", raw);
     }
@@ -334,10 +330,15 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
             snprintf(out, out_size, zh ? "%s与%s结束同盟。" : "%s and %s ended their alliance.", civ, target);
             return;
         case EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT: {
-            char alliance[EVENT_LOG_LEN];
-            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            char alliance[EVENT_LOG_LEN]; event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
             snprintf(out, out_size, zh ? "%s在与%s的战争中失利，被迫退出%s。" :
                      "%s lost the war against %s and was forced out of %s.", civ, target, alliance);
+            return;
+        }
+        case EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION: {
+            char alliance[EVENT_LOG_LEN]; event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size, zh ? "%s吞并其他成员国，完成%s联合。" :
+                     "%s absorbed the other members and completed union in %s.", civ, alliance);
             return;
         }
         case EVENT_TYPE_TREASURY_INDEMNITY:

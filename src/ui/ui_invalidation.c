@@ -2,6 +2,7 @@
 
 #include "core/constants.h"
 #include "game/game_loop.h"
+#include "render/panel_map_speed_badge.h"
 #include "render/panel_view_model_cache.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
@@ -63,8 +64,12 @@ void ui_invalidate_top_bar(HWND hwnd) {
 
 void ui_invalidate_bottom_bar(HWND hwnd) {
     RECT client;
+    RECT badge;
     GetClientRect(hwnd, &client);
     invalidate_clipped(hwnd, (RECT){client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom});
+    badge = panel_map_actual_speed_badge_rect(client);
+    InflateRect(&badge, 2, 2);
+    invalidate_clipped(hwnd, badge);
 }
 
 void ui_invalidate_full(HWND hwnd) {

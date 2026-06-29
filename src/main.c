@@ -25,6 +25,9 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-economy") == 0) {
         return run_economy_probe();
     }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-collapse-colors") == 0) {
+        return run_collapse_color_probe();
+    }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-crisis") == 0) {
         return run_crisis_probe();
     }

@@ -141,9 +141,8 @@ void debug_panel_event_log_top(void) {
     debug_event_log_frozen = 0;
     debug_event_log_seen_total = debug_event_total_entries();
 }
-static int event_matches_filter(int index) {
-    EventLogType type = debug_event_type(index);
-    switch (clamp(debug_event_filter, 0, DEBUG_EVENT_FILTER_COUNT - 1)) {
+static int event_type_matches_filter(EventLogType type, int filter) {
+    switch (clamp(filter, 0, DEBUG_EVENT_FILTER_COUNT - 1)) {
         case DEBUG_EVENT_FILTER_EXPANSION_ROUTES:
             return type == EVENT_TYPE_EXPANSION_CLAIMED ||
                    type == EVENT_TYPE_DEEP_SEA_ROUTE_CREATED ||
@@ -168,6 +167,7 @@ static int event_matches_filter(int index) {
                    type == EVENT_TYPE_DIPLOMACY_TENSE ||
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
+                   type == EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION ||
                    type == EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT ||
                    type == EVENT_TYPE_TREASURY_INDEMNITY ||
                    type == EVENT_TYPE_STABILITY_PROJECT ||
@@ -190,6 +190,14 @@ static int event_matches_filter(int index) {
         default:
             return 1;
     }
+}
+
+int debug_panel_probe_event_type_matches_filter(int type, int filter) {
+    return event_type_matches_filter((EventLogType)type, filter);
+}
+
+static int event_matches_filter(int index) {
+    return event_type_matches_filter(debug_event_type(index), debug_event_filter);
 }
 static void debug_row(HDC hdc, UiCursor *cursor, const char *label, const char *value, COLORREF color) {
     char text[256];
@@ -284,8 +292,11 @@ static void draw_event_alliance_chip(HDC hdc, RECT *line, const EventLogEntry *e
     SIZE size;
     RECT chip;
     Color32 color;
-    if (!entry || entry->type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT || line->left >= line->right - 18) return;
-    color = entry->param_b ? (Color32)entry->param_b : RGB(86, 152, 218);
+    if (!entry || (entry->type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT &&
+                   entry->type != EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION) ||
+        line->left >= line->right - 18) return;
+    color = entry->type == EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT && entry->param_b ?
+            (Color32)entry->param_b : RGB(76, 64, 128);
     event_log_alliance_snapshot_name(entry, ui_language, text, sizeof(text));
     measure_text_utf8(hdc, text, &size);
     chip = (RECT){line->left, line->top, min(line->left + size.cx + 20, line->right), line->top + 22};

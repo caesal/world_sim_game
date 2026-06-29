@@ -56,6 +56,13 @@ static void allocate_half_units(const int *members, const int *values, int count
     }
 }
 
+static int has_current_council_units(AllianceSaveState *state, int alliance_id) {
+    int i;
+    if (!state || alliance_id < 0 || alliance_id >= ALLIANCE_MAX) return 0;
+    for (i = 0; i < MAX_CIVS; i++) if (state->council_vote_units[alliance_id][i] > 0) return 1;
+    return 0;
+}
+
 void alliance_council_recalculate(int alliance_id, int record_history) {
     AllianceSaveState *state = alliance_internal_state();
     AllianceRecord *record;
@@ -64,6 +71,13 @@ void alliance_council_recalculate(int alliance_id, int record_history) {
     if (!active_alliance(state, alliance_id)) return;
     record = &state->records[alliance_id];
     count = record->member_count;
+    state->council_previous_valid[alliance_id] = has_current_council_units(state, alliance_id);
+    if (state->council_previous_valid[alliance_id])
+        memcpy(state->council_previous_vote_units[alliance_id],
+               state->council_vote_units[alliance_id],
+               sizeof(state->council_previous_vote_units[alliance_id]));
+    else memset(state->council_previous_vote_units[alliance_id], 0,
+                sizeof(state->council_previous_vote_units[alliance_id]));
     memset(state->council_vote_units[alliance_id], 0, sizeof(state->council_vote_units[alliance_id]));
     memset(state->council_population_permille[alliance_id], 0, sizeof(state->council_population_permille[alliance_id]));
     memset(state->council_province_permille[alliance_id], 0, sizeof(state->council_province_permille[alliance_id]));

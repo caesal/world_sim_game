@@ -38,6 +38,7 @@ int game_tick_auto_run(void);
 int run_expansion_probe(void);
 int run_tech10_probe(void);
 int run_economy_probe(void);
+int run_collapse_color_probe(void);
 int run_crisis_probe(void);
 int run_diplomacy_probe(void);
 int run_population_probe(void);

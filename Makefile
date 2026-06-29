@@ -27,7 +27,9 @@ SOURCES := \
 	src/game/game_diplomacy_tooltip_probe.c \
 	src/game/game_diplomacy_visual_probe.c \
 	src/game/game_presentation_probe.c \
+	src/game/game_presentation_map_probe.c \
 	src/game/game_economy_probe.c \
+	src/game/game_collapse_color_probe.c \
 	src/game/game_population_probe.c \
 	src/game/game_population_corner_probe.c \
 	src/io/map_save.c \
@@ -224,6 +226,7 @@ SOURCES := \
 	src/render/panel_debug.c \
 	src/render/panel_population.c \
 	src/render/panel_info.c \
+	src/render/panel_map_speed_badge.c \
 	src/render/panel_map.c \
 	src/render/icons.c \
 	src/ui/ui_clay_theme.c \

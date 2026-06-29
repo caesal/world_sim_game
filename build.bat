@@ -26,7 +26,9 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_diplomacy_tooltip_probe.c ^
   src\game\game_diplomacy_visual_probe.c ^
   src\game\game_presentation_probe.c ^
+  src\game\game_presentation_map_probe.c ^
   src\game\game_economy_probe.c ^
+  src\game\game_collapse_color_probe.c ^
   src\game\game_population_probe.c ^
   src\game\game_population_corner_probe.c ^
   src\io\map_save.c ^
@@ -223,6 +225,7 @@ src\sim\diplomacy_year.c ^
   src\render\panel_debug.c ^
   src\render\panel_population.c ^
   src\render\panel_info.c ^
+  src\render\panel_map_speed_badge.c ^
   src\render\panel_map.c ^
   src\render\icons.c ^
   src\ui\ui_clay_theme.c ^

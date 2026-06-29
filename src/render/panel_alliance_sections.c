@@ -205,6 +205,7 @@ static int ring_index(int next, int cap, int newest_offset) {
 
 static const char *candidate_type_label(int type) {
     return type == ALLIANCE_CANDIDATE_REMOVAL ? tr("Removal target", "清退目标") :
+           type == ALLIANCE_CANDIDATE_UNION ? tr("Union Vote", "联合投票") :
                                                 tr("Join candidate", "加入候选");
 }
 
@@ -244,6 +245,7 @@ static int vote_member_rows(const RenderSnapshot *snapshot, const AllianceVoteRe
 
 static const char *vote_initiator(const AllianceSnapshotRecord *record, const AllianceVoteRecord *vote) {
     int i, want = vote->vote_type == ALLIANCE_VOTE_REMOVAL ? ALLIANCE_CANDIDATE_REMOVAL :
+                  vote->vote_type == ALLIANCE_VOTE_UNION ? ALLIANCE_CANDIDATE_UNION :
                   ALLIANCE_CANDIDATE_JOIN;
     if (!record || vote->vote_type == ALLIANCE_VOTE_CREATE) return tr("Alliance initiated", "联盟发起");
     for (i = 0; i < record->candidate_count && i < ALLIANCE_CANDIDATE_RECORD_CAP; i++) {

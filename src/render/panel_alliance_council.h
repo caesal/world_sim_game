@@ -22,6 +22,7 @@ int alliance_council_display_threshold_three_quarters(void);
 int alliance_council_build_display_members(const AllianceSnapshotRecord *record,
                                            AllianceCouncilDisplayMember *members, int cap);
 int alliance_council_display_seats_for_member(const AllianceSnapshotRecord *record, int civ_id);
+int alliance_council_previous_display_seats_for_member(const AllianceSnapshotRecord *record, int civ_id);
 int alliance_council_vote_has_snapshot(const AllianceSnapshotRecord *record,
                                        const AllianceVoteRecord *vote);
 int alliance_council_vote_units_for_member(const AllianceSnapshotRecord *record,

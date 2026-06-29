@@ -3,8 +3,6 @@
 #include "core/dirty_flags.h"
 #include "core/game_notifications.h"
 #include "core/game_state.h"
-#include "sim/civ_colors.h"
-#include "sim/civilization_slots.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
@@ -16,8 +14,16 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct {
+    int civ_id;
+    int order;
+    long long army;
+    long long population;
+    long long provinces;
+} UnionProposer;
+
 static int alive_civ(int civ_id) {
-    return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
+    return civ_id >= 0 && civ_id < civ_count && civ_id < MAX_CIVS && civs[civ_id].alive;
 }
 
 int alliance_union_required_years_for_type(int alliance_type) {
@@ -38,109 +44,225 @@ static int collect_members(const AllianceRecord *record, int *members, int *late
     return count;
 }
 
-static int first_owned_region(int civ_id) {
-    int i;
-    for (i = 0; i < region_count; i++) {
-        if (natural_regions[i].alive && natural_regions[i].owner_civ == civ_id) return i;
-    }
-    return -1;
+static int joined_year_for_member(const AllianceRecord *record, int civ_id) {
+    if (!record || civ_id < 0 || civ_id >= MAX_CIVS) return 0;
+    return record->joined_year_by_civ[civ_id] >= 0 ? record->joined_year_by_civ[civ_id] :
+           record->founded_year;
 }
 
-static void copy_founder_traits(int new_civ, const Civilization *founder) {
-    int name_id;
-    civs[new_civ].alive = 1;
-    civs[new_civ].symbol = (char)('A' + (new_civ % 26));
-    civs[new_civ].aggression = founder->aggression;
-    civs[new_civ].expansion = founder->expansion;
-    civs[new_civ].defense = founder->defense;
-    civs[new_civ].culture = founder->culture;
-    civs[new_civ].governance = founder->governance;
-    civs[new_civ].cohesion = founder->cohesion;
-    civs[new_civ].production = founder->production;
-    civs[new_civ].military = founder->military;
-    civs[new_civ].commerce = founder->commerce;
-    civs[new_civ].logistics = founder->logistics;
-    civs[new_civ].innovation = founder->innovation;
-    civs[new_civ].adaptation = founder->adaptation;
-    civs[new_civ].tech_stage = founder->tech_stage;
-    civs[new_civ].tech_progress = founder->tech_progress;
-    civs[new_civ].heritage = civilization_heritage_or_default(founder->heritage);
-    name_id = civilization_pick_unused_name_id_for_heritage(civs[new_civ].heritage);
-    civilization_assign_generated_name_for_heritage(&civs[new_civ], civs[new_civ].heritage, name_id);
+static int member_order_index(const AllianceRecord *record, int civ_id) {
+    int i;
+    for (i = 0; record && i < record->member_count && i < MAX_CIVS; i++)
+        if (record->members[i] == civ_id) return i;
+    return MAX_CIVS;
+}
+
+static int member_before(const AllianceRecord *record, int a, int b) {
+    int ay = joined_year_for_member(record, a), by = joined_year_for_member(record, b);
+    int ao = member_order_index(record, a), bo = member_order_index(record, b);
+    if (ay != by) return ay < by;
+    if (ao != bo) return ao < bo;
+    return a < b;
+}
+
+static void sort_members_by_join_order(const AllianceRecord *record, int *members, int count) {
+    int i;
+    for (i = 1; i < count; i++) {
+        int value = members[i], j = i - 1;
+        while (j >= 0 && member_before(record, value, members[j])) {
+            members[j + 1] = members[j];
+            j--;
+        }
+        members[j + 1] = value;
+    }
+}
+
+static long long owned_province_count(int civ_id) {
+    int i;
+    long long count = 0;
+    for (i = 0; i < region_count; i++)
+        if (natural_regions[i].alive && natural_regions[i].owner_civ == civ_id) count++;
+    return count;
+}
+
+static UnionProposer make_proposer(int civ_id, int order) {
+    UnionProposer p;
+    p.civ_id = civ_id;
+    p.order = order;
+    p.army = war_current_soldiers_for_civ(civ_id);
+    p.population = civ_id >= 0 && civ_id < civ_count ? civs[civ_id].population : 0;
+    p.provinces = owned_province_count(civ_id);
+    return p;
+}
+
+static long long normalized_score(long long value, long long other, int weight) {
+    long long denom = max(value, other);
+    return denom > 0 ? value * weight * 1000 / denom : 0;
+}
+
+static int proposer_compare(const UnionProposer *a, const UnionProposer *b) {
+    int a_wins = 0, b_wins = 0;
+    long long as, bs;
+    if (a->army > b->army) a_wins++; else if (b->army > a->army) b_wins++;
+    if (a->population > b->population) a_wins++; else if (b->population > a->population) b_wins++;
+    if (a->provinces > b->provinces) a_wins++; else if (b->provinces > a->provinces) b_wins++;
+    if (a_wins >= 2 && b_wins < 2) return 1;
+    if (b_wins >= 2 && a_wins < 2) return -1;
+    as = normalized_score(a->army, b->army, 40) +
+         normalized_score(a->population, b->population, 35) +
+         normalized_score(a->provinces, b->provinces, 25);
+    bs = normalized_score(b->army, a->army, 40) +
+         normalized_score(b->population, a->population, 35) +
+         normalized_score(b->provinces, a->provinces, 25);
+    if (as != bs) return as > bs ? 1 : -1;
+    if (a->order != b->order) return a->order < b->order ? 1 : -1;
+    return a->civ_id < b->civ_id ? 1 : (a->civ_id > b->civ_id ? -1 : 0);
+}
+
+int alliance_union_proposer_cooldown_remaining(int alliance_id, int proposer_civ) {
+    AllianceSaveState *state = alliance_internal_state();
+    int i, latest = -100000;
+    if (!state || alliance_id < 0 || alliance_id >= ALLIANCE_MAX) return 0;
+    for (i = 0; i < ALLIANCE_VOTE_RECORD_CAP; i++) {
+        AllianceVoteRecord *vote = &state->votes[alliance_id][i];
+        if (!vote->active || vote->vote_type != ALLIANCE_VOTE_UNION ||
+            vote->target_civ_id != proposer_civ || vote->passed ||
+            vote->rejection_reason != ALLIANCE_REJECT_VOTE_FAILED) continue;
+        if (vote->vote_year > latest) latest = vote->vote_year;
+    }
+    return latest < 0 ? 0 : max(0, ALLIANCE_UNION_RETRY_YEARS - (year - latest));
+}
+
+static int eligible_proposer(int alliance_id, int civ_id, int order, int eligible_year) {
+    int start = eligible_year + order * ALLIANCE_UNION_PROPOSER_DELAY_YEARS;
+    return alive_civ(civ_id) && year >= start &&
+           alliance_union_proposer_cooldown_remaining(alliance_id, civ_id) <= 0;
+}
+
+static int select_proposer(const AllianceRecord *record, int alliance_id, int *members,
+                           int count, int eligible_year) {
+    UnionProposer best;
+    int i, have = 0;
+    sort_members_by_join_order(record, members, count);
+    memset(&best, 0, sizeof(best));
+    for (i = 0; i < count; i++) {
+        UnionProposer candidate;
+        if (!eligible_proposer(alliance_id, members[i], i, eligible_year)) continue;
+        candidate = make_proposer(members[i], i);
+        if (!have || proposer_compare(&candidate, &best) > 0) {
+            best = candidate;
+            have = 1;
+        }
+    }
+    return have ? best.civ_id : -1;
+}
+
+int alliance_union_vote_yes_chance_from_ratio_permille(int avg_ratio_permille) {
+    int r = clamp(avg_ratio_permille, 0, 1000);
+    if (r >= 950) return 15;
+    if (r >= 700) return clamp(35 - ((r - 700) * 20 + 125) / 250, 15, 35);
+    if (r >= 500) return clamp(50 - ((r - 500) * 15 + 100) / 200, 35, 50);
+    if (r > 250) return clamp(70 - ((r - 250) * 20 + 125) / 250, 50, 70);
+    return 70;
+}
+
+static int ratio_permille(long long voter, long long proposer) {
+    if (proposer <= 0) return voter <= 0 ? 0 : 1000;
+    return (int)min(1000, max(0, voter * 1000 / proposer));
+}
+
+static int voter_stronger_all_three(int voter, int proposer) {
+    return war_current_soldiers_for_civ(voter) > war_current_soldiers_for_civ(proposer) &&
+           civs[voter].population > civs[proposer].population &&
+           owned_province_count(voter) > owned_province_count(proposer);
+}
+
+static int union_yes_chance(int voter, int proposer) {
+    int avg;
+    if (voter == proposer) return 100;
+    if (voter_stronger_all_three(voter, proposer)) return 0;
+    avg = (ratio_permille(war_current_soldiers_for_civ(voter), war_current_soldiers_for_civ(proposer)) +
+           ratio_permille(civs[voter].population, civs[proposer].population) +
+           ratio_permille(owned_province_count(voter), owned_province_count(proposer))) / 3;
+    return alliance_union_vote_yes_chance_from_ratio_permille(avg);
+}
+
+static int vote_roll(int chance_percent) {
+    return rnd(100) < clamp(chance_percent, 0, 100);
 }
 
 static int member_mask_contains(const unsigned char *mask, int civ_id) {
     return civ_id >= 0 && civ_id < MAX_CIVS && mask[civ_id];
 }
 
-static void transfer_owned_world(int new_civ, const unsigned char *member_mask) {
-    int x, y, i;
-    for (i = 0; i < region_count; i++) {
-        if (member_mask_contains(member_mask, natural_regions[i].owner_civ)) natural_regions[i].owner_civ = new_civ;
+static int council_units_ready(AllianceSaveState *state, int alliance_id, const int *members, int count) {
+    int i, sum = 0;
+    if (!state || alliance_id < 0 || alliance_id >= ALLIANCE_MAX) return 0;
+    for (i = 0; i < count; i++) {
+        int member = members[i];
+        if (member >= 0 && member < MAX_CIVS)
+            sum += state->council_vote_units[alliance_id][member];
     }
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            if (member_mask_contains(member_mask, world[y][x].owner)) world[y][x].owner = new_civ;
-        }
-    }
+    return sum == ALLIANCE_COUNCIL_TOTAL_UNITS;
 }
 
-static int transfer_cities(int new_civ, const int *members, int count, int founder_capital) {
-    int i, m, capital = -1;
+static void transfer_owned_world(int proposer, const unsigned char *absorbed_mask) {
+    int x, y, i;
+    for (i = 0; i < region_count; i++)
+        if (member_mask_contains(absorbed_mask, natural_regions[i].owner_civ))
+            natural_regions[i].owner_civ = proposer;
+    for (y = 0; y < MAP_H; y++)
+        for (x = 0; x < MAP_W; x++)
+            if (member_mask_contains(absorbed_mask, world[y][x].owner)) world[y][x].owner = proposer;
+}
+
+static void transfer_cities_to_proposer(int proposer, const int *members, int count) {
+    int i, m;
     for (i = 0; i < city_count; i++) {
         if (!cities[i].alive) continue;
         for (m = 0; m < count; m++) {
-            if (cities[i].owner != members[m]) continue;
-            cities[i].owner = new_civ;
+            if (members[m] == proposer || cities[i].owner != members[m]) continue;
+            cities[i].owner = proposer;
             cities[i].capital = 0;
-            if (i == founder_capital) capital = i;
+            break;
         }
     }
-    if (capital < 0) {
+    if (civs[proposer].capital_city < 0) {
         for (i = 0; i < city_count; i++) {
-            if (cities[i].alive && cities[i].owner == new_civ) { capital = i; break; }
+            if (cities[i].alive && cities[i].owner == proposer) {
+                civs[proposer].capital_city = i;
+                cities[i].capital = 1;
+                break;
+            }
         }
     }
-    if (capital >= 0) cities[capital].capital = 1;
-    return capital;
 }
 
-static void copy_founder_diplomacy(int founder, int new_civ, const unsigned char *member_mask) {
-    int other;
-    for (other = 0; other < civ_count; other++) {
-        DiplomacyRelation a;
-        DiplomacyRelation b;
-        if (other == new_civ || member_mask_contains(member_mask, other) || !civs[other].alive) continue;
-        a = diplomacy_relation(founder, other);
-        b = diplomacy_relation(other, founder);
-        if (a.state == DIPLOMACY_VASSAL && a.overlord == founder) a.overlord = new_civ;
-        if (b.state == DIPLOMACY_VASSAL && b.overlord == founder) b.overlord = new_civ;
-        diplomacy_restore_relation(new_civ, other, a);
-        diplomacy_restore_relation(other, new_civ, b);
-    }
-}
-
-static void retire_members(const int *members, int count, int founder, int new_civ) {
+static void retire_absorbed_members(int proposer, const int *members, int count) {
     int i;
-    war_transfer_civ_identity(founder, new_civ);
     for (i = 0; i < count; i++) {
-        if (members[i] != founder) war_end_direct_for_civ(members[i]);
+        int civ_id = members[i];
+        if (civ_id == proposer) continue;
+        civs[proposer].treasury += max(0, civs[civ_id].treasury);
+        civs[proposer].treasury_cap += max(0, civs[civ_id].treasury_cap);
+        civs[proposer].treasury_pending_surplus += max(0, civs[civ_id].treasury_pending_surplus);
+        war_end_direct_for_civ(civ_id);
+        diplomacy_clear_civ(civ_id);
+        civs[civ_id].alive = 0;
+        civs[civ_id].population = 0;
+        civs[civ_id].territory = 0;
+        civs[civ_id].capital_city = -1;
+        civs[civ_id].treasury = 0;
+        civs[civ_id].treasury_cap = 0;
+        civs[civ_id].treasury_pending_surplus = 0;
     }
-    for (i = 0; i < count; i++) {
-        diplomacy_clear_civ(members[i]);
-        civs[members[i]].alive = 0;
-        civs[members[i]].population = 0;
-        civs[members[i]].territory = 0;
-        civs[members[i]].capital_city = -1;
-        civs[members[i]].treasury = 0;
-        civs[members[i]].treasury_pending_surplus = 0;
-    }
+    civs[proposer].treasury_cap = max(civs[proposer].treasury_cap, civs[proposer].treasury);
 }
 
-static void finish_world_refresh(int new_civ, const int *members, int count) {
+static void finish_world_refresh(int proposer, const int *members, int count) {
     int i;
     for (i = 0; i < count; i++) world_mark_province_partition_dirty(members[i]);
-    world_mark_province_partition_dirty(new_civ);
+    world_mark_province_partition_dirty(proposer);
     regions_claim_cache_reset();
     world_recalculate_territory();
     population_sync_all();
@@ -159,67 +281,104 @@ static void finish_world_refresh(int new_civ, const int *members, int count) {
 static void deactivate_alliance(int alliance_id, const int *members, int count) {
     AllianceSaveState *state = alliance_internal_state();
     int i;
-    for (i = 0; i < count; i++) {
+    for (i = 0; i < count; i++)
         if (members[i] >= 0 && members[i] < MAX_CIVS) state->civ_alliance[members[i]] = -1;
-    }
     state->records[alliance_id].active = 0;
     state->records[alliance_id].member_count = 0;
     alliance_power_cache_reset();
 }
 
-static void notify_union(const AllianceRecord *record, int founder, int new_civ, int count) {
+static void notify_union_absorption(const AllianceRecord *record, int proposer, int absorbed_count) {
     char en[GAME_NOTIFICATION_TEXT], zh[GAME_NOTIFICATION_TEXT];
-    snprintf(en, sizeof(en), "%s united under %s as %s; %d members merged.",
-             record->name_en, civilization_display_name_for_language(founder, 0),
-             civilization_display_name_for_language(new_civ, 0), count);
-    snprintf(zh, sizeof(zh), "%s完成联合，由%s领导，建立%s；合并%d个成员。",
-             record->name_zh, civilization_display_name_for_language(founder, 1),
-             civilization_display_name_for_language(new_civ, 1), count);
+    snprintf(en, sizeof(en), "%s completed union: %s absorbed %d other members.",
+             record->name_en, civilization_display_name_for_language(proposer, 0), absorbed_count);
+    snprintf(zh, sizeof(zh), "%s完成联合：%s吞并%d个其他成员国。",
+             record->name_zh, civilization_display_name_for_language(proposer, 1), absorbed_count);
     game_notifications_push(en, zh);
+}
+
+static void absorb_members(int alliance_id, int proposer, const int *members, int count) {
+    AllianceSaveState *state = alliance_internal_state();
+    AllianceRecord *record = &state->records[alliance_id];
+    unsigned char absorbed_mask[MAX_CIVS] = {0};
+    char alliance_snapshot[ALLIANCE_NAME_LEN * 2 + 4];
+    int i, absorbed = 0;
+    for (i = 0; i < count; i++) {
+        if (members[i] == proposer) continue;
+        absorbed_mask[members[i]] = 1;
+        absorbed++;
+    }
+    snprintf(alliance_snapshot, sizeof(alliance_snapshot), "%s\t%s", record->name_en, record->name_zh);
+    transfer_owned_world(proposer, absorbed_mask);
+    transfer_cities_to_proposer(proposer, members, count);
+    retire_absorbed_members(proposer, members, count);
+    alliance_record_history(alliance_id, ALLIANCE_HISTORY_UNION_ABSORBED, proposer, -1,
+                            ALLIANCE_VOTE_UNION, ALLIANCE_REJECT_NONE);
+    event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION, EVENT_SEVERITY_INFO,
+                              proposer, -1, -1, -1, alliance_id, absorbed, alliance_snapshot);
+    notify_union_absorption(record, proposer, absorbed);
+    deactivate_alliance(alliance_id, members, count);
+    finish_world_refresh(proposer, members, count);
+}
+
+static void resolve_union_vote(int alliance_id, int proposer, const int *members, int count) {
+    AllianceSaveState *state = alliance_internal_state();
+    signed char votes[MAX_CIVS];
+    int council_units[MAX_CIVS];
+    int i, yes = 0, no = 0, passed;
+    for (i = 0; i < MAX_CIVS; i++) {
+        votes[i] = ALLIANCE_MEMBER_VOTE_NA;
+        council_units[i] = 0;
+    }
+    alliance_record_candidate(alliance_id, proposer, ALLIANCE_CANDIDATE_UNION,
+                              ALLIANCE_CANDIDATE_INITIATOR_ALLIANCE, year, 100,
+                              ALLIANCE_CANDIDATE_ACTIVE, ALLIANCE_REJECT_NONE);
+    alliance_record_history(alliance_id, ALLIANCE_HISTORY_UNION_VOTE_INITIATED, proposer,
+                            -1, ALLIANCE_VOTE_UNION, ALLIANCE_REJECT_NONE);
+    for (i = 0; i < count; i++) {
+        int member = members[i];
+        int units = state->council_vote_units[alliance_id][member];
+        if (units <= 0) continue;
+        council_units[member] = units;
+        if (member == proposer || vote_roll(union_yes_chance(member, proposer))) {
+            votes[member] = ALLIANCE_MEMBER_VOTE_YES;
+            yes += units;
+        } else {
+            votes[member] = ALLIANCE_MEMBER_VOTE_NO;
+            no += units;
+        }
+    }
+    passed = yes * 4 > ALLIANCE_COUNCIL_TOTAL_UNITS * 3;
+    alliance_record_weighted_vote(alliance_id, ALLIANCE_VOTE_UNION, proposer, -1,
+                                  votes, council_units, yes, no, passed,
+                                  passed ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
+    alliance_record_candidate(alliance_id, proposer, ALLIANCE_CANDIDATE_UNION,
+                              ALLIANCE_CANDIDATE_INITIATOR_ALLIANCE, year, 100,
+                              passed ? ALLIANCE_CANDIDATE_PASSED : ALLIANCE_CANDIDATE_ACTIVE,
+                              passed ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
+    alliance_record_history(alliance_id, passed ? ALLIANCE_HISTORY_UNION_VOTE_PASSED :
+                            ALLIANCE_HISTORY_UNION_VOTE_FAILED, proposer, -1,
+                            ALLIANCE_VOTE_UNION,
+                            passed ? ALLIANCE_REJECT_NONE : ALLIANCE_REJECT_VOTE_FAILED);
+    if (passed) absorb_members(alliance_id, proposer, members, count);
 }
 
 int alliance_union_try(int alliance_id) {
     AllianceSaveState *state = alliance_internal_state();
     AllianceRecord *record;
-    Civilization founder_copy;
-    int members[MAX_CIVS], count, latest_join, founder, new_civ, i, treasury = 0, treasury_cap = 0;
-    int seed_region, capital;
-    unsigned char member_mask[MAX_CIVS] = {0};
+    int members[MAX_CIVS], count, latest_join, eligible_year, proposer;
     if (!state || alliance_id < 0 || alliance_id >= state->next_id || alliance_id >= ALLIANCE_MAX) return 0;
     record = &state->records[alliance_id];
     if (!record->active) return 0;
     count = collect_members(record, members, &latest_join);
-    if (count < 2 || year - latest_join < alliance_union_required_years_for_type(state->alliance_type[alliance_id]))
-        return 0;
-    founder = record->founder_civ_id;
-    if (!alive_civ(founder) || !alliance_is_formal_member(alliance_id, founder)) return 0;
-    new_civ = civilization_allocate_slot(1);
-    if (new_civ < 0) return 0;
-    founder_copy = civs[founder];
-    for (i = 0; i < count; i++) {
-        member_mask[members[i]] = 1;
-        treasury += max(0, civs[members[i]].treasury);
-        treasury_cap += max(0, civs[members[i]].treasury_cap);
-    }
-    copy_founder_traits(new_civ, &founder_copy);
-    transfer_owned_world(new_civ, member_mask);
-    capital = transfer_cities(new_civ, members, count, founder_copy.capital_city);
-    civs[new_civ].capital_city = capital;
-    civs[new_civ].treasury = treasury;
-    civs[new_civ].treasury_cap = max(treasury, treasury_cap);
-    civs[new_civ].disorder = 0;
-    civs[new_civ].disorder_resource = civs[new_civ].disorder_plague = 0;
-    civs[new_civ].disorder_migration = civs[new_civ].disorder_stability = 0;
-    seed_region = capital >= 0 ? regions_region_for_city(capital) : first_owned_region(new_civ);
-    copy_founder_diplomacy(founder, new_civ, member_mask);
-    retire_members(members, count, founder, new_civ);
-    civs[new_civ].color = civilization_pick_distinct_color(new_civ, 0, founder, seed_region);
-    alliance_record_history(alliance_id, ALLIANCE_HISTORY_UNION_FORMED, new_civ, founder, -1, ALLIANCE_REJECT_NONE);
-    event_log_push_structured(EVENT_TYPE_CIV_CREATED, EVENT_SEVERITY_INFO,
-                              new_civ, founder, -1, capital, alliance_id, count, "");
-    notify_union(record, founder, new_civ, count);
-    deactivate_alliance(alliance_id, members, count);
-    finish_world_refresh(new_civ, members, count);
+    if (count < 2) return 0;
+    eligible_year = latest_join + alliance_union_required_years_for_type(state->alliance_type[alliance_id]);
+    if (year < eligible_year) return 0;
+    if (!council_units_ready(state, alliance_id, members, count))
+        alliance_council_recalculate(alliance_id, 0);
+    proposer = select_proposer(record, alliance_id, members, count, eligible_year);
+    if (proposer < 0) return 0;
+    resolve_union_vote(alliance_id, proposer, members, count);
     return 1;
 }
 

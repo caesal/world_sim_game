@@ -43,11 +43,19 @@ int ui_alliance_panel_hover_hit(RECT client, int mouse_x, int mouse_y) {
     return alliance_panel_hit_test(client, mouse_x, mouse_y);
 }
 
+int ui_alliance_panel_passive_tooltip_hit(int mouse_x, int mouse_y) {
+    return diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES,
+                                                       mouse_x, mouse_y) > 0;
+}
+
 int ui_handle_alliance_panel_click(HWND hwnd, RECT client, int mouse_x, int mouse_y) {
     int hit;
     if (!ui_alliance_panel_owns_input() || side_panel_collapsed ||
         mouse_x < client.right - side_panel_w) return 0;
     hit = alliance_panel_hit_test(client, mouse_x, mouse_y);
+    if (hit == ALLIANCE_PANEL_HIT_NONE && ui_alliance_panel_passive_tooltip_hit(mouse_x, mouse_y)) {
+        return 1;
+    }
     if (hit == ALLIANCE_PANEL_HIT_NONE) return 0;
     if (hit == ALLIANCE_PANEL_HIT_TOGGLE_FALLEN) {
         country_show_fallen = !country_show_fallen;

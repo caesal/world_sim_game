@@ -120,7 +120,8 @@ static const char *collapse_format_block_reason(int civ_id, CollapseBlockReason 
     return collapse_block_details[civ_id];
 }
 
-static int create_successor_civ(int parent, int index, int seed_region) {
+static int create_successor_civ(int parent, int index, int seed_region,
+                                const int *regions, int region_count) {
     Civilization parent_state = civs[parent];
     Civilization *child;
     int child_id;
@@ -132,7 +133,9 @@ static int create_successor_civ(int parent, int index, int seed_region) {
     civilization_assign_generated_name_for_heritage(child, parent_state.heritage,
                                                     civilization_pick_unused_name_id_for_heritage(parent_state.heritage));
     child->symbol = (char)('a' + (child_id % 26));
-    child->color = civilization_pick_distinct_color(child_id, 0, parent, seed_region);
+    child->color = civilization_pick_distinct_color_for_regions(child_id, 0, parent,
+                                                                seed_region, regions,
+                                                                region_count);
     child->alive = 1;
     child->population = 0;
     child->territory = 0;
@@ -258,7 +261,9 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
         int claimed = 0;
         int child_asset = 0;
         int r;
-        child = create_successor_civ(civ_id, formed, partition.successor_capital_region[i]);
+        child = create_successor_civ(civ_id, formed, partition.successor_capital_region[i],
+                                     partition.successor_regions[i],
+                                     partition.successor_region_count[i]);
         if (child < 0) break;
         for (r = 0; r < partition.successor_region_count[i]; r++) {
             int region_id = partition.successor_regions[i][r];

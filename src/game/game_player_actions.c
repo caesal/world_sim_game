@@ -170,13 +170,11 @@ GamePlayerActionResult game_player_form_alliance(int source_civ, int target_civ)
     if (valid != GAME_PLAYER_ACTION_OK) return valid;
     if (vassal_overlord(target_civ) >= 0) return GAME_PLAYER_ACTION_VASSAL_ALLIANCE_BLOCKED;
     if (target_is_owned_vassal(source_civ, target_civ)) return GAME_PLAYER_ACTION_TARGET_IS_OWN_VASSAL;
-    if (!has_direct_contact(source_civ, target_civ)) return GAME_PLAYER_ACTION_NO_CONTACT;
     if (war_active_between(source_civ, target_civ) ||
         diplomacy_status(source_civ, target_civ) == DIPLOMACY_WAR) {
         return GAME_PLAYER_ACTION_ALREADY_ACTIVE;
     }
-    if (diplomacy_status(source_civ, target_civ) == DIPLOMACY_TRUCE ||
-        diplomacy_status(source_civ, target_civ) == DIPLOMACY_VASSAL) {
+    if (diplomacy_status(source_civ, target_civ) == DIPLOMACY_VASSAL) {
         return GAME_PLAYER_ACTION_ALLIANCE_BLOCKED;
     }
 
@@ -186,9 +184,8 @@ GamePlayerActionResult game_player_form_alliance(int source_civ, int target_civ)
         state_write_unlock();
         return GAME_PLAYER_ACTION_VASSAL_ALLIANCE_BLOCKED;
     }
-    if (valid == GAME_PLAYER_ACTION_OK && has_direct_contact(source_civ, target_civ) &&
+    if (valid == GAME_PLAYER_ACTION_OK &&
         diplomacy_status(source_civ, target_civ) != DIPLOMACY_WAR &&
-        diplomacy_status(source_civ, target_civ) != DIPLOMACY_TRUCE &&
         diplomacy_status(source_civ, target_civ) != DIPLOMACY_VASSAL) {
         result = alliance_player_form_or_join(source_civ, target_civ);
         valid = alliance_result_to_player(result);

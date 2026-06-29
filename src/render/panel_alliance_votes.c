@@ -7,7 +7,6 @@
 #include "sim/alliance_contact.h"
 #include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
-
 #include <stdio.h>
 static const char *civ_name(const RenderSnapshot *snapshot, int civ_id) {
     if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return "-";
@@ -25,8 +24,8 @@ static int ring_index(int next, int cap, int newest_offset) {
 }
 static const char *candidate_type_label(int type) {
     if (type == ALLIANCE_CANDIDATE_REMOVAL) return tr("Removal target", "清退目标");
-    if (type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE)
-        return tr("Military Alliance Upgrade", "军事同盟升级");
+    if (type == ALLIANCE_CANDIDATE_UNION) return tr("Union Vote", "联合投票");
+    if (type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE) return tr("Military Alliance Upgrade", "军事同盟升级");
     return tr("Join candidate", "加入候选");
 }
 static const char *candidate_initiator_label(int initiator) {
@@ -43,26 +42,26 @@ static const char *vote_subject_label(const RenderSnapshot *snapshot, int vote_t
 }
 static int council_weighted_candidate(const AllianceSnapshotRecord *record, const AllianceCandidateRecord *candidate) {
     if (!candidate) return 0;
-    if (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE) return 1;
+    if (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE || candidate->type == ALLIANCE_CANDIDATE_UNION) return 1;
     return candidate->type == ALLIANCE_CANDIDATE_JOIN && record &&
            record->type == ALLIANCE_TYPE_MILITARY;
 }
 static int council_weighted_vote(const AllianceSnapshotRecord *record, const AllianceVoteRecord *vote) {
     if (!vote) return 0;
     if (alliance_council_vote_has_snapshot(record, vote)) return 1;
-    if (vote->vote_type == ALLIANCE_VOTE_MILITARY_UPGRADE) return 1;
+    if (vote->vote_type == ALLIANCE_VOTE_MILITARY_UPGRADE || vote->vote_type == ALLIANCE_VOTE_UNION) return 1;
     return vote->vote_type == ALLIANCE_VOTE_JOIN && record &&
            record->type == ALLIANCE_TYPE_MILITARY;
 }
 static int council_vote_threshold_for_type(int vote_type) {
-    return vote_type == ALLIANCE_VOTE_JOIN ?
+    return (vote_type == ALLIANCE_VOTE_JOIN || vote_type == ALLIANCE_VOTE_UNION) ?
            alliance_council_display_threshold_three_quarters() :
            alliance_council_display_threshold_two_thirds();
 }
 static int first_vote_years_for_candidate(const AllianceCandidateRecord *candidate) {
+    if (candidate && candidate->type == ALLIANCE_CANDIDATE_UNION) return 1;
     return candidate && candidate->type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_REMOVAL_FIRST_VOTE_YEARS :
            ALLIANCE_JOIN_FIRST_VOTE_YEARS; }
-
 static int elapsed_candidate_years(const RenderSnapshot *snapshot,
                                    const AllianceCandidateRecord *candidate) {
     int first_years = first_vote_years_for_candidate(candidate);
@@ -85,6 +84,7 @@ static const char *candidate_rule_label(const AllianceSnapshotRecord *record, co
     if (!candidate) return "";
     if (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE)
         return tr("Council threshold 54 / 80", "议会门槛 54 / 80");
+    if (candidate->type == ALLIANCE_CANDIDATE_UNION) return tr("Council threshold 61 / 80", "议会门槛 61 / 80");
     if (candidate->type == ALLIANCE_CANDIDATE_JOIN && record &&
         record->type == ALLIANCE_TYPE_MILITARY)
         return tr("Council threshold 61 / 80", "议会门槛 61 / 80");
@@ -135,8 +135,8 @@ static int relation_score(const RenderSnapshot *snapshot, int a, int b) {
     return snapshot->relations[a][b].relation_score;
 }
 static int direct_contact(const RenderSnapshot *snapshot, int a, int b) {
-    if (!snapshot || a < 0 || b < 0 || a >= snapshot->civ_count || b >= snapshot->civ_count) return 0;
-    return snapshot->relations[a][b].contact_kind != DIP_CONTACT_NONE;
+    return snapshot && a >= 0 && b >= 0 && a < snapshot->civ_count && b < snapshot->civ_count &&
+           snapshot->relations[a][b].contact_kind != DIP_CONTACT_NONE;
 }
 
 static AllianceDiplomaticContactSource contact_source(const RenderSnapshot *snapshot, const AllianceSnapshotRecord *record,
@@ -153,8 +153,7 @@ static AllianceDiplomaticContactSource contact_source(const RenderSnapshot *snap
 
 static const char *contact_label(AllianceDiplomaticContactSource source) {
     if (source == ALLIANCE_DIP_CONTACT_DIRECT) return tr("Direct contact", "直接接触");
-    if (source == ALLIANCE_DIP_CONTACT_ALLIANCE || source == ALLIANCE_DIP_CONTACT_VASSAL_PROXY)
-        return tr("Alliance diplomatic contact", "联盟外交接触");
+    if (source == ALLIANCE_DIP_CONTACT_ALLIANCE || source == ALLIANCE_DIP_CONTACT_VASSAL_PROXY) return tr("Alliance diplomatic contact", "联盟外交接触");
     return tr("No contact", "无接触");
 }
 
@@ -179,16 +178,14 @@ static void draw_progress(HDC hdc, RECT rect, int value, COLORREF color) {
     fill_rect(hdc, fill, color);
 }
 
-static void draw_member_intent_card(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
-                                    const AllianceSnapshotRecord *record, const AllianceCandidateRecord *candidate,
-                                    const AllianceVoteRecord *last_vote,
-                                    int member) {
+static void draw_member_intent_card(HDC hdc, RECT rect, const RenderSnapshot *snapshot, const AllianceSnapshotRecord *record,
+                                    const AllianceCandidateRecord *candidate, const AllianceVoteRecord *last_vote, int member) {
     int score = relation_score(snapshot, member, candidate->civ_id);
     AllianceDiplomaticContactSource source = contact_source(snapshot, record, candidate->civ_id, member);
     AllianceCandidatePhase phase = alliance_vote_state_phase(snapshot, candidate, last_vote);
-    int blocked = phase == ALLIANCE_CANDIDATE_PHASE_BLOCKED || source == ALLIANCE_DIP_CONTACT_NONE;
-    int weighted = last_vote ? alliance_council_vote_has_snapshot(record, last_vote) :
-                   council_weighted_candidate(record, candidate);
+    int union_vote = candidate->type == ALLIANCE_CANDIDATE_UNION;
+    int blocked = !union_vote && (phase == ALLIANCE_CANDIDATE_PHASE_BLOCKED || source == ALLIANCE_DIP_CONTACT_NONE);
+    int weighted = last_vote ? alliance_council_vote_has_snapshot(record, last_vote) : council_weighted_candidate(record, candidate);
     RECT intent = {rect.right - 106, rect.top + 6, rect.right - 8, rect.top + 28};
     RECT chip = {rect.left + 8, rect.top + 6, intent.left - 8, rect.top + 28};
     RECT line = {rect.left + 8, rect.top + 30, rect.right - 8, rect.top + 50};
@@ -198,25 +195,26 @@ static void draw_member_intent_card(HDC hdc, RECT rect, const RenderSnapshot *sn
     fill_rect(hdc, rect, RGB(36, 42, 48));
     snprintf(text, sizeof(text), "%c %.52s", snapshot->civs[member].symbol, civ_name(snapshot, member));
     draw_badge(hdc, chip, snapshot->civs[member].color, text);
-    draw_badge(hdc, intent, intent_color(score, source, blocked),
-               intent_label(score, source, blocked));
-    if (weighted) {
-        snprintf(text, sizeof(text), "%s %d/%d   %s %d   %s",
-                 tr("Votes", "票数"), last_vote ?
-                 alliance_council_display_seats_for_vote_member(record, last_vote, member) :
-                 alliance_council_display_seats_for_member(record, member),
-                 ALLIANCE_COUNCIL_DISPLAY_SEATS, tr("Relation", "关系"), score,
-                 contact_label(source));
+    draw_badge(hdc, intent, intent_color(score, source, blocked), intent_label(score, source, blocked));
+    if (weighted && union_vote && candidate->civ_id >= 0 && candidate->civ_id < snapshot->civ_count) {
+        const SnapshotCiv *m = &snapshot->civs[member], *p = &snapshot->civs[candidate->civ_id];
+        int seats = last_vote ? alliance_council_display_seats_for_vote_member(record, last_vote, member) : alliance_council_display_seats_for_member(record, member);
+        int army = p->current_soldiers > 0 ? min(999, m->current_soldiers * 100 / p->current_soldiers) : 100;
+        int pop = p->population > 0 ? min(999, m->population * 100 / p->population) : 100;
+        int prov = p->summary.territory > 0 ? min(999, m->summary.territory * 100 / p->summary.territory) : 100;
+        snprintf(text, sizeof(text), "%s %d   %s %d%%   %s %d%%   %s %d%%", tr("Votes", "票数"),
+                 seats, tr("Army", "军队"), army, tr("Pop", "人口"), pop, tr("Prov", "省份"), prov);
+    } else if (weighted) {
+        snprintf(text, sizeof(text), "%s %d   %s %d   %s", tr("Votes", "票数"),
+                 last_vote ? alliance_council_display_seats_for_vote_member(record, last_vote, member) :
+                 alliance_council_display_seats_for_member(record, member), tr("Relation", "关系"), score, contact_label(source));
     } else {
-        snprintf(text, sizeof(text), "%s %d   %s   %s %d/%d",
-                 tr("Relation", "关系"), score, contact_label(source),
-                 tr("Qualifying", "合格年"),
-                 score >= 60 && source != ALLIANCE_DIP_CONTACT_NONE ? elapsed_candidate_years(snapshot, candidate) : 0,
-                 first_vote_years_for_candidate(candidate));
+        snprintf(text, sizeof(text), "%s %d   %s   %s %d/%d", tr("Relation", "关系"), score,
+                 contact_label(source), tr("Qualifying", "合格年"),
+                 score >= 60 && source != ALLIANCE_DIP_CONTACT_NONE ? elapsed_candidate_years(snapshot, candidate) : 0, first_vote_years_for_candidate(candidate));
     }
     if (last_vote) line.right = result.left - 8;
-    draw_text_rect(hdc, line, text, ui_theme_color(UI_COLOR_TEXT_DIM),
-                   DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    draw_text_rect(hdc, line, text, ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     if (last_vote) draw_vote_box(hdc, result, last_vote->member_votes[member]);
     draw_progress(hdc, bar, clamp(score + 100, 0, 200) / 2,
                   score >= 60 && source != ALLIANCE_DIP_CONTACT_NONE ? RGB(78, 132, 86) : RGB(132, 76, 68));
@@ -298,17 +296,21 @@ static void draw_candidate_card(HDC hdc, UiCursor *cursor, const RenderSnapshot 
         y += 16;
     }
     if (alliance_council_vote_has_snapshot(record, last_vote)) {
-        for (i = 0; i < snapshot->civ_count && i < MAX_CIVS; i++) {
-            if (alliance_council_vote_units_for_member(record, last_vote, i) <= 0) continue;
+        for (i = 0; record && i < record->member_count && i < MAX_CIVS; i++) {
+            int member = record->members[i];
+            if (member < 0 || member >= snapshot->civ_count ||
+                !alliance_vote_state_member_can_vote(record, member,
+                (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE || candidate->type == ALLIANCE_CANDIDATE_UNION) ? -1 : candidate->civ_id, vote_year) ||
+                alliance_council_vote_units_for_member(record, last_vote, member) <= 0) continue;
             draw_member_intent_card(hdc, (RECT){card.left + 10, y, card.right - 10, y + 62},
-                                    snapshot, record, candidate, last_vote, i);
+                                    snapshot, record, candidate, last_vote, member);
             y += 68;
         }
     } else for (i = 0; record && i < record->member_count && i < MAX_CIVS; i++) {
         int member = record->members[i];
         if (member < 0 || member >= snapshot->civ_count) continue;
         if (!alliance_vote_state_member_can_vote(record, member,
-                candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ? -1 : candidate->civ_id,
+                (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE || candidate->type == ALLIANCE_CANDIDATE_UNION) ? -1 : candidate->civ_id,
                 vote_year)) continue;
         draw_member_intent_card(hdc, (RECT){card.left + 10, y, card.right - 10, y + 62},
                                 snapshot, record, candidate, last_vote, member);
@@ -341,15 +343,14 @@ static const char *vote_result_label(const AllianceVoteRecord *vote) {
 
 static const char *vote_next_action(const AllianceVoteRecord *vote) {
     if (vote->passed) return tr("Apply result", "执行结果");
-    if (vote->rejection_reason == ALLIANCE_REJECT_VOTE_FAILED)
-        return tr("Waiting for next vote", "等待下次投票");
+    if (vote->rejection_reason == ALLIANCE_REJECT_VOTE_FAILED) return tr("Waiting for next vote", "等待下次投票");
     return alliance_detail_reason_label(vote->rejection_reason);
 }
 
 static const char *vote_initiator(const AllianceSnapshotRecord *record, const AllianceVoteRecord *vote) {
     int i, want = vote->vote_type == ALLIANCE_VOTE_REMOVAL ? ALLIANCE_CANDIDATE_REMOVAL :
-                  (vote->vote_type == ALLIANCE_VOTE_MILITARY_UPGRADE ?
-                   ALLIANCE_CANDIDATE_MILITARY_UPGRADE : ALLIANCE_CANDIDATE_JOIN);
+                  (vote->vote_type == ALLIANCE_VOTE_MILITARY_UPGRADE ? ALLIANCE_CANDIDATE_MILITARY_UPGRADE :
+                   (vote->vote_type == ALLIANCE_VOTE_UNION ? ALLIANCE_CANDIDATE_UNION : ALLIANCE_CANDIDATE_JOIN));
     if (!record || vote->vote_type == ALLIANCE_VOTE_CREATE) return tr("Alliance initiated", "联盟发起");
     for (i = 0; i < record->candidate_count && i < ALLIANCE_CANDIDATE_RECORD_CAP; i++) {
         int idx = ring_index(record->candidate_next, ALLIANCE_CANDIDATE_RECORD_CAP, i);
@@ -369,9 +370,8 @@ static void draw_vote_member_row(HDC hdc, RECT row, const RenderSnapshot *snapsh
     snprintf(text, sizeof(text), "%c %.72s", snapshot->civs[civ_id].symbol, civ_name(snapshot, civ_id));
     draw_badge(hdc, name, snapshot->civs[civ_id].color, text);
     if (weighted) {
-        snprintf(text, sizeof(text), "%d/%d",
-                 alliance_council_display_seats_for_vote_member(record, vote_record, civ_id),
-                 ALLIANCE_COUNCIL_DISPLAY_SEATS);
+        snprintf(text, sizeof(text), "%d",
+                 alliance_council_display_seats_for_vote_member(record, vote_record, civ_id));
         draw_text_rect(hdc, seats, text, ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
     }
     draw_vote_box(hdc, result, vote);
@@ -423,8 +423,8 @@ static void draw_vote_card(HDC hdc, UiCursor *cursor, const RenderSnapshot *snap
         int member = record->members[i];
         if (member < 0 || member >= snapshot->civ_count) continue;
         if (!alliance_vote_state_member_can_vote(record, member,
-                vote->vote_type == ALLIANCE_VOTE_CREATE ||
-                vote->vote_type == ALLIANCE_VOTE_MILITARY_UPGRADE ? -1 : vote->target_civ_id,
+                vote->vote_type == ALLIANCE_VOTE_CREATE || vote->vote_type == ALLIANCE_VOTE_MILITARY_UPGRADE ||
+                vote->vote_type == ALLIANCE_VOTE_UNION ? -1 : vote->target_civ_id,
                 vote->vote_year)) continue;
         draw_vote_member_row(hdc, (RECT){card.left + 18, y, card.right - 12, y + 21},
                              snapshot, record, vote, member, vote->member_votes[member], weighted);

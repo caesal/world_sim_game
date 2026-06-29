@@ -99,6 +99,15 @@ static int color_readable_on_background(Color32 color) {
     return min_background_distance(color) >= 5600 && min_background_hsl_distance(color) >= 185;
 }
 
+static int region_list_contains(const int *regions, int count, int region_id) {
+    int i;
+    if (!regions || count <= 0) return 0;
+    for (i = 0; i < count; i++) {
+        if (regions[i] == region_id) return 1;
+    }
+    return 0;
+}
+
 static int min_background_distance(Color32 color) {
     int i;
     int best = 100000000;
@@ -120,12 +129,31 @@ static int min_background_hsl_distance(Color32 color) {
     return best;
 }
 
-static int neighbor_color_distance(Color32 color, int civ_id, int seed_region) {
+static int neighbor_color_distance_for_regions(Color32 color, int civ_id, int seed_region,
+                                               const int *regions, int explicit_count) {
     const NaturalRegion *region = regions_get(seed_region);
     int best = 100000000;
     int i;
 
-    if (region) {
+    if (regions && explicit_count > 0) {
+        for (i = 0; i < explicit_count; i++) {
+            int n;
+            if (regions[i] < 0 || regions[i] >= region_count) continue;
+            region = &natural_regions[regions[i]];
+            if (!region->alive) continue;
+            for (n = 0; n < region->neighbor_count; n++) {
+                int neighbor = region->neighbors[n];
+                int owner;
+                if (neighbor < 0 || neighbor >= region_count) continue;
+                if (region_list_contains(regions, explicit_count, neighbor)) continue;
+                owner = natural_regions[neighbor].owner_civ;
+                if (owner >= 0 && owner < civ_count && owner != civ_id && civs[owner].alive) {
+                    int dist = hsl_distance(color, civs[owner].color);
+                    if (dist < best) best = dist;
+                }
+            }
+        }
+    } else if (region) {
         for (i = 0; i < region->neighbor_count; i++) {
             int neighbor = region->neighbors[i];
             int owner;
@@ -170,11 +198,14 @@ static int global_color_distance(Color32 color, int civ_id) {
     return best;
 }
 
-static int color_candidate_score(Color32 color, int civ_id, int parent_civ_id, int seed_region) {
+static int color_candidate_score_for_regions(Color32 color, int civ_id, int parent_civ_id,
+                                             int seed_region, const int *regions,
+                                             int explicit_count) {
     int background_rgb = min_background_distance(color);
     int background_hsl = min_background_hsl_distance(color);
     int global = global_color_distance(color, civ_id);
-    int neighbor = neighbor_color_distance(color, civ_id, seed_region);
+    int neighbor = neighbor_color_distance_for_regions(color, civ_id, seed_region,
+                                                       regions, explicit_count);
     int parent = 100000000;
     int i;
     int score = background_rgb / 18 + background_hsl * 6 + global * 7 + neighbor * 14;
@@ -195,13 +226,16 @@ static int color_candidate_score(Color32 color, int civ_id, int parent_civ_id, i
     return score;
 }
 
-static int preferred_color_is_safe(Color32 color, int civ_id, int parent_civ_id, int seed_region) {
+static int preferred_color_is_safe_for_regions(Color32 color, int civ_id, int parent_civ_id,
+                                               int seed_region, const int *regions,
+                                               int explicit_count) {
     int i;
 
     if (!color_readable_on_background(color)) return 0;
     if (parent_civ_id >= 0 && parent_civ_id < civ_count &&
         colors_too_similar(color, civs[parent_civ_id].color)) return 0;
-    if (neighbor_color_distance(color, civ_id, seed_region) < 210) return 0;
+    if (neighbor_color_distance_for_regions(color, civ_id, seed_region,
+                                            regions, explicit_count) < 210) return 0;
     for (i = 0; i < civ_count; i++) {
         if (i == civ_id || !civs[i].alive) continue;
         if (color == civs[i].color || colors_too_similar(color, civs[i].color)) return 0;
@@ -209,10 +243,18 @@ static int preferred_color_is_safe(Color32 color, int civ_id, int parent_civ_id,
     return 1;
 }
 
-static int auto_candidate_is_hard_safe(Color32 color, int civ_id, int parent_civ_id, int seed_region) {
+static int preferred_color_is_safe(Color32 color, int civ_id, int parent_civ_id, int seed_region) {
+    return preferred_color_is_safe_for_regions(color, civ_id, parent_civ_id,
+                                               seed_region, NULL, 0);
+}
+
+static int auto_candidate_is_hard_safe_for_regions(Color32 color, int civ_id, int parent_civ_id,
+                                                   int seed_region, const int *regions,
+                                                   int explicit_count) {
     return color_readable_on_background(color) &&
            global_color_distance(color, civ_id) >= 165 &&
-           neighbor_color_distance(color, civ_id, seed_region) >= 210 &&
+           neighbor_color_distance_for_regions(color, civ_id, seed_region,
+                                               regions, explicit_count) >= 210 &&
            (parent_civ_id < 0 || parent_civ_id >= civ_count ||
             !colors_too_similar(color, civs[parent_civ_id].color));
 }
@@ -239,6 +281,7 @@ static Color32 fallback_color(int civ_id, int attempt) {
 
 static Color32 pick_distinct_color_internal(int civ_id, Color32 preferred_color,
                                             int parent_civ_id, int seed_region,
+                                            const int *regions, int explicit_count,
                                             int log_adjustment) {
     int i;
     int best_score = -100000000;
@@ -249,13 +292,18 @@ static Color32 pick_distinct_color_internal(int civ_id, Color32 preferred_color,
     int has_preferred = preferred_color != 0;
 
     if (has_preferred) {
-        if (preferred_color_is_safe(preferred_color, civ_id, parent_civ_id, seed_region)) return preferred_color;
+        if (preferred_color_is_safe_for_regions(preferred_color, civ_id, parent_civ_id,
+                                                seed_region, regions, explicit_count)) {
+            return preferred_color;
+        }
     }
     for (i = 0; i < palette_count; i++) {
         int index = (i + civ_id * 7) % palette_count;
         Color32 color = POLITICAL_PALETTE[index];
-        int score = color_candidate_score(color, civ_id, parent_civ_id, seed_region);
-        if (auto_candidate_is_hard_safe(color, civ_id, parent_civ_id, seed_region) &&
+        int score = color_candidate_score_for_regions(color, civ_id, parent_civ_id,
+                                                      seed_region, regions, explicit_count);
+        if (auto_candidate_is_hard_safe_for_regions(color, civ_id, parent_civ_id,
+                                                    seed_region, regions, explicit_count) &&
             score > best_safe_score) {
             best_safe_score = score;
             best_safe = color;
@@ -267,8 +315,12 @@ static Color32 pick_distinct_color_internal(int civ_id, Color32 preferred_color,
     }
     for (i = 0; i < MAX_CIVS; i++) {
         Color32 color = CIV_COLORS[i];
-        int score = color_candidate_score(color, civ_id, parent_civ_id, seed_region);
-        if (auto_candidate_is_hard_safe(color, civ_id, parent_civ_id, seed_region) &&
+        int score;
+        if (!color) continue;
+        score = color_candidate_score_for_regions(color, civ_id, parent_civ_id,
+                                                  seed_region, regions, explicit_count);
+        if (auto_candidate_is_hard_safe_for_regions(color, civ_id, parent_civ_id,
+                                                    seed_region, regions, explicit_count) &&
             score > best_safe_score) {
             best_safe_score = score;
             best_safe = color;
@@ -280,8 +332,10 @@ static Color32 pick_distinct_color_internal(int civ_id, Color32 preferred_color,
     }
     for (i = 0; i < 48; i++) {
         Color32 color = fallback_color(civ_id, i);
-        int score = color_candidate_score(color, civ_id, parent_civ_id, seed_region);
-        if (auto_candidate_is_hard_safe(color, civ_id, parent_civ_id, seed_region) &&
+        int score = color_candidate_score_for_regions(color, civ_id, parent_civ_id,
+                                                      seed_region, regions, explicit_count);
+        if (auto_candidate_is_hard_safe_for_regions(color, civ_id, parent_civ_id,
+                                                    seed_region, regions, explicit_count) &&
             score > best_safe_score) {
             best_safe_score = score;
             best_safe = color;
@@ -306,12 +360,21 @@ static Color32 pick_distinct_color_internal(int civ_id, Color32 preferred_color,
 
 Color32 civilization_pick_distinct_color(int civ_id, Color32 preferred_color,
                                          int parent_civ_id, int seed_region) {
-    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id, seed_region, 1);
+    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id,
+                                        seed_region, NULL, 0, 1);
+}
+
+Color32 civilization_pick_distinct_color_for_regions(int civ_id, Color32 preferred_color,
+                                                     int parent_civ_id, int seed_region,
+                                                     const int *regions, int region_count) {
+    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id,
+                                        seed_region, regions, region_count, 1);
 }
 
 Color32 civilization_preview_distinct_color(int civ_id, Color32 preferred_color,
                                             int parent_civ_id, int seed_region) {
-    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id, seed_region, 0);
+    return pick_distinct_color_internal(civ_id, preferred_color, parent_civ_id,
+                                        seed_region, NULL, 0, 0);
 }
 
 Color32 civilization_pick_auto_color(int civ_id, int seed_region) {
@@ -320,6 +383,10 @@ Color32 civilization_pick_auto_color(int civ_id, int seed_region) {
 
 int civilization_colors_too_similar_for_display(Color32 a, Color32 b) {
     return colors_too_similar(a, b);
+}
+
+int civilization_color_display_distance(Color32 a, Color32 b) {
+    return hsl_distance(a, b);
 }
 
 int civilization_colors_debug_check(void) {

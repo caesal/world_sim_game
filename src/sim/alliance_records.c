@@ -96,7 +96,9 @@ void alliance_record_candidate(int alliance_id, int civ_id, int type, int initia
     if (is_new) {
         int vote_type = type == ALLIANCE_CANDIDATE_REMOVAL ? ALLIANCE_VOTE_REMOVAL :
                         (type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ?
-                         ALLIANCE_VOTE_MILITARY_UPGRADE : ALLIANCE_VOTE_JOIN);
+                         ALLIANCE_VOTE_MILITARY_UPGRADE :
+                         (type == ALLIANCE_CANDIDATE_UNION ? ALLIANCE_VOTE_UNION :
+                          ALLIANCE_VOTE_JOIN));
         alliance_record_history(alliance_id, ALLIANCE_HISTORY_CANDIDATE_APPEARED,
                                 civ_id, -1, vote_type, reason);
     } else {

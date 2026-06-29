@@ -1,10 +1,13 @@
 #include "game/game.h"
 
+#include "core/game_state.h"
 #include "render/panel_alliance_council.h"
 #include "render/panel_alliance_model.h"
 #include "render/panel_alliance_vote_state.h"
 #include "render/render_common.h"
 #include "sim/alliance.h"
+#include "sim/diplomacy.h"
+#include "sim/regions.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
@@ -55,7 +58,7 @@ static void setup_council_snapshot(RenderSnapshot *snap, AlliancePanelRow *row) 
     record->type = ALLIANCE_TYPE_MILITARY;
     record->member_count = 3;
     record->council_last_election_year = 1200;
-    record->council_next_election_year = 1210;
+    record->council_next_election_year = 1216;
     snprintf(record->name_en, sizeof(record->name_en), "Probe Alliance");
     snprintf(record->name_zh, sizeof(record->name_zh), "Probe Alliance");
     for (i = 0; i < 3; i++) {
@@ -91,7 +94,7 @@ static void setup_even_council_snapshot(RenderSnapshot *snap, AlliancePanelRow *
     record->type = ALLIANCE_TYPE_MILITARY;
     record->member_count = 2;
     record->council_last_election_year = 1200;
-    record->council_next_election_year = 1210;
+    record->council_next_election_year = 1216;
     snprintf(record->name_en, sizeof(record->name_en), "Even Alliance");
     snprintf(record->name_zh, sizeof(record->name_zh), "Even Alliance");
     for (i = 0; i < 2; i++) {
@@ -152,20 +155,35 @@ static int case_display_votes(FILE *out) {
     AllianceCouncilDisplayMember members[MAX_CIVS];
     int i, count, sum = 0, order;
     setup_council_snapshot(&snap, &row);
+    snap.alliances[0].council_previous_valid = 1;
+    snap.alliances[0].council_previous_vote_units[0] = 500;
+    snap.alliances[0].council_previous_vote_units[1] = 300;
+    snap.alliances[0].council_previous_vote_units[2] = 200;
     count = alliance_council_build_display_members(&snap.alliances[0], members, MAX_CIVS);
     for (i = 0; i < count; i++) sum += members[i].display_seats;
     order = count == 3 && members[0].display_seats > members[1].display_seats &&
             members[1].display_seats > members[2].display_seats;
-    fprintf(out, "case=council_display_votes ok=%d seats=%d,%d,%d sum=%d threshold_2_3=%d threshold_3_4=%d\n",
+    fprintf(out, "case=council_display_votes ok=%d seats=%d,%d,%d prev=%d,%d,%d sum=%d threshold_2_3=%d threshold_3_4=%d election=%d\n",
             count == 3 && sum == 80 && order &&
+            alliance_council_previous_display_seats_for_member(&snap.alliances[0], 0) == 40 &&
+            alliance_council_previous_display_seats_for_member(&snap.alliances[0], 1) == 24 &&
+            alliance_council_previous_display_seats_for_member(&snap.alliances[0], 2) == 16 &&
             alliance_council_display_threshold_two_thirds() == 54 &&
-            alliance_council_display_threshold_three_quarters() == 61,
+            alliance_council_display_threshold_three_quarters() == 61 &&
+            ALLIANCE_COUNCIL_ELECTION_YEARS == 16,
             members[0].display_seats, members[1].display_seats, members[2].display_seats,
+            alliance_council_previous_display_seats_for_member(&snap.alliances[0], 0),
+            alliance_council_previous_display_seats_for_member(&snap.alliances[0], 1),
+            alliance_council_previous_display_seats_for_member(&snap.alliances[0], 2),
             sum, alliance_council_display_threshold_two_thirds(),
-            alliance_council_display_threshold_three_quarters());
+            alliance_council_display_threshold_three_quarters(), ALLIANCE_COUNCIL_ELECTION_YEARS);
     return count == 3 && sum == 80 && order &&
+           alliance_council_previous_display_seats_for_member(&snap.alliances[0], 0) == 40 &&
+           alliance_council_previous_display_seats_for_member(&snap.alliances[0], 1) == 24 &&
+           alliance_council_previous_display_seats_for_member(&snap.alliances[0], 2) == 16 &&
            alliance_council_display_threshold_two_thirds() == 54 &&
-           alliance_council_display_threshold_three_quarters() == 61;
+           alliance_council_display_threshold_three_quarters() == 61 &&
+           ALLIANCE_COUNCIL_ELECTION_YEARS == 16;
 }
 
 static int case_even_split_visual(FILE *out) {
@@ -203,7 +221,7 @@ static int case_vote_year_snapshot(FILE *out) {
     memset(&snap, 0, sizeof(snap));
     snap.civ_count = 4; snap.alliance_count = 1; record = &snap.alliances[0];
     record->active = 1; record->id = 0; record->type = ALLIANCE_TYPE_MILITARY;
-    record->member_count = 4; record->vote_count = 2; record->vote_next = 2;
+    record->member_count = 3; record->vote_count = 2; record->vote_next = 2;
     for (i = 0; i < 4; i++) { record->members[i] = i; record->joined_year_by_civ[i] = i == 3 ? 101 : 10; }
     record->council_vote_units[0] = 300; record->council_vote_units[1] = 190;
     record->council_vote_units[2] = 160; record->council_vote_units[3] = 350;
@@ -226,14 +244,15 @@ static int case_vote_year_snapshot(FILE *out) {
     yes = alliance_council_display_seats_for_vote(record, vote, ALLIANCE_MEMBER_VOTE_YES);
     no = alliance_council_display_seats_for_vote(record, vote, ALLIANCE_MEMBER_VOTE_NO);
     rows = alliance_vote_state_vote_member_count(record, vote);
+    record->member_count = 3; record->members[0] = 0; record->members[1] = 1; record->members[2] = 3;
     candidate_rows = alliance_vote_state_candidate_member_count(&snap, record, &candidate, vote);
     candidate_seats = alliance_council_display_seats_for_vote_member(record, vote, 3);
     fail_yes = alliance_council_display_seats_for_vote(record, fail_vote, ALLIANCE_MEMBER_VOTE_YES);
     fprintf(out, "case=military_join_vote_snapshot ok=%d yes=%d no=%d rows=%d candidate_rows=%d candidate_seats=%d fail_yes=%d fail_passed=%d\n",
-            yes >= 61 && yes + no == 80 && rows == 3 && candidate_rows == 3 &&
+            yes >= 61 && yes + no == 80 && rows == 3 && candidate_rows == 2 &&
             candidate_seats == 0 && fail_yes == 60 && !fail_vote->passed,
             yes, no, rows, candidate_rows, candidate_seats, fail_yes, fail_vote->passed);
-    return yes >= 61 && yes + no == 80 && rows == 3 && candidate_rows == 3 &&
+    return yes >= 61 && yes + no == 80 && rows == 3 && candidate_rows == 2 &&
            candidate_seats == 0 && fail_yes == 60 && !fail_vote->passed;
 }
 
@@ -249,8 +268,13 @@ static int case_rule_constants(FILE *out) {
                     ALLIANCE_REMOVAL_FIRST_VOTE_YEARS == 30 && ALLIANCE_REMOVAL_RETRY_VOTE_YEARS == 10;
     int union_ok = alliance_union_required_years_for_type(ALLIANCE_TYPE_DEFENSIVE) == 800 &&
                    alliance_union_required_years_for_type(ALLIANCE_TYPE_MILITARY) == 500;
-    fprintf(out, "case=rule_constants ok=%d removal=14:%d,15:%d,59:%d,60:%d join=79:%d,80:%d,100:%d timing=30/10 union=800/500 upgrade_yes=%d\n",
-            removal_ok && join_ok && timing_ok && union_ok && ALLIANCE_MILITARY_UPGRADE_YES_CHANCE == 60,
+    int union_chance_ok = alliance_union_vote_yes_chance_from_ratio_permille(950) == 15 &&
+                          alliance_union_vote_yes_chance_from_ratio_permille(700) == 35 &&
+                          alliance_union_vote_yes_chance_from_ratio_permille(500) == 50 &&
+                          alliance_union_vote_yes_chance_from_ratio_permille(250) == 70;
+    fprintf(out, "case=rule_constants ok=%d removal=14:%d,15:%d,59:%d,60:%d join=79:%d,80:%d,100:%d timing=30/10 union=800/500 union_chance=950:%d,700:%d,500:%d,250:%d upgrade_yes=%d\n",
+            removal_ok && join_ok && timing_ok && union_ok && union_chance_ok &&
+            ALLIANCE_MILITARY_UPGRADE_YES_CHANCE == 60,
             alliance_removal_vote_yes_chance_for_relation(14),
             alliance_removal_vote_yes_chance_for_relation(15),
             alliance_removal_vote_yes_chance_for_relation(59),
@@ -258,8 +282,50 @@ static int case_rule_constants(FILE *out) {
             alliance_military_join_vote_yes_chance_for_relation(79),
             alliance_military_join_vote_yes_chance_for_relation(80),
             alliance_military_join_vote_yes_chance_for_relation(100),
+            alliance_union_vote_yes_chance_from_ratio_permille(950),
+            alliance_union_vote_yes_chance_from_ratio_permille(700),
+            alliance_union_vote_yes_chance_from_ratio_permille(500),
+            alliance_union_vote_yes_chance_from_ratio_permille(250),
             ALLIANCE_MILITARY_UPGRADE_YES_CHANCE);
-    return removal_ok && join_ok && timing_ok && union_ok && ALLIANCE_MILITARY_UPGRADE_YES_CHANCE == 60;
+    return removal_ok && join_ok && timing_ok && union_ok && union_chance_ok &&
+           ALLIANCE_MILITARY_UPGRADE_YES_CHANCE == 60;
+}
+
+static int case_union_proposer_timing(FILE *out) {
+    AllianceSaveState *state;
+    int id, i, first_vote = 0, blocked_retry, cooldown;
+    alliance_reset(); diplomacy_reset(); event_log_clear();
+    civ_count = 3; region_count = 5; year = 0; month = 1;
+    memset(civs, 0, sizeof(civs)); memset(natural_regions, 0, sizeof(natural_regions));
+    for (i = 0; i < civ_count; i++) {
+        civs[i].alive = 1; civs[i].population = i == 0 ? 100 : 10000;
+        civs[i].governance = civs[i].cohesion = 5; civs[i].capital_city = -1;
+    }
+    for (i = 0; i < region_count; i++) {
+        natural_regions[i].alive = 1;
+        natural_regions[i].owner_civ = i == 0 ? 0 : (i < 3 ? 1 : 2);
+    }
+    id = alliance_debug_create_pair(0, 1, 0);
+    if (id < 0) {
+        fprintf(out, "case=union_proposer_timing ok=0 vote=0 cooldown=0 blocked_retry=0 active=0\n");
+        return 0;
+    }
+    year = 5; alliance_debug_add_member(id, 2, 0);
+    year = 805; alliance_union_try(id);
+    state = alliance_internal_state();
+    for (i = 0; i < ALLIANCE_VOTE_RECORD_CAP; i++) {
+        AllianceVoteRecord *v = &state->votes[id][i];
+        if (v->active && v->vote_type == ALLIANCE_VOTE_UNION &&
+            v->target_civ_id == 0 && !v->passed) first_vote = 1;
+    }
+    cooldown = alliance_union_proposer_cooldown_remaining(id, 0);
+    year = 810; blocked_retry = !alliance_union_try(id);
+    fprintf(out, "case=union_proposer_timing ok=%d vote=%d cooldown=%d blocked_retry=%d active=%d\n",
+            id >= 0 && first_vote && cooldown == 25 && blocked_retry &&
+            state->records[id].active, first_vote, cooldown, blocked_retry,
+            state->records[id].active);
+    return id >= 0 && first_vote && cooldown == 25 && blocked_retry &&
+           state->records[id].active;
 }
 
 int run_military_alliance_rules_probe(FILE *out) {
@@ -268,6 +334,7 @@ int run_military_alliance_rules_probe(FILE *out) {
     ok &= case_even_split_visual(out);
     ok &= case_vote_year_snapshot(out);
     ok &= case_rule_constants(out);
+    ok &= case_union_proposer_timing(out);
     ok &= render_council_bmp(out, "council_reference_render.bmp", 0);
     return ok;
 }

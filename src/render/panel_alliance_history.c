@@ -49,6 +49,10 @@ static const char *history_label(int type) {
         case ALLIANCE_HISTORY_DOWNGRADED_LEADER_FELL: return tr("Leader fell", "领袖灭亡");
         case ALLIANCE_HISTORY_DOWNGRADED_LEADER_TRANSFERRED: return tr("Leadership transfer", "领袖转移");
         case ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED: return tr("Alliance Council", "联盟议会");
+        case ALLIANCE_HISTORY_UNION_VOTE_INITIATED: return tr("Union Vote", "联合投票");
+        case ALLIANCE_HISTORY_UNION_VOTE_PASSED: return tr("Union passed", "联合通过");
+        case ALLIANCE_HISTORY_UNION_VOTE_FAILED: return tr("Union failed", "联合未通过");
+        case ALLIANCE_HISTORY_UNION_ABSORBED: return tr("Union completed", "联合完成");
         default: return tr("History", "历史");
     }
 }
@@ -58,6 +62,8 @@ static COLORREF history_color(const AllianceHistoryRecord *h) {
         h->event_type == ALLIANCE_HISTORY_MEMBER_JOINED ||
         h->event_type == ALLIANCE_HISTORY_CREATED ||
         h->event_type == ALLIANCE_HISTORY_UNION_FORMED ||
+        h->event_type == ALLIANCE_HISTORY_UNION_VOTE_PASSED ||
+        h->event_type == ALLIANCE_HISTORY_UNION_ABSORBED ||
         h->event_type == ALLIANCE_HISTORY_MILITARY_UPGRADE_PASSED ||
         h->event_type == ALLIANCE_HISTORY_UPGRADED_TO_MILITARY ||
         h->event_type == ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED) return RGB(64, 128, 78);
@@ -66,6 +72,7 @@ static COLORREF history_color(const AllianceHistoryRecord *h) {
     if (h->event_type == ALLIANCE_HISTORY_VOTE_FAILED ||
         h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED ||
         h->event_type == ALLIANCE_HISTORY_MEMBER_REMOVED_BY_WAR_DEFEAT ||
+        h->event_type == ALLIANCE_HISTORY_UNION_VOTE_FAILED ||
         h->event_type == ALLIANCE_HISTORY_MILITARY_UPGRADE_FAILED ||
         h->event_type == ALLIANCE_HISTORY_DOWNGRADED_LEADER_COLLAPSED ||
         h->event_type == ALLIANCE_HISTORY_DOWNGRADED_LEADER_FELL ||
@@ -135,6 +142,14 @@ static void history_sentence(char *out, int out_size, const RenderSnapshot *snap
             snprintf(out, out_size, "%s 因领袖转移降级为防御同盟。", alliance);
         else if (h->event_type == ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED)
             snprintf(out, out_size, "联盟议会重新分配席位。");
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_VOTE_INITIATED)
+            snprintf(out, out_size, "%s国发起联合投票。", a);
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_VOTE_PASSED)
+            snprintf(out, out_size, "%s国的联合投票通过。", a);
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_VOTE_FAILED)
+            snprintf(out, out_size, "%s国的联合投票未通过。", a);
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_ABSORBED)
+            snprintf(out, out_size, "%s国吞并其他成员国，完成联合。", a);
         else if (has_b) snprintf(out, out_size, "%s：%s，%s。", history_label(h->event_type), a, b);
         else snprintf(out, out_size, "%s：%s。", history_label(h->event_type), a);
     } else {
@@ -178,6 +193,14 @@ static void history_sentence(char *out, int out_size, const RenderSnapshot *snap
             snprintf(out, out_size, "%s downgraded to a Defensive Alliance because leadership transferred.", alliance);
         else if (h->event_type == ALLIANCE_HISTORY_COUNCIL_REDISTRIBUTED)
             snprintf(out, out_size, "Alliance council seats were redistributed.");
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_VOTE_INITIATED)
+            snprintf(out, out_size, "%s initiated a union vote.", a);
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_VOTE_PASSED)
+            snprintf(out, out_size, "%s's union vote passed.", a);
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_VOTE_FAILED)
+            snprintf(out, out_size, "%s's union vote failed.", a);
+        else if (h->event_type == ALLIANCE_HISTORY_UNION_ABSORBED)
+            snprintf(out, out_size, "%s absorbed the other members and completed the union.", a);
         else if (has_b) snprintf(out, out_size, "%s: %s, %s.", history_label(h->event_type), a, b);
         else snprintf(out, out_size, "%s: %s.", history_label(h->event_type), a);
     }

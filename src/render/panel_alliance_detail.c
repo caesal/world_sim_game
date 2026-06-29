@@ -44,6 +44,7 @@ const char *alliance_detail_vote_type_label(int type) {
         case ALLIANCE_VOTE_JOIN: return tr("Join vote", "加入投票");
         case ALLIANCE_VOTE_REMOVAL: return tr("Removal vote", "清退投票");
         case ALLIANCE_VOTE_MILITARY_UPGRADE: return tr("Upgrade Vote", "升级投票");
+        case ALLIANCE_VOTE_UNION: return tr("Union Vote", "联合投票");
         default: return tr("Vote", "投票");
     }
 }
@@ -153,14 +154,16 @@ static void draw_union(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot
     ui_clay_draw_progress_bar(hdc, ui_take_rect(cursor, 14), progress, 100, RGB(104, 158, 186));
     cursor->y += 8;
     ui_row_text(hdc, cursor, tr("Status", "状态"),
-                remaining == 0 ? tr("Eligible for automatic union.", "已符合自动联合资格。") :
+                remaining == 0 ? tr("Eligible for proposer-led union votes.", "已符合成员发起联合投票资格。") :
                 tr("Not yet eligible.", "尚未符合资格。"));
     ui_row_text(hdc, cursor, tr("Scope", "范围"),
                 row->type == ALLIANCE_TYPE_MILITARY ?
-                tr("At 500 stable years, formal members merge into a new country.",
-                   "稳定满500年后，正式成员会合并为一个新国家。") :
-                tr("At 800 stable years, formal members merge into a new country.",
-                   "稳定满800年后，正式成员会合并为一个新国家。"));
+                tr("At 500 stable years, formal members can vote for one proposer to absorb the others.",
+                   "稳定满500年后，正式成员可投票让一个发起国吞并其他成员。") :
+                tr("At 800 stable years, formal members can vote for one proposer to absorb the others.",
+                   "稳定满800年后，正式成员可投票让一个发起国吞并其他成员。"));
+    ui_row_text(hdc, cursor, tr("Vote threshold", "投票门槛"),
+                tr("Strictly greater than 3/4 council votes.", "必须严格超过3/4议会票数。"));
 }
 
 int alliance_detail_content_height(const RenderSnapshot *snapshot, const AlliancePanelRow *row) {
@@ -169,7 +172,7 @@ int alliance_detail_content_height(const RenderSnapshot *snapshot, const Allianc
         case ALLIANCE_DETAIL_MEMBERS: return alliance_sections_members_height(snapshot, row);
         case ALLIANCE_DETAIL_VOTES: return alliance_votes_content_height(snapshot, row);
         case ALLIANCE_DETAIL_HISTORY: return alliance_history_content_height(snapshot, row);
-        case ALLIANCE_DETAIL_UNION: return 220;
+        case ALLIANCE_DETAIL_UNION: return 250;
         default: return 580;
     }
 }

@@ -98,8 +98,11 @@ static void draw_alliance_chip(HDC hdc, RECT *line, const EventLogEntry *entry) 
     SIZE size;
     RECT chip;
     Color32 color;
-    if (!entry || entry->type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT || line->left >= line->right - 18) return;
-    color = entry->param_b ? (Color32)entry->param_b : RGB(86, 152, 218);
+    if (!entry || (entry->type != EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT &&
+                   entry->type != EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION) ||
+        line->left >= line->right - 18) return;
+    color = entry->type == EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT && entry->param_b ?
+            (Color32)entry->param_b : RGB(76, 64, 128);
     event_log_alliance_snapshot_name(entry, ui_language, text, sizeof(text));
     measure_text_utf8(hdc, text, &size);
     chip = (RECT){line->left, line->top, min(line->left + size.cx + 20, line->right), line->top + 22};

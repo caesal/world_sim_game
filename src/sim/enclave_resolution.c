@@ -121,7 +121,8 @@ static void unown_component(const int *regions, int count) {
     world_invalidate_country_summary_cache();
 }
 
-static void init_child_from_parent(int child_id, int parent_id, int seed_region) {
+static void init_child_from_parent(int child_id, int parent_id, int seed_region,
+                                   const int *regions, int region_count) {
     Civilization parent;
     Civilization *child = &civs[child_id];
 
@@ -137,7 +138,9 @@ static void init_child_from_parent(int child_id, int parent_id, int seed_region)
     civilization_assign_generated_name_for_heritage(child, parent.heritage,
                                                     civilization_pick_unused_name_id_for_heritage(parent.heritage));
     child->symbol = (char)('a' + (child_id % 26));
-    child->color = civilization_pick_distinct_color(child_id, 0, parent_id, seed_region);
+    child->color = civilization_pick_distinct_color_for_regions(child_id, 0, parent_id,
+                                                                seed_region, regions,
+                                                                region_count);
     child->alive = 1;
     child->aggression = parent.aggression;
     child->expansion = parent.expansion;
@@ -180,7 +183,7 @@ static int create_component_country(int owner, const int *regions, int count,
         if (slot_full) *slot_full = 1;
         return -1;
     }
-    init_child_from_parent(child_id, owner, seed_region);
+    init_child_from_parent(child_id, owner, seed_region, regions, count);
     parent_asset_total = economy_owned_region_asset_total(owner);
     child_asset = economy_region_list_asset(regions, count);
     city_id = regions_activate_local_city(seed_region, child_id,

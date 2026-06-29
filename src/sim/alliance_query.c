@@ -96,6 +96,8 @@ int alliance_copy_snapshot_records(AllianceSnapshotRecord *out_records, int max_
         memcpy(dst->members, src->members, sizeof(dst->members));
         memcpy(dst->joined_year_by_civ, src->joined_year_by_civ, sizeof(dst->joined_year_by_civ));
         memcpy(dst->council_vote_units, state->council_vote_units[src->id], sizeof(dst->council_vote_units));
+        dst->council_previous_valid = state->council_previous_valid[src->id];
+        memcpy(dst->council_previous_vote_units, state->council_previous_vote_units[src->id], sizeof(dst->council_previous_vote_units));
         memcpy(dst->council_population_permille, state->council_population_permille[src->id], sizeof(dst->council_population_permille));
         memcpy(dst->council_province_permille, state->council_province_permille[src->id], sizeof(dst->council_province_permille));
         dst->candidate_count = state->candidate_count[src->id];
