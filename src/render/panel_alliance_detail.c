@@ -8,6 +8,7 @@
 #include "render/render_common.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
+#include "ui/ui_country_target.h"
 #include "ui/ui_theme.h"
 
 #include <stdio.h>
@@ -19,6 +20,14 @@ typedef struct {
     char value[96];
     COLORREF accent;
 } OverviewCard;
+
+typedef struct {
+    int alliance_id;
+    RECT invite;
+    RECT remove;
+} OverviewActionLayout;
+
+static OverviewActionLayout last_overview_actions = {-1, {0}, {0}};
 
 static const char *civ_name(const RenderSnapshot *snapshot, int civ_id) {
     if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return "-";
@@ -98,6 +107,26 @@ static void draw_overview_card(HDC hdc, RECT rect, const OverviewCard *card) {
                    DT_SINGLELINE | DT_VCENTER | DT_RIGHT | DT_END_ELLIPSIS);
 }
 
+static void draw_overview_actions(HDC hdc, UiCursor *cursor, const AlliancePanelRow *row) {
+    RECT bar = ui_take_rect(cursor, 30);
+    int gap = 8;
+    int w = (bar.right - bar.left - gap) / 2;
+    RECT invite = {bar.left, bar.top, bar.left + w, bar.bottom};
+    RECT remove = {invite.right + gap, bar.top, bar.right, bar.bottom};
+    int invite_active = row && ui_country_target_is_mode_active(UI_COUNTRY_TARGET_ALLIANCE_INVITE,
+                                                                row->alliance_id);
+    int remove_active = row && ui_country_target_is_mode_active(UI_COUNTRY_TARGET_ALLIANCE_REMOVE,
+                                                                row->alliance_id);
+    last_overview_actions.alliance_id = row ? row->alliance_id : -1;
+    last_overview_actions.invite = invite;
+    last_overview_actions.remove = remove;
+    ui_clay_draw_pill_button(hdc, invite, tr("Invite Join", "邀请加入"),
+                             ui_clay_state_for_rect(invite, hover_x, hover_y, invite_active, 0));
+    ui_clay_draw_pill_button(hdc, remove, tr("Remove Member", "清退成员"),
+                             ui_clay_state_for_rect(remove, hover_x, hover_y, remove_active, 0));
+    cursor->y += 8;
+}
+
 static void draw_overview(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot,
                           const AlliancePanelRow *row) {
     const SnapshotCiv *leader = row->leader_civ >= 0 && row->leader_civ < snapshot->civ_count ?
@@ -132,6 +161,16 @@ static void draw_overview(HDC hdc, UiCursor *cursor, const RenderSnapshot *snaps
         cursor->y += 8;
     }
     alliance_council_draw_overview(hdc, cursor, snapshot, row);
+    draw_overview_actions(hdc, cursor, row);
+}
+
+AllianceOverviewAction alliance_detail_overview_action_hit(int alliance_id, int mouse_x, int mouse_y) {
+    if (last_overview_actions.alliance_id != alliance_id) return ALLIANCE_OVERVIEW_ACTION_NONE;
+    if (point_in_rect_local(last_overview_actions.invite, mouse_x, mouse_y))
+        return ALLIANCE_OVERVIEW_ACTION_INVITE;
+    if (point_in_rect_local(last_overview_actions.remove, mouse_x, mouse_y))
+        return ALLIANCE_OVERVIEW_ACTION_REMOVE;
+    return ALLIANCE_OVERVIEW_ACTION_NONE;
 }
 
 static void draw_union(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot,
@@ -173,7 +212,7 @@ int alliance_detail_content_height(const RenderSnapshot *snapshot, const Allianc
         case ALLIANCE_DETAIL_VOTES: return alliance_votes_content_height(snapshot, row);
         case ALLIANCE_DETAIL_HISTORY: return alliance_history_content_height(snapshot, row);
         case ALLIANCE_DETAIL_UNION: return 250;
-        default: return 580;
+        default: return 626;
     }
 }
 

@@ -70,6 +70,7 @@ typedef struct {
 } DecisionSnapshot;
 
 void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out);
+void decision_snapshot_refresh_countdowns(int civ_id, DecisionSnapshot *out);
 void decision_snapshot_cache_reset(void);
 void decision_snapshot_cache_mark_dirty(int civ_id);
 void decision_snapshot_cache_mark_all_dirty(void);

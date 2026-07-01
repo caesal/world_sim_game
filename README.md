@@ -7,13 +7,14 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.5.a is a Windows graphical sandbox prototype written in C.
+Ver0.3.5.b is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.5.a is a focused checkpoint over Ver0.3.5. It keeps the Military
-Alliance and Alliance Council foundation, then adds proposer-led union
-absorption, council-aware union voting, civil-unrest successor color avoidance,
-global union event visibility, and final speed/status UI polish. It preserves
-the prior map-fill and border semantics.
+Ver0.3.5.b is a focused checkpoint over Ver0.3.5.a. It keeps proposer-led union
+absorption and the Military Alliance / Alliance Council foundation, then adds
+player-directed Alliance Detail invite/remove actions, a cached ancient-ocean
+asset library with textured sea and transparent motif PNGs, decision-countdown
+refresh fixes, and final ocean color/scale polish. It preserves the prior
+map-fill, border, save-format, and core simulation semantics.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -24,12 +25,12 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.5.a has focused build and probe validation for the
-Military Alliance, Alliance Council, union absorption, collapse-color,
-diplomacy, presentation, and worldgen paths. The earlier Ver0.3.4 Rule39 run
-remains historical evidence for the previous release stack; Ver0.3.5.a must
-not be described as full release-ready acceptance unless a fresh Rule39 run for
-Ver0.3.5.a is completed.
+Validation note: Ver0.3.5.b has focused build and probe validation for the
+Alliance Detail player actions, ocean decoration presentation, decision
+countdown refresh, diplomacy, Military Alliance, presentation, and worldgen
+paths. The earlier Ver0.3.4 Rule39 run remains historical evidence for the
+previous release stack; Ver0.3.5.b must not be described as full release-ready
+acceptance unless a fresh Rule39 run for Ver0.3.5.b is completed.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

@@ -208,7 +208,6 @@ static int compose_static_map(HDC hdc, int revision) {
 static void present_cache(HDC hdc, RECT client, MapLayout layout, const MapLayerCache *cache) {
     RECT content = get_map_content_rect(client);
     int saved_dc;
-    fill_rect(hdc, get_map_viewport_rect(client), RGB(79, 160, 215));
     if (!cache->valid) return;
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, content.left, content.top, content.right, content.bottom);
@@ -222,7 +221,6 @@ static void present_partial_static_cache(HDC hdc, RECT client, MapLayout layout,
                                          int fill_key, int coast_key, int hydro_key, int border_key) {
     RECT content = get_map_content_rect(client);
     int saved_dc;
-    fill_rect(hdc, get_map_viewport_rect(client), RGB(79, 160, 215));
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, content.left, content.top, content.right, content.bottom);
     SetStretchBltMode(hdc, cache_stretch_mode(layout));
@@ -274,8 +272,9 @@ static int static_revision(int physical_key, int fill_key, int coast_key,
 }
 
 static void draw_blank(HDC hdc, RECT client, MapLayout layout) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     RECT map_rect = {layout.map_x, layout.map_y, layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
-    fill_rect(hdc, get_map_viewport_rect(client), RGB(79, 160, 215));
+    if (!snapshot || !snapshot->world_generated) fill_rect(hdc, get_map_viewport_rect(client), RGB(79, 160, 215));
     fill_rect(hdc, map_rect, RGB(64, 133, 178));
 }
 

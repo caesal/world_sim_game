@@ -36,6 +36,26 @@ static int years_to_decade_check(void) {
     return years_left <= 0 ? 25 : years_left;
 }
 
+void decision_snapshot_refresh_countdowns(int civ_id, DecisionSnapshot *out) {
+    int effective_disorder;
+    if (!out) return;
+    if (civ_id < 0 || civ_id >= civ_count || civ_id >= MAX_CIVS || !civs[civ_id].alive) {
+        out->expansion.months_until_next_claim = 0;
+        out->next_expansion_months = 0;
+        out->next_diplomacy_months = 0;
+        out->next_battle_months = 0;
+        out->next_collapse_years = 0;
+        return;
+    }
+    effective_disorder = economy_effective_disorder_for_civ(civ_id);
+    out->expansion.months_until_next_claim = expansion_civ_months_until_claim(civ_id);
+    out->next_expansion_months = out->expansion.months_until_next_claim;
+    out->next_diplomacy_months = 12 - ((month - 1) % 12);
+    out->next_battle_months = WAR_BATTLE_INTERVAL_MONTHS -
+                              (((year * 12 + month) - 1) % WAR_BATTLE_INTERVAL_MONTHS);
+    out->next_collapse_years = effective_disorder >= 100 ? 0 : years_to_decade_check();
+}
+
 static void bind_cache_strings(DecisionSnapshotCacheEntry *entry) {
     entry->snapshot.main_intent = entry->main_intent;
     entry->snapshot.expansion_reason = entry->expansion_reason;
@@ -135,11 +155,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     out->disconnected_has_network = integrity.disconnected_has_network;
     out->disconnected_network_matches_capital = integrity.disconnected_network_matches_capital;
     out->collapse_single_result = collapse_single_province_preview(civ_id, &out->collapse_single_candidate);
-    out->next_expansion_months = out->expansion.months_until_next_claim;
-    out->next_diplomacy_months = 12 - ((month - 1) % 12);
-    out->next_battle_months = WAR_BATTLE_INTERVAL_MONTHS -
-                              (((year * 12 + month) - 1) % WAR_BATTLE_INTERVAL_MONTHS);
-    out->next_collapse_years = effective_disorder >= 100 ? 0 : years_to_decade_check();
+    decision_snapshot_refresh_countdowns(civ_id, out);
     out->expansion_reason = expansion_last_reason(civ_id);
     out->war_reason = diplomacy_last_war_reason(civ_id);
 
@@ -251,6 +267,7 @@ int decision_snapshot_cached(int civ_id, DecisionSnapshot *out) {
     if (!entry->valid || entry->dirty || entry->uid != civs[civ_id].uid) return 0;
     bind_cache_strings(entry);
     *out = entry->snapshot;
+    decision_snapshot_refresh_countdowns(civ_id, out);
     return 1;
 }
 

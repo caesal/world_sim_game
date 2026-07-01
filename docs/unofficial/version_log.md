@@ -1,5 +1,61 @@
 # Version Log
 
+## Ver0.3.5.b
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.b.
+2. Added Alliance Detail Overview player action buttons under the Alliance
+   Council for direct `Invite Join` and `Remove Member` targeting.
+3. Added mouse-following alliance target arrows, target validation messages,
+   and direct player action handling for alliance invite/remove flows.
+4. Added an ancient-ocean decoration asset library with a runtime
+   `motifs_manifest.tsv`, transparent motif PNGs, and an expanded 27-motif
+   preview contact sheet.
+5. Added cached ocean texture/motif rendering support so interior water and
+   exterior ocean can share the antique chart-style sea treatment.
+6. Replaced primitive ocean icon fallback requirements with asset-backed motif
+   validation, including checks that primitive wave icons do not pass the
+   focused ocean decoration probe.
+7. Tuned ocean presentation after visual review: bluer sea texture, 27 motif
+   runtime capacity, and motif display size increased to `6/5` of the prior
+   runtime size.
+8. Fixed Decision panel countdown refresh so expansion, diplomacy, battle, and
+   collapse countdowns update through cached snapshot and panel-cache paths.
+9. Updated build lists and focused probes for the player alliance action,
+   ocean decoration, presentation, diplomacy, military-alliance, and worldgen
+   validation surfaces.
+10. Updated the root README, documentation index, version log, side doc, and
+    active version marker for Ver0.3.5.b.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `18`.
+- Player direct alliance invite/remove is an explicit player operation path and
+  does not add AI candidate/vote records.
+- Ocean decoration is presentation-only. It does not intentionally change
+  world generation, water depth, map ownership/fill semantics, resources,
+  route potential, diplomacy, war, population, plague, economy, or save data.
+- Decision countdown refresh affects presentation freshness and panel cache
+  keys; it does not intentionally change decision scheduling or simulation
+  cadence.
+
+Validation notes:
+
+- Ver0.3.5.b uses `WORLD_SIM_VERSION "0.3.5.b"`.
+- Canonical `make -B world_sim.exe` was attempted first but could not overwrite
+  the running locked executable. Temporary-target build validation passed.
+- Focused validation passed for `git diff --check`, `make check-text`, `.c`
+  include scan, touched/new `.c/.h` line counts, `--probe-presentation`,
+  `--probe-diplomacy`, `--probe-military-alliance`, and `--probe-worldgen`.
+- Key focused evidence included `case=ocean_decoration_layer ok=1` with
+  `asset=1`, `motif_asset=1`, `primitive_waves=0`, and `overlaps=0`;
+  `case=decision_countdown_refresh ok=1`; and
+  `case=player_direct_alliance_actions ok=1`.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5.b. Do not claim
+  full release-ready/gameplay acceptance until a fresh Rule39 run is completed
+  for this checkpoint.
+
 ## Ver0.3.5.a
 
 Implemented fixes:

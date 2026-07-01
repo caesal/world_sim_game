@@ -11,8 +11,37 @@ static POINT tile_center(MapLayout layout, const RenderSnapshot *snapshot, int x
 }
 
 static COLORREF mode_color(UiCountryTargetMode mode) {
+    if (mode == UI_COUNTRY_TARGET_ALLIANCE_INVITE) return RGB(70, 190, 230);
+    if (mode == UI_COUNTRY_TARGET_ALLIANCE_REMOVE) return RGB(230, 155, 55);
     if (mode == UI_COUNTRY_TARGET_ALLIANCE) return RGB(86, 152, 218);
     return mode == UI_COUNTRY_TARGET_VASSALIZE ? RGB(168, 92, 220) : RGB(218, 62, 58);
+}
+
+static int tile_owner_at_point(MapLayout layout, const RenderSnapshot *snapshot, POINT point) {
+    int x, y;
+    if (!snapshot || layout.draw_w <= 0 || layout.draw_h <= 0) return -1;
+    if (point.x < layout.map_x || point.y < layout.map_y ||
+        point.x >= layout.map_x + layout.draw_w ||
+        point.y >= layout.map_y + layout.draw_h) return -1;
+    x = (point.x - layout.map_x) * snapshot->map_w / layout.draw_w;
+    y = (point.y - layout.map_y) * snapshot->map_h / layout.draw_h;
+    if (x < 0 || x >= snapshot->map_w || y < 0 || y >= snapshot->map_h) return -1;
+    return snapshot->tiles[y * snapshot->map_w + x].owner;
+}
+
+static int target_point_valid(MapLayout layout, const UiCountryTargetView *target,
+                              const RenderSnapshot *snapshot, POINT point) {
+    int owner;
+    const SnapshotCiv *civ;
+    if (target->mode != UI_COUNTRY_TARGET_ALLIANCE_INVITE &&
+        target->mode != UI_COUNTRY_TARGET_ALLIANCE_REMOVE) return 1;
+    owner = tile_owner_at_point(layout, snapshot, point);
+    if (owner < 0 || owner >= snapshot->civ_count) return 0;
+    civ = &snapshot->civs[owner];
+    if (!civ->alive) return 0;
+    if (target->mode == UI_COUNTRY_TARGET_ALLIANCE_INVITE)
+        return civ->alliance_id < 0 && civ->overlord < 0;
+    return civ->alliance_id == target->alliance_id;
 }
 
 static int source_anchor(MapLayout layout, const RenderSnapshot *snapshot, int source_civ, POINT *out) {
@@ -65,7 +94,7 @@ void draw_country_target_arrow(HDC hdc, RECT client, MapLayout layout,
     POINT from;
     POINT to;
     COLORREF color;
-    HPEN pen;
+    HPEN pen, shadow_pen;
     HPEN old_pen;
     int saved;
     if (!target.active || !snapshot || !snapshot->world_generated) return;
@@ -73,9 +102,16 @@ void draw_country_target_arrow(HDC hdc, RECT client, MapLayout layout,
     if (!source_anchor(layout, snapshot, target.source_civ, &from)) return;
     to.x = clamp(target.mouse_x, viewport.left + 4, viewport.right - 4);
     to.y = clamp(target.mouse_y, viewport.top + 4, viewport.bottom - 4);
-    color = mode_color(target.mode);
+    color = target_point_valid(layout, &target, snapshot, to) ? mode_color(target.mode) :
+            RGB(150, 80, 80);
     saved = SaveDC(hdc);
     IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
+    shadow_pen = CreatePen(PS_SOLID, 7, RGB(24, 28, 32));
+    old_pen = SelectObject(hdc, shadow_pen);
+    MoveToEx(hdc, from.x + 1, from.y + 1, NULL);
+    LineTo(hdc, to.x + 1, to.y + 1);
+    SelectObject(hdc, old_pen);
+    DeleteObject(shadow_pen);
     pen = CreatePen(PS_SOLID, 4, color);
     old_pen = SelectObject(hdc, pen);
     MoveToEx(hdc, from.x, from.y, NULL);

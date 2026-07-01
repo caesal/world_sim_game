@@ -280,6 +280,8 @@ const char *alliance_name_zh(int alliance_id);
 
 AllianceCommandResult alliance_player_form_or_join(int source_civ, int target_civ);
 AllianceCommandResult alliance_player_leave(int source_civ);
+AllianceCommandResult alliance_player_invite_member(int alliance_id, int target_civ);
+AllianceCommandResult alliance_player_remove_member(int alliance_id, int target_civ);
 int alliance_break_for_player_war(int civ_a, int civ_b);
 int alliance_force_member_exit_for_war_defeat(int alliance_id, int civ_id, int cooldown_years);
 

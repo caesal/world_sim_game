@@ -1,6 +1,8 @@
 #include "game/game.h"
 
 #include "core/game_state.h"
+#include "game/game_player_actions.h"
+#include "render/panel_alliance_detail.h"
 #include "render/panel_alliance_council.h"
 #include "render/panel_alliance_model.h"
 #include "render/panel_alliance_vote_state.h"
@@ -8,6 +10,7 @@
 #include "sim/alliance.h"
 #include "sim/diplomacy.h"
 #include "sim/regions.h"
+#include "sim/civilization_slots.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
@@ -146,6 +149,45 @@ cleanup:
     if (screen) ReleaseDC(NULL, screen);
     fprintf(out, "case=%s ok=%d artifact=%s\n",
             even_split ? "council_even_split_artifact" : "council_render_artifact", ok, path);
+    return ok;
+}
+
+static int render_overview_bmp(FILE *out) {
+    enum { W = 430, H = 660 };
+    static RenderSnapshot snap;
+    AlliancePanelRow row;
+    HDC screen = GetDC(NULL), dc = CreateCompatibleDC(screen);
+    BITMAPINFO info;
+    HBITMAP bitmap = NULL, old_bitmap = NULL;
+    void *bits = NULL;
+    UiCursor cursor;
+    char path[256];
+    int ok = 0, old_lang = ui_language;
+    memset(&info, 0, sizeof(info));
+    info.bmiHeader.biSize = sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth = W; info.bmiHeader.biHeight = H;
+    info.bmiHeader.biPlanes = 1; info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    bitmap = CreateDIBSection(screen, &info, DIB_RGB_COLORS, &bits, NULL, 0);
+    if (!bitmap || !bits || !dc) goto cleanup;
+    old_bitmap = (HBITMAP)SelectObject(dc, bitmap);
+    memset(bits, 22, W * H * 4);
+    setup_council_snapshot(&snap, &row);
+    row.founded_year = 900; row.leader_civ = 0; row.population = 2500000;
+    row.military = 18000; row.treasury = 4000;
+    cursor = ui_cursor(14, 14, W - 28, H - 14);
+    ui_language = UI_LANG_ZH;
+    alliance_detail_subtab = ALLIANCE_DETAIL_OVERVIEW;
+    alliance_detail_draw_content(dc, &cursor, &snap, &row);
+    snprintf(path, sizeof(path), "%s/%s", PROBE_DIR, "alliance_overview_actions.bmp");
+    ok = write_bmp_from_bits(path, &info, bits, W, H);
+cleanup:
+    ui_language = old_lang;
+    if (old_bitmap) SelectObject(dc, old_bitmap);
+    if (bitmap) DeleteObject(bitmap);
+    if (dc) DeleteDC(dc);
+    if (screen) ReleaseDC(NULL, screen);
+    fprintf(out, "case=alliance_overview_actions_artifact ok=%d artifact=%s\n", ok, path);
     return ok;
 }
 
@@ -328,6 +370,66 @@ static int case_union_proposer_timing(FILE *out) {
            state->records[id].active;
 }
 
+static void setup_direct_action_fixture(void) {
+    int i;
+    alliance_reset(); diplomacy_reset(); event_log_clear();
+    set_active_map_size(MAP_SIZE_SMALL);
+    world_generated = 1; civ_count = 5; city_count = 0; region_count = 0; year = 900; month = 1;
+    memset(civs, 0, sizeof(civs));
+    for (i = 0; i < civ_count; i++) {
+        civilization_reset_slot_state(i);
+        civs[i].alive = 1; civs[i].custom_name = 1; civs[i].capital_city = -1;
+        civs[i].color = COLOR32_RGB(80 + i * 20, 110 + i * 12, 145 + i * 9);
+        snprintf(civs[i].name, sizeof(civs[i].name), "Direct Action %d", i);
+    }
+}
+
+static int case_player_direct_alliance_actions(FILE *out) {
+    AllianceSaveState *state;
+    GamePlayerActionResult invite, other_alliance, remove, non_member, remove_leader;
+    int id, other_id, invited_formal, history_join = 0, history_remove = 0, no_records, disbanded;
+    setup_direct_action_fixture();
+    id = alliance_debug_create_pair(0, 1, 80);
+    state = alliance_internal_state();
+    invite = game_player_alliance_invite(id, 2);
+    invited_formal = alliance_for_civ(2) == id;
+    no_records = state->candidate_count[id] == 0 && state->vote_count[id] == 0;
+    for (int i = 0; i < ALLIANCE_HISTORY_RECORD_CAP; i++) {
+        if (state->history[id][i].active &&
+            state->history[id][i].event_type == ALLIANCE_HISTORY_MEMBER_JOINED &&
+            state->history[id][i].civ_id == 2) history_join = 1;
+    }
+    other_id = alliance_debug_create_pair(3, 4, 80);
+    other_alliance = game_player_alliance_invite(id, 3);
+    remove = game_player_alliance_remove(id, 2);
+    for (int i = 0; i < ALLIANCE_HISTORY_RECORD_CAP; i++) {
+        if (state->history[id][i].active &&
+            state->history[id][i].event_type == ALLIANCE_HISTORY_MEMBER_REMOVED &&
+            state->history[id][i].civ_id == 2) history_remove = 1;
+    }
+    non_member = game_player_alliance_remove(id, 4);
+    remove_leader = game_player_alliance_remove(id, 0);
+    disbanded = alliance_for_civ(1) < 0 && !state->records[id].active;
+    fprintf(out, "case=player_direct_alliance_actions ok=%d invite=%d other=%d remove=%d non_member=%d leader_remove=%d count=%d records=%d history_join=%d history_remove=%d events=%d other_id=%d disbanded=%d kicked=%d\n",
+            id >= 0 && invite == GAME_PLAYER_ACTION_OK && invited_formal &&
+            other_alliance == GAME_PLAYER_ACTION_TARGET_ALREADY_IN_ALLIANCE &&
+            remove == GAME_PLAYER_ACTION_OK && alliance_for_civ(2) < 0 &&
+            state->kicked_cooldown[id][2] == 100 &&
+            non_member == GAME_PLAYER_ACTION_TARGET_NOT_ALLIANCE_MEMBER &&
+            remove_leader == GAME_PLAYER_ACTION_OK && disbanded && no_records &&
+            history_join && history_remove && event_log_count >= 3,
+            invite, other_alliance, remove, non_member, remove_leader,
+            state->records[id].member_count, no_records, history_join, history_remove,
+            event_log_count, other_id, disbanded, state->kicked_cooldown[id][2]);
+    return id >= 0 && invite == GAME_PLAYER_ACTION_OK && invited_formal &&
+           other_alliance == GAME_PLAYER_ACTION_TARGET_ALREADY_IN_ALLIANCE &&
+           remove == GAME_PLAYER_ACTION_OK && alliance_for_civ(2) < 0 &&
+           state->kicked_cooldown[id][2] == 100 &&
+           non_member == GAME_PLAYER_ACTION_TARGET_NOT_ALLIANCE_MEMBER &&
+           remove_leader == GAME_PLAYER_ACTION_OK && disbanded && no_records &&
+           history_join && history_remove && event_log_count >= 3;
+}
+
 int run_military_alliance_rules_probe(FILE *out) {
     int ok = 1;
     ok &= case_display_votes(out);
@@ -335,6 +437,8 @@ int run_military_alliance_rules_probe(FILE *out) {
     ok &= case_vote_year_snapshot(out);
     ok &= case_rule_constants(out);
     ok &= case_union_proposer_timing(out);
+    ok &= case_player_direct_alliance_actions(out);
+    ok &= render_overview_bmp(out);
     ok &= render_council_bmp(out, "council_reference_render.bmp", 0);
     return ok;
 }

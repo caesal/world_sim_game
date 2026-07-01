@@ -17,12 +17,14 @@
 typedef struct {
     UiCountryTargetMode mode;
     int source_civ;
+    int alliance_id;
     int previous_auto_run;
     int mouse_x;
     int mouse_y;
+    int last_invalid_owner;
 } UiCountryTargetState;
 
-static UiCountryTargetState target_state = {UI_COUNTRY_TARGET_NONE, -1, 0, -1, -1};
+static UiCountryTargetState target_state = {UI_COUNTRY_TARGET_NONE, -1, -1, 0, -1, -1, -1};
 
 static void notify(HWND hwnd, const char *en, const char *zh) {
     ui_notifications_push(en, zh);
@@ -94,6 +96,8 @@ static int begin_target(HWND hwnd, int source_civ, UiCountryTargetMode mode,
     }
     target_state.mode = mode;
     target_state.source_civ = source_civ;
+    target_state.alliance_id = -1;
+    target_state.last_invalid_owner = -1;
     target_state.previous_auto_run = auto_run ? 1 : 0;
     initialize_target_mouse(hwnd, mouse_x, mouse_y);
     auto_run = 0;
@@ -103,12 +107,40 @@ static int begin_target(HWND hwnd, int source_civ, UiCountryTargetMode mode,
     return 1;
 }
 
+static int begin_alliance_target(HWND hwnd, int alliance_id, int source_civ,
+                                 UiCountryTargetMode mode, int mouse_x, int mouse_y) {
+    if (target_state.mode == mode && target_state.alliance_id == alliance_id)
+        return ui_country_target_cancel(hwnd);
+    if (!begin_target(hwnd, source_civ, mode, mouse_x, mouse_y)) return 0;
+    target_state.alliance_id = alliance_id;
+    return 1;
+}
+
 static void complete_target(HWND hwnd) {
     restore_auto_run();
     target_state.mode = UI_COUNTRY_TARGET_NONE;
     target_state.source_civ = -1;
+    target_state.alliance_id = -1;
+    target_state.last_invalid_owner = -1;
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
                                     GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+}
+
+static const char *snapshot_civ_name(const RenderSnapshot *snapshot, int civ_id) {
+    if (!snapshot || civ_id < 0 || civ_id >= snapshot->civ_count) return "-";
+    return ui_language == UI_LANG_ZH ? snapshot->civs[civ_id].name_zh :
+                                       snapshot->civs[civ_id].name_en;
+}
+
+static const char *snapshot_alliance_name(const RenderSnapshot *snapshot, int alliance_id) {
+    int i;
+    if (!snapshot || alliance_id < 0) return "-";
+    for (i = 0; i < snapshot->alliance_count; i++) {
+        const AllianceSnapshotRecord *record = &snapshot->alliances[i];
+        if (record->active && record->id == alliance_id)
+            return ui_language == UI_LANG_ZH ? record->name_zh : record->name_en;
+    }
+    return "-";
 }
 
 static void notify_result(HWND hwnd, UiCountryTargetMode mode, GamePlayerActionResult result) {
@@ -192,9 +224,14 @@ UiCountryTargetView ui_country_target_view(void) {
     view.active = ui_country_target_active();
     view.mode = target_state.mode;
     view.source_civ = target_state.source_civ;
+    view.alliance_id = target_state.alliance_id;
     view.mouse_x = target_state.mouse_x;
     view.mouse_y = target_state.mouse_y;
     return view;
+}
+
+int ui_country_target_is_mode_active(UiCountryTargetMode mode, int alliance_id) {
+    return target_state.mode == mode && target_state.alliance_id == alliance_id;
 }
 
 int ui_country_target_handle_action_button(HWND hwnd, int source_civ,
@@ -242,12 +279,72 @@ int ui_country_target_handle_action_button(HWND hwnd, int source_civ,
     return 1;
 }
 
+int ui_country_target_handle_alliance_button(HWND hwnd, int alliance_id, int source_civ,
+                                             UiCountryTargetMode mode, int mouse_x, int mouse_y) {
+    if (mode != UI_COUNTRY_TARGET_ALLIANCE_INVITE &&
+        mode != UI_COUNTRY_TARGET_ALLIANCE_REMOVE) return 0;
+    return begin_alliance_target(hwnd, alliance_id, source_civ, mode, mouse_x, mouse_y);
+}
+
+static void notify_alliance_target_result(HWND hwnd, int owner, GamePlayerActionResult result) {
+    const RenderSnapshot *snapshot = render_snapshot_acquire();
+    const char *target_name = snapshot_civ_name(snapshot, owner);
+    char en[256], zh[256];
+    if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_INVITE &&
+        result == GAME_PLAYER_ACTION_TARGET_ALREADY_IN_ALLIANCE) {
+        int existing = snapshot && owner >= 0 && owner < snapshot->civ_count ?
+                       snapshot->civs[owner].alliance_display_id : -1;
+        const char *alliance_name = snapshot_alliance_name(snapshot, existing);
+        snprintf(en, sizeof(en), "Cannot invite: target %.80s already belongs to %.80s.",
+                 target_name, alliance_name);
+        snprintf(zh, sizeof(zh), "无法邀请：目标%.80s国已加入%.80s联盟，无法邀请。",
+                 target_name, alliance_name);
+        notify(hwnd, en, zh);
+    } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_REMOVE &&
+               result == GAME_PLAYER_ACTION_TARGET_NOT_ALLIANCE_MEMBER) {
+        snprintf(en, sizeof(en), "Cannot remove: target %.80s is not a member of this alliance.",
+                 target_name);
+        snprintf(zh, sizeof(zh), "无法清退：目标%.80s国不是本联盟成员，无法清退。", target_name);
+        notify(hwnd, en, zh);
+    } else {
+        notify_result(hwnd, target_state.mode, result);
+    }
+    render_snapshot_release(snapshot);
+}
+
+static void notify_invalid_alliance_hover(HWND hwnd) {
+    int tile_x, tile_y, owner;
+    if (target_state.mode != UI_COUNTRY_TARGET_ALLIANCE_INVITE &&
+        target_state.mode != UI_COUNTRY_TARGET_ALLIANCE_REMOVE) return;
+    if (!ui_map_screen_to_tile(hwnd, target_state.mouse_x, target_state.mouse_y, &tile_x, &tile_y)) return;
+    owner = ui_snapshot_tile_owner(tile_x, tile_y);
+    if (!ui_snapshot_civ_alive(owner) || owner == target_state.last_invalid_owner) return;
+    if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_INVITE) {
+        const RenderSnapshot *snapshot = render_snapshot_acquire();
+        int blocked = snapshot && owner >= 0 && owner < snapshot->civ_count &&
+                      snapshot->civs[owner].alliance_display_id >= 0;
+        render_snapshot_release(snapshot);
+        if (!blocked) return;
+        target_state.last_invalid_owner = owner;
+        notify_alliance_target_result(hwnd, owner, GAME_PLAYER_ACTION_TARGET_ALREADY_IN_ALLIANCE);
+    } else {
+        const RenderSnapshot *snapshot = render_snapshot_acquire();
+        int blocked = !snapshot || owner < 0 || owner >= snapshot->civ_count ||
+                      snapshot->civs[owner].alliance_id != target_state.alliance_id;
+        render_snapshot_release(snapshot);
+        if (!blocked) return;
+        target_state.last_invalid_owner = owner;
+        notify_alliance_target_result(hwnd, owner, GAME_PLAYER_ACTION_TARGET_NOT_ALLIANCE_MEMBER);
+    }
+}
+
 int ui_country_target_update_mouse(HWND hwnd, int mouse_x, int mouse_y) {
     if (!ui_country_target_active()) return 0;
     if (target_mode_blocked()) return ui_country_target_cancel(hwnd);
     if (target_state.mouse_x == mouse_x && target_state.mouse_y == mouse_y) return 1;
     target_state.mouse_x = mouse_x;
     target_state.mouse_y = mouse_y;
+    notify_invalid_alliance_hover(hwnd);
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC);
     return 1;
 }
@@ -271,7 +368,9 @@ int ui_country_target_handle_left_click(HWND hwnd, int mouse_x, int mouse_y) {
         notify(hwnd, "Select a living target country.", "请选择存活的目标国家。");
         return 1;
     }
-    if (owner == target_state.source_civ) {
+    if (owner == target_state.source_civ &&
+        target_state.mode != UI_COUNTRY_TARGET_ALLIANCE_INVITE &&
+        target_state.mode != UI_COUNTRY_TARGET_ALLIANCE_REMOVE) {
         notify_result(hwnd, target_state.mode, GAME_PLAYER_ACTION_SELF_TARGET);
         return 1;
     }
@@ -279,18 +378,26 @@ int ui_country_target_handle_left_click(HWND hwnd, int mouse_x, int mouse_y) {
         result = game_player_declare_war(target_state.source_civ, owner);
     } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE) {
         result = game_player_form_alliance(target_state.source_civ, owner);
+    } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_INVITE) {
+        result = game_player_alliance_invite(target_state.alliance_id, owner);
+    } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_REMOVE) {
+        result = game_player_alliance_remove(target_state.alliance_id, owner);
     } else {
         result = game_player_vassalize(target_state.source_civ, owner);
     }
     if (result == GAME_PLAYER_ACTION_OK || result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE) {
         if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE) {
             notify(hwnd, "Alliance formed.", "同盟已建立。");
+        } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_INVITE) {
+            notify(hwnd, "Country joined the alliance.", "国家已加入联盟。");
+        } else if (target_state.mode == UI_COUNTRY_TARGET_ALLIANCE_REMOVE) {
+            notify(hwnd, "Country removed from the alliance.", "国家已被清退。");
         } else if (result == GAME_PLAYER_ACTION_OK_BROKE_ALLIANCE) {
             notify_result(hwnd, target_state.mode, result);
         }
         complete_target(hwnd);
     } else {
-        notify_result(hwnd, target_state.mode, result);
+        notify_alliance_target_result(hwnd, owner, result);
         ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
     }
     return 1;
@@ -301,6 +408,7 @@ int ui_country_target_cancel(HWND hwnd) {
     restore_auto_run();
     target_state.mode = UI_COUNTRY_TARGET_NONE;
     target_state.source_civ = -1;
+    target_state.alliance_id = -1;
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
                                     GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
     return 1;

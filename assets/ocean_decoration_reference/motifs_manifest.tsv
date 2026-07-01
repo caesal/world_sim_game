@@ -1,0 +1,28 @@
+id	filename	default_w_px	default_h_px	footprint_w_px	footprint_h_px	min_coast_clear_tiles	min_label_clear_px	allow_interior	allow_exterior	weight	rotation_deg	mirror_allowed	notes
+sea_serpent	motifs/sea_serpent.png	118	88	142	106	9	96	yes	yes	10	-8..8	yes	large creature; open water only
+leviathan_whale	motifs/leviathan_whale.png	112	78	134	94	8	88	yes	yes	10	-6..6	yes	large creature; avoid coasts and route lanes
+tentacle	motifs/tentacle.png	84	92	104	114	7	82	yes	yes	8	-10..10	yes	vertical creature; allow only in open water
+sailing_ship	motifs/sailing_ship.png	118	96	142	116	8	96	yes	yes	8	-5..5	yes	decorative ship; avoid sea-lane overlays when possible
+shipwreck	motifs/shipwreck.png	108	86	132	106	8	92	yes	yes	6	-8..8	yes	sparser than ships; avoid coast unless deliberately allowed later
+sea_beast	motifs/sea_beast.png	96	92	118	112	8	90	yes	yes	8	-8..8	yes	large creature; open water only
+flying_fish	motifs/flying_fish.png	100	78	122	96	6	76	yes	yes	7	-12..12	yes	smaller ornament; can appear more often than large creatures
+whirlpool	motifs/whirlpool.png	92	92	112	112	7	82	yes	yes	6	0..0	no	circular motif; do not place near coasts or routes
+wave_cluster	motifs/wave_cluster.png	98	52	118	66	4	56	yes	yes	22	-5..5	yes	common small ornament; use to unify texture, not as main creature
+mermaid_siren	motifs/mermaid_siren.png	90	75	110	92	8	86	yes	yes	5	-4..4	yes	large mythic figure; open water only
+giant_crab	motifs/giant_crab.png	86	63	106	80	7	78	yes	yes	5	-6..6	yes	large crustacean; open water only
+jellyfish	motifs/jellyfish.png	70	62	88	78	7	72	yes	yes	5	-6..6	yes	medium sea creature; open water only
+waterspout	motifs/waterspout.png	64	54	80	70	6	68	yes	yes	4	-4..4	yes	weather ornament; open water only
+iceberg	motifs/iceberg.png	82	55	104	70	6	72	yes	yes	3	-3..3	yes	sparse polar-style ornament; open water only
+storm_cloud	motifs/storm_cloud.png	90	64	110	82	5	70	yes	yes	4	-3..3	yes	weather ornament; avoid labels and routes
+volcanic_island	motifs/volcanic_island.png	82	70	104	86	8	82	yes	yes	3	-4..4	yes	sparse hazard ornament; deep open water preferred
+sea_turtle	motifs/sea_turtle.png	86	53	106	68	6	72	yes	yes	5	-5..5	yes	medium sea creature; open water only
+coral_reef	motifs/coral_reef.png	84	60	108	76	5	66	yes	yes	6	-5..5	yes	reef ornament; open water placement with coast clearance
+kraken_head	motifs/kraken_head.png	86	65	108	84	8	84	yes	yes	4	-5..5	yes	large monster; deep open water preferred
+giant_lobster	motifs/giant_lobster.png	92	67	114	84	8	82	yes	yes	4	-6..6	yes	large crustacean; open water only
+nautilus	motifs/nautilus.png	76	61	94	76	7	76	yes	yes	4	-6..6	yes	medium mythic shell creature; open water only
+manta_ray	motifs/manta_ray.png	96	64	118	80	6	76	yes	yes	4	-5..5	yes	medium sea creature; open water only
+giant_clam	motifs/giant_clam.png	78	54	96	70	5	70	yes	yes	4	-4..4	yes	reef creature ornament; open water placement with coast clearance
+sea_scorpion	motifs/sea_scorpion.png	88	61	110	76	8	82	yes	yes	4	-6..6	yes	large monster; deep open water preferred
+ghost_ship	motifs/ghost_ship.png	96	85	120	104	9	94	yes	yes	3	-5..5	yes	sparse haunted ship; deep open water preferred
+rogue_wave	motifs/rogue_wave.png	86	64	108	82	5	66	yes	yes	7	-5..5	yes	wave ornament; can substitute for wave clusters
+fog_bank	motifs/fog_bank.png	94	56	116	72	4	60	yes	yes	6	-3..3	yes	soft weather ornament; low visual priority

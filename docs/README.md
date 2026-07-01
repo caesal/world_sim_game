@@ -10,15 +10,15 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.5.a, this release update intentionally excludes `docs/official`.
-The current changes are a prototype checkpoint for proposer-led union
-absorption, civil-unrest successor color avoidance, global union event-log
-visibility, Alliance Votes passive relation bars, and speed/status UI polish on
-top of the Ver0.3.5 Military Alliance and Alliance Council stack.
+For Ver0.3.5.b, this release update intentionally excludes `docs/official`.
+The current changes are a prototype checkpoint for Alliance Detail direct
+invite/remove actions, ancient-ocean decoration assets, decision-countdown
+refresh, and ocean color/scale polish on top of the Ver0.3.5.a union and
+presentation stack.
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
-- `docs/unofficial/ver0.3.5.a_side_doc.md`
+- `docs/unofficial/ver0.3.5.b_side_doc.md`
 
 The working version log is:
 

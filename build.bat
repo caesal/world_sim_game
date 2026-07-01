@@ -152,6 +152,11 @@ src\sim\diplomacy_year.c ^
   src\render\render_static_map_cache.c ^
   src\render\render_static_map_cache_status.c ^
   src\render\render_static_scene.c ^
+  src\render\render_ocean_assets.c ^
+  src\render\render_ocean_decoration_rules.c ^
+  src\render\render_ocean_decoration_water.c ^
+  src\render\render_ocean_decoration.c ^
+  src\render\render_ocean_motifs.c ^
   src\render\render_context.c ^
   src\render\snapshot_ui.c ^
   src\render\render_common.c ^

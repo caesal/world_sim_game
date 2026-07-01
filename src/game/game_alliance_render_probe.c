@@ -283,7 +283,7 @@ static int case_live_fill_bridge(FILE *summary) {
     BITMAPINFO info; void *bits = NULL; HDC screen = GetDC(NULL), mem = CreateCompatibleDC(screen);
     HBITMAP bitmap = NULL; HGDIOBJ old_bitmap = NULL;
     RECT client = {0, 0, width, height};
-    MapLayout layout = {12, 72, 8 * 18, 18, 18};
+    MapLayout layout = {12, 72, 18, 8 * 18, 18};
     int old_display = display_mode;
     int old_side_collapsed = side_panel_collapsed;
     COLORREF sample = RGB(0, 0, 0);

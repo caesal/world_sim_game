@@ -2,10 +2,12 @@
 
 #include "game/game_loop.h"
 #include "render/panel_alliance.h"
+#include "render/panel_alliance_detail.h"
 #include "render/panel_alliance_model.h"
 #include "render/panel_country_diplomacy_tooltip.h"
 #include "render/render_context.h"
 #include "ui/ui_invalidation.h"
+#include "ui/ui_country_target.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_snapshot_read.h"
 #include "ui/ui_types.h"
@@ -29,6 +31,22 @@ static void open_alliance_detail(HWND hwnd, const RenderSnapshot *snapshot, int 
     alliance_detail_scroll_offset = 0;
     alliance_detail_scroll_offsets[tab] = 0;
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+}
+
+static int handle_overview_action(HWND hwnd, const RenderSnapshot *snapshot, int mouse_x, int mouse_y) {
+    const AlliancePanelRow *row;
+    AllianceOverviewAction action;
+    UiCountryTargetMode mode;
+    if (selected_alliance_id < 0 || alliance_detail_subtab != ALLIANCE_DETAIL_OVERVIEW) return 0;
+    row = selected_row_from_snapshot(snapshot, selected_alliance_id);
+    if (!row) return 0;
+    action = alliance_detail_overview_action_hit(selected_alliance_id, mouse_x, mouse_y);
+    if (action == ALLIANCE_OVERVIEW_ACTION_NONE) return 0;
+    mode = action == ALLIANCE_OVERVIEW_ACTION_INVITE ?
+           UI_COUNTRY_TARGET_ALLIANCE_INVITE : UI_COUNTRY_TARGET_ALLIANCE_REMOVE;
+    ui_country_target_handle_alliance_button(hwnd, selected_alliance_id, row->leader_civ,
+                                             mode, mouse_x, mouse_y);
+    return 1;
 }
 
 int ui_alliance_panel_owns_input(void) {
@@ -55,6 +73,16 @@ int ui_handle_alliance_panel_click(HWND hwnd, RECT client, int mouse_x, int mous
     hit = alliance_panel_hit_test(client, mouse_x, mouse_y);
     if (hit == ALLIANCE_PANEL_HIT_NONE && ui_alliance_panel_passive_tooltip_hit(mouse_x, mouse_y)) {
         return 1;
+    }
+    if (hit == ALLIANCE_PANEL_HIT_NONE && selected_alliance_id >= 0 &&
+        alliance_detail_subtab == ALLIANCE_DETAIL_OVERVIEW) {
+        int owned = 0;
+        const RenderSnapshot *snapshot = render_context_snapshot();
+        int handled;
+        if (!snapshot) { snapshot = render_snapshot_acquire(); render_context_begin(snapshot); owned = 1; }
+        handled = handle_overview_action(hwnd, snapshot, mouse_x, mouse_y);
+        if (owned) { render_context_end(); render_snapshot_release(snapshot); }
+        if (handled) return 1;
     }
     if (hit == ALLIANCE_PANEL_HIT_NONE) return 0;
     if (hit == ALLIANCE_PANEL_HIT_TOGGLE_FALLEN) {

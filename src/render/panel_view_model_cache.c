@@ -120,21 +120,21 @@ static unsigned int mix_header_key(unsigned int key, const SnapshotCiv *civ, int
 }
 
 static unsigned int mix_decision_key(unsigned int key, const SnapshotCiv *civ) {
-    const DecisionSnapshot *d;
-    int i, values[14];
+    const DecisionSnapshot *d; int i, values[17];
     if (!civ) return mix_key(key, 0);
     d = &civ->decision;
-    values[0] = d->expansion_weight; values[1] = d->war_weight; values[2] = d->stability_weight;
-    values[3] = d->next_expansion_months; values[4] = d->war_desire; values[5] = d->war_raw_desire;
-    values[6] = d->war_threshold; values[7] = d->war_readiness_percent; values[8] = d->war_crisis_score;
-    values[9] = d->war_result; values[10] = d->stability_pressure; values[11] = d->stability_mode;
-    values[12] = d->capital_region; values[13] = d->owned_regions;
-    for (i = 0; i < 14; i++) key = mix_key(key, values[i]);
-    key = mix_text_key(key, civ->main_intent);
-    key = mix_text_key(key, civ->decision_expansion_reason);
-    key = mix_text_key(key, civ->decision_war_reason);
+    values[0] = d->expansion_weight; values[1] = d->war_weight; values[2] = d->stability_weight; values[3] = d->next_expansion_months;
+    values[4] = d->war_desire; values[5] = d->war_raw_desire; values[6] = d->war_threshold; values[7] = d->war_readiness_percent;
+    values[8] = d->war_crisis_score; values[9] = d->war_result; values[10] = d->stability_pressure; values[11] = d->stability_mode;
+    values[12] = d->next_diplomacy_months; values[13] = d->next_battle_months; values[14] = d->next_collapse_years;
+    values[15] = d->capital_region; values[16] = d->owned_regions;
+    for (i = 0; i < 17; i++) key = mix_key(key, values[i]);
+    key = mix_text_key(mix_text_key(mix_text_key(key, civ->main_intent),
+                                    civ->decision_expansion_reason), civ->decision_war_reason);
     return mix_text_key(key, d->stability_reason);
 }
+
+unsigned int panel_view_model_cache_probe_decision_key(const SnapshotCiv *civ) { return mix_decision_key(2166136261u, civ); }
 
 static unsigned int mix_top_city_rows_key(unsigned int key, const RenderSnapshot *snapshot,
                                           const SnapshotCiv *civ) {

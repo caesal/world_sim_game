@@ -5,6 +5,7 @@
 #include "render/profiling_switches.h"
 #include "render/map_display_policy.h"
 #include "render/map_ownership_surface.h"
+#include "render/render_ocean_decoration.h"
 #include "render/render_layer_cache.h"
 #include "render/render_static_map_cache.h"
 #include "render/snapshot_map_layers.h"
@@ -187,7 +188,9 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
         int safe;
         int full;
         int current;
+        render_ocean_decoration_draw_background(viewport_static_scratch_cache.dc, client, layout, snapshot);
         draw_cached_static_map_nonblocking(viewport_static_scratch_cache.dc, client, layout);
+        render_ocean_decoration_draw_overlay(viewport_static_scratch_cache.dc, client, layout, snapshot);
         scene_cache_last_build_ms = (int)(GetTickCount() - start);
         profiler_record_spike_phase(PROFILER_SPIKE_STATIC_CACHE, "Static scene", scene_cache_last_build_ms);
         needs_work = render_static_map_cache_needs_work();
@@ -213,7 +216,9 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
             render_layer_cache_blit_viewport(hdc, client, &viewport_static_scratch_cache);
         }
     } else {
+        render_ocean_decoration_draw_background(hdc, client, layout, snapshot);
         draw_cached_static_map_nonblocking(hdc, client, layout);
+        render_ocean_decoration_draw_overlay(hdc, client, layout, snapshot);
         scene_cache_last_build_ms = (int)(GetTickCount() - start);
         profiler_record_spike_phase(PROFILER_SPIKE_STATIC_CACHE, "Static scene direct", scene_cache_last_build_ms);
         static_base_presented_current = render_static_map_cache_presented_current();

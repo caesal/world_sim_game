@@ -233,6 +233,7 @@ static void copy_decision_state(SnapshotCiv *dst, int civ_id, int stable) {
         last_decision_cached_count++;
     } else if (stable && has_snapshot_decision(dst)) {
         bind_decision_strings(dst);
+        decision_snapshot_refresh_countdowns(civ_id, &dst->decision);
         refresh_decision_scalars(dst);
         last_decision_stale_count++;
     } else {

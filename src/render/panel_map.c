@@ -96,24 +96,7 @@ void draw_bottom_bar(HDC hdc, RECT client) {
 }
 
 void draw_map_frame_overlay(HDC hdc, RECT client) {
-    RECT viewport = get_map_viewport_rect(client);
-    MapLayout layout = get_map_layout(client);
-    RECT frame = {layout.map_x, layout.map_y, layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
-    HBRUSH outer = CreateSolidBrush(RGB(24, 28, 32));
-    HBRUSH inner = CreateSolidBrush(RGB(132, 116, 82));
-    HBRUSH line = CreateSolidBrush(RGB(215, 196, 142));
-    RECT shade = {frame.left + 4, frame.top + 4, frame.right + 4, frame.bottom + 4};
-    int saved = SaveDC(hdc);
-
-    IntersectClipRect(hdc, viewport.left, viewport.top, viewport.right, viewport.bottom);
-    FrameRect(hdc, &shade, outer);
-    FrameRect(hdc, &frame, inner);
-    InflateRect(&frame, -2, -2);
-    FrameRect(hdc, &frame, line);
-    RestoreDC(hdc, saved);
-    DeleteObject(outer);
-    DeleteObject(inner);
-    DeleteObject(line);
+    (void)client;
     panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
 }
 

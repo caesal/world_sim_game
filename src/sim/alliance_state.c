@@ -349,16 +349,17 @@ int alliance_debug_create_pair(int founder_civ, int second_civ, int min_score) {
     return create_alliance_internal(founder_civ, second_civ, min_score);
 }
 
-int alliance_debug_add_member(int alliance_id, int civ_id, int min_score) {
+static int add_member_direct(int alliance_id, int civ_id, int min_score, int record_candidate) {
     AllianceRecord *record;
     if (!active_alliance(alliance_id) || !sovereign(civ_id) || alliance_for_civ(civ_id) >= 0) return 0;
     record = &alliance_state.records[alliance_id];
     add_member_to_record(record, civ_id);
     sync_record_pairs(record, min_score);
     alliance_council_recalculate(alliance_id, 1);
-    alliance_record_candidate(alliance_id, civ_id, ALLIANCE_CANDIDATE_JOIN,
-                              ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE, year, 100,
-                              ALLIANCE_CANDIDATE_PASSED, ALLIANCE_REJECT_NONE);
+    if (record_candidate)
+        alliance_record_candidate(alliance_id, civ_id, ALLIANCE_CANDIDATE_JOIN,
+                                  ALLIANCE_CANDIDATE_INITIATOR_CANDIDATE, year, 100,
+                                  ALLIANCE_CANDIDATE_PASSED, ALLIANCE_REJECT_NONE);
     alliance_record_history(alliance_id, ALLIANCE_HISTORY_MEMBER_JOINED,
                             civ_id, -1, ALLIANCE_VOTE_JOIN, ALLIANCE_REJECT_NONE);
     event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE, EVENT_SEVERITY_INFO,
@@ -368,12 +369,37 @@ int alliance_debug_add_member(int alliance_id, int civ_id, int min_score) {
     return 1;
 }
 
+int alliance_debug_add_member(int alliance_id, int civ_id, int min_score) {
+    return add_member_direct(alliance_id, civ_id, min_score, 1);
+}
+
+AllianceCommandResult alliance_player_invite_member(int alliance_id, int target_civ) {
+    int current;
+    if (!active_alliance(alliance_id)) return ALLIANCE_CMD_NO_ALLIANCE;
+    if (!valid_alive(target_civ)) return ALLIANCE_CMD_INVALID_TARGET;
+    if (vassal_overlord(target_civ) >= 0) return ALLIANCE_CMD_TARGET_VASSAL;
+    current = alliance_for_civ(target_civ);
+    if (current >= 0) return current == alliance_id ? ALLIANCE_CMD_ALREADY_SAME :
+                                                      ALLIANCE_CMD_DIFFERENT_ALLIANCES;
+    clear_player_join_blocks(alliance_id, target_civ);
+    return add_member_direct(alliance_id, target_civ, 80, 0) ? ALLIANCE_CMD_OK :
+                                                               ALLIANCE_CMD_BLOCKED;
+}
+
 AllianceSaveState *alliance_internal_state(void) { return &alliance_state; }
 
 int alliance_debug_kick_member(int alliance_id, int civ_id, int cooldown_years) {
     if (!active_alliance(alliance_id) || !alliance_is_formal_member(alliance_id, civ_id)) return 0;
     leave_member(alliance_id, civ_id, cooldown_years, 1, 1);
     return 1;
+}
+
+AllianceCommandResult alliance_player_remove_member(int alliance_id, int target_civ) {
+    if (!active_alliance(alliance_id)) return ALLIANCE_CMD_NO_ALLIANCE;
+    if (!valid_alive(target_civ)) return ALLIANCE_CMD_INVALID_TARGET;
+    if (!alliance_is_formal_member(alliance_id, target_civ)) return ALLIANCE_CMD_NO_ALLIANCE;
+    leave_member(alliance_id, target_civ, 100, 1, 1);
+    return ALLIANCE_CMD_OK;
 }
 
 void alliance_sanitize_loaded(void) {

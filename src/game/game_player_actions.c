@@ -217,6 +217,29 @@ GamePlayerActionResult game_player_leave_alliance(int source_civ) {
     return alliance_result_to_player(result);
 }
 
+GamePlayerActionResult game_player_alliance_invite(int alliance_id, int target_civ) {
+    AllianceCommandResult result;
+    state_write_lock();
+    result = alliance_player_invite_member(alliance_id, target_civ);
+    if (result == ALLIANCE_CMD_OK) mark_after_player_diplomacy();
+    state_write_unlock();
+    if (result == ALLIANCE_CMD_OK) publish_after_player_diplomacy();
+    if (result == ALLIANCE_CMD_DIFFERENT_ALLIANCES ||
+        result == ALLIANCE_CMD_ALREADY_SAME) return GAME_PLAYER_ACTION_TARGET_ALREADY_IN_ALLIANCE;
+    return alliance_result_to_player(result);
+}
+
+GamePlayerActionResult game_player_alliance_remove(int alliance_id, int target_civ) {
+    AllianceCommandResult result;
+    state_write_lock();
+    result = alliance_player_remove_member(alliance_id, target_civ);
+    if (result == ALLIANCE_CMD_OK) mark_after_player_diplomacy();
+    state_write_unlock();
+    if (result == ALLIANCE_CMD_OK) publish_after_player_diplomacy();
+    if (result == ALLIANCE_CMD_NO_ALLIANCE) return GAME_PLAYER_ACTION_TARGET_NOT_ALLIANCE_MEMBER;
+    return alliance_result_to_player(result);
+}
+
 GamePlayerActionResult game_player_dissolve_alliances(int source_civ) {
     return game_player_leave_alliance(source_civ);
 }
