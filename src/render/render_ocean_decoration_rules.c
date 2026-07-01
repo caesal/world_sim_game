@@ -31,9 +31,9 @@ int ocean_decoration_motif_scaled_footprint(const OceanMotifAssetInfo *info,
 }
 
 int ocean_decoration_exterior_spacing_norm(int same_type) {
-    return same_type ? 720 : 300;
+    return same_type ? 1180 : 680;
 }
 
 int ocean_decoration_interior_spacing_tiles(int same_type) {
-    return same_type ? 11 : 4;
+    return same_type ? 18 : 9;
 }

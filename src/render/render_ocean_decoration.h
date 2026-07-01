@@ -18,6 +18,8 @@ typedef struct {
     int same_type_spacing_ok;
     int interior_min_clearance;
     int motif_overlap_count;
+    int motif_spacing_violation_count;
+    int exterior_spacing_ok;
     int exterior_texture_score;
     int interior_texture_score;
     int texture_asset_ready;

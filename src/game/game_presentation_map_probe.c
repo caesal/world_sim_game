@@ -230,11 +230,13 @@ static int case_ocean_decoration_layer(FILE *summary) {
     render_ocean_decoration_draw(hdc, resized, get_map_layout(resized), snapshot);
     c = render_ocean_decoration_probe_info();
     artifact_ok = render_ocean_decoration_bmp(PRESENTATION_PROBE_DIR "/ocean_decoration_full.bmp", 0, 0);
+    artifact_ok &= render_ocean_decoration_bmp(PRESENTATION_PROBE_DIR "/ocean_decoration_overlap_regression.bmp", 0, 0);
     artifact_ok &= render_ocean_decoration_bmp(PRESENTATION_PROBE_DIR "/ocean_decoration_split_40_80.bmp", 1, 0);
     artifact_ok &= render_ocean_decoration_bmp(PRESENTATION_PROBE_DIR "/ocean_decoration_zoom_pan.bmp", 0, 1);
     ok = a.exterior_items >= 12 && a.interior_items > 0 && a.compass_items == 0 &&
          a.interior_water_only && a.interior_deep_only && a.interior_shallow_allowed_seen &&
          a.same_type_spacing_ok && a.motif_overlap_count == 0 &&
+         a.motif_spacing_violation_count == 0 && a.exterior_spacing_ok &&
          a.motif_mask != 0 && a.item_hash == b.item_hash && a.item_hash == d.item_hash &&
          a.item_hash == c.item_hash &&
          a.texture_asset_ready && a.motif_asset_ready && a.exterior_texture_score >= 800 &&
@@ -246,14 +248,15 @@ static int case_ocean_decoration_layer(FILE *summary) {
          d.interior_rebuilds == b.interior_rebuilds && c.exterior_rebuilds > b.exterior_rebuilds &&
          artifact_ok;
     fprintf(summary,
-            "case=ocean_decoration_layer ok=%d ext=%d int=%d item_rebuilds=%d/%d/%d/%d exterior_rebuilds=%d/%d/%d/%d interior_rebuilds=%d/%d/%d/%d hash=%u motif_mask=0x%x compass=%d water_only=%d deep_only=%d shallow_allowed_seen=%d same_type_spacing=%d overlaps=%d min_clearance=%d texture=%d/%d asset=%d motif_asset=%d primitive_waves=%d artifacts=%d files=ocean_decoration_full.bmp/ocean_decoration_split_40_80.bmp/ocean_decoration_zoom_pan.bmp\n",
+            "case=ocean_decoration_layer ok=%d ext=%d int=%d item_rebuilds=%d/%d/%d/%d exterior_rebuilds=%d/%d/%d/%d interior_rebuilds=%d/%d/%d/%d hash=%u motif_mask=0x%x compass=%d water_only=%d deep_only=%d shallow_allowed_seen=%d same_type_spacing=%d exterior_spacing=%d overlaps=%d spacing_violations=%d min_clearance=%d texture=%d/%d asset=%d motif_asset=%d primitive_waves=%d artifacts=%d files=ocean_decoration_full.bmp/ocean_decoration_overlap_regression.bmp/ocean_decoration_split_40_80.bmp/ocean_decoration_zoom_pan.bmp\n",
             ok, a.exterior_items, a.interior_items, a.item_rebuilds, b.item_rebuilds,
             d.item_rebuilds, c.item_rebuilds, a.exterior_rebuilds, b.exterior_rebuilds,
             d.exterior_rebuilds, c.exterior_rebuilds, a.interior_rebuilds, b.interior_rebuilds,
             d.interior_rebuilds, c.interior_rebuilds,
             a.item_hash, a.motif_mask, a.compass_items, a.interior_water_only,
             a.interior_deep_only, a.interior_shallow_allowed_seen, a.same_type_spacing_ok,
-            a.motif_overlap_count, a.interior_min_clearance,
+            a.exterior_spacing_ok, a.motif_overlap_count, a.motif_spacing_violation_count,
+            a.interior_min_clearance,
             a.exterior_texture_score, a.interior_texture_score,
             a.texture_asset_ready, a.motif_asset_ready, a.primitive_wave_stamps, artifact_ok);
     SelectObject(hdc, old);

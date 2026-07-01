@@ -32,6 +32,7 @@ static int exterior_count, interior_count, item_rebuilds;
 static int exterior_rebuilds, interior_rebuilds, interior_water_only = 1;
 static int motif_overlap_count, interior_deep_only = 1;
 static int interior_shallow_allowed_seen, same_type_spacing_ok = 1;
+static int motif_spacing_violation_count, exterior_spacing_ok = 1;
 static int interior_min_clearance = 99, exterior_texture_score, interior_texture_score;
 static unsigned int item_key, item_hash, motif_mask;
 static LayerCache exterior_cache, interior_cache;
@@ -115,13 +116,24 @@ static int random_motif_asset(unsigned int *rng, int exterior) {
     return -1;
 }
 
-static int motif_radius_tiles(unsigned char type, int size) {
+static int motif_footprint_tiles(const RenderSnapshot *snapshot, unsigned char type,
+                                 int size, int vertical) {
     const OceanMotifAssetInfo *info = ocean_assets_motif_info(type);
-    int scaled_w = ocean_decoration_motif_scaled_footprint(info, size, 0);
-    int scaled_h = ocean_decoration_motif_scaled_footprint(info, size, 1);
-    int footprint_radius = max(3, max(scaled_w, scaled_h) / 10), coast_radius;
-    coast_radius = info ? max(4, info->min_coast_clear_tiles * 3 / 4) : 5;
-    return max(footprint_radius, coast_radius);
+    int scaled = ocean_decoration_motif_scaled_footprint(info, size, vertical);
+    int span = snapshot ? (vertical ? snapshot->map_h : snapshot->map_w) :
+               (vertical ? 64 : 96);
+    int denom = vertical ? 540 : 900;
+    return max(5, (scaled * span + denom - 1) / denom + 2);
+}
+
+static int motif_clearance_tiles(const RenderSnapshot *snapshot, unsigned char type,
+                                 int size) {
+    const OceanMotifAssetInfo *info = ocean_assets_motif_info(type);
+    int w = motif_footprint_tiles(snapshot, type, size, 0);
+    int h = motif_footprint_tiles(snapshot, type, size, 1);
+    int coast = info ? info->min_coast_clear_tiles : 6;
+    int radius = (max(w, h) + 1) / 2 + (max(w, h) >= 12 ? 4 : 3);
+    return max(coast, radius);
 }
 
 static int motif_scaled_width(unsigned char type, unsigned int *rng) {
@@ -139,44 +151,70 @@ static int motif_height_for_width(unsigned char type, int width) {
 static int collides_exterior(const OceanItem *items, int count, OceanItem item) {
     int i;
     const OceanMotifAssetInfo *info = ocean_assets_motif_info(item.type);
-    int w = ocean_decoration_motif_scaled_footprint(info, item.size, 0) * OCEAN_NORM / OCEAN_NOMINAL_W;
-    int h = ocean_decoration_motif_scaled_footprint(info, item.size, 1) * OCEAN_NORM / OCEAN_NOMINAL_H;
+    int w = ocean_decoration_motif_scaled_footprint(info, item.size, 0) * OCEAN_NORM / OCEAN_NOMINAL_W * 13 / 10 + 60;
+    int h = ocean_decoration_motif_scaled_footprint(info, item.size, 1) * OCEAN_NORM / OCEAN_NOMINAL_H * 13 / 10 + 60;
     for (i = 0; i < count; i++) {
         const OceanMotifAssetInfo *other = ocean_assets_motif_info(items[i].type);
         int margin = ocean_decoration_exterior_spacing_norm(item.type == items[i].type);
-        int ow = ocean_decoration_motif_scaled_footprint(other, items[i].size, 0) * OCEAN_NORM / OCEAN_NOMINAL_W;
-        int oh = ocean_decoration_motif_scaled_footprint(other, items[i].size, 1) * OCEAN_NORM / OCEAN_NOMINAL_H;
+        int ow = ocean_decoration_motif_scaled_footprint(other, items[i].size, 0) * OCEAN_NORM / OCEAN_NOMINAL_W * 13 / 10 + 60;
+        int oh = ocean_decoration_motif_scaled_footprint(other, items[i].size, 1) * OCEAN_NORM / OCEAN_NOMINAL_H * 13 / 10 + 60;
         if (abs(item.x - items[i].x) * 2 < w + ow + margin &&
             abs(item.y - items[i].y) * 2 < h + oh + margin) return 1;
     }
     return 0;
 }
 
-static int collides_interior(const OceanItem *items, int count, OceanItem item) {
-    int i, r = motif_radius_tiles(item.type, item.size);
+static int collides_interior(const RenderSnapshot *snapshot, const OceanItem *items,
+                             int count, OceanItem item) {
+    int i, w = motif_footprint_tiles(snapshot, item.type, item.size, 0);
+    int h = motif_footprint_tiles(snapshot, item.type, item.size, 1);
     for (i = 0; i < count; i++) {
         int dx = item.x - items[i].x;
         int dy = item.y - items[i].y;
-        int sum = r + motif_radius_tiles(items[i].type, items[i].size) +
-                  ocean_decoration_interior_spacing_tiles(item.type == items[i].type);
-        if (dx * dx + dy * dy < sum * sum) return 1;
+        int margin = ocean_decoration_interior_spacing_tiles(item.type == items[i].type);
+        int ow = motif_footprint_tiles(snapshot, items[i].type, items[i].size, 0);
+        int oh = motif_footprint_tiles(snapshot, items[i].type, items[i].size, 1);
+        if (abs(dx) * 2 < w + ow + margin && abs(dy) * 2 < h + oh + margin) return 1;
     }
     return 0;
 }
 
-static void validate_interior_spacing(void) {
+static void validate_motif_spacing(const RenderSnapshot *snapshot) {
     int i, j;
-    same_type_spacing_ok = 1;
+    same_type_spacing_ok = exterior_spacing_ok = 1;
+    motif_overlap_count = motif_spacing_violation_count = 0;
+    for (i = 0; i < exterior_count; i++) {
+        for (j = i + 1; j < exterior_count; j++) {
+            const OceanMotifAssetInfo *a = ocean_assets_motif_info(exterior_items[i].type);
+            const OceanMotifAssetInfo *b = ocean_assets_motif_info(exterior_items[j].type);
+            int aw = ocean_decoration_motif_scaled_footprint(a, exterior_items[i].size, 0) * OCEAN_NORM / OCEAN_NOMINAL_W * 13 / 10 + 60;
+            int ah = ocean_decoration_motif_scaled_footprint(a, exterior_items[i].size, 1) * OCEAN_NORM / OCEAN_NOMINAL_H * 13 / 10 + 60;
+            int bw = ocean_decoration_motif_scaled_footprint(b, exterior_items[j].size, 0) * OCEAN_NORM / OCEAN_NOMINAL_W * 13 / 10 + 60;
+            int bh = ocean_decoration_motif_scaled_footprint(b, exterior_items[j].size, 1) * OCEAN_NORM / OCEAN_NOMINAL_H * 13 / 10 + 60;
+            int margin = ocean_decoration_exterior_spacing_norm(exterior_items[i].type == exterior_items[j].type);
+            int close_x = abs(exterior_items[i].x - exterior_items[j].x) * 2;
+            int close_y = abs(exterior_items[i].y - exterior_items[j].y) * 2;
+            if (close_x < aw + bw && close_y < ah + bh) motif_overlap_count++;
+            if (close_x < aw + bw + margin && close_y < ah + bh + margin) {
+                motif_spacing_violation_count++;
+                exterior_spacing_ok = 0;
+                if (exterior_items[i].type == exterior_items[j].type) same_type_spacing_ok = 0;
+            }
+        }
+    }
     for (i = 0; i < interior_count; i++) {
         for (j = i + 1; j < interior_count; j++) {
             int dx = interior_items[i].x - interior_items[j].x;
             int dy = interior_items[i].y - interior_items[j].y;
-            int sum = motif_radius_tiles(interior_items[i].type, interior_items[i].size) +
-                      motif_radius_tiles(interior_items[j].type, interior_items[j].size) +
-                      ocean_decoration_interior_spacing_tiles(interior_items[i].type == interior_items[j].type);
-            if (dx * dx + dy * dy < sum * sum) {
+            int aw = motif_footprint_tiles(snapshot, interior_items[i].type, interior_items[i].size, 0);
+            int ah = motif_footprint_tiles(snapshot, interior_items[i].type, interior_items[i].size, 1);
+            int bw = motif_footprint_tiles(snapshot, interior_items[j].type, interior_items[j].size, 0);
+            int bh = motif_footprint_tiles(snapshot, interior_items[j].type, interior_items[j].size, 1);
+            int margin = ocean_decoration_interior_spacing_tiles(interior_items[i].type == interior_items[j].type);
+            if (abs(dx) * 2 < aw + bw && abs(dy) * 2 < ah + bh) motif_overlap_count++;
+            if (abs(dx) * 2 < aw + bw + margin && abs(dy) * 2 < ah + bh + margin) {
                 same_type_spacing_ok = 0;
-                motif_overlap_count++;
+                motif_spacing_violation_count++;
             }
         }
     }
@@ -235,10 +273,10 @@ static void rebuild_items(const RenderSnapshot *snapshot) {
         item.x = (short)x;
         item.y = (short)y;
         item.size = (short)motif_scaled_width((unsigned char)picked, &rng);
-        needed = motif_radius_tiles(item.type, item.size);
+        needed = motif_clearance_tiles(snapshot, item.type, item.size);
         if (ocean_decoration_motif_clearance(snapshot, x, y, item.type, needed) < needed) continue;
         if (!far_from_city_and_lane(snapshot, x, y)) continue;
-        if (collides_interior(interior_items, interior_count, item)) {
+        if (collides_interior(snapshot, interior_items, interior_count, item)) {
             continue;
         }
         add_item(interior_items, &interior_count, OCEAN_INT_MAX, item);
@@ -361,9 +399,9 @@ static void draw_interior_cache(HDC hdc, RECT client, MapLayout layout,
         interior_min_clearance = 99;
         interior_texture_score = 0;
         if (ocean_assets_draw_texture(interior_cache.dc, viewport)) interior_texture_score = 900;
-        validate_interior_spacing();
+        validate_motif_spacing(snapshot);
         for (i = 0; i < interior_count; i++) {
-            int needed = motif_radius_tiles(interior_items[i].type, interior_items[i].size);
+            int needed = motif_clearance_tiles(snapshot, interior_items[i].type, interior_items[i].size);
             const OceanMotifAssetInfo *info = ocean_assets_motif_info(interior_items[i].type);
             int clearance = ocean_decoration_motif_clearance(snapshot, interior_items[i].x,
                                                              interior_items[i].y,
@@ -422,6 +460,7 @@ void render_ocean_decoration_reset_debug(void) {
     exterior_count = interior_count = 0; item_hash = motif_mask = 0;
     interior_water_only = 1; interior_deep_only = 1;
     interior_shallow_allowed_seen = 0; same_type_spacing_ok = 1;
+    exterior_spacing_ok = 1; motif_spacing_violation_count = 0;
     interior_min_clearance = 99; motif_overlap_count = 0;
     exterior_texture_score = interior_texture_score = 0;
     exterior_rebuilds = interior_rebuilds = item_rebuilds = 0;
@@ -437,6 +476,8 @@ OceanDecorationProbeInfo render_ocean_decoration_probe_info(void) {
     info.same_type_spacing_ok = same_type_spacing_ok;
     info.interior_min_clearance = interior_min_clearance;
     info.motif_overlap_count = motif_overlap_count;
+    info.motif_spacing_violation_count = motif_spacing_violation_count;
+    info.exterior_spacing_ok = exterior_spacing_ok;
     info.exterior_texture_score = exterior_texture_score;
     info.interior_texture_score = interior_texture_score;
     info.texture_asset_ready = ocean_assets_texture_ready();

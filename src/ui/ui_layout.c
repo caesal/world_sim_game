@@ -180,13 +180,16 @@ RECT get_mode_button_rect(RECT client, int index) {
     int width = right - left;
     int button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
     if (side_panel_collapsed || width < 360) {
-        RECT language = get_language_button_rect(client);
-        right = language.left - 10;
-        left = max(client.left + 410, right - 430);
+        RECT reset = get_reset_view_button_rect(client);
+        right = reset.left - 10;
+        left = max(client.left + 86, right - 430);
         width = right - left;
         button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
     }
     button_w = max(54, button_w);
+    if (button_w * MAP_DISPLAY_MODE_COUNT + gap * (MAP_DISPLAY_MODE_COUNT - 1) > width) {
+        button_w = max(38, (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT);
+    }
     rect.left = left + index * (button_w + gap);
     rect.top = 16;
     rect.right = index == MAP_DISPLAY_MODE_COUNT - 1 ? right : rect.left + button_w;

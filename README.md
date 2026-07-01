@@ -7,14 +7,15 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.5.b is a Windows graphical sandbox prototype written in C.
+Ver0.3.5.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.5.b is a focused checkpoint over Ver0.3.5.a. It keeps proposer-led union
-absorption and the Military Alliance / Alliance Council foundation, then adds
-player-directed Alliance Detail invite/remove actions, a cached ancient-ocean
-asset library with textured sea and transparent motif PNGs, decision-countdown
-refresh fixes, and final ocean color/scale polish. It preserves the prior
-map-fill, border, save-format, and core simulation semantics.
+Ver0.3.5.c is a focused presentation checkpoint over Ver0.3.5.b. It keeps the
+proposer-led union absorption, Military Alliance / Alliance Council foundation,
+player-directed Alliance Detail actions, cached ancient-ocean asset library,
+and textured sea presentation, then tightens ocean motif spacing so enlarged
+assets do not overlap and restores the Reset button in collapsed top-bar
+layouts. It preserves the prior map-fill, border, save-format, and core
+simulation semantics.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -25,12 +26,11 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.5.b has focused build and probe validation for the
-Alliance Detail player actions, ocean decoration presentation, decision
-countdown refresh, diplomacy, Military Alliance, presentation, and worldgen
-paths. The earlier Ver0.3.4 Rule39 run remains historical evidence for the
-previous release stack; Ver0.3.5.b must not be described as full release-ready
-acceptance unless a fresh Rule39 run for Ver0.3.5.b is completed.
+Validation note: Ver0.3.5.c has focused build and probe validation for the
+ocean decoration spacing, collapsed top-bar reset layout, presentation, and
+worldgen paths. The earlier Ver0.3.4 Rule39 run remains historical evidence for
+the previous release stack; Ver0.3.5.c must not be described as full
+release-ready acceptance unless a fresh Rule39 run for Ver0.3.5.c is completed.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

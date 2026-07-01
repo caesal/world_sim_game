@@ -50,10 +50,10 @@ void draw_top_bar(HDC hdc, RECT client) {
     SelectObject(hdc, old_font);
     DeleteObject(title_font);
     draw_text_line(hdc, 18, 20, WORLD_SIM_VERSION_LABEL, RGB(245, 250, 255));
+    draw_mode_buttons(hdc, client);
     ui_clay_draw_pill_button(hdc, reset_button, tr("Reset", "重置"), reset_state);
     ui_clay_draw_pill_button(hdc, language_button, ui_language == UI_LANG_ZH ? "中文" : "EN",
                              language_state);
-    draw_mode_buttons(hdc, client);
 }
 
 int selected_tile_owner(void) {

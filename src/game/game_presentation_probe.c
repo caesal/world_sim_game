@@ -26,7 +26,7 @@
 #include <string.h>
 
 int panel_map_probe_alliance_legend_before(const RenderSnapshot *snapshot, int a_index, int b_index);
-int game_presentation_map_speed_probe(FILE *summary);
+int game_presentation_map_speed_probe(FILE *summary), game_presentation_topbar_probe(FILE *summary);
 int game_presentation_map_ocean_probe(FILE *summary), game_presentation_map_decision_probe(FILE *summary);
 
 #define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
@@ -485,7 +485,7 @@ int run_presentation_probe(void) {
     ok &= case_completed_month_queue(summary);
     ok &= case_visual_backlog_throttle(summary);
     ok &= case_bar_redraw_not_blocked(summary);
-    ok &= game_presentation_map_speed_probe(summary);
+    ok &= game_presentation_map_speed_probe(summary); ok &= game_presentation_topbar_probe(summary);
     ok &= game_presentation_map_ocean_probe(summary); ok &= game_presentation_map_decision_probe(summary);
     ok &= case_alliance_year_step(summary);
     ok &= case_map_display_alliance_tab(summary);

@@ -10,15 +10,14 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.5.b, this release update intentionally excludes `docs/official`.
-The current changes are a prototype checkpoint for Alliance Detail direct
-invite/remove actions, ancient-ocean decoration assets, decision-countdown
-refresh, and ocean color/scale polish on top of the Ver0.3.5.a union and
-presentation stack.
+For Ver0.3.5.c, this release update intentionally excludes `docs/official`.
+The current changes are a focused presentation checkpoint for ocean motif
+overlap prevention and collapsed top-bar Reset visibility on top of the
+Ver0.3.5.b ocean decoration and alliance-action stack.
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
-- `docs/unofficial/ver0.3.5.b_side_doc.md`
+- `docs/unofficial/ver0.3.5.c_side_doc.md`
 
 The working version log is:
 

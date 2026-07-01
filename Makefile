@@ -28,6 +28,7 @@ SOURCES := \
 	src/game/game_diplomacy_visual_probe.c \
 	src/game/game_presentation_probe.c \
 	src/game/game_presentation_map_probe.c \
+	src/game/game_presentation_topbar_probe.c \
 	src/game/game_economy_probe.c \
 	src/game/game_collapse_color_probe.c \
 	src/game/game_population_probe.c \

@@ -1,5 +1,47 @@
 # Version Log
 
+## Ver0.3.5.c
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.c.
+2. Strengthened ocean decoration placement so enlarged runtime motif assets do
+   not visibly overlap.
+3. Added footprint-aware ocean motif collision checks for exterior ocean and
+   interior water placement.
+4. Increased same-type and different-type motif spacing while preserving the
+   Ver0.3.5.b motif display scale.
+5. Added focused overlap-regression probe evidence for ocean decoration.
+6. Fixed the collapsed top-bar layout so `Reset` / `重置` remains visible and
+   clickable beside the language button.
+7. Added focused top-bar layout probe artifacts for expanded/collapsed English
+   and Chinese states.
+8. Updated build lists, focused probes, root README, documentation index,
+   version log, side doc, and active version marker for Ver0.3.5.c.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `18`.
+- Ocean decoration remains presentation-only. It does not intentionally change
+  world generation, water depth, ownership/fill semantics, routes, diplomacy,
+  war, alliances, population, plague, economy, or save data.
+- The top-bar fix changes only UI layout/draw ordering for existing controls.
+  It does not change map display semantics, language behavior, or side-panel
+  behavior.
+
+Validation notes:
+
+- Ver0.3.5.c uses `WORLD_SIM_VERSION "0.3.5.c"`.
+- Focused validation passed for `git diff --check`, `make check-text`, `.c`
+  include scan, touched/new `.c/.h` line counts, `--probe-presentation`, and
+  `--probe-worldgen`.
+- Key focused evidence included `case=ocean_decoration_layer ok=1` with
+  `overlaps=0`, `spacing_violations=0`, `asset=1`, `motif_asset=1`, and
+  `primitive_waves=0`; and `case=topbar_reset_layout ok=1`.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5.c. Do not claim
+  full release-ready/gameplay acceptance until a fresh Rule39 run is completed
+  for this checkpoint.
+
 ## Ver0.3.5.b
 
 Implemented fixes:
