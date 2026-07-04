@@ -155,6 +155,8 @@ void profiler_begin_month(void);
 void profiler_record_frame(int frame_ms, int sim_budget_ms, int sim_used_ms,
                            int actual_ms_per_month, int pending_months, int overloaded);
 void profiler_set_current_job(const char *job_name);
+long long profiler_now_us(void);
+int profiler_elapsed_ms_since_us(long long start_us);
 void profiler_record_render_ms(int render_ms);
 void profiler_record_render_subphase(ProfilerRenderSubphase subphase,
                                      ProfilerSpikeCategory category,

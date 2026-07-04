@@ -28,6 +28,9 @@ SOURCES := \
 	src/game/game_diplomacy_visual_probe.c \
 	src/game/game_presentation_probe.c \
 	src/game/game_presentation_map_probe.c \
+	src/game/game_presentation_diplomacy_probe.c \
+	src/game/game_presentation_regression_probe.c \
+	src/game/game_presentation_layout_probe.c \
 	src/game/game_presentation_topbar_probe.c \
 	src/game/game_economy_probe.c \
 	src/game/game_collapse_color_probe.c \
@@ -158,6 +161,7 @@ SOURCES := \
 	src/render/render_ocean_decoration_rules.c \
 	src/render/render_ocean_decoration_water.c \
 	src/render/render_ocean_decoration.c \
+	src/render/render_ocean_texture.c \
 	src/render/render_ocean_motifs.c \
 	src/render/render_context.c \
 	src/render/snapshot_ui.c \

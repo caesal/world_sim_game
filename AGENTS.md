@@ -77,6 +77,9 @@ be treated as a permission boundary, not just a title.
 41. When an Architect or Software Engineer launches or operates `world_sim.exe` for gameplay validation, do not force the game window to the foreground if another fullscreen application is active on the user's screen. Move the game to another monitor when available, or run/observe it in the background without disrupting the active app: do not send keyboard input, mouse input, focus changes, or page/window switches to the user's active fullscreen application.
 42. GUI gameplay or performance validation must run `world_sim.exe` in a maximized window on an available monitor so the Debug / Performance panel can be fully inspected. If the panel still does not fit, resize/scroll the panel and capture or transcribe all relevant rows. Cropped, partial, or hidden performance rows are not acceptable validation evidence. This requirement does not override rule 41: if another fullscreen application is active, use another monitor or a non-disruptive background setup rather than stealing focus.
 43. When using automation for GUI validation while the user may be using another fullscreen or foreground application, prefer window-handle-scoped, non-activating methods. Allowed examples include moving or sizing only the `world_sim.exe` window with `SetWindowPos(..., SWP_NOACTIVATE)`, placing it on another monitor, capturing it with `PrintWindow` or equivalent window capture, and sending messages directly to the `world_sim.exe` window with `PostMessage` when safe. Do not use global input or focus-stealing methods such as `SendInput`, `SetCursorPos`, real mouse/keyboard events, Alt-Tab, `SetForegroundWindow`, or activation/page-switch commands unless the user explicitly approves that disruption. If hwnd-scoped validation cannot complete, stop and report the limitation instead of falling back to disruptive automation.
+44. Performance, stutter, scheduler, rendering, and map-cache optimizations must not change simulation rules, gameplay outcomes, or the established map drawing order. They also must not suppress real-time map updates for political ownership, province fill, borders, city icons, city labels, routes, selection/highlight overlays, or other visible simulation-driven map changes. It is not acceptable for a selected/highlighted civilization to show a larger current territory while the political map fill or city icons still show an older one-province state.
+45. Map-display performance fixes must preserve correctness by using snapshot deltas, dirty regions, tile/province/city invalidation, small overlay refreshes, or budgeted cache work. Do not make province/city/political layers update only on view switches, map-mode switches, full redraws, or user interactions. If a stale static cache is reused for responsiveness, the current changed provinces, borders, cities, and highlights must still be drawn over it or the affected dirty rectangles must be refreshed before validation can pass.
+46. Rule 39 performance and stutter validation must explicitly check real-time province/city rendering throughout the long run. The validation evidence must include generated-map and late-run captures showing that political province fill, borders, city icons, city labels, and selected/highlighted country extents agree with the current simulation state after substantial expansion. If a long run reaches dozens or hundreds of years while countries visually remain at one displayed province, if city icons are missing for expanded provinces, if switching views is required to refresh the map, or if the top bar/map/toolbars flicker rapidly, validation fails. Empty-map screenshots, blank performance logs, missing generated-world setup, or reruns that only replace missed logs without reproducing the full generated simulation state are not acceptable evidence.
 
 ## UI/UX Presentation and Claymorphism Rules
 
@@ -138,6 +141,11 @@ toward a unified Claymorphism / clay UI visual style.
      zoom unless the panel explicitly displays that state.
    - The Debug / Performance panel must remain readable and must not rebuild
      every frame only to display animated styling.
+   - Performance fixes must preserve the established draw stack: terrain and
+     ocean base, political/province ownership, borders, cities, routes, labels,
+     highlights, legends, panels, and controls must remain current and layered
+     coherently. Avoid whole-screen flicker, top-bar flicker, toolbar flicker,
+     and repeated full-surface flashes as a substitute for targeted invalidation.
 6. Component migration rules:
    - Migrate in small, buildable, reviewable phases. Do not attempt a full UI
      conversion in one commit.
@@ -184,9 +192,12 @@ toward a unified Claymorphism / clay UI visual style.
    - If a UI/UX validation screenshot shows missing progress UI, delayed or
      stale political colors after generation, legend entries unrelated to the
      active map mode, clipped button glyphs, incorrect highlight color/coverage,
-     excessive empty card space, missing controls, clipped labels, stale hover
-     or selected states, or square artifacts behind rounded controls, the
-     validation fails and the work must not be recommended for acceptance.
+     stale province fill or city icons, selected/highlighted country extent that
+     disagrees with the visible political map, excessive empty card space,
+     missing controls, clipped labels, stale hover or selected states, rapid
+     whole-screen/top-bar/toolbar flicker, or square artifacts behind rounded
+     controls, the validation fails and the work must not be recommended for
+     acceptance.
    - UI/UX final reports must include enough screenshot or capture evidence to
      substantiate claims about changed controls and any user-reported visual
      regressions. A text checklist alone is not sufficient when visual

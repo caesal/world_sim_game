@@ -4,6 +4,7 @@
 #include "render/render_ocean_assets.h"
 #include "render/render_ocean_decoration_rules.h"
 #include "render/render_ocean_decoration_water.h"
+#include "render/render_ocean_texture.h"
 #include "render/render_layer_cache.h"
 
 #include <stdlib.h>
@@ -343,17 +344,18 @@ static int cache_matches_client_key(const LayerCache *cache, RECT client, unsign
 static void draw_exterior_cache(HDC hdc, RECT client, MapLayout layout,
                                 const RenderSnapshot *snapshot) {
     RECT viewport = get_map_viewport_rect(client);
-    unsigned int key = mix_u32(item_key, (unsigned int)((viewport.right - viewport.left) * 31 +
-                              (viewport.bottom - viewport.top) * 17));
+    unsigned int texture_key = render_ocean_texture_key(client, viewport);
+    unsigned int key = mix_u32(item_key, texture_key);
     int i;
     int vw = viewport.right - viewport.left, vh = viewport.bottom - viewport.top;
     (void)snapshot;
     if (!cache_matches_client_key(&exterior_cache, client, key)) {
         if (!render_layer_cache_ensure(hdc, &exterior_cache, client, layout, side_panel_w, display_mode)) return;
-        if (!ocean_assets_draw_texture(exterior_cache.dc, viewport)) {
+        if (!render_ocean_texture_ensure(hdc, client, layout, viewport) ||
+            !render_ocean_texture_copy(exterior_cache.dc, viewport)) {
             fill_rect(exterior_cache.dc, viewport, ocean_base_color());
         }
-        exterior_texture_score = ocean_assets_texture_ready() ? 900 : 330;
+        exterior_texture_score = render_ocean_texture_score();
         for (i = 0; i < exterior_count; i++) {
             int x = viewport.left + exterior_items[i].x * vw / OCEAN_NORM;
             int y = viewport.top + exterior_items[i].y * vh / OCEAN_NORM;
@@ -374,19 +376,19 @@ static void draw_exterior_cache(HDC hdc, RECT client, MapLayout layout,
 static void draw_interior_cache(HDC hdc, RECT client, MapLayout layout,
                                 const RenderSnapshot *snapshot) {
     RECT viewport = get_map_viewport_rect(client);
-    unsigned int key = mix_u32(item_key, 0x1a7e51u);
+    unsigned int texture_key = render_ocean_texture_key(client, viewport);
+    unsigned int key = mix_u32(item_key, render_layer_layout_key(client, layout, side_panel_w, display_mode));
     int i;
+    key = mix_u32(key, texture_key);
     if (!snapshot || !snapshot->world_generated) return;
-    if (cache_matches_client_key(&interior_cache, client, key)) {
-        if (interior_cache.map_x == layout.map_x && interior_cache.map_y == layout.map_y &&
-            interior_cache.draw_w == layout.draw_w && interior_cache.draw_h == layout.draw_h) {
-            TransparentBlt(hdc, viewport.left, viewport.top, viewport.right - viewport.left,
-                           viewport.bottom - viewport.top, interior_cache.dc, viewport.left,
-                           viewport.top, viewport.right - viewport.left,
-                           viewport.bottom - viewport.top, RGB(255, 0, 255));
-        } else {
-            render_layer_cache_transparent_map(hdc, client, layout, &interior_cache);
-        }
+    key = mix_u32(key, (unsigned int)snapshot->terrain_revision);
+    key = mix_u32(key, (unsigned int)snapshot->coast_revision);
+    key = mix_u32(key, (unsigned int)snapshot->hydrology_revision);
+    if (render_layer_cache_matches(&interior_cache, client, layout, key, display_mode)) {
+        TransparentBlt(hdc, viewport.left, viewport.top, viewport.right - viewport.left,
+                       viewport.bottom - viewport.top, interior_cache.dc, viewport.left,
+                       viewport.top, viewport.right - viewport.left,
+                       viewport.bottom - viewport.top, RGB(255, 0, 255));
         return;
     }
     {
@@ -398,7 +400,11 @@ static void draw_interior_cache(HDC hdc, RECT client, MapLayout layout,
         same_type_spacing_ok = 1;
         interior_min_clearance = 99;
         interior_texture_score = 0;
-        if (ocean_assets_draw_texture(interior_cache.dc, viewport)) interior_texture_score = 900;
+        if (!render_ocean_texture_ensure(hdc, client, layout, viewport) ||
+            !render_ocean_texture_copy(interior_cache.dc, viewport)) {
+            fill_rect(interior_cache.dc, viewport, ocean_base_color());
+        }
+        interior_texture_score = render_ocean_texture_score();
         validate_motif_spacing(snapshot);
         for (i = 0; i < interior_count; i++) {
             int needed = motif_clearance_tiles(snapshot, interior_items[i].type, interior_items[i].size);
@@ -457,6 +463,7 @@ void render_ocean_decoration_draw(HDC hdc, RECT client, MapLayout layout,
 
 void render_ocean_decoration_reset_debug(void) {
     item_key = 0; exterior_cache.valid = 0; interior_cache.valid = 0;
+    render_ocean_texture_reset_debug();
     exterior_count = interior_count = 0; item_hash = motif_mask = 0;
     interior_water_only = 1; interior_deep_only = 1;
     interior_shallow_allowed_seen = 0; same_type_spacing_ok = 1;

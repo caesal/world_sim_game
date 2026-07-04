@@ -7,8 +7,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DIPLO_ANIM_MAX 5
+#define DIPLO_ANIM_MAX 16
 #define DIPLO_ANIM_MS 3500
+#define DIPLO_ANIM_RECENT_MONTHS 18
+#define DIPLO_EVENT_SCAN_MAX 32
 
 typedef struct {
     int active;
@@ -25,6 +27,7 @@ typedef struct {
     int normal_sign;
     int map_w;
     int map_h;
+    int drawn_once;
 } DiplomacyMapAnim;
 
 static DiplomacyMapAnim animations[DIPLO_ANIM_MAX];
@@ -35,6 +38,9 @@ static unsigned int last_consumed_snapshot_revision;
 static int last_consumed_events_revision;
 static int delayed_waiting_for_snapshot;
 static int stale_prevented_count;
+static int enqueued_count, overwritten_count, endpoint_reject_count;
+static int contact_reject_count, contact_gate_bypassed_count, war_front_gate_bypassed_count;
+static int drawn_count, expired_before_draw_count, cached_paint_blocked_count;
 
 static int focus_for_event_civ(const RenderSnapshot *snapshot, int civ_id, int uid, int *x, int *y) {
     const SnapshotCiv *civ;
@@ -50,18 +56,12 @@ static int focus_for_event_civ(const RenderSnapshot *snapshot, int civ_id, int u
 static int event_endpoint(const RenderSnapshot *snapshot, const EventLogEntry *entry,
                           int use_target, int *x, int *y) {
     if (!use_target) return focus_for_event_civ(snapshot, entry->civ_id, entry->civ_uid, x, y);
-    if (entry->type == EVENT_TYPE_VASSAL_TRANSFERRED && entry->param_a >= 0) {
-        return focus_for_event_civ(snapshot, entry->param_a, entry->param_a_uid, x, y);
-    }
+    if (entry->type == EVENT_TYPE_VASSAL_TRANSFERRED && entry->param_a >= 0) return focus_for_event_civ(snapshot, entry->param_a, entry->param_a_uid, x, y);
     return focus_for_event_civ(snapshot, entry->target_id, entry->target_uid, x, y);
 }
 
 static void event_target_identity(const EventLogEntry *entry, int *id, int *uid) {
-    if (entry->type == EVENT_TYPE_VASSAL_TRANSFERRED && entry->param_a >= 0) {
-        *id = entry->param_a;
-        *uid = entry->param_a_uid;
-        return;
-    }
+    if (entry->type == EVENT_TYPE_VASSAL_TRANSFERRED && entry->param_a >= 0) { *id = entry->param_a; *uid = entry->param_a_uid; return; }
     *id = entry->target_id;
     *uid = entry->target_uid;
 }
@@ -118,17 +118,24 @@ static int contact_required_anim(EventLogType type) {
            type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED;
 }
 
-static int valid_snapshot_pair(const RenderSnapshot *snapshot, int from_id, int to_id) {
-    return snapshot && from_id >= 0 && to_id >= 0 &&
-           from_id < snapshot->civ_count && to_id < snapshot->civ_count;
-}
+static int valid_snapshot_pair(const RenderSnapshot *snapshot, int from_id, int to_id) { return snapshot && from_id >= 0 && to_id >= 0 && from_id < snapshot->civ_count && to_id < snapshot->civ_count; }
 
 static int event_anim_contact_valid(const RenderSnapshot *snapshot, EventLogType type,
                                     int from_id, int to_id) {
     if (!valid_snapshot_pair(snapshot, from_id, to_id)) return 0;
     if (type == EVENT_TYPE_WAR_STARTED) {
-        return snapshot->war_front_flags[from_id][to_id] ||
-               snapshot->war_front_flags[to_id][from_id];
+        if (!snapshot->war_front_flags[from_id][to_id] &&
+            !snapshot->war_front_flags[to_id][from_id]) {
+            war_front_gate_bypassed_count++;
+        }
+        return 1;
+    }
+    if (type == EVENT_TYPE_DIPLOMACY_PEACE || type == EVENT_TYPE_DIPLOMACY_TENSE) {
+        if (snapshot->relations[from_id][to_id].contact_kind == DIP_CONTACT_NONE &&
+            snapshot->relations[to_id][from_id].contact_kind == DIP_CONTACT_NONE) {
+            contact_gate_bypassed_count++;
+        }
+        return 1;
     }
     if (contact_required_anim(type)) {
         return snapshot->relations[from_id][to_id].contact_kind != DIP_CONTACT_NONE ||
@@ -155,7 +162,11 @@ static DiplomacyMapAnim *animation_slot_for(int from_id, int from_uid, int to_id
     for (i = 0; i < DIPLO_ANIM_MAX; i++) {
         if (same_anim_pair(&animations[i], from_id, from_uid, to_id, to_uid)) return &animations[i];
     }
-    return &animations[next_slot++ % DIPLO_ANIM_MAX];
+    {
+        DiplomacyMapAnim *slot = &animations[next_slot++ % DIPLO_ANIM_MAX];
+        if (slot->active) overwritten_count++;
+        return slot;
+    }
 }
 
 static void enqueue_event_anim(const RenderSnapshot *snapshot, const EventLogEntry *entry) {
@@ -164,9 +175,15 @@ static void enqueue_event_anim(const RenderSnapshot *snapshot, const EventLogEnt
     int to_id, to_uid;
     if (!entry || !anim_type(entry->type)) return;
     event_target_identity(entry, &to_id, &to_uid);
-    if (!event_anim_contact_valid(snapshot, entry->type, entry->civ_id, to_id)) return;
+    if (!event_anim_contact_valid(snapshot, entry->type, entry->civ_id, to_id)) {
+        contact_reject_count++;
+        return;
+    }
     if (!event_endpoint(snapshot, entry, 0, &x1, &y1) ||
-        !event_endpoint(snapshot, entry, 1, &x2, &y2)) return;
+        !event_endpoint(snapshot, entry, 1, &x2, &y2)) {
+        endpoint_reject_count++;
+        return;
+    }
     anim = animation_slot_for(entry->civ_id, entry->civ_uid, to_id, to_uid);
     memset(anim, 0, sizeof(*anim));
     anim->active = 1;
@@ -184,11 +201,53 @@ static void enqueue_event_anim(const RenderSnapshot *snapshot, const EventLogEnt
     anim->normal_sign = ((entry->civ_id * 31 + to_id * 17 + entry->type) & 1) ? 1 : -1;
     anim->map_w = snapshot->map_w;
     anim->map_h = snapshot->map_h;
+    enqueued_count++;
+}
+
+static int event_would_enqueue(const RenderSnapshot *snapshot, const EventLogEntry *entry) {
+    int x1, y1, x2, y2;
+    int to_id, to_uid;
+    if (!snapshot || !entry || !anim_type(entry->type)) return 0;
+    event_target_identity(entry, &to_id, &to_uid);
+    if (!event_anim_contact_valid(snapshot, entry->type, entry->civ_id, to_id)) return 0;
+    return event_endpoint(snapshot, entry, 0, &x1, &y1) &&
+           event_endpoint(snapshot, entry, 1, &x2, &y2);
+}
+
+static int event_is_recent_for_snapshot(const RenderSnapshot *snapshot,
+                                        const EventLogEntry *entry) {
+    int event_index, snapshot_index, delta;
+    if (!snapshot || !entry) return 0;
+    if (entry->year <= 0 || entry->month <= 0 || snapshot->year <= 0 || snapshot->month <= 0) return 0;
+    event_index = entry->year * 12 + entry->month;
+    snapshot_index = snapshot->year * 12 + snapshot->month;
+    delta = snapshot_index - event_index;
+    return delta >= 0 && delta <= DIPLO_ANIM_RECENT_MONTHS;
+}
+
+static int first_snapshot_event_delta(const RenderSnapshot *snapshot) { return snapshot ? min(snapshot->event_count, DIPLO_EVENT_SCAN_MAX) : 0; }
+
+int diplomacy_map_anim_pending_events(const RenderSnapshot *snapshot) {
+    int delta, i;
+    if (!snapshot || !snapshot->world_generated) return 0;
+    if (!consumed_initialized) delta = first_snapshot_event_delta(snapshot);
+    else {
+        delta = snapshot->event_total_entries - last_consumed_total;
+        if (delta <= 0) return delayed_waiting_for_snapshot;
+        if (delta > snapshot->event_count) delta = snapshot->event_count;
+        if (delta > DIPLO_EVENT_SCAN_MAX) delta = DIPLO_EVENT_SCAN_MAX;
+    }
+    for (i = delta - 1; i >= 0; i--) {
+        EventLogEntry entry;
+        if (render_snapshot_event_get_entry(snapshot, i, &entry) &&
+            (consumed_initialized || event_is_recent_for_snapshot(snapshot, &entry)) &&
+            event_would_enqueue(snapshot, &entry)) return 1;
+    }
+    return delayed_waiting_for_snapshot;
 }
 
 void diplomacy_map_anim_delay_for_snapshot(const RenderSnapshot *snapshot) {
-    delayed_waiting_for_snapshot = snapshot && consumed_initialized &&
-        snapshot->event_total_entries > last_consumed_total;
+    delayed_waiting_for_snapshot = diplomacy_map_anim_pending_events(snapshot);
     if (delayed_waiting_for_snapshot) stale_prevented_count++;
 }
 
@@ -201,15 +260,23 @@ void diplomacy_map_anim_consume_events(const RenderSnapshot *snapshot) {
     total = snapshot->event_total_entries;
     if (!consumed_initialized) {
         consumed_initialized = 1;
-        last_consumed_total = total;
         last_consumed_snapshot_revision = snapshot->revision;
         last_consumed_events_revision = snapshot->events_revision;
+        delta = first_snapshot_event_delta(snapshot);
+        for (i = delta - 1; i >= 0; i--) {
+            EventLogEntry entry;
+            if (render_snapshot_event_get_entry(snapshot, i, &entry) &&
+                event_is_recent_for_snapshot(snapshot, &entry)) {
+                enqueue_event_anim(snapshot, &entry);
+            }
+        }
+        last_consumed_total = total;
         return;
     }
     delta = total - last_consumed_total;
     if (delta <= 0) return;
     if (delta > snapshot->event_count) delta = snapshot->event_count;
-    if (delta > 12) delta = 12;
+    if (delta > DIPLO_EVENT_SCAN_MAX) delta = DIPLO_EVENT_SCAN_MAX;
     for (i = delta - 1; i >= 0; i--) {
         EventLogEntry entry;
         if (render_snapshot_event_get_entry(snapshot, i, &entry)) enqueue_event_anim(snapshot, &entry);
@@ -379,6 +446,7 @@ void draw_diplomacy_map_animations(HDC hdc, RECT client, MapLayout layout, const
     for (i = 0; i < DIPLO_ANIM_MAX; i++) {
         if (!animations[i].active) continue;
         if ((int)(now - animations[i].start_ms) > DIPLO_ANIM_MS) {
+            if (!animations[i].drawn_once) expired_before_draw_count++;
             animations[i].active = 0;
             continue;
         }
@@ -387,22 +455,45 @@ void draw_diplomacy_map_animations(HDC hdc, RECT client, MapLayout layout, const
             continue;
         }
         draw_anim(hdc, layout, snapshot, &clip, &animations[i], now);
+        if (!animations[i].drawn_once) { animations[i].drawn_once = 1; drawn_count++; }
     }
     RestoreDC(hdc, saved);
 }
 
-int diplomacy_map_anim_active(void) {
+int diplomacy_map_anim_active_count(void) {
     DWORD now = GetTickCount();
-    int i;
+    int i, count = 0;
     for (i = 0; i < DIPLO_ANIM_MAX; i++) {
-        if (animations[i].active && (int)(now - animations[i].start_ms) <= DIPLO_ANIM_MS) return 1;
+        if (animations[i].active && (int)(now - animations[i].start_ms) <= DIPLO_ANIM_MS) count++;
     }
-    return 0;
+    return count;
 }
 
+int diplomacy_map_anim_active(void) { return diplomacy_map_anim_active_count() > 0; }
+int diplomacy_map_anim_requires_dynamic_paint(const RenderSnapshot *snapshot) { return diplomacy_map_anim_active() || diplomacy_map_anim_delayed_waiting_for_snapshot() || diplomacy_map_anim_pending_events(snapshot); }
 const char *diplomacy_map_anim_source(void) { return "snapshot"; }
 int diplomacy_map_anim_delayed_waiting_for_snapshot(void) { return delayed_waiting_for_snapshot; }
 int diplomacy_map_anim_last_consumed_total(void) { return last_consumed_total; }
 unsigned int diplomacy_map_anim_last_snapshot_revision(void) { return last_consumed_snapshot_revision; }
 int diplomacy_map_anim_last_events_revision(void) { return last_consumed_events_revision; }
 int diplomacy_map_anim_stale_prevented_count(void) { return stale_prevented_count; }
+int diplomacy_map_anim_enqueued_count(void) { return enqueued_count; }
+int diplomacy_map_anim_drawn_count(void) { return drawn_count; }
+int diplomacy_map_anim_expired_before_draw_count(void) { return expired_before_draw_count; }
+int diplomacy_map_anim_overwritten_count(void) { return overwritten_count; }
+int diplomacy_map_anim_endpoint_reject_count(void) { return endpoint_reject_count; }
+int diplomacy_map_anim_contact_reject_count(void) { return contact_reject_count; }
+int diplomacy_map_anim_gate_bypass_count(void) { return contact_gate_bypassed_count + war_front_gate_bypassed_count; }
+void diplomacy_map_anim_note_cached_paint_blocked(void) { cached_paint_blocked_count++; }
+int diplomacy_map_anim_cached_paint_blocked_count(void) { return cached_paint_blocked_count; }
+
+void diplomacy_map_anim_debug_reset(void) {
+    memset(animations, 0, sizeof(animations));
+    next_slot = 0;
+    last_consumed_total = consumed_initialized = 0;
+    last_consumed_snapshot_revision = last_consumed_events_revision = 0;
+    delayed_waiting_for_snapshot = stale_prevented_count = 0;
+    enqueued_count = overwritten_count = endpoint_reject_count = 0;
+    contact_reject_count = contact_gate_bypassed_count = war_front_gate_bypassed_count = 0;
+    drawn_count = expired_before_draw_count = cached_paint_blocked_count = 0;
+}

@@ -1,5 +1,71 @@
 # Version Log
 
+## Ver0.3.5.d
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.d.
+2. Added a shared ocean texture cache so interior map water and exterior ocean
+   copy the same wave source pixels, avoiding hard rectangular seams at map
+   edges while preserving separate interior/exterior motif placement.
+3. Kept the collapsed map viewport full width while moving legend placement,
+   toggle, and hit rectangles away from the collapsed side-panel handle.
+4. Tightened static map and static scene cache presentation so live province
+   fill, city icons, city labels, ownership, and border-safe cache status stay
+   current without requiring a view switch.
+5. Added max-speed static-scene reuse and diagnostics for expensive scene
+   rebuilds while preserving AGENTS rules for real-time province/city/border
+   updates and existing draw order.
+6. Hardened full-window cached-blit and deferred paint compatibility so map
+   modes, legends, side-panel state, language, and dynamic diplomacy arrows do
+   not flash stale frames back into the GUI.
+7. Fixed map legend cleanup and sizing regressions, including stale/double
+   legend footprints and Alliance legend empty-space artifacts.
+8. Fixed diplomacy map arrows for new contact, peace, tension, and war
+   presentation by preventing pending/active arrow events from being hidden by
+   UI-only, cached, or deferred paint paths.
+9. Added focused presentation probes for live province/city refresh, layout,
+   diplomacy-arrow transitions, cached-paint arrow guards, map-mode switching,
+   ocean seam behavior, and border-safe presentation.
+10. Added AGENTS guardrails requiring performance/rendering changes to preserve
+    live province, city, border, highlight, route, and diplomacy presentation
+    correctness.
+11. Updated build lists, root README, documentation index, version log, side
+    doc, and active version marker for Ver0.3.5.d.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `18`.
+- The changes are presentation, cache, instrumentation, validation, and
+  repository-instruction updates.
+- No gameplay, diplomacy/contact rules, war rules, world generation, route
+  unlock rules, speed semantics, balance values, save schema, plague,
+  population, economy, or resource simulation rules are intentionally changed.
+- Diplomacy arrows still render from structured event-log and RenderSnapshot
+  presentation data; the fix changes when the dynamic overlay is allowed to
+  paint, not the underlying diplomatic event generation.
+
+Validation notes:
+
+- Ver0.3.5.d uses `WORLD_SIM_VERSION "0.3.5.d"`.
+- Release validation for this push passed canonical `make -B world_sim.exe`,
+  `cmd /c build.bat`, `git diff --check`, `make check-text`,
+  `python tools/check_mojibake.py`, `.c` include scan, touched/new `.c/.h`
+  line counts, and hidden `world_sim.exe --probe-presentation`.
+- Key focused evidence included `case=live_province_city_update ok=1`,
+  `case=map_layout_legend_edge ok=1`, `case=ocean_decoration_layer ok=1`,
+  `case=diplomacy_transition_no_contact_peace ok=1`,
+  `case=diplomacy_transition_peace_to_tense ok=1`,
+  `case=diplomacy_transition_war_start ok=1`, and
+  `case=diplomacy_cached_paint_guard ok=1`.
+- User live-check acceptance was provided for the scoped rendering and
+  diplomacy-arrow fixes before this release push.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5.d. Do not claim
+  full release-ready/gameplay acceptance until a fresh Rule39 run records final
+  year/month, natural region count, civilization count, speed setting, five
+  technology-stage-5 civilizations, deep-sea hidden-before/revealed-after
+  evidence, and performance evidence for this checkpoint.
+
 ## Ver0.3.5.c
 
 Implemented fixes:

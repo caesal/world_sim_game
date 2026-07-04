@@ -245,7 +245,8 @@ static int case_ocean_decoration_layer(FILE *summary) {
          a.interior_min_clearance >= 4 &&
          b.item_rebuilds == a.item_rebuilds && d.item_rebuilds == b.item_rebuilds &&
          c.item_rebuilds == b.item_rebuilds && d.exterior_rebuilds == b.exterior_rebuilds &&
-         d.interior_rebuilds == b.interior_rebuilds && c.exterior_rebuilds > b.exterior_rebuilds &&
+         d.interior_rebuilds > b.interior_rebuilds && c.exterior_rebuilds > b.exterior_rebuilds &&
+         c.interior_rebuilds > d.interior_rebuilds &&
          artifact_ok;
     fprintf(summary,
             "case=ocean_decoration_layer ok=%d ext=%d int=%d item_rebuilds=%d/%d/%d/%d exterior_rebuilds=%d/%d/%d/%d interior_rebuilds=%d/%d/%d/%d hash=%u motif_mask=0x%x compass=%d water_only=%d deep_only=%d shallow_allowed_seen=%d same_type_spacing=%d exterior_spacing=%d overlaps=%d spacing_violations=%d min_clearance=%d texture=%d/%d asset=%d motif_asset=%d primitive_waves=%d artifacts=%d files=ocean_decoration_full.bmp/ocean_decoration_overlap_regression.bmp/ocean_decoration_split_40_80.bmp/ocean_decoration_zoom_pan.bmp\n",

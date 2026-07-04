@@ -295,7 +295,8 @@ static int static_cache_work_pending(int physical_key, int fill_key, int coast_k
 
 static const MapLayerCache *best_present_cache(int static_key) {
     if (static_map_cache.complete && cache_matches(&static_map_cache, static_key)) return &static_map_cache;
-    if (static_map_cache.complete && cache_presentable(&static_map_cache)) return &static_map_cache;
+    if (!display_requires_fill_layer() && static_map_cache.complete &&
+        cache_presentable(&static_map_cache)) return &static_map_cache;
     if (display_requires_fill_layer()) return NULL;
     if (cache_presentable(&physical_cache)) return &physical_cache;
     return NULL;
@@ -304,6 +305,7 @@ static const MapLayerCache *best_present_cache(int static_key) {
 static int rebuild_fill_layer(HDC hdc, int fill_key, int live_fill_key, int live_fill) {
     DWORD start = GetTickCount();
     render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_FILL);
+    if (live_fill) map_ownership_surface_invalidate_live();
     if (!ensure_cache(hdc, &fill_cache)) return 0;
     render_static_map_cache_build_fill_pixels(&fill_cache, render_context_snapshot(), live_fill);
     mark_cache_valid(&fill_cache, fill_key, 1);
@@ -311,6 +313,19 @@ static int rebuild_fill_layer(HDC hdc, int fill_key, int live_fill_key, int live
     record_cache_step(start, PROFILER_RENDER_SUB_FILL, "Political/province fill");
     if (fill_key == live_fill_key) dirty_clear_render_political();
     return 1;
+}
+
+static int rebuild_border_layer(HDC hdc, int border_key, int live_border_key) {
+    DWORD step_start = GetTickCount();
+    render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_BORDER);
+    if (ensure_cache(hdc, &border_cache)) {
+        render_static_map_cache_build_border_pixels(&border_cache, render_context_snapshot());
+        border_cache.display = display_mode; border_cache.valid = 1;
+        mark_cache_valid(&border_cache, border_key, 1); profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
+        if (border_key == live_border_key) dirty_clear_render_borders();
+    }
+    record_cache_step(step_start, PROFILER_RENDER_SUB_BORDERS, "Borders/contours");
+    return cache_matches(&border_cache, border_key);
 }
 
 void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) {
@@ -354,6 +369,7 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
     target_static_key = static_revision(physical_key, target_fill_key, coast_key, hydro_key, border_key);
     render_static_map_cache_status_set_keys(target_static_key, live_static_key, fill_key, border_key,
                                             live_fill_key, live_border_key);
+    if (use_live_fill && dirty_render_political()) fill_cache.valid = 0;
     if (map_interaction_preview && static_map_cache.complete && cache_presentable(&static_map_cache) &&
         (!display_requires_fill_layer() || cache_matches(&static_map_cache, target_static_key))) {
         int current = cache_matches(&static_map_cache, target_static_key);
@@ -368,7 +384,7 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
     physical_needs = !cache_matches_display(&physical_cache, physical_key, physical_display_key()) ||
                      (dirty_render_terrain() && physical_key == live_physical_key);
     fill_needs = !cache_matches(&fill_cache, target_fill_key) ||
-                 (dirty_render_political() && target_fill_key == live_fill_key);
+                 (use_live_fill && dirty_render_political());
     coast_needs = !cache_matches(&coast_cache, coast_key) ||
                   (dirty_render_coast() && coast_key == live_coast_key);
     hydro_needs = !cache_matches(&hydrology_cache, hydro_key) ||
@@ -396,20 +412,15 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
         rebuild_fill_layer(hdc, target_fill_key, live_fill_key, use_live_fill)) {
         fill_needs = 0;
         built_primary_step = 1;
+        if (border_needs && cache_matches(&fill_cache, target_fill_key)) {
+            border_needs = !rebuild_border_layer(hdc, border_key, live_border_key);
+        }
     }
     if (!built_primary_step && fill_needs) {
         rebuild_fill_layer(hdc, target_fill_key, live_fill_key, use_live_fill);
     } else if (!built_primary_step && display_requires_fill_layer() && border_needs &&
                cache_matches(&fill_cache, target_fill_key)) {
-        DWORD step_start = GetTickCount();
-        render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_BORDER);
-        if (ensure_cache(hdc, &border_cache)) {
-            render_static_map_cache_build_border_pixels(&border_cache, render_context_snapshot());
-            border_cache.display = display_mode; border_cache.valid = 1;
-            mark_cache_valid(&border_cache, border_key, 1); profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
-            if (border_key == live_border_key) dirty_clear_render_borders();
-        }
-        record_cache_step(step_start, PROFILER_RENDER_SUB_BORDERS, "Borders/contours");
+        rebuild_border_layer(hdc, border_key, live_border_key);
     } else if (!built_primary_step && coast_needs) {
         DWORD step_start = GetTickCount();
         render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_COAST);
@@ -428,15 +439,7 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
         }
         record_cache_step(step_start, PROFILER_RENDER_SUB_BORDERS, "Hydrology overlay");
     } else if (!built_primary_step && border_needs) {
-        DWORD step_start = GetTickCount();
-        render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_BORDER);
-        if (ensure_cache(hdc, &border_cache)) {
-            render_static_map_cache_build_border_pixels(&border_cache, render_context_snapshot());
-            border_cache.display = display_mode; border_cache.valid = 1;
-            mark_cache_valid(&border_cache, border_key, 1); profiler_add_render_rebuild(PROFILER_RENDER_BORDER);
-            if (border_key == live_border_key) dirty_clear_render_borders();
-        }
-        record_cache_step(step_start, PROFILER_RENDER_SUB_BORDERS, "Borders/contours");
+        rebuild_border_layer(hdc, border_key, live_border_key);
     } else if (!built_primary_step && static_layers_ready() && !cache_matches(&static_map_cache, target_static_key)) {
         DWORD step_start = GetTickCount();
         compose_static_map(hdc, target_static_key);
@@ -456,10 +459,15 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
     }
     else if (display_requires_fill_layer() &&
              cache_matches_display(&physical_cache, physical_key, physical_display_key()) &&
-             cache_matches(&fill_cache, target_fill_key)) {
+             cache_matches(&fill_cache, target_fill_key) &&
+             cache_matches(&border_cache, border_key)) {
+        int fill_current = cache_matches(&fill_cache, target_fill_key);
         int border_current = cache_matches(&border_cache, border_key);
-        render_static_map_cache_status_set_presented(border_current, border_current, border_current, 1);
-        render_static_map_cache_status_note_published(target_fill_key, border_key, 1);
+        render_static_map_cache_status_set_presented(fill_current && border_current,
+                                                     border_current, border_current,
+                                                     fill_current && border_current);
+        render_static_map_cache_status_note_published(target_fill_key, border_key,
+                                                      fill_current && border_current);
         present_partial_static_cache(hdc, client, layout, target_fill_key, coast_key, hydro_key, border_key);
     } else if (display_requires_fill_layer()) {
         render_static_map_cache_status_set_presented(0, 0, 0, 0);

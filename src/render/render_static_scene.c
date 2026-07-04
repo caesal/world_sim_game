@@ -30,6 +30,9 @@ static LayerCache viewport_static_scratch_cache;
 static DWORD last_static_continue_invalidate;
 static DWORD last_viewport_static_rebuild_tick;
 static int scene_cache_hits, scene_cache_misses, scene_cache_last_build_ms;
+static int scene_last_background_ms, scene_last_static_map_ms, scene_last_overlay_ms;
+static int scene_last_publish_ms, scene_last_blit_ms, scene_deferred_reuses;
+static int scene_viewport_rebuilds;
 static int static_base_presented_current, static_base_presentable;
 static int static_base_complete, static_base_fully_current, no_safe_frames;
 static int viewport_static_published_current, viewport_static_published_safe, viewport_static_published_full;
@@ -59,14 +62,19 @@ static int display_uses_civ_visual_static_key(void) {
            display_mode == DISPLAY_ALL;
 }
 
-static unsigned int static_base_key(RECT client, MapLayout layout,
-                                    const RenderSnapshot *snapshot) {
+static unsigned int static_base_geometry_key(RECT client, MapLayout layout,
+                                             const RenderSnapshot *snapshot) {
     unsigned int key = render_layer_layout_key(client, layout, side_panel_w, display_mode);
     key = render_layer_mix_key(key, snapshot ? snapshot->map_w : 0);
     key = render_layer_mix_key(key, snapshot ? snapshot->map_h : 0);
     key = render_layer_mix_key(key, snapshot ? snapshot->terrain_revision : 0);
     key = render_layer_mix_key(key, snapshot ? snapshot->coast_revision : 0);
-    key = render_layer_mix_key(key, snapshot ? snapshot->hydrology_revision : 0);
+    return render_layer_mix_key(key, snapshot ? snapshot->hydrology_revision : 0);
+}
+
+static unsigned int static_base_key(RECT client, MapLayout layout,
+                                    const RenderSnapshot *snapshot) {
+    unsigned int key = static_base_geometry_key(client, layout, snapshot);
     key = render_layer_mix_key(key, presentation_ownership_revision(snapshot));
     if (display_mode == DISPLAY_ALLIANCE) key = render_layer_mix_key(key, dirty_revision_alliance());
     if (display_uses_civ_visual_static_key()) {
@@ -77,10 +85,7 @@ static unsigned int static_base_key(RECT client, MapLayout layout,
 
 static unsigned int static_base_boundary_key(RECT client, MapLayout layout,
                                              const RenderSnapshot *snapshot) {
-    unsigned int key = render_layer_layout_key(client, layout, side_panel_w, display_mode);
-    key = render_layer_mix_key(key, snapshot ? snapshot->map_w : 0);
-    key = render_layer_mix_key(key, snapshot ? snapshot->map_h : 0);
-    key = render_layer_mix_key(key, snapshot ? snapshot->terrain_revision : 0);
+    unsigned int key = static_base_geometry_key(client, layout, snapshot);
     key = render_layer_mix_key(key, presentation_ownership_revision(snapshot));
     if (display_mode == DISPLAY_ALLIANCE) key = render_layer_mix_key(key, dirty_revision_alliance());
     if (display_uses_civ_visual_static_key()) {
@@ -103,19 +108,37 @@ static int static_continue_interval_ms(void) {
     return 33;
 }
 
+static int scene_step_ms(DWORD start, int *slot, const char *name) {
+    int elapsed = (int)(GetTickCount() - start);
+    if (slot) *slot = elapsed;
+    profiler_record_spike_phase(PROFILER_SPIKE_STATIC_CACHE, name, elapsed);
+    return elapsed;
+}
+
+static void scene_reset_step_ms(void) {
+    scene_last_background_ms = 0;
+    scene_last_static_map_ms = 0;
+    scene_last_overlay_ms = 0;
+    scene_last_publish_ms = 0;
+    scene_last_blit_ms = 0;
+}
+
 static void blit_presentable(HDC hdc, RECT client, const LayerCache *cache,
                              int current, int safe, int full, SceneReason reason) {
+    DWORD start = GetTickCount();
     scene_last_reason = reason;
     static_base_presentable = 1;
     static_base_presented_current = current;
     static_base_complete = safe;
     static_base_fully_current = full;
     render_layer_cache_blit_viewport(hdc, client, cache);
+    scene_step_ms(start, &scene_last_blit_ms, "Static scene blit");
 }
 
 static int publish_scratch(HDC hdc, RECT client, MapLayout layout,
                            unsigned int key, unsigned int boundary_key,
                            int current, int safe, int full) {
+    DWORD start = GetTickCount();
     if (!safe || !viewport_static_scratch_cache.valid) return 0;
     if (!render_layer_cache_ensure(hdc, &viewport_static_published_cache, client, layout,
                                    side_panel_w, display_mode)) return 0;
@@ -129,6 +152,7 @@ static int publish_scratch(HDC hdc, RECT client, MapLayout layout,
     viewport_static_published_safe = safe;
     viewport_static_published_full = full;
     last_viewport_static_rebuild_tick = GetTickCount();
+    scene_step_ms(start, &scene_last_publish_ms, "Static scene publish");
     return 1;
 }
 
@@ -144,6 +168,7 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
     int exact = render_layer_cache_matches(&viewport_static_published_cache, client, layout,
                                            key, display_mode);
     int boundary_exact = presentable && viewport_static_published_boundary_key == boundary_key;
+    scene_reset_step_ms();
     if (presentable && !boundary_exact) {
         if (!stale_safe_start_tick) stale_safe_start_tick = now;
         stale_safe_age_ms = (int)(now - stale_safe_start_tick);
@@ -176,11 +201,13 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
     if (presentable && boundary_exact && max_speed_static_defer() &&
         (int)(now - last_viewport_static_rebuild_tick) < 900) {
         scene_cache_hits++;
+        scene_deferred_reuses++;
         blit_presentable(hdc, client, &viewport_static_published_cache, 0, 1, 0,
                          SCENE_REASON_DEFERRED);
         return;
     }
     scene_cache_misses++;
+    scene_viewport_rebuilds++;
     start = GetTickCount();
     if (render_layer_cache_ensure(hdc, &viewport_static_scratch_cache, client, layout,
                                   side_panel_w, display_mode)) {
@@ -188,9 +215,15 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
         int safe;
         int full;
         int current;
+        DWORD step_start = GetTickCount();
         render_ocean_decoration_draw_background(viewport_static_scratch_cache.dc, client, layout, snapshot);
+        scene_step_ms(step_start, &scene_last_background_ms, "Static scene ocean background");
+        step_start = GetTickCount();
         draw_cached_static_map_nonblocking(viewport_static_scratch_cache.dc, client, layout);
+        scene_step_ms(step_start, &scene_last_static_map_ms, "Static scene map cache");
+        step_start = GetTickCount();
         render_ocean_decoration_draw_overlay(viewport_static_scratch_cache.dc, client, layout, snapshot);
+        scene_step_ms(step_start, &scene_last_overlay_ms, "Static scene ocean overlay");
         scene_cache_last_build_ms = (int)(GetTickCount() - start);
         profiler_record_spike_phase(PROFILER_SPIKE_STATIC_CACHE, "Static scene", scene_cache_last_build_ms);
         needs_work = render_static_map_cache_needs_work();
@@ -202,6 +235,10 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
             scene_last_reason = current ? SCENE_REASON_REBUILD : SCENE_REASON_PENDING;
             blit_presentable(hdc, client, &viewport_static_published_cache,
                              current, 1, full, scene_last_reason);
+        } else if (safe && render_static_map_cache_ownership_current()) {
+            scene_last_reason = SCENE_REASON_PENDING;
+            blit_presentable(hdc, client, &viewport_static_scratch_cache, 0,
+                             safe, full, scene_last_reason);
         } else if (presentable) {
             blit_presentable(hdc, client, &viewport_static_published_cache, 0,
                              boundary_exact && viewport_static_published_safe, 0,
@@ -216,9 +253,15 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
             render_layer_cache_blit_viewport(hdc, client, &viewport_static_scratch_cache);
         }
     } else {
+        DWORD step_start = GetTickCount();
         render_ocean_decoration_draw_background(hdc, client, layout, snapshot);
+        scene_step_ms(step_start, &scene_last_background_ms, "Static scene ocean background");
+        step_start = GetTickCount();
         draw_cached_static_map_nonblocking(hdc, client, layout);
+        scene_step_ms(step_start, &scene_last_static_map_ms, "Static scene map cache");
+        step_start = GetTickCount();
         render_ocean_decoration_draw_overlay(hdc, client, layout, snapshot);
+        scene_step_ms(step_start, &scene_last_overlay_ms, "Static scene ocean overlay");
         scene_cache_last_build_ms = (int)(GetTickCount() - start);
         profiler_record_spike_phase(PROFILER_SPIKE_STATIC_CACHE, "Static scene direct", scene_cache_last_build_ms);
         static_base_presented_current = render_static_map_cache_presented_current();
@@ -267,17 +310,33 @@ int render_scene_cache_misses(void) { return scene_cache_misses; }
 int render_scene_cache_last_build_ms(void) { return scene_cache_last_build_ms; }
 int render_scene_cache_last_reason_code(void) { return (int)scene_last_reason; }
 const char *render_scene_cache_last_reason(void) { return scene_reason_name(scene_last_reason); }
+int render_scene_cache_deferred_reuses(void) { return scene_deferred_reuses; }
+int render_scene_cache_viewport_rebuilds(void) { return scene_viewport_rebuilds; }
+void render_static_scene_debug_times(int *background_ms, int *static_map_ms,
+                                     int *overlay_ms, int *publish_ms,
+                                     int *blit_ms) {
+    if (background_ms) *background_ms = scene_last_background_ms;
+    if (static_map_ms) *static_map_ms = scene_last_static_map_ms;
+    if (overlay_ms) *overlay_ms = scene_last_overlay_ms;
+    if (publish_ms) *publish_ms = scene_last_publish_ms;
+    if (blit_ms) *blit_ms = scene_last_blit_ms;
+}
 const char *render_static_scene_status_summary(void) {
-    static char text[128];
-    snprintf(text, sizeof(text), "code %d / current %d / presentable %d / safe %d / full %d / no-safe %d / stale %d / work %d",
+    static char text[192];
+    snprintf(text, sizeof(text),
+             "code %d / current %d / presentable %d / safe %d / full %d / no-safe %d / stale %d / work %d / bg %d map %d ov %d pub %d blit %d",
              (int)scene_last_reason, static_base_presented_current,
              static_base_presentable, static_base_complete,
              static_base_fully_current, no_safe_frames, stale_safe_age_ms,
-             render_static_map_cache_needs_work());
+             render_static_map_cache_needs_work(), scene_last_background_ms,
+             scene_last_static_map_ms, scene_last_overlay_ms,
+             scene_last_publish_ms, scene_last_blit_ms);
     return text;
 }
 void render_static_scene_reset_debug(void) {
     scene_cache_hits = scene_cache_misses = scene_cache_last_build_ms = 0;
+    scene_deferred_reuses = scene_viewport_rebuilds = 0;
+    scene_reset_step_ms();
     static_base_presented_current = static_base_presentable = static_base_complete = 0;
     static_base_fully_current = no_safe_frames = 0;
     stale_safe_start_tick = 0;

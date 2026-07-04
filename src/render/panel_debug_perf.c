@@ -283,19 +283,19 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
              render_static_map_cache_presented_fully_current(),
              render_static_map_cache_reason_summary());
     perf_row(hdc, cursor, tr("Static reason", "静态原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "source %s / delayed %s / prevented %d",
-             diplomacy_map_anim_source(),
+    snprintf(text, sizeof(text), "source %s / active %d / delayed %s / block %d",
+             diplomacy_map_anim_source(), diplomacy_map_anim_active_count(),
              diplomacy_map_anim_delayed_waiting_for_snapshot() ? "yes" : "no",
-             diplomacy_map_anim_stale_prevented_count());
+             diplomacy_map_anim_cached_paint_blocked_count());
     perf_row(hdc, cursor, tr("Diplomacy anim", "外交动画"), text,
               diplomacy_map_anim_delayed_waiting_for_snapshot() ? RGB(218, 178, 78) :
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     if (render_context_snapshot()) {
-        snprintf(text, sizeof(text), "consumed %d / snapshot %d / rev %u:%d",
+        snprintf(text, sizeof(text), "consumed %d / snap %d / enq %d draw %d exp %d",
                  diplomacy_map_anim_last_consumed_total(),
                  render_context_snapshot()->event_total_entries,
-                 diplomacy_map_anim_last_snapshot_revision(),
-                 diplomacy_map_anim_last_events_revision());
+                 diplomacy_map_anim_enqueued_count(), diplomacy_map_anim_drawn_count(),
+                 diplomacy_map_anim_expired_before_draw_count());
         perf_row(hdc, cursor, tr("Diplomacy events", "外交事件"), text,
                   ui_theme_color(UI_COLOR_TEXT_MUTED));
         snprintf(text, sizeof(text), "tiles %d / static %d / live %d",

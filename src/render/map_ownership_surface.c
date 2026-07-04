@@ -46,6 +46,10 @@ int map_ownership_surface_live_revision(void) {
     return mix_key(key, world_generated);
 }
 
+void map_ownership_surface_invalidate_live(void) {
+    live_surface.valid = 0;
+}
+
 static void surface_clear(MapOwnershipSurface *surface, int key, int width, int height) {
     int total = max(0, width) * max(0, height);
     surface->key = key;

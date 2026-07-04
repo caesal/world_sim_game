@@ -41,8 +41,9 @@ static int city_overlay_cached_visual_revision = -1;
 static char overlay_last_reason_text[48] = "cold";
 static DWORD last_full_map_paint_tick;
 static int last_full_paint_had_progress_overlay;
-#define record_render_phase(start, category, name) profiler_record_spike_phase((category), (name), (int)(GetTickCount() - (start)))
-#define record_render_subphase(start, category, subphase, name) profiler_record_render_subphase((subphase), (category), (name), (int)(GetTickCount() - (start)))
+static int window_backbuffer_legend_collapsed = -1, window_backbuffer_language = -1;
+#define record_render_phase(start, category, name) profiler_record_spike_phase((category), (name), profiler_elapsed_ms_since_us(start))
+#define record_render_subphase(start, category, subphase, name) profiler_record_render_subphase((subphase), (category), (name), profiler_elapsed_ms_since_us(start))
 static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layout) {
     if (profiling_switch_enabled(PROFILING_SWITCH_HIGHLIGHT)) draw_country_highlight(hdc, client, layout);
 }
@@ -112,18 +113,18 @@ static unsigned int city_overlay_key(const RenderSnapshot *snapshot) {
     }
     return render_layer_mix_key(key, display_mode);
 }
-static void note_city_overlay_blit(DWORD start) {
-    city_overlay_last_blit_ms = (int)(GetTickCount() - start);
+static void note_city_overlay_blit(long long start) {
+    city_overlay_last_blit_ms = profiler_elapsed_ms_since_us(start);
     if (city_overlay_last_blit_ms > city_overlay_peak_blit_ms) city_overlay_peak_blit_ms = city_overlay_last_blit_ms;
     profiler_record_render_subphase(PROFILER_RENDER_SUB_CITY_OVERLAY, PROFILER_SPIKE_CITY_OVERLAY,
                                     "City overlay blit", city_overlay_last_blit_ms);
 }
 static int draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout, const RenderSnapshot *snapshot) {
     unsigned int key = city_overlay_key(snapshot);
-    DWORD start;
+    long long start;
     if (render_layer_cache_matches(&city_overlay_cache, client, layout, key, display_mode)) {
         city_overlay_cache_hits++;
-        start = GetTickCount();
+        start = profiler_now_us();
         render_layer_cache_transparent_viewport(hdc, client, &city_overlay_cache);
         note_city_overlay_blit(start);
         return 1;
@@ -133,25 +134,15 @@ static int draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout
                                   &city_overlay_preview_reuses,
                                   "city preview reuse", "city preview skip");
     }
-    if (auto_run && city_overlay_cached_visual_revision == (snapshot ? snapshot->city_visual_revision : 0) &&
-        render_layer_cache_preview_presentable(&city_overlay_cache, client, display_mode) &&
-        (int)(GetTickCount() - last_city_overlay_rebuild_tick) < 900) {
-        city_overlay_preview_reuses++;
-        snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "city deferred reuse");
-        start = GetTickCount();
-        render_layer_cache_transparent_map(hdc, client, layout, &city_overlay_cache);
-        note_city_overlay_blit(start);
-        return 1;
-    }
     city_overlay_cache_misses++;
     if (!render_layer_cache_ensure(hdc, &city_overlay_cache, client, layout, side_panel_w, display_mode)) {
         draw_cities(hdc, layout);
         return 1;
     }
-    start = GetTickCount();
+    start = profiler_now_us();
     { RECT clear = get_map_viewport_rect(client); fill_rect(city_overlay_cache.dc, clear, RGB(255, 0, 255)); }
     draw_cities(city_overlay_cache.dc, layout);
-    city_overlay_last_rebuild_ms = (int)(GetTickCount() - start);
+    city_overlay_last_rebuild_ms = profiler_elapsed_ms_since_us(start);
     if (city_overlay_last_rebuild_ms > city_overlay_peak_rebuild_ms) city_overlay_peak_rebuild_ms = city_overlay_last_rebuild_ms;
     profiler_record_render_subphase(PROFILER_RENDER_SUB_CITY_OVERLAY, PROFILER_SPIKE_CITY_OVERLAY,
                                     "City overlay rebuild", city_overlay_last_rebuild_ms);
@@ -161,7 +152,7 @@ static int draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout
     last_city_overlay_rebuild_tick = GetTickCount();
     city_overlay_exact_rebuilds++;
     snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "city exact rebuild");
-    start = GetTickCount();
+    start = profiler_now_us();
     render_layer_cache_transparent_viewport(hdc, client, &city_overlay_cache);
     note_city_overlay_blit(start);
     return 1;
@@ -186,45 +177,45 @@ static int stale_ui_indicator_needed(void) {
 
 static void draw_legacy_ui_nonblocking(HDC hdc, RECT client, int draw_legend) {
     MapLayout layout = get_map_layout(client);
-    DWORD start;
+    long long start;
     if (render_layer_cache_ensure(hdc, &ui_cache, client, layout, side_panel_w, display_mode)) {
         BitBlt(ui_cache.dc, 0, 0, ui_cache.width, ui_cache.height, hdc, 0, 0, SRCCOPY);
-        start = GetTickCount();
+        start = profiler_now_us();
         draw_top_bar(ui_cache.dc, client);
         draw_bottom_bar(ui_cache.dc, client);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Top/bottom bar");
         draw_map_frame_overlay(ui_cache.dc, client);
         if (draw_legend && profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) {
-            start = GetTickCount();
+            start = profiler_now_us();
             draw_map_legend(ui_cache.dc, client);
             record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                    PROFILER_RENDER_SUB_MAP_LEGEND, "Map legend");
         }
-        start = GetTickCount();
+        start = profiler_now_us();
         panel_view_model_cache_draw(ui_cache.dc, client);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_SIDE_PANEL, "Side panel");
         draw_top_notifications(ui_cache.dc, client);
         if (pause_menu_open) draw_pause_menu_overlay(ui_cache.dc, client);
-        start = GetTickCount();
+        start = profiler_now_us();
         BitBlt(hdc, 0, 0, ui_cache.width, ui_cache.height, ui_cache.dc, 0, 0, SRCCOPY);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_BACKBUFFER, "UI cache blit");
     } else {
-        start = GetTickCount();
+        start = profiler_now_us();
         draw_top_bar(hdc, client);
         draw_bottom_bar(hdc, client);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Top/bottom bar");
         draw_map_frame_overlay(hdc, client);
         if (draw_legend && profiling_switch_enabled(PROFILING_SWITCH_MAP_LEGEND)) {
-            start = GetTickCount();
+            start = profiler_now_us();
             draw_map_legend(hdc, client);
             record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                    PROFILER_RENDER_SUB_MAP_LEGEND, "Map legend");
         }
-        start = GetTickCount();
+        start = profiler_now_us();
         panel_view_model_cache_draw(hdc, client);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_SIDE_PANEL, "Side panel");
@@ -289,10 +280,11 @@ static int can_paint_ui_only(RECT client, RECT paint) {
 
 static int render_input_waiting(void) { return (HIWORD(GetQueueStatus(QS_INPUT | QS_SENDMESSAGE)) & (QS_INPUT | QS_SENDMESSAGE)) != 0; }
 static int blit_cached_window(HDC hdc, int width, int height) {
-    DWORD start;
+    long long start;
     if (!window_backbuffer.dc || window_backbuffer.width != width || window_backbuffer.height != height ||
-        window_backbuffer.display != display_mode || window_backbuffer.side_w != side_panel_w) return 0;
-    start = GetTickCount();
+        window_backbuffer.display != display_mode || window_backbuffer.side_w != side_panel_w ||
+        window_backbuffer_legend_collapsed != map_legend_collapsed || window_backbuffer_language != ui_language) return 0;
+    start = profiler_now_us();
     BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
     record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                            PROFILER_RENDER_SUB_BACKBUFFER, "Cached window blit");
@@ -300,28 +292,31 @@ static int blit_cached_window(HDC hdc, int width, int height) {
 }
 
 static int static_presentation_safe_for_defer(RECT client, MapLayout layout,
-                                              const RenderSnapshot *snapshot) {
-    return render_static_scene_defer_safe(client, layout, snapshot);
-}
+                                              const RenderSnapshot *snapshot) { return render_static_scene_defer_safe(client, layout, snapshot); }
 
 static int should_defer_presentation_map_paint(DWORD now, RECT client, MapLayout layout,
                                                const RenderSnapshot *snapshot) {
-    int interval;
-    if (!auto_run || !world_generated || speed_index < SPEED_COUNT - 1) return 0;
-    if (!static_presentation_safe_for_defer(client, layout, snapshot)) return 0;
-    if (map_interaction_preview) return 0;
-    if (simulation_worker_overloaded()) interval = 3000;
-    else if (simulation_worker_presentation_throttled()) interval = 1500;
-    else interval = 250;
-    return last_full_map_paint_tick > 0 && (int)(now - last_full_map_paint_tick) < interval;
+    (void)now;
+    (void)client;
+    (void)layout;
+    (void)snapshot;
+    return map_interaction_preview;
+}
+
+static void draw_deferred_ui_over_cached_scene(HDC hdc, RECT client) {
+    long long phase_start = profiler_now_us(); draw_top_bar(hdc, client); draw_bottom_bar(hdc, client); draw_map_frame_overlay(hdc, client);
+    panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
+    if (stale_ui_indicator_needed()) draw_stale_ui_indicator(hdc, client);
+    record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION, PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Deferred top/bottom");
+    phase_start = profiler_now_us(); panel_view_model_cache_draw(hdc, client); draw_top_notifications(hdc, client);
+    record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION, PROFILER_RENDER_SUB_SIDE_PANEL, "Deferred side panel");
 }
 
 static void render_world(HDC hdc, RECT client) {
     MapLayout layout = get_map_layout(client);
     const RenderSnapshot *snapshot = render_context_snapshot();
-    int snapshot_world_ready = snapshot && snapshot->world_generated;
-    int static_ready;
-    DWORD phase_start;
+    int snapshot_world_ready = snapshot && snapshot->world_generated, static_ready;
+    long long phase_start;
     WorldGenProgress progress;
 
     worldgen_progress_get(&progress);
@@ -341,14 +336,14 @@ static void render_world(HDC hdc, RECT client) {
         draw_worldgen_progress_overlay(hdc, client);
         return;
     }
-    phase_start = GetTickCount();
+    phase_start = profiler_now_us();
     render_static_scene_draw(hdc, client, layout, snapshot);
     record_render_subphase(phase_start, PROFILER_SPIKE_STATIC_CACHE,
                            PROFILER_RENDER_SUB_STATIC_SCENE, "Static scene draw");
     static_ready = render_static_scene_presented_current();
     if (snapshot_world_ready) {
         int route_exact;
-        phase_start = GetTickCount();
+        phase_start = profiler_now_us();
         route_exact = draw_route_overlay_presentation(hdc, client, layout, snapshot);
         record_render_subphase(phase_start, PROFILER_SPIKE_ROUTE_MARITIME,
                                PROFILER_RENDER_SUB_ROUTE_OVERLAY, "Route overlay");
@@ -357,7 +352,7 @@ static void render_world(HDC hdc, RECT client) {
             dirty_clear_render_maritime();
         }
         if (!map_interaction_preview && plague_perf_visuals_allowed()) {
-            phase_start = GetTickCount();
+            phase_start = profiler_now_us();
             draw_plague_region_overlay(hdc, client, layout);
             record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION,
                                    PROFILER_RENDER_SUB_HIGHLIGHT_OVERLAY, "Plague overlay");
@@ -366,7 +361,7 @@ static void render_world(HDC hdc, RECT client) {
             plague_perf_note_visual_skipped(1);
             dirty_clear_render_plague();
         }
-        phase_start = GetTickCount();
+        phase_start = profiler_now_us();
         draw_legacy_overlay_nonblocking(hdc, client, layout);
         record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_HIGHLIGHT_OVERLAY, "Highlight overlay");
@@ -374,7 +369,7 @@ static void render_world(HDC hdc, RECT client) {
         {
             int labels_dirty = dirty_render_labels();
             if (profiling_switch_enabled(PROFILING_SWITCH_MAP_LABELS)) {
-                DWORD label_start = GetTickCount();
+                long long label_start = profiler_now_us();
                 draw_map_labels(hdc, client, layout);
                 profiler_record_render_subphase(display_mode == DISPLAY_ALLIANCE ?
                                                 PROFILER_RENDER_SUB_ALLIANCE_LABELS :
@@ -382,18 +377,20 @@ static void render_world(HDC hdc, RECT client) {
                                                 PROFILER_SPIKE_LABEL_CACHE,
                                                 display_mode == DISPLAY_ALLIANCE ?
                                                 "Alliance labels" : "Map labels",
-                                                (int)(GetTickCount() - label_start));
+                                                profiler_elapsed_ms_since_us(label_start));
             }
             if (labels_dirty && !map_interaction_preview) profiler_add_render_rebuild(PROFILER_RENDER_LABEL);
             if (!map_interaction_preview) dirty_clear_render_labels();
         }
         if (profiling_switch_enabled(PROFILING_SWITCH_DIPLOMACY_ANIMATION)) {
-            phase_start = GetTickCount();
-            if (static_ready) diplomacy_map_anim_consume_events(snapshot); else diplomacy_map_anim_delay_for_snapshot(snapshot);
+            int diplomacy_scene_ready = static_ready || render_static_scene_presentable();
+            phase_start = profiler_now_us();
+            if (diplomacy_scene_ready) diplomacy_map_anim_consume_events(snapshot);
+            else diplomacy_map_anim_delay_for_snapshot(snapshot);
             draw_diplomacy_map_animations(hdc, client, layout, snapshot);
             record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Diplomacy animation");
         }
-        phase_start = GetTickCount();
+        phase_start = profiler_now_us();
         draw_selected_tile(hdc, layout);
         draw_country_target_arrow(hdc, client, layout, snapshot);
         record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION,
@@ -403,7 +400,7 @@ static void render_world(HDC hdc, RECT client) {
         dirty_clear_render_plague();
         dirty_clear_render_labels();
     }
-    phase_start = GetTickCount();
+    phase_start = profiler_now_us();
     draw_legacy_ui_nonblocking(hdc, client, 1);
     draw_worldgen_progress_overlay(hdc, client);
     draw_load_progress_overlay(hdc, client);
@@ -415,12 +412,13 @@ void paint_window(HWND hwnd) {
     HDC hdc = BeginPaint(hwnd, &ps);
     RECT client; WorldGenProgress progress;
     const RenderSnapshot *snapshot;
-    DWORD render_start = GetTickCount();
+    long long render_start = profiler_now_us();
     int width;
     int height;
     int ui_only;
+    int diplomacy_dynamic;
     int continue_static_work;
-    int deferred_for_input = 0, progress_active, legend_paint;
+    int deferred_for_input = 0, progress_active;
     DWORD now = GetTickCount();
 
     GetClientRect(hwnd, &client);
@@ -430,42 +428,44 @@ void paint_window(HWND hwnd) {
     render_context_begin(snapshot);
     ui_only = can_paint_ui_only(client, ps.rcPaint);
     continue_static_work = render_static_map_cache_needs_work();
-    worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active(); legend_paint = rects_intersect(ps.rcPaint, get_map_legend_box_rect(client));
+    worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active();
+    diplomacy_dynamic = profiling_switch_enabled(PROFILING_SWITCH_DIPLOMACY_ANIMATION) && diplomacy_map_anim_requires_dynamic_paint(snapshot);
+    if (diplomacy_dynamic && ui_only) { RECT viewport = get_map_viewport_rect(client); InvalidateRect(hwnd, &viewport, FALSE); ui_only = 0; diplomacy_map_anim_note_cached_paint_blocked(); }
+    if (diplomacy_dynamic && !ui_only && !progress_active && (render_input_waiting() || should_defer_presentation_map_paint(now, client, get_map_layout(client), snapshot))) diplomacy_map_anim_note_cached_paint_blocked();
     if (ui_only) {
-        DWORD phase_start = GetTickCount();
+        long long phase_start = profiler_now_us();
         draw_partial_ui(hdc, client, ps.rcPaint);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Partial UI paint");
-    } else if (!progress_active && !legend_paint && !last_full_paint_had_progress_overlay &&
+    } else if (!progress_active && !last_full_paint_had_progress_overlay &&
                static_presentation_safe_for_defer(client, get_map_layout(client), snapshot) &&
                render_input_waiting() &&
+               !diplomacy_dynamic &&
                blit_cached_window(hdc, width, height)) {
         deferred_for_input = 1;
-    } else if (!progress_active && !legend_paint &&
+    } else if (!progress_active &&
                should_defer_presentation_map_paint(now, client, get_map_layout(client), snapshot) &&
+               !diplomacy_dynamic &&
                blit_cached_window(hdc, width, height)) {
         deferred_for_input = 1;
-        {
-            DWORD phase_start = GetTickCount();
-            draw_legacy_ui_nonblocking(hdc, client, 0);
-            record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Deferred UI paint");
-        }
+        draw_deferred_ui_over_cached_scene(hdc, client);
     } else if (render_layer_cache_ensure(hdc, &window_backbuffer, client, get_map_layout(client), side_panel_w, display_mode)) {
-        DWORD phase_start = GetTickCount();
+        long long phase_start = profiler_now_us();
         render_world(window_backbuffer.dc, client);
+        window_backbuffer_legend_collapsed = map_legend_collapsed; window_backbuffer_language = ui_language;
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Render world");
-        phase_start = GetTickCount();
+        phase_start = profiler_now_us();
         color_picker_draw(window_backbuffer.dc, client);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Color picker draw");
-        phase_start = GetTickCount();
+        phase_start = profiler_now_us();
         BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
         record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_BACKBUFFER, "Backbuffer blit");
         last_full_map_paint_tick = now;
     } else {
-        DWORD phase_start = GetTickCount();
+        long long phase_start = profiler_now_us();
         render_world(hdc, client);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Render world");
-        phase_start = GetTickCount();
+        phase_start = profiler_now_us();
         color_picker_draw(hdc, client);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Color picker draw");
         last_full_map_paint_tick = now;
@@ -474,7 +474,7 @@ void paint_window(HWND hwnd) {
     if (deferred_for_input) continue_static_work = 1;
     render_context_end();
     render_snapshot_release(snapshot);
-    profiler_record_render_ms((int)(GetTickCount() - render_start));
+    profiler_record_render_ms(profiler_elapsed_ms_since_us(render_start));
     EndPaint(hwnd, &ps);
     render_static_scene_request_continue(hwnd, continue_static_work);
 }

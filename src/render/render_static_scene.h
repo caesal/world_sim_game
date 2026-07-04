@@ -19,6 +19,11 @@ int render_scene_cache_misses(void);
 int render_scene_cache_last_build_ms(void);
 int render_scene_cache_last_reason_code(void);
 const char *render_scene_cache_last_reason(void);
+int render_scene_cache_deferred_reuses(void);
+int render_scene_cache_viewport_rebuilds(void);
+void render_static_scene_debug_times(int *background_ms, int *static_map_ms,
+                                     int *overlay_ms, int *publish_ms,
+                                     int *blit_ms);
 const char *render_static_scene_status_summary(void);
 void render_static_scene_reset_debug(void);
 void render_static_scene_invalidate_cache(void);

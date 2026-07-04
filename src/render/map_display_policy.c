@@ -4,6 +4,7 @@
 #include "render/map_ownership_surface.h"
 #include "render/render_common.h"
 #include "sim/alliance.h"
+#include "sim/regions.h"
 #include "world/terrain_query.h"
 
 #include <string.h>
@@ -143,10 +144,46 @@ COLORREF map_display_policy_snapshot_tile_color(const RenderSnapshot *snapshot,
     return base;
 }
 
+static int live_region_city_owner_direct(int region_id) {
+    int city_id;
+    City *city;
+    if (region_id < 0 || region_id >= region_count) return -1;
+    if (!natural_regions[region_id].alive) return -1;
+    city_id = natural_regions[region_id].city_id;
+    if (city_id < 0 || city_id >= city_count) return -1;
+    city = &cities[city_id];
+    if (!city->alive || !owner_alive_live(city->owner)) return -1;
+    if (city->x < 0 || city->y < 0 || city->x >= map_w || city->y >= map_h) return -1;
+    return world[city->y][city->x].region_id == region_id ? city->owner : -1;
+}
+
 int map_display_policy_live_effective_owner(int x, int y, MapDisplayOwnerSource *out_source) {
+    Tile *tile;
+    int owner;
     if (out_source) *out_source = MAP_DISPLAY_OWNER_NONE;
-    if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H || !is_land(world[y][x].geography)) return -1;
-    return map_ownership_surface_live_owner(x, y, out_source);
+    if (x < 0 || y < 0 || x >= map_w || y >= map_h || !is_land(world[y][x].geography)) return -1;
+    tile = &world[y][x];
+    if (owner_alive_live(tile->owner)) {
+        if (out_source) *out_source = MAP_DISPLAY_OWNER_TILE;
+        return tile->owner;
+    }
+    if (tile->region_id >= 0 && tile->region_id < region_count) {
+        owner = natural_regions[tile->region_id].owner_civ;
+        if (natural_regions[tile->region_id].alive && owner_alive_live(owner)) {
+            if (out_source) *out_source = MAP_DISPLAY_OWNER_REGION;
+            return owner;
+        }
+    }
+    if (tile->province_id >= 0 && tile->province_id < city_count) {
+        owner = cities[tile->province_id].owner;
+        if (cities[tile->province_id].alive && owner_alive_live(owner)) {
+            if (out_source) *out_source = MAP_DISPLAY_OWNER_CITY;
+            return owner;
+        }
+    }
+    owner = live_region_city_owner_direct(tile->region_id);
+    if (owner >= 0 && out_source) *out_source = MAP_DISPLAY_OWNER_REGION_CITY;
+    return owner;
 }
 
 int map_display_policy_live_fill(int x, int y, int mode, MapDisplayFillPolicy *out_fill) {

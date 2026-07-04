@@ -443,9 +443,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             return DefWindowProc(hwnd, msg, wparam, lparam);
         case WM_TIMER:
             if (wparam == MAP_PREVIEW_TIMER_ID) {
-                map_interaction_preview = 0;
-                KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
-                ui_wheel_invalidate_map_viewport(hwnd);
+                ui_map_display_handle_preview_timer(hwnd);
                 return 0;
             }
             if (wparam == WHEEL_INPUT_TIMER_ID) {

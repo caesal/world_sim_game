@@ -83,6 +83,16 @@ static int max_speed_presentation_overloaded(void) {
            (simulation_worker_presentation_throttled() || simulation_worker_overloaded());
 }
 
+static int diplomacy_animation_needs_map_redraw(void) {
+    const RenderSnapshot *snapshot;
+    int pending;
+    if (diplomacy_map_anim_active()) return 1;
+    snapshot = render_snapshot_acquire();
+    pending = diplomacy_map_anim_pending_events(snapshot);
+    render_snapshot_release(snapshot);
+    return pending || diplomacy_map_anim_delayed_waiting_for_snapshot();
+}
+
 static int coalesce_presentation_redraw(int redraw, DWORD now) {
     int interval = presentation_throttle_interval_ms(redraw);
     int combined = redraw | pending_presentation_redraw;
@@ -163,7 +173,7 @@ int game_loop_tick_frame(void) {
     } else if (did_visual) {
         plague_perf_note_invalidation_suppressed(1);
     }
-    if (diplomacy_map_anim_active()) {
+    if (diplomacy_animation_needs_map_redraw()) {
         redraw |= GAME_REDRAW_MAP_DYNAMIC;
         append_map_reason(map_reason, sizeof(map_reason), "diplomacy-animation");
     }

@@ -25,6 +25,7 @@ int map_ownership_surface_snapshot_view(const RenderSnapshot *snapshot, MapOwner
 int map_ownership_surface_live_view(MapOwnershipSurfaceView *out_view);
 int map_ownership_surface_snapshot_revision(const RenderSnapshot *snapshot);
 int map_ownership_surface_live_revision(void);
+void map_ownership_surface_invalidate_live(void);
 int map_ownership_surface_snapshot_area_for_civ(const RenderSnapshot *snapshot, int civ_id);
 
 #endif

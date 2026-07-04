@@ -58,7 +58,7 @@ static const char *spike_category_names[PROFILER_SPIKE_COUNT] = {
     "annual alliance"
 };
 
-static long long profiler_now_us(void) {
+long long profiler_now_us(void) {
     static LARGE_INTEGER frequency;
     LARGE_INTEGER now;
 
@@ -82,6 +82,11 @@ static int history_peak(const int *values) {
         if (values[i] > peak) peak = values[i];
     }
     return peak;
+}
+
+int profiler_elapsed_ms_since_us(long long start_us) {
+    long long elapsed = profiler_now_us() - start_us;
+    return elapsed > 0 ? (int)((elapsed + 500) / 1000) : 0;
 }
 
 const char *profiler_spike_category_name(int category) {

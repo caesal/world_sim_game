@@ -25,6 +25,19 @@ RECT get_map_frame_rect(RECT client) {
     return frame;
 }
 
+static RECT get_map_legend_frame_rect(RECT client) {
+    RECT frame = get_map_frame_rect(client);
+    if (side_panel_collapsed) {
+        RECT unsafe = get_side_panel_handle_dirty_rect(client);
+        if (unsafe.left < frame.right && unsafe.right > frame.left &&
+            unsafe.top < frame.bottom && unsafe.bottom > frame.top) {
+            frame.right = min(frame.right, unsafe.left - 8);
+        }
+    }
+    if (frame.right < frame.left + 120) SetRectEmpty(&frame);
+    return frame;
+}
+
 RECT get_map_content_rect(RECT client) {
     return get_map_viewport_rect(client);
 }
@@ -277,7 +290,7 @@ static int map_legend_full_height(int show_geography, int show_climate, int show
 
 RECT get_map_legend_box_rect(RECT client) {
     RECT box;
-    RECT frame = get_map_frame_rect(client);
+    RECT frame = get_map_legend_frame_rect(client);
     int route_only = display_mode == DISPLAY_ROUTE_POTENTIAL;
     int alliance_mode = display_mode == DISPLAY_ALLIANCE;
     int show_geography = !route_only && !alliance_mode && display_mode != DISPLAY_CLIMATE;
@@ -293,6 +306,10 @@ RECT get_map_legend_box_rect(RECT client) {
     int full_h = alliance_mode ? 30 + 20 * 10 + 12 :
                  map_legend_full_height(show_geography, show_climate, show_routes, show_city_glyphs);
 
+    if (IsRectEmpty(&frame)) {
+        SetRectEmpty(&box);
+        return box;
+    }
     if (map_legend_collapsed) return map_legend_collapsed_rect(frame);
     if (!map_legend_collapsed && full_h + 180 > frame.bottom - frame.top) {
         return map_legend_collapsed_rect(frame);
