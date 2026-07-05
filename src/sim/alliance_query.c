@@ -61,7 +61,9 @@ int alliance_type(int alliance_id) {
 
 Color32 alliance_color(int alliance_id) {
     AllianceSaveState *state = alliance_internal_state();
-    return active_alliance(state, alliance_id) ? state->records[alliance_id].color : COLOR32_RGB(86, 152, 218);
+    int founder = active_alliance(state, alliance_id) ? state->records[alliance_id].founder_civ_id : -1;
+    return founder >= 0 && founder < civ_count && civs[founder].alive ?
+           civs[founder].color : COLOR32_RGB(86, 152, 218);
 }
 
 const char *alliance_name_en(int alliance_id) {
@@ -86,7 +88,9 @@ int alliance_copy_snapshot_records(AllianceSnapshotRecord *out_records, int max_
         memset(dst, 0, sizeof(*dst));
         dst->active = src->active; dst->id = src->id; dst->founder_civ_id = src->founder_civ_id;
         dst->founded_year = src->founded_year; dst->member_count = src->member_count;
-        dst->color = src->color;
+        dst->color = src->founder_civ_id >= 0 && src->founder_civ_id < civ_count &&
+                     civs[src->founder_civ_id].alive ?
+                     civs[src->founder_civ_id].color : src->color;
         dst->type = state->alliance_type[src->id];
         dst->council_last_election_year = state->council_last_election_year[src->id];
         dst->council_next_election_year = state->council_next_election_year[src->id];

@@ -7,7 +7,7 @@ static LayerCache ocean_texture_cache;
 static int ocean_texture_score;
 
 static COLORREF ocean_texture_base_color(void) {
-    return RGB(54, 126, 184);
+    return RGB(55, 135, 199);
 }
 
 static void fill_rect_color(HDC hdc, RECT rect, COLORREF color) {

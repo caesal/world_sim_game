@@ -125,9 +125,13 @@ int map_display_policy_snapshot_owner_fill(const RenderSnapshot *snapshot, int o
         const SnapshotCiv *civ = &snapshot->civs[owner];
         const AllianceSnapshotRecord *alliance =
             snapshot_alliance_by_id(snapshot, civ->alliance_display_id);
+        COLORREF color = alliance && alliance->founder_civ_id >= 0 &&
+                         alliance->founder_civ_id < snapshot->civ_count ?
+                         (COLORREF)snapshot->civs[alliance->founder_civ_id].color :
+                         alliance ? (COLORREF)alliance->color :
+                         soften_political_color((COLORREF)civ->color);
         return set_fill(out_fill,
-                        alliance ? (COLORREF)alliance->color :
-                        soften_political_color((COLORREF)civ->color),
+                        color,
                         alliance ? POLITICAL_FILL_ALPHA : ALLIANCE_INDEPENDENT_FILL_ALPHA);
     }
     if (mode == DISPLAY_ALL) {

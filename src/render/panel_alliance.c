@@ -98,6 +98,14 @@ static void draw_badge(HDC hdc, RECT rect, COLORREF color, const char *text) {
                    DT_SINGLELINE | DT_CENTER | DT_VCENTER | DT_END_ELLIPSIS);
 }
 
+static RECT row_swatch_rect(RECT rect) {
+    return (RECT){rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
+}
+
+static RECT summary_swatch_rect(RECT rect) {
+    return (RECT){rect.left + 8, rect.top + 8, rect.left + 26, rect.top + 26};
+}
+
 static void row_badge_rects(RECT rect, RECT *type_rect, RECT *status_rect) {
     if (type_rect) *type_rect = (RECT){rect.right - 218, rect.top + 6, rect.right - 88, rect.top + 25};
     if (status_rect) *status_rect = (RECT){rect.right - 82, rect.top + 6, rect.right - 8, rect.top + 25};
@@ -173,7 +181,7 @@ static void draw_row_metrics(HDC hdc, RECT rect, const AlliancePanelRow *row) {
 
 static void draw_alliance_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
                               const AlliancePanelRow *row, int selected) {
-    RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
+    RECT swatch = row_swatch_rect(rect);
     RECT type_rect, status_rect;
     RECT name_rect = {rect.left + 32, rect.top + 5, rect.right - 226, rect.top + 27};
     row_badge_rects(rect, &type_rect, &status_rect);
@@ -189,7 +197,7 @@ static void draw_alliance_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot
 
 static void draw_country_row(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
                              const AlliancePanelRow *row, int selected) {
-    RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 24, rect.top + 24};
+    RECT swatch = row_swatch_rect(rect);
     RECT alliance_rect, status_rect;
     RECT name_rect = {rect.left + 32, rect.top + 5, rect.right - 226, rect.top + 27};
     char text[160];
@@ -280,7 +288,7 @@ static void draw_detail_tabs(HDC hdc, const AlliancePanelLayout *layout) {
 static void draw_summary(HDC hdc, RECT rect, const RenderSnapshot *snapshot,
                          const AlliancePanelRow *row) {
     char text[256], pop[32], mil[32];
-    RECT swatch = {rect.left + 8, rect.top + 8, rect.left + 26, rect.top + 26};
+    RECT swatch = summary_swatch_rect(rect);
     RECT name_rect = {rect.left + 34, rect.top + 5, rect.right - 8, rect.top + 28};
     RECT summary = {rect.left + 34, rect.top + 30, rect.right - 8, rect.bottom - 4};
     metric_text(row->population, pop, sizeof(pop));
@@ -390,6 +398,11 @@ int alliance_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
         panel_snapshot_end(owned, snapshot);
         return ALLIANCE_PANEL_HIT_BACK_TO_LIST;
     }
+    if (layout.selected_detail && point_in_rect_local(summary_swatch_rect(layout.selected_summary),
+                                                      mouse_x, mouse_y)) {
+        panel_snapshot_end(owned, snapshot);
+        return ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE + selected_alliance_id;
+    }
     if (!layout.selected_detail && point_in_rect_local(layout.fallen_toggle, mouse_x, mouse_y)) {
         panel_snapshot_end(owned, snapshot);
         return ALLIANCE_PANEL_HIT_TOGGLE_FALLEN;
@@ -421,6 +434,12 @@ int alliance_panel_hit_test(RECT client, int mouse_x, int mouse_y) {
     for (i = 0; i < layout.row_count; i++) {
         if (point_in_rect_local(layout.rows[i], mouse_x, mouse_y)) {
             int hit = layout.row_hits[i];
+            if (hit >= ALLIANCE_PANEL_HIT_ALLIANCE_BASE &&
+                hit < ALLIANCE_PANEL_HIT_ALLIANCE_BASE + ALLIANCE_MAX &&
+                point_in_rect_local(row_swatch_rect(layout.rows[i]), mouse_x, mouse_y)) {
+                hit = ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE +
+                      (hit - ALLIANCE_PANEL_HIT_ALLIANCE_BASE);
+            }
             panel_snapshot_end(owned, snapshot);
             return hit;
         }

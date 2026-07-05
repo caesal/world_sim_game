@@ -1,5 +1,6 @@
 #include "game/game_presentation_probe.h"
 
+#include "core/constants.h"
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "game/game_loop.h"
@@ -10,6 +11,7 @@
 #include "render/panel_alliance_vote_state.h"
 #include "render/panel_alliance_votes.h"
 #include "render/panel_country_diplomacy_tooltip.h"
+#include "render/render_context.h"
 #include "sim/alliance.h"
 #include "sim/civilization_slots.h"
 #include "sim/simulation.h"
@@ -235,6 +237,10 @@ static int case_alliance_panel_model(FILE *summary) {
     const AlliancePanelRow *row;
     int original_language = ui_language;
     RECT probe_row = {10, 20, 410, 90}, type_a, war_a, type_b, war_b;
+    RECT client = {0, 0, 1200, 800};
+    int old_side = side_panel_w, old_collapsed = side_panel_collapsed, old_selected = selected_alliance_id;
+    int x, list_color_hit, detail_color_hit;
+    Color32 leader_color = COLOR32_RGB(28, 188, 224);
     int ok = snapshot != NULL;
     if (!snapshot) {
         fprintf(summary, "case=alliance_panel_model ok=0 reason=alloc\n");
@@ -252,6 +258,7 @@ static int case_alliance_panel_model(FILE *summary) {
     snapshot->alliances[0].founder_civ_id = 1;
     snapshot->alliances[0].founded_year = 20;
     snapshot->alliances[0].member_count = 2;
+    snapshot->alliances[0].color = COLOR32_RGB(12, 34, 56);
     snapshot->alliances[0].members[0] = 1;
     snapshot->alliances[0].members[1] = 2;
     snapshot->alliances[0].joined_year_by_civ[1] = 20;
@@ -268,6 +275,7 @@ static int case_alliance_panel_model(FILE *summary) {
     snapshot->civs[1].treasury = 1000;
     snapshot->civs[1].defensive_bloc_power = 11;
     snapshot->civs[1].tech_stage = 2;
+    snapshot->civs[1].color = leader_color;
     snapshot->civs[2].alive = 1;
     snapshot->civs[2].alliance_id = 2;
     snapshot->civs[2].alliance_display_id = 2;
@@ -295,7 +303,17 @@ static int case_alliance_panel_model(FILE *summary) {
     ok &= row && row->member_count == 2 && row->vassal_count == 1;
     ok &= row && row->population == 325 && row->military == 35 && row->treasury == 3300 &&
           row->latest_join_year == 30 && row->tech_stage == 3;
-    ok &= row && row->war_count == 1 && row->leader_civ == 1;
+    ok &= row && row->war_count == 1 && row->leader_civ == 1 && row->color == leader_color;
+    side_panel_w = 360; side_panel_collapsed = 0; x = client.right - side_panel_w + FORM_X_PAD + 12;
+    render_context_begin(snapshot);
+    selected_alliance_id = -1;
+    list_color_hit = alliance_panel_hit_test(client, x, TOP_BAR_H + 238);
+    selected_alliance_id = 2;
+    detail_color_hit = alliance_panel_hit_test(client, x, TOP_BAR_H + 180);
+    render_context_end();
+    side_panel_w = old_side; side_panel_collapsed = old_collapsed; selected_alliance_id = old_selected;
+    ok &= list_color_hit == ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE + 2 &&
+          detail_color_hit == ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE + 2;
     ui_language = UI_LANG_EN;
     ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_POPULATION), "Population") == 0;
     ok &= strcmp(alliance_panel_probe_sort_label(COUNTRY_SORT_PROVINCES), "Provinces") == 0;
@@ -318,10 +336,11 @@ static int case_alliance_panel_model(FILE *summary) {
     ok &= panel_map_probe_alliance_legend_before(snapshot, 1, 0);
     ui_language = original_language;
     fprintf(summary,
-            "case=alliance_panel_model ok=%d rows=%d alliances=%d no_alliance=%d pop=%d military=%d wars=%d leader=%d\n",
+            "case=alliance_panel_model ok=%d rows=%d alliances=%d no_alliance=%d pop=%d military=%d wars=%d leader=%d leader_color=%u swatch_hit=%d/%d\n",
             ok, model ? model->row_count : -1, model ? model->alliance_row_count : -1,
             model ? model->no_alliance_country_count : -1, row ? row->population : -1,
-            row ? row->military : -1, row ? row->war_count : -1, row ? row->leader_civ : -1);
+            row ? row->military : -1, row ? row->war_count : -1, row ? row->leader_civ : -1,
+            row ? row->color : 0, list_color_hit, detail_color_hit);
     free(snapshot);
     return ok;
 }

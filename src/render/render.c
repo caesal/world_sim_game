@@ -291,20 +291,25 @@ static int blit_cached_window(HDC hdc, int width, int height) {
     return 1;
 }
 
-static int static_presentation_safe_for_defer(RECT client, MapLayout layout,
-                                              const RenderSnapshot *snapshot) { return render_static_scene_defer_safe(client, layout, snapshot); }
+static int static_presentation_safe_for_defer(RECT client, MapLayout layout, const RenderSnapshot *snapshot) { return render_static_scene_defer_safe(client, layout, snapshot); }
 
 static int should_defer_presentation_map_paint(DWORD now, RECT client, MapLayout layout,
                                                const RenderSnapshot *snapshot) {
-    (void)now;
-    (void)client;
-    (void)layout;
-    (void)snapshot;
-    return map_interaction_preview;
+    (void)now; (void)client; (void)layout; (void)snapshot; return map_interaction_preview;
 }
 
-static void draw_deferred_ui_over_cached_scene(HDC hdc, RECT client) {
-    long long phase_start = profiler_now_us(); draw_top_bar(hdc, client); draw_bottom_bar(hdc, client); draw_map_frame_overlay(hdc, client);
+static void draw_deferred_over_cached_scene(HDC hdc, RECT client, const RenderSnapshot *snapshot, int draw_ui) {
+    MapLayout layout = get_map_layout(client);
+    long long phase_start;
+    if (profiling_switch_enabled(PROFILING_SWITCH_DIPLOMACY_ANIMATION) && snapshot && snapshot->world_generated) {
+        phase_start = profiler_now_us();
+        if (render_static_scene_presentable()) diplomacy_map_anim_consume_events(snapshot);
+        else diplomacy_map_anim_delay_for_snapshot(snapshot);
+        draw_diplomacy_map_animations(hdc, client, layout, snapshot);
+        record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Diplomacy animation");
+    }
+    if (!draw_ui) return;
+    phase_start = profiler_now_us(); draw_top_bar(hdc, client); draw_bottom_bar(hdc, client); draw_map_frame_overlay(hdc, client);
     panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
     if (stale_ui_indicator_needed()) draw_stale_ui_indicator(hdc, client);
     record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION, PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Deferred top/bottom");
@@ -416,7 +421,6 @@ void paint_window(HWND hwnd) {
     int width;
     int height;
     int ui_only;
-    int diplomacy_dynamic;
     int continue_static_work;
     int deferred_for_input = 0, progress_active;
     DWORD now = GetTickCount();
@@ -429,9 +433,6 @@ void paint_window(HWND hwnd) {
     ui_only = can_paint_ui_only(client, ps.rcPaint);
     continue_static_work = render_static_map_cache_needs_work();
     worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active();
-    diplomacy_dynamic = profiling_switch_enabled(PROFILING_SWITCH_DIPLOMACY_ANIMATION) && diplomacy_map_anim_requires_dynamic_paint(snapshot);
-    if (diplomacy_dynamic && ui_only) { RECT viewport = get_map_viewport_rect(client); InvalidateRect(hwnd, &viewport, FALSE); ui_only = 0; diplomacy_map_anim_note_cached_paint_blocked(); }
-    if (diplomacy_dynamic && !ui_only && !progress_active && (render_input_waiting() || should_defer_presentation_map_paint(now, client, get_map_layout(client), snapshot))) diplomacy_map_anim_note_cached_paint_blocked();
     if (ui_only) {
         long long phase_start = profiler_now_us();
         draw_partial_ui(hdc, client, ps.rcPaint);
@@ -439,15 +440,14 @@ void paint_window(HWND hwnd) {
     } else if (!progress_active && !last_full_paint_had_progress_overlay &&
                static_presentation_safe_for_defer(client, get_map_layout(client), snapshot) &&
                render_input_waiting() &&
-               !diplomacy_dynamic &&
                blit_cached_window(hdc, width, height)) {
         deferred_for_input = 1;
+        draw_deferred_over_cached_scene(hdc, client, snapshot, 0);
     } else if (!progress_active &&
                should_defer_presentation_map_paint(now, client, get_map_layout(client), snapshot) &&
-               !diplomacy_dynamic &&
                blit_cached_window(hdc, width, height)) {
         deferred_for_input = 1;
-        draw_deferred_ui_over_cached_scene(hdc, client);
+        draw_deferred_over_cached_scene(hdc, client, snapshot, 1);
     } else if (render_layer_cache_ensure(hdc, &window_backbuffer, client, get_map_layout(client), side_panel_w, display_mode)) {
         long long phase_start = profiler_now_us();
         render_world(window_backbuffer.dc, client);

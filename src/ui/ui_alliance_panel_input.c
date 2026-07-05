@@ -6,6 +6,7 @@
 #include "render/panel_alliance_model.h"
 #include "render/panel_country_diplomacy_tooltip.h"
 #include "render/render_context.h"
+#include "ui/color_picker.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_country_target.h"
 #include "ui/ui_selection.h"
@@ -46,6 +47,14 @@ static int handle_overview_action(HWND hwnd, const RenderSnapshot *snapshot, int
            UI_COUNTRY_TARGET_ALLIANCE_INVITE : UI_COUNTRY_TARGET_ALLIANCE_REMOVE;
     ui_country_target_handle_alliance_button(hwnd, selected_alliance_id, row->leader_civ,
                                              mode, mouse_x, mouse_y);
+    return 1;
+}
+
+static int open_alliance_color_picker(HWND hwnd, const RenderSnapshot *snapshot, int alliance_id) {
+    const AlliancePanelRow *row = selected_row_from_snapshot(snapshot, alliance_id);
+    if (!row || row->leader_civ < 0 || row->leader_civ >= snapshot->civ_count) return 0;
+    color_picker_open_civ(row->leader_civ, snapshot->civs[row->leader_civ].color);
+    ui_invalidate_full(hwnd);
     return 1;
 }
 
@@ -127,6 +136,18 @@ int ui_handle_alliance_panel_click(HWND hwnd, RECT client, int mouse_x, int mous
             alliance_detail_scroll_offset = 0;
             ui_invalidate_side_panel(hwnd);
         }
+        return 1;
+    }
+    if (hit >= ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE &&
+        hit < ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE + ALLIANCE_MAX) {
+        int owned = 0;
+        int handled;
+        int alliance_id = hit - ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE;
+        const RenderSnapshot *snapshot = render_context_snapshot();
+        if (!snapshot) { snapshot = render_snapshot_acquire(); render_context_begin(snapshot); owned = 1; }
+        handled = snapshot ? open_alliance_color_picker(hwnd, snapshot, alliance_id) : 0;
+        if (owned) { render_context_end(); render_snapshot_release(snapshot); }
+        if (!handled) MessageBeep(MB_ICONWARNING);
         return 1;
     }
     if (hit >= ALLIANCE_PANEL_HIT_ALLIANCE_BASE &&

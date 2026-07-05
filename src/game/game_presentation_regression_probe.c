@@ -7,6 +7,7 @@
 #include "render/render_static_scene.h"
 #include "sim/diplomacy.h"
 #include "ui/ui_layout.h"
+#include "ui/ui_map_input.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -170,14 +171,14 @@ static int burst_case(FILE *summary) {
     char path[256];
     if (!s) return 0;
     setup_snapshot(s, 8);
-    s->event_count = 8;
+    s->event_count = 32;
     s->event_total_entries = 120;
     s->events_revision = 120;
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 32; i++) {
         EventLogType type = (i % 3 == 0) ? EVENT_TYPE_WAR_STARTED :
                             (i % 3 == 1) ? EVENT_TYPE_DIPLOMACY_TENSE :
                                            EVENT_TYPE_DIPLOMACY_PEACE;
-        set_event(s, i, type, i, (i + 1) % 8, i % 2, 0);
+        set_event(s, i, type, i % 8, (i + 1) % 8, i % 2, 0);
     }
     diplomacy_map_anim_debug_reset();
     pending = diplomacy_map_anim_pending_events(s);
@@ -187,7 +188,7 @@ static int burst_case(FILE *summary) {
              "diplomacy_transition_burst.bmp");
     wrote = render_arrow_artifact(path, s, &pixels);
     ok = pending && active && wrote && pixels > 80 &&
-         diplomacy_map_anim_enqueued_count() >= 8 &&
+         diplomacy_map_anim_enqueued_count() >= 32 &&
          diplomacy_map_anim_overwritten_count() == 0;
     fprintf(summary,
             "case=diplomacy_transition_burst ok=%d pending=%d active=%d pixels=%d enqueued=%d overwritten=%d bypass=%d artifact=diplomacy_transition_burst.bmp\n",
@@ -208,20 +209,68 @@ static int cached_paint_guard_case(FILE *summary) {
     diplomacy_map_anim_debug_reset();
     pending = diplomacy_map_anim_pending_events(s);
     dynamic_before = diplomacy_map_anim_requires_dynamic_paint(s);
-    diplomacy_map_anim_note_cached_paint_blocked();
     diplomacy_map_anim_consume_events(s);
     dynamic_active = diplomacy_map_anim_requires_dynamic_paint(s);
     snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, "diplomacy_cached_paint_guard.bmp");
     wrote = render_arrow_artifact(path, s, &pixels);
     ok = pending && dynamic_before && dynamic_active && wrote && pixels > 20 &&
-         diplomacy_map_anim_cached_paint_blocked_count() > 0 &&
+         diplomacy_map_anim_cached_paint_blocked_count() == 0 &&
          diplomacy_map_anim_drawn_count() > 0 &&
          diplomacy_map_anim_expired_before_draw_count() == 0;
-    fprintf(summary, "case=diplomacy_cached_paint_guard ok=%d pending=%d dynamic_before=%d dynamic_active=%d blocked=%d drawn=%d expired=%d pixels=%d artifact=diplomacy_cached_paint_guard.bmp\n",
+    fprintf(summary, "case=diplomacy_cached_paint_guard ok=%d pending=%d dynamic_before=%d dynamic_active=%d cached_allowed=%d blocked=%d drawn=%d expired=%d pixels=%d artifact=diplomacy_cached_paint_guard.bmp\n",
             ok, pending, dynamic_before, dynamic_active,
+            diplomacy_map_anim_cached_paint_blocked_count() == 0,
             diplomacy_map_anim_cached_paint_blocked_count(), diplomacy_map_anim_drawn_count(),
             diplomacy_map_anim_expired_before_draw_count(), pixels);
     free(s);
+    return ok;
+}
+
+static int viewport_blank_click_case(FILE *summary) {
+    RECT client = {0, 0, 1600, 600};
+    RECT viewport;
+    MapLayout layout;
+    int old_side = side_panel_w, old_collapsed = side_panel_collapsed;
+    int old_zoom = map_zoom_percent, old_x = map_offset_x, old_y = map_offset_y;
+    int old_auto = map_view_auto_centered;
+    int blank_x, blank_y, map_x, map_y, panel_x, panel_y;
+    int blank, map, panel, ok;
+
+    side_panel_collapsed = 1;
+    side_panel_w = 360;
+    map_zoom_percent = 100;
+    map_offset_x = 0;
+    map_offset_y = 0;
+    map_view_auto_centered = 1;
+    viewport = get_map_viewport_rect(client);
+    layout = get_map_layout(client);
+    blank_x = viewport.left + 4;
+    blank_y = (viewport.top + viewport.bottom) / 2;
+    if (!ui_map_point_in_viewport_blank(client, blank_x, blank_y)) {
+        blank_x = viewport.right - 4;
+    }
+    map_x = layout.map_x + layout.draw_w / 2;
+    map_y = layout.map_y + layout.draw_h / 2;
+    blank = ui_map_point_in_viewport_blank(client, blank_x, blank_y);
+    map = ui_map_point_in_viewport_blank(client, map_x, map_y);
+
+    side_panel_collapsed = 0;
+    side_panel_w = 360;
+    panel_x = client.right - side_panel_w / 2;
+    panel_y = (client.top + client.bottom) / 2;
+    panel = ui_map_point_in_viewport_blank(client, panel_x, panel_y);
+    ok = blank && !map && !panel;
+    fprintf(summary,
+            "case=map_viewport_blank_click ok=%d blank=%d map=%d panel=%d blank_pt=%d,%d map_rect=%d,%d,%d,%d\n",
+            ok, blank, map, panel, blank_x, blank_y, layout.map_x, layout.map_y,
+            layout.draw_w, layout.draw_h);
+
+    side_panel_w = old_side;
+    side_panel_collapsed = old_collapsed;
+    map_zoom_percent = old_zoom;
+    map_offset_x = old_x;
+    map_offset_y = old_y;
+    map_view_auto_centered = old_auto;
     return ok;
 }
 
@@ -303,6 +352,7 @@ int game_presentation_regression_probe(FILE *summary) {
                           "diplomacy_delayed_readiness_queue.bmp",
                           EVENT_TYPE_DIPLOMACY_PEACE, 0, 0);
     ok &= cached_paint_guard_case(summary);
+    ok &= viewport_blank_click_case(summary);
     ok &= border_safety_case(summary);
     return ok;
 }

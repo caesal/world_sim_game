@@ -17,6 +17,7 @@
 #define ALLIANCE_PANEL_HIT_MEMBER_SORT_BASE -60
 #define ALLIANCE_PANEL_HIT_ALLIANCE_BASE 10000
 #define ALLIANCE_PANEL_HIT_COUNTRY_BASE 20000
+#define ALLIANCE_PANEL_HIT_ALLIANCE_COLOR_BASE 30000
 
 void draw_alliance_panel(HDC hdc, RECT client, int x, HFONT title_font, HFONT body_font);
 int alliance_panel_hit_test(RECT client, int mouse_x, int mouse_y);

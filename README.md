@@ -7,16 +7,18 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.5.d is a Windows graphical sandbox prototype written in C.
+Ver0.3.5.e is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.5.d is a focused map-presentation, live-rendering, and diplomacy-arrow
-checkpoint over Ver0.3.5.c. It keeps the proposer-led union absorption,
-Military Alliance / Alliance Council foundation, player-directed Alliance
-Detail actions, cached ancient-ocean asset library, textured sea presentation,
-and collapsed top-bar layout fixes, then tightens the render cache paths so
-ocean water seams, stale legends, province/city refresh, border flicker,
-map-mode switching, and diplomacy contact/tension/war arrows stay visually
-current without changing gameplay, save format, or simulation rules.
+Ver0.3.5.e is a focused UI and map-presentation checkpoint over Ver0.3.5.d.
+It keeps the proposer-led union absorption, Military Alliance / Alliance
+Council foundation, player-directed Alliance Detail actions, cached
+ancient-ocean asset library, textured sea presentation, collapsed top-bar
+layout fixes, live province/city refresh, and diplomacy contact/tension/war
+arrow presentation, then adds direct Alliance-view color editing through the
+leader civilization color path, a subtler blue ocean base, 50 percent map
+legend opacity, viewport-blank map click clearing, and cached-paint diplomacy
+animation protection without changing gameplay, save format, or simulation
+rules.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -27,11 +29,13 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.5.d has focused build, probe, and user live-check
+Validation note: Ver0.3.5.e has focused build, probe, and user live-check
 acceptance for the scoped presentation fixes above. The earlier Ver0.3.4
 Rule39 run remains historical evidence for the previous release stack;
-Ver0.3.5.d must not be described as full release-ready acceptance unless a
-fresh Rule39 run for Ver0.3.5.d is completed.
+Ver0.3.5.e must not be described as full release-ready acceptance unless a
+fresh Rule39 run for Ver0.3.5.e is completed. The reported initial 0-25 year
+stutter remains an open follow-up diagnosis item for the next Software
+Engineer prompt.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

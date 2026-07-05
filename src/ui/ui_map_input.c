@@ -12,6 +12,15 @@ static int selected_tile_owner(void) {
     return ui_snapshot_tile_owner(selected_x, selected_y);
 }
 
+int ui_map_point_in_viewport_blank(RECT client, int mouse_x, int mouse_y) {
+    RECT viewport = get_map_viewport_rect(client);
+    MapLayout layout = get_map_layout(client);
+    RECT map_rect = {layout.map_x, layout.map_y,
+                     layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
+    return point_in_rect(viewport, mouse_x, mouse_y) &&
+           !point_in_rect(map_rect, mouse_x, mouse_y);
+}
+
 int ui_map_screen_to_tile(HWND hwnd, int mouse_x, int mouse_y, int *out_x, int *out_y) {
     RECT client;
     MapLayout layout;
@@ -33,10 +42,18 @@ int ui_map_screen_to_tile(HWND hwnd, int mouse_x, int mouse_y, int *out_x, int *
 }
 
 void ui_select_tile_from_mouse(HWND hwnd, int mouse_x, int mouse_y) {
+    RECT client;
     int x;
     int y;
     int owner;
-    if (!ui_map_screen_to_tile(hwnd, mouse_x, mouse_y, &x, &y)) return;
+    GetClientRect(hwnd, &client);
+    if (!ui_map_screen_to_tile(hwnd, mouse_x, mouse_y, &x, &y)) {
+        if (world_generated && ui_map_point_in_viewport_blank(client, mouse_x, mouse_y)) {
+            ui_clear_selected_civ(UI_SELECT_SOURCE_MAP);
+            ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
+        }
+        return;
+    }
     selected_x = x;
     selected_y = y;
     owner = selected_tile_owner();

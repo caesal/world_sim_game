@@ -1,5 +1,58 @@
 # Version Log
 
+## Ver0.3.5.e
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.e.
+2. Added Alliance-view color swatch hit handling so a player can open the
+   existing civilization color picker from Alliance list/detail swatches.
+3. Kept alliance color as leader-civilization color rather than adding a
+   separate persistent alliance color source. Editing either the leader country
+   color or the Alliance-view swatch updates the same leader color path.
+4. Updated Alliance map fill and Alliance panel row/model color resolution to
+   follow the current leader civilization color.
+5. Changed map legend background opacity from 166/255 to 128/255, approximately
+   50 percent opacity.
+6. Changed the shared ocean texture base color to a subtler blue
+   `RGB(55, 135, 199)`.
+7. Made clicks inside the map viewport but outside the drawn map canvas clear
+   selection like ocean clicks, without treating the side panel or real map
+   tiles as blank map space.
+8. Allowed compatible cached/deferred map paints to draw diplomacy arrows as a
+   dynamic overlay instead of forcing full map presentation work during
+   diplomacy animation bursts.
+9. Added focused presentation probe coverage for Alliance color swatch hits,
+   viewport-blank click geometry, expanded diplomacy event bursts, and cached
+   diplomacy animation paint.
+10. Updated the root README, documentation index, version log, side doc, and
+    active version marker for Ver0.3.5.e.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `18`.
+- The changes are UI, rendering, presentation-cache, and validation-probe
+  changes.
+- No gameplay, diplomacy/contact rules, war rules, world generation, route
+  unlock rules, speed semantics, balance values, save schema, plague,
+  population, economy, or resource simulation rules are intentionally changed.
+- Alliance color remains derived from the alliance leader civilization color;
+  no independent alliance color save state is introduced.
+- The reported initial 0-25 year stutter remains open and is not claimed fixed
+  by this checkpoint.
+
+Validation notes:
+
+- Ver0.3.5.e uses `WORLD_SIM_VERSION "0.3.5.e"`.
+- Release validation for this push used focused builds, probes, text checks,
+  `.c` include scan, and touched `.c/.h` line-count checks.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5.e. Do not claim
+  full release-ready/gameplay acceptance until a fresh Rule39 run records final
+  year/month, natural region count, civilization count, speed setting, five
+  technology-stage-5 civilizations, deep-sea hidden-before/revealed-after
+  evidence, realtime province/city correctness, and performance evidence for
+  this checkpoint.
+
 ## Ver0.3.5.d
 
 Implemented fixes:

@@ -86,6 +86,8 @@ static void fill_alliance_row(const RenderSnapshot *snapshot, const AllianceSnap
             }
         }
     }
+    if (row->leader_civ >= 0 && row->leader_civ < snapshot->civ_count)
+        row->color = snapshot->civs[row->leader_civ].color;
     row->war_count = alliance_war_count(snapshot, record->id);
 }
 

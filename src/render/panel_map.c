@@ -345,7 +345,7 @@ static RECT legend_toggle_for_box(RECT box) {
 
 static void draw_legend_background(HDC hdc, RECT box) {
     HBRUSH border = CreateSolidBrush(ui_theme_color(UI_COLOR_PANEL_LINE));
-    fill_rect_alpha(hdc, box, ui_theme_color(UI_COLOR_PANEL), 166);
+    fill_rect_alpha(hdc, box, ui_theme_color(UI_COLOR_PANEL), 128);
     FrameRect(hdc, &box, border);
     DeleteObject(border);
 }
