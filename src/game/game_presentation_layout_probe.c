@@ -478,23 +478,23 @@ static int case_static_scene_max_speed_churn(FILE *summary) {
 }
 
 int game_presentation_layout_probe(FILE *summary) {
-    RECT expanded = {0, 0, 1040, 720};
-    RECT collapsed = {0, 0, 1040, 720};
-    int seam_ep = 999, seam_cp = 999, seam_er = 999, seam_cr = 999;
-    int layout_ok = legend_case_ok(expanded, 0, DISPLAY_POLITICAL) &&
-                    legend_case_ok(collapsed, 1, DISPLAY_POLITICAL) &&
-                    legend_case_ok(expanded, 0, DISPLAY_ROUTE_POTENTIAL) &&
-                    legend_case_ok(collapsed, 1, DISPLAY_ROUTE_POTENTIAL);
-    int artifact_ok, seam_ok;
+    RECT expanded = {0, 0, 1040, 720}, collapsed = {0, 0, 1040, 720};
+    int seam_ep = 999, seam_cp = 999, seam_er = 999, seam_cr = 999, alliance_no = 0, alliance_many = 0, artifact_ok, seam_ok;
+    RenderSnapshot *legend_snapshot = (RenderSnapshot *)calloc(1, sizeof(*legend_snapshot));
+    int layout_ok = legend_case_ok(expanded, 0, DISPLAY_POLITICAL) && legend_case_ok(collapsed, 1, DISPLAY_POLITICAL) && legend_case_ok(expanded, 0, DISPLAY_ROUTE_POTENTIAL) && legend_case_ok(collapsed, 1, DISPLAY_ROUTE_POTENTIAL) && legend_case_ok(expanded, 0, DISPLAY_ALLIANCE) && legend_case_ok(collapsed, 1, DISPLAY_ALLIANCE);
+    if (legend_snapshot) {
+        int i;
+        fill_layout_probe_snapshot(legend_snapshot); render_context_begin(legend_snapshot); alliance_no = legend_case_ok(expanded, 0, DISPLAY_ALLIANCE) && legend_case_ok(collapsed, 1, DISPLAY_ALLIANCE); render_context_end(); legend_snapshot->alliance_count = ALLIANCE_MAX;
+        for (i = 0; i < ALLIANCE_MAX; i++) { legend_snapshot->alliances[i].active = 1; legend_snapshot->alliances[i].id = i; legend_snapshot->alliances[i].member_count = 1; legend_snapshot->alliances[i].color = RGB(70 + i * 11, 116 + i * 7, 170 + i * 3); }
+        render_context_begin(legend_snapshot); alliance_many = legend_case_ok(expanded, 0, DISPLAY_ALLIANCE) && legend_case_ok(collapsed, 1, DISPLAY_ALLIANCE); render_context_end(); free(legend_snapshot);
+    }
     render_ocean_decoration_reset_debug();
-    artifact_ok = render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_political_expanded.bmp", 0, DISPLAY_POLITICAL, &seam_ep);
-    artifact_ok &= render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_political_collapsed.bmp", 1, DISPLAY_POLITICAL, &seam_cp);
-    artifact_ok &= render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_routes_expanded.bmp", 0, DISPLAY_ROUTE_POTENTIAL, &seam_er);
+    artifact_ok = render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_political_expanded.bmp", 0, DISPLAY_POLITICAL, &seam_ep) && render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_political_collapsed.bmp", 1, DISPLAY_POLITICAL, &seam_cp) && render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_routes_expanded.bmp", 0, DISPLAY_ROUTE_POTENTIAL, &seam_er);
     artifact_ok &= render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_routes_collapsed.bmp", 1, DISPLAY_ROUTE_POTENTIAL, &seam_cr);
     seam_ok = seam_ep <= 42 && seam_cp <= 42 && seam_er <= 42 && seam_cr <= 42;
-    fprintf(summary,
-            "case=map_layout_legend_edge ok=%d layout=%d seam=%d artifacts=%d seam_scores=%d/%d/%d/%d files=ocean_texture_seam_political_expanded.bmp/ocean_texture_seam_political_collapsed.bmp/ocean_texture_seam_routes_expanded.bmp/ocean_texture_seam_routes_collapsed.bmp\n",
-            layout_ok && seam_ok && artifact_ok, layout_ok, seam_ok, artifact_ok,
-            seam_ep, seam_cp, seam_er, seam_cr);
-    return layout_ok && seam_ok && artifact_ok && case_static_scene_max_speed_churn(summary);
+    fprintf(summary, "case=alliance_legend_toggle_hit_rect ok=%d no_alliance=%d many_alliances=%d\n", alliance_no && alliance_many, alliance_no, alliance_many);
+    fprintf(summary, "case=alliance_legend_toggle_no_alliance ok=%d\n", alliance_no);
+    fprintf(summary, "case=alliance_legend_toggle_many_alliances ok=%d\n", alliance_many);
+    fprintf(summary, "case=map_layout_legend_edge ok=%d layout=%d seam=%d artifacts=%d seam_scores=%d/%d/%d/%d files=ocean_texture_seam_political_expanded.bmp/ocean_texture_seam_political_collapsed.bmp/ocean_texture_seam_routes_expanded.bmp/ocean_texture_seam_routes_collapsed.bmp\n", layout_ok && seam_ok && artifact_ok, layout_ok, seam_ok, artifact_ok, seam_ep, seam_cp, seam_er, seam_cr);
+    return layout_ok && alliance_no && alliance_many && seam_ok && artifact_ok && case_static_scene_max_speed_churn(summary);
 }

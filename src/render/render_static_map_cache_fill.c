@@ -45,7 +45,7 @@ static int build_owner_surface_fill(MapLayerCache *cache, const RenderSnapshot *
     int civ_total;
     int x;
     int y;
-    if (live || display_mode == DISPLAY_REGIONS) return 0;
+    if (display_mode == DISPLAY_REGIONS) return 0;
     if (!(live ? map_ownership_surface_live_view(&surface) :
           map_ownership_surface_snapshot_view(snapshot, &surface))) return 0;
     civ_total = clamp(live ? civ_count : (snapshot ? snapshot->civ_count : 0), 0, MAX_CIVS);

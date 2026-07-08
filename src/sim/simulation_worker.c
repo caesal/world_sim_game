@@ -109,6 +109,7 @@ static DWORD WINAPI worker_main(void *unused) {
     DWORD last_month_tick = last_tick;
     int accumulator_ms = 0;
     int publish_pending = 0;
+    int was_active = 0;
     (void)unused;
 
     while (!worker_stop) {
@@ -126,9 +127,15 @@ static DWORD WINAPI worker_main(void *unused) {
         last_tick = now;
         if (!auto_run || !world_generated) {
             accumulator_ms = 0;
+            last_month_tick = now;
+            was_active = 0;
             set_status("Idle");
             Sleep(4);
             continue;
+        }
+        if (!was_active) {
+            last_month_tick = now;
+            was_active = 1;
         }
         if (visual_backlog_count() >= VISUAL_MONTH_THROTTLE_CAP) {
             if (publish_pending && render_snapshot_publish_from_live_state_throttled(0)) {

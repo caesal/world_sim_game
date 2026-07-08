@@ -166,12 +166,13 @@ static void draw_stale_ui_indicator(HDC hdc, RECT client) {
     fill_rect_alpha(hdc, badge, RGB(42, 48, 54), 210); draw_center_text(hdc, badge, tr("Updating data", "数据更新中"), RGB(218, 226, 232));
 }
 
+static int map_data_dirty_for_cached_defer(void) {
+    return dirty_render_terrain() || dirty_render_political() || dirty_render_coast() || dirty_render_hydrology() || dirty_render_borders() || dirty_render_maritime() || dirty_render_labels() || dirty_render_plague();
+}
 static int stale_ui_indicator_needed(void) {
     if (render_snapshot_age_ms() <= 500) return 0;
     if (simulation_worker_pending_months() > 0 || simulation_worker_visual_backlog() > 0 || simulation_worker_presentation_throttled() || simulation_worker_overloaded()) return 1;
-    if (dirty_render_terrain() || dirty_render_political() || dirty_render_coast() ||
-        dirty_render_hydrology() || dirty_render_borders() || dirty_render_maritime() ||
-        dirty_render_labels() || dirty_render_plague()) return 1;
+    if (map_data_dirty_for_cached_defer()) return 1;
     return render_static_map_cache_needs_work() || !render_static_scene_complete();
 }
 
@@ -278,7 +279,7 @@ static int can_paint_ui_only(RECT client, RECT paint) {
     return !rects_intersect(paint, viewport);
 }
 
-static int render_input_waiting(void) { return (HIWORD(GetQueueStatus(QS_INPUT | QS_SENDMESSAGE)) & (QS_INPUT | QS_SENDMESSAGE)) != 0; }
+static int render_input_waiting(void) { return 0; }
 static int blit_cached_window(HDC hdc, int width, int height) {
     long long start;
     if (!window_backbuffer.dc || window_backbuffer.width != width || window_backbuffer.height != height ||
@@ -293,20 +294,17 @@ static int blit_cached_window(HDC hdc, int width, int height) {
 
 static int static_presentation_safe_for_defer(RECT client, MapLayout layout, const RenderSnapshot *snapshot) { return render_static_scene_defer_safe(client, layout, snapshot); }
 
-static int should_defer_presentation_map_paint(DWORD now, RECT client, MapLayout layout,
-                                               const RenderSnapshot *snapshot) {
-    (void)now; (void)client; (void)layout; (void)snapshot; return map_interaction_preview;
+static int should_defer_presentation_map_paint(DWORD now, RECT client, MapLayout layout, const RenderSnapshot *snapshot) {
+    (void)now; (void)client; (void)layout; (void)snapshot;
+    return 0;
 }
 
 static void draw_deferred_over_cached_scene(HDC hdc, RECT client, const RenderSnapshot *snapshot, int draw_ui) {
-    MapLayout layout = get_map_layout(client);
-    long long phase_start;
+    MapLayout layout = get_map_layout(client); long long phase_start;
     if (profiling_switch_enabled(PROFILING_SWITCH_DIPLOMACY_ANIMATION) && snapshot && snapshot->world_generated) {
         phase_start = profiler_now_us();
-        if (render_static_scene_presentable()) diplomacy_map_anim_consume_events(snapshot);
-        else diplomacy_map_anim_delay_for_snapshot(snapshot);
-        draw_diplomacy_map_animations(hdc, client, layout, snapshot);
-        record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Diplomacy animation");
+        if (render_static_scene_presentable()) diplomacy_map_anim_consume_events(snapshot); else diplomacy_map_anim_delay_for_snapshot(snapshot);
+        draw_diplomacy_map_animations(hdc, client, layout, snapshot); record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Diplomacy animation");
     }
     if (!draw_ui) return;
     phase_start = profiler_now_us(); draw_top_bar(hdc, client); draw_bottom_bar(hdc, client); draw_map_frame_overlay(hdc, client);
@@ -420,8 +418,7 @@ void paint_window(HWND hwnd) {
     long long render_start = profiler_now_us();
     int width;
     int height;
-    int ui_only;
-    int continue_static_work;
+    int ui_only, continue_static_work;
     int deferred_for_input = 0, progress_active;
     DWORD now = GetTickCount();
 
@@ -430,7 +427,8 @@ void paint_window(HWND hwnd) {
     height = client.bottom - client.top;
     snapshot = render_snapshot_acquire();
     render_context_begin(snapshot);
-    ui_only = can_paint_ui_only(client, ps.rcPaint);
+    ui_only = can_paint_ui_only(client, ps.rcPaint) &&
+              !diplomacy_map_anim_requires_dynamic_paint(snapshot);
     continue_static_work = render_static_map_cache_needs_work();
     worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active();
     if (ui_only) {
@@ -438,6 +436,7 @@ void paint_window(HWND hwnd) {
         draw_partial_ui(hdc, client, ps.rcPaint);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Partial UI paint");
     } else if (!progress_active && !last_full_paint_had_progress_overlay &&
+               !map_data_dirty_for_cached_defer() &&
                static_presentation_safe_for_defer(client, get_map_layout(client), snapshot) &&
                render_input_waiting() &&
                blit_cached_window(hdc, width, height)) {
@@ -490,11 +489,8 @@ const char *render_scene_cache_reason_summary(void) {
              route_overlay_cache_hits, route_overlay_cache_misses, route_overlay_exact_rebuilds,
              route_overlay_preview_reuses, city_overlay_cache_hits, city_overlay_cache_misses,
              city_overlay_exact_rebuilds, city_overlay_preview_reuses, overlay_last_reason_text);
-    return text;
-}
-void render_scene_cache_reset_debug(void) {
-    render_static_scene_reset_debug(); route_overlay_cache_hits = route_overlay_cache_misses = 0;
-    route_overlay_exact_rebuilds = route_overlay_preview_reuses = city_overlay_cache_hits = city_overlay_cache_misses = 0; city_overlay_exact_rebuilds = city_overlay_preview_reuses = 0;
-    city_overlay_last_rebuild_ms = city_overlay_peak_rebuild_ms = 0; city_overlay_last_blit_ms = city_overlay_peak_blit_ms = 0;
-    last_city_overlay_rebuild_tick = GetTickCount(); city_overlay_cached_visual_revision = -1; snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "reset");
+    return text; }
+void render_scene_cache_reset_debug(void) { render_static_scene_reset_debug(); route_overlay_cache_hits = route_overlay_cache_misses = route_overlay_exact_rebuilds = route_overlay_preview_reuses = city_overlay_cache_hits = city_overlay_cache_misses = city_overlay_exact_rebuilds = city_overlay_preview_reuses = 0;
+    city_overlay_last_rebuild_ms = city_overlay_peak_rebuild_ms = city_overlay_last_blit_ms = city_overlay_peak_blit_ms = 0; last_city_overlay_rebuild_tick = GetTickCount(); city_overlay_cached_visual_revision = -1;
+    snprintf(overlay_last_reason_text, sizeof(overlay_last_reason_text), "reset");
 }

@@ -17,7 +17,6 @@ void ui_pressed_control_set(HWND hwnd, UiPressedControlKind kind, int index) {
     pressed_index = index;
     invalidate_pressed(hwnd, old);
     invalidate_pressed(hwnd, kind);
-    if (hwnd) UpdateWindow(hwnd);
 }
 
 void ui_pressed_control_clear(HWND hwnd) {

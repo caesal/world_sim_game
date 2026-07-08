@@ -1,4 +1,5 @@
 #include "ui_layout.h"
+#include "render/snapshot_ui.h"
 
 int ui_side_panel_reserved_width(void) {
     return side_panel_collapsed ? 0 : side_panel_w;
@@ -288,6 +289,16 @@ static int map_legend_full_height(int show_geography, int show_climate, int show
     return max(max(left_bottom, right_bottom), city_bottom) + 12;
 }
 
+static int map_legend_alliance_height(void) {
+    const RenderSnapshot *snapshot = snapshot_ui_current();
+    int i, active_count = 0, rows;
+    if (snapshot) for (i = 0; i < snapshot->alliance_count && i < ALLIANCE_MAX; i++) {
+        if (snapshot->alliances[i].active) active_count++;
+    }
+    rows = active_count > 0 ? min(active_count, 8) + (active_count > 8 ? 1 : 0) : 1;
+    return 30 + 20 * (1 + rows) + 12;
+}
+
 RECT get_map_legend_box_rect(RECT client) {
     RECT box;
     RECT frame = get_map_legend_frame_rect(client);
@@ -303,7 +314,7 @@ RECT get_map_legend_box_rect(RECT client) {
                 show_routes && !show_geography && !show_climate ? 230 :
                 show_city_glyphs ? 540 :
                 show_geography && show_climate ? 390 : 210;
-    int full_h = alliance_mode ? 30 + 20 * 10 + 12 :
+    int full_h = alliance_mode ? map_legend_alliance_height() :
                  map_legend_full_height(show_geography, show_climate, show_routes, show_city_glyphs);
 
     if (IsRectEmpty(&frame)) {
@@ -344,8 +355,7 @@ RECT get_map_legend_toggle_rect(RECT client) {
 }
 
 RECT get_map_legend_hit_rect(RECT client) {
-    RECT box = get_map_legend_box_rect(client);
-    RECT hit;
+    RECT box = get_map_legend_box_rect(client), hit = get_map_legend_toggle_rect(client);
 
     if (IsRectEmpty(&box)) {
         SetRectEmpty(&hit);
@@ -356,9 +366,6 @@ RECT get_map_legend_hit_rect(RECT client) {
         InflateRect(&hit, 12, 12);
         return hit;
     }
-    hit = box;
-    hit.left = max(box.left, box.right - 88);
-    hit.bottom = min(box.bottom, box.top + 48);
     InflateRect(&hit, 8, 8);
     return hit;
 }

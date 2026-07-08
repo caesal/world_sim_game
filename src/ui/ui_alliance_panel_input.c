@@ -64,13 +64,21 @@ int ui_alliance_panel_owns_input(void) {
     return ui_snapshot_civ_alliance_display(selected_civ) >= 0;
 }
 
+static int alliance_votes_tooltip_enabled(void) {
+    return display_mode == DISPLAY_ALLIANCE && selected_alliance_id >= 0 &&
+           alliance_detail_subtab == ALLIANCE_DETAIL_VOTES;
+}
+
 int ui_alliance_panel_hover_hit(RECT client, int mouse_x, int mouse_y) {
-    int tooltip_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES, mouse_x, mouse_y);
-    if (tooltip_key > 0) return 50000 + tooltip_key;
+    if (alliance_votes_tooltip_enabled()) {
+        int tooltip_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES, mouse_x, mouse_y);
+        if (tooltip_key > 0) return 50000 + tooltip_key;
+    }
     return alliance_panel_hit_test(client, mouse_x, mouse_y);
 }
 
 int ui_alliance_panel_passive_tooltip_hit(int mouse_x, int mouse_y) {
+    if (!alliance_votes_tooltip_enabled()) return 0;
     return diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES,
                                                        mouse_x, mouse_y) > 0;
 }

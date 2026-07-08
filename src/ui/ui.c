@@ -73,7 +73,6 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (!IsRectEmpty(&legend_toggle) && point_in_rect(legend_toggle, mouse_x, mouse_y)) {
         map_legend_collapsed = !map_legend_collapsed;
         ui_invalidate_map_viewport(hwnd);
-        UpdateWindow(hwnd);
         return;
     }
     if (point_in_rect(get_language_button_rect(client), mouse_x, mouse_y)) {

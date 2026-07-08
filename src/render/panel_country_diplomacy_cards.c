@@ -1,6 +1,7 @@
 #include "render/panel_country_diplomacy_cards.h"
 
 #include "render/panel_country_diplomacy_score.h"
+#include "render/panel_war_compare_bar.h"
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
 #include "sim/diplomacy.h"
@@ -64,6 +65,34 @@ static int card_peace_pressure(int civ_id, int other_id) {
     if (!snapshot || civ_id < 0 || other_id < 0 ||
         civ_id >= MAX_CIVS || other_id >= MAX_CIVS) return 0;
     return snapshot->war_peace_pressure[civ_id][other_id];
+}
+
+static const AllianceSnapshotRecord *card_alliance_record(int alliance_id) {
+    const RenderSnapshot *snapshot = cards_snapshot();
+    int i;
+    if (!snapshot || alliance_id < 0) return NULL;
+    for (i = 0; i < snapshot->alliance_count && i < ALLIANCE_MAX; i++)
+        if (snapshot->alliances[i].active && snapshot->alliances[i].id == alliance_id) return &snapshot->alliances[i];
+    return NULL;
+}
+
+static COLORREF card_alliance_color_for(int civ_id, COLORREF fallback) {
+    const SnapshotCiv *civ = card_civ(civ_id);
+    const AllianceSnapshotRecord *record = civ ? card_alliance_record(civ->alliance_display_id) : NULL;
+    return record ? (COLORREF)record->color : fallback;
+}
+
+static int card_side_vassal_support(int civ_id, COLORREF *color_out) {
+    const RenderSnapshot *snapshot = cards_snapshot();
+    int i, total = 0;
+    if (color_out) *color_out = RGB(154, 105, 178);
+    for (i = 0; snapshot && i < snapshot->civ_count && i < MAX_CIVS; i++) {
+        const SnapshotCiv *v = &snapshot->civs[i];
+        if (!v->alive || v->overlord != civ_id || v->vassal_support_used <= 0) continue;
+        total += v->vassal_support_used;
+        if (color_out && total == v->vassal_support_used) *color_out = v->color;
+    }
+    return total;
 }
 
 static const char *last_war_result_text(int civ_id, SnapshotDiplomacyRelation relation) {
@@ -204,43 +233,6 @@ static const char *annex_status_text(int remaining_years) {
     return text;
 }
 
-static const char *war_role_label(int is_attacker) {
-    return is_attacker ? tr("Attacker", "进攻方") : tr("Defender", "防御方");
-}
-
-static void draw_strength_side(HDC hdc, RECT rect, const char *name, const char *soldiers,
-                               const char *role, COLORREF color, unsigned int align) {
-    RECT name_rect = {rect.left, rect.top, rect.right, rect.top + 16};
-    RECT soldier_rect = {rect.left, name_rect.bottom, rect.right, name_rect.bottom + 18};
-    RECT role_rect = {rect.left, soldier_rect.bottom, rect.right, rect.bottom};
-    unsigned int flags = DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS | align;
-    draw_text_rect(hdc, name_rect, name, color, flags);
-    draw_text_rect(hdc, soldier_rect, soldiers, color, flags);
-    draw_text_rect(hdc, role_rect, role, ui_theme_color(UI_COLOR_TEXT_MUTED), flags);
-}
-
-static void draw_strength_compare(HDC hdc, UiCursor *cursor, int own, int enemy,
-                                  const char *own_name, const char *enemy_name,
-                                  int own_is_attacker, COLORREF own_color, COLORREF enemy_color) {
-    RECT row = ui_take_rect(cursor, 50);
-    RECT own_side = {row.left, row.top, row.left + 86, row.bottom};
-    RECT enemy_side = {row.right - 86, row.top, row.right, row.bottom};
-    RECT bar = {own_side.right + 8, row.top + 20, enemy_side.left - 8, row.top + 35};
-    int total = max(1, own + enemy);
-    int split = bar.left + (bar.right - bar.left) * own / total;
-    char left[32], right[32];
-    format_metric_value(own, left, sizeof(left));
-    format_metric_value(enemy, right, sizeof(right));
-    draw_strength_side(hdc, own_side, own_name, left, war_role_label(own_is_attacker),
-                       own_color, DT_RIGHT);
-    draw_strength_side(hdc, enemy_side, enemy_name, right, war_role_label(!own_is_attacker),
-                       enemy_color, DT_LEFT);
-    fill_rect(hdc, bar, RGB(45, 50, 52));
-    fill_rect(hdc, (RECT){bar.left, bar.top, split, bar.bottom}, own_color);
-    fill_rect(hdc, (RECT){split, bar.top, bar.right, bar.bottom}, enemy_color);
-    draw_center_text(hdc, bar, tr("Front troops", "本战线"), RGB(238, 242, 232));
-}
-
 static void draw_peace_compare(HDC hdc, UiCursor *cursor, int own, int enemy) {
     RECT title = ui_take_rect(cursor, 16);
     RECT row = ui_take_rect(cursor, 26);
@@ -320,12 +312,16 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
     int flags = card_front_flags(civ_id, other_id);
     if (war.active) {
         int own_is_attacker = civ_id == war.attacker;
-        int own = own_is_attacker ? war.soldiers_a : war.soldiers_b;
-        int enemy = own_is_attacker ? war.soldiers_b : war.soldiers_a;
-        int own_merc = own_is_attacker ? war.temporary_soldiers_a : war.temporary_soldiers_b;
-        int enemy_merc = own_is_attacker ? war.temporary_soldiers_b : war.temporary_soldiers_a;
-        int own_alliance = own_is_attacker ? war.alliance_reinforcements_a : war.alliance_reinforcements_b;
-        int enemy_alliance = own_is_attacker ? war.alliance_reinforcements_b : war.alliance_reinforcements_a;
+        int own = max(0, own_is_attacker ? war.soldiers_a : war.soldiers_b);
+        int enemy = max(0, own_is_attacker ? war.soldiers_b : war.soldiers_a);
+        int own_merc = max(0, own_is_attacker ? war.temporary_soldiers_a : war.temporary_soldiers_b);
+        int enemy_merc = max(0, own_is_attacker ? war.temporary_soldiers_b : war.temporary_soldiers_a);
+        int own_alliance = max(0, own_is_attacker ? war.alliance_reinforcements_a : war.alliance_reinforcements_b);
+        int enemy_alliance = max(0, own_is_attacker ? war.alliance_reinforcements_b : war.alliance_reinforcements_a);
+        COLORREF own_vassal_color, enemy_vassal_color;
+        int own_vassal = min(max(0, card_side_vassal_support(civ_id, &own_vassal_color)), own);
+        int enemy_vassal = min(max(0, card_side_vassal_support(other_id, &enemy_vassal_color)), enemy);
+        WarCompareBarModel war_bar;
         int own_loss = own_is_attacker ? war.casualties_a + war.support_casualties_a :
                        war.casualties_b + war.support_casualties_b;
         int enemy_loss = own_is_attacker ? war.casualties_b + war.support_casualties_b :
@@ -337,22 +333,26 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
         int own_peace = card_peace_pressure(civ_id, other_id);
         int enemy_peace = card_peace_pressure(other_id, civ_id);
         int battle_left = battle_months_remaining(war);
-        draw_strength_compare(hdc, cursor, own, enemy,
-                              snapshot_ui_civ_name(civ_id), snapshot_ui_civ_name(other_id),
-                              own_is_attacker,
-                              own_civ ? own_civ->color : RGB(120, 140, 160),
-                              enemy_civ ? enemy_civ->color : RGB(160, 120, 120));
-        if (own_merc > 0 || enemy_merc > 0) {
-            snprintf(a, sizeof(a), "%s +%d / +%d", tr("Merc", "雇佣兵"), own_merc, enemy_merc);
-            draw_text_rect(hdc, ui_take_rect(cursor, 20), a, ui_theme_color(UI_COLOR_TEXT_MUTED),
-                           DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-        }
-        if (own_alliance > 0 || enemy_alliance > 0) {
-            snprintf(a, sizeof(a), "%s +%d / +%d", tr("Alliance Reinforcements", "同盟援军"),
-                     own_alliance, enemy_alliance);
-            draw_text_rect(hdc, ui_take_rect(cursor, 20), a, ui_theme_color(UI_COLOR_TEXT_MUTED),
-                           DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-        }
+        memset(&war_bar, 0, sizeof(war_bar));
+        war_bar.left_name = snapshot_ui_civ_name(civ_id);
+        war_bar.right_name = snapshot_ui_civ_name(other_id);
+        war_bar.left_role = own_is_attacker ? tr("Attacker", "进攻方") : tr("Defender", "防御方");
+        war_bar.right_role = own_is_attacker ? tr("Defender", "防御方") : tr("Attacker", "进攻方");
+        war_bar.left_regular = max(0, own - own_vassal);
+        war_bar.right_regular = max(0, enemy - enemy_vassal);
+        war_bar.left_vassal = own_vassal;
+        war_bar.right_vassal = enemy_vassal;
+        war_bar.left_mercenary = own_merc;
+        war_bar.right_mercenary = enemy_merc;
+        war_bar.left_alliance = own_alliance;
+        war_bar.right_alliance = enemy_alliance;
+        war_bar.left_regular_color = own_civ ? own_civ->color : RGB(120, 140, 160);
+        war_bar.right_regular_color = enemy_civ ? enemy_civ->color : RGB(160, 120, 120);
+        war_bar.left_vassal_color = own_vassal_color;
+        war_bar.right_vassal_color = enemy_vassal_color;
+        war_bar.left_alliance_color = card_alliance_color_for(civ_id, RGB(86, 152, 218));
+        war_bar.right_alliance_color = card_alliance_color_for(other_id, RGB(86, 152, 218));
+        panel_war_compare_bar_draw(hdc, cursor, &war_bar);
         ui_format_months(span, sizeof(span), battle_left, UI_MONTH_ZERO_NOW);
         bar_row(hdc, cursor, tr("Next battle", "下次战斗"), span, battle_progress_percent(battle_left), war_style.accent);
         draw_peace_compare(hdc, cursor, own_peace, enemy_peace);
@@ -455,10 +455,7 @@ int diplomacy_relation_card_height(int civ_id, int other_id, DiplomacyView view)
                       card_overlord(civ_id) >= 0 || card_overlord(other_id) >= 0;
     int direct_vassal = card_is_direct_vassal(civ_id, other_id) || card_is_direct_vassal(other_id, civ_id);
     if (relation.state == DIPLOMACY_WAR) {
-        SnapshotWar war = card_war(civ_id, other_id);
-        int extra = (war.temporary_soldiers_a > 0 || war.temporary_soldiers_b > 0 ? 20 : 0) +
-                    (war.alliance_reinforcements_a > 0 || war.alliance_reinforcements_b > 0 ? 20 : 0);
-        return 244 + extra;
+        return 330;
     }
     if (relation.state == DIPLOMACY_TRUCE) return 150 + diplomacy_relation_score_block_height(civ_id, other_id);
     if (direct_vassal) return 162;

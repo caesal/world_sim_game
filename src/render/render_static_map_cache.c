@@ -305,7 +305,6 @@ static const MapLayerCache *best_present_cache(int static_key) {
 static int rebuild_fill_layer(HDC hdc, int fill_key, int live_fill_key, int live_fill) {
     DWORD start = GetTickCount();
     render_static_map_cache_status_note_reason(RENDER_STATIC_MAP_REASON_FILL);
-    if (live_fill) map_ownership_surface_invalidate_live();
     if (!ensure_cache(hdc, &fill_cache)) return 0;
     render_static_map_cache_build_fill_pixels(&fill_cache, render_context_snapshot(), live_fill);
     mark_cache_valid(&fill_cache, fill_key, 1);

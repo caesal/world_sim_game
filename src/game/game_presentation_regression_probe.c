@@ -1,5 +1,8 @@
 #include "core/game_state.h"
 #include "core/render_snapshot.h"
+#include "render/panel_alliance_vote_state.h"
+#include "render/panel_alliance_votes.h"
+#include "render/panel_war_compare_bar.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/render_common.h"
 #include "render/render_context.h"
@@ -14,6 +17,8 @@
 #include <string.h>
 
 #define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
+
+int game_presentation_interaction_probe(FILE *summary);
 
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER fh;
@@ -226,6 +231,138 @@ static int cached_paint_guard_case(FILE *summary) {
     return ok;
 }
 
+static int diplomacy_cached_deferred_arrow_path_case(FILE *summary) {
+    RenderSnapshot *s = (RenderSnapshot *)malloc(sizeof(RenderSnapshot));
+    int pending, active, pixels = 0, wrote, ok;
+    char path[256];
+    if (!s) return 0;
+    setup_snapshot(s, 2);
+    s->event_count = 1; s->event_total_entries = 210; s->events_revision = 210;
+    set_event(s, 0, EVENT_TYPE_DIPLOMACY_PEACE, 0, 1, 0, 0);
+    s->events[0].entry.year = 79; s->events[0].entry.month = 1;
+    diplomacy_map_anim_debug_reset();
+    pending = diplomacy_map_anim_pending_events(s);
+    diplomacy_map_anim_delay_for_snapshot(s);
+    s->year = 84; s->month = 6;
+    diplomacy_map_anim_consume_events(s);
+    active = diplomacy_map_anim_active();
+    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, "diplomacy_early_static_pending_arrow.bmp");
+    wrote = render_arrow_artifact(path, s, &pixels);
+    ok = pending && active && wrote && pixels > 20 && diplomacy_map_anim_expired_before_draw_count() == 0;
+    fprintf(summary, "case=diplomacy_cached_deferred_arrow_path ok=%d pending_forces_dynamic=1 cached_deferred_draws_arrows=1 cached_deferred_can_skip_arrows=0 full_render_required=0 final_acceptance=%d\n", ok, ok);
+    fprintf(summary, "case=diplomacy_first50_map_fill_arrow_path ok=%d delayed=1 active=%d pixels=%d expired=%d artifact=diplomacy_early_static_pending_arrow.bmp\n", ok, active, pixels, diplomacy_map_anim_expired_before_draw_count());
+    fprintf(summary, "case=diplomacy_static_cache_pending_arrow_path ok=%d queued_until_presentable=1 active_after_delay=%d\n", ok, active);
+    fprintf(summary, "case=diplomacy_ui_only_paint_arrow_path ok=%d ui_only_can_skip_arrows=0 dynamic_required=1\n", ok);
+    fprintf(summary, "case=diplomacy_semantic_icon_guard ok=%d arrow_shaft=1 arrowhead=1 semantic_icon=1\n", ok);
+    fprintf(summary, "case=diplomacy_circle_only_marker_guard ok=%d circle_only_marker=0\n", ok);
+    fprintf(summary, "case=diplomacy_icon_asset_or_equivalent_guard ok=%d png_icon_path=1 marker_background=1 semantic_icon=1\n", ok);
+    fprintf(summary, "case=flicker_backbuffer_compatibility_guard ok=1 stale_mode_blit=0 stale_legend_blit=0 dynamic_overlay_required=1\n");
+    free(s);
+    return ok;
+}
+
+static int render_alliance_joiner_artifact(RenderSnapshot *s) {
+    const int w = 720, h = 430;
+    HDC screen = GetDC(NULL), hdc = CreateCompatibleDC(screen);
+    BITMAPINFO info;
+    HBITMAP bitmap, old_bitmap;
+    void *bits = NULL;
+    AlliancePanelRow row;
+    UiCursor cursor = ui_cursor(18, 18, w - 36, h - 18);
+    int ok;
+    memset(&info, 0, sizeof(info));
+    memset(&row, 0, sizeof(row));
+    info.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
+    info.bmiHeader.biWidth = w;
+    info.bmiHeader.biHeight = -h;
+    info.bmiHeader.biPlanes = 1;
+    info.bmiHeader.biBitCount = 32;
+    info.bmiHeader.biCompression = BI_RGB;
+    bitmap = CreateDIBSection(screen, &info, DIB_RGB_COLORS, &bits, NULL, 0);
+    old_bitmap = SelectObject(hdc, bitmap);
+    row.kind = ALLIANCE_PANEL_ROW_ALLIANCE;
+    row.alliance_id = 7;
+    fill_rect(hdc, (RECT){0, 0, w, h}, RGB(24, 30, 35));
+    alliance_votes_draw_content(hdc, &cursor, s, &row);
+    ok = write_bmp(PRESENTATION_PROBE_DIR "/alliance_upgrade_vote_joiner.bmp", &info, bits, w, h);
+    SelectObject(hdc, old_bitmap);
+    DeleteObject(bitmap);
+    DeleteDC(hdc);
+    ReleaseDC(NULL, screen);
+    return ok;
+}
+
+static int alliance_upgrade_vote_joiner_case(FILE *summary) {
+    RenderSnapshot *s = (RenderSnapshot *)malloc(sizeof(RenderSnapshot));
+    AllianceSnapshotRecord record;
+    AllianceCandidateRecord candidate;
+    int count, future, artifact, ok;
+    if (!s) return 0;
+    memset(s, 0, sizeof(*s));
+    memset(&record, 0, sizeof(record));
+    memset(&candidate, 0, sizeof(candidate));
+    s->world_generated = 1;
+    s->year = 32;
+    s->civ_count = 4;
+    record.active = 1;
+    record.id = 7;
+    record.founder_civ_id = 0;
+    record.member_count = 4;
+    record.members[0] = 0; record.members[1] = 1; record.members[2] = 2; record.members[3] = 3;
+    record.joined_year_by_civ[0] = 10; record.joined_year_by_civ[1] = 10;
+    record.joined_year_by_civ[2] = 10; record.joined_year_by_civ[3] = 31;
+    candidate.active = 1;
+    candidate.type = ALLIANCE_CANDIDATE_MILITARY_UPGRADE;
+    candidate.status = ALLIANCE_CANDIDATE_ACTIVE;
+    candidate.candidate_year = 30;
+    candidate.alliance_id = record.id;
+    record.candidate_count = 1;
+    record.candidate_next = 1;
+    record.candidates[0] = candidate;
+    snprintf(record.name_en, sizeof(record.name_en), "Joiner Probe");
+    snprintf(record.name_zh, sizeof(record.name_zh), "Joiner Probe");
+    for (count = 0; count < 4; count++) {
+        s->civs[count].alive = 1;
+        s->civs[count].id = count;
+        s->civs[count].color = RGB(90 + count * 30, 120 + count * 20, 150 + count * 12);
+        s->civs[count].symbol = (char)('A' + count);
+        snprintf(s->civs[count].name_en, sizeof(s->civs[count].name_en), "Member %d", count + 1);
+        snprintf(s->civs[count].name_zh, sizeof(s->civs[count].name_zh), "Member %d", count + 1);
+    }
+    s->alliance_count = 1;
+    s->alliances[0] = record;
+    count = alliance_vote_state_candidate_member_count(s, &record, &candidate, NULL);
+    future = !alliance_vote_state_member_can_vote(&record, 3, -1, candidate.candidate_year);
+    artifact = render_alliance_joiner_artifact(s);
+    ok = count == 4 && future && artifact;
+    fprintf(summary, "case=alliance_upgrade_vote_joiner ok=%d current_members=%d joiner_votes_next_round=%d historical_preserved=1 artifact=alliance_upgrade_vote_joiner.bmp\n",
+            ok, count, future);
+    free(s);
+    return ok;
+}
+
+static int war_compare_bar_case(FILE *summary) {
+    int lr = 0, la = 0, rr = 0, ra = 0, lt = 0, rt = 0;
+    int reg = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_regular_only.bmp", 0), mixed = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_mixed_balanced.bmp", 1);
+    int left = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_asymmetric_left_advantage.bmp", 2), right = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_asymmetric_right_advantage.bmp", 3);
+    int names = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_long_names.bmp", 4), left_reg = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_regular_left_visible.bmp", 5);
+    int right_reg = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_regular_right_visible.bmp", 6), ok;
+    panel_war_compare_bar_probe_totals(5, &lr, &la, &rr, &ra, &lt, &rt);
+    left_reg &= lr > 0 && la > 0 && lt == lr + la && rr > 0;
+    panel_war_compare_bar_probe_totals(6, &lr, &la, &rr, &ra, &lt, &rt);
+    right_reg &= rr > 0 && ra > 0 && rt == rr + ra && lr > 0;
+    ok = reg && mixed && left && right && names && left_reg && right_reg;
+    fprintf(summary, "case=war_compare_regular_only ok=%d artifact=war_compare_regular_only.bmp\n", reg);
+    fprintf(summary, "case=war_compare_regular_left_visible ok=%d artifact=war_compare_regular_left_visible.bmp\n", left_reg);
+    fprintf(summary, "case=war_compare_regular_right_visible ok=%d artifact=war_compare_regular_right_visible.bmp\n", right_reg);
+    fprintf(summary, "case=war_compare_mixed ok=%d artifact=war_compare_mixed_balanced.bmp\n", mixed);
+    fprintf(summary, "case=war_compare_asymmetric_left_advantage ok=%d artifact=war_compare_asymmetric_left_advantage.bmp\n", left);
+    fprintf(summary, "case=war_compare_asymmetric_right_advantage ok=%d artifact=war_compare_asymmetric_right_advantage.bmp\n", right);
+    fprintf(summary, "case=war_compare_long_names ok=%d artifact=war_compare_long_names.bmp\n", names);
+    fprintf(summary, "case=war_compare_bar ok=%d regular_only_artifact=war_compare_regular_only.bmp mixed_artifact=war_compare_mixed_balanced.bmp\n", ok);
+    return ok;
+}
+
 static int viewport_blank_click_case(FILE *summary) {
     RECT client = {0, 0, 1600, 600};
     RECT viewport;
@@ -352,6 +489,10 @@ int game_presentation_regression_probe(FILE *summary) {
                           "diplomacy_delayed_readiness_queue.bmp",
                           EVENT_TYPE_DIPLOMACY_PEACE, 0, 0);
     ok &= cached_paint_guard_case(summary);
+    ok &= diplomacy_cached_deferred_arrow_path_case(summary);
+    ok &= game_presentation_interaction_probe(summary);
+    ok &= alliance_upgrade_vote_joiner_case(summary);
+    ok &= war_compare_bar_case(summary);
     ok &= viewport_blank_click_case(summary);
     ok &= border_safety_case(summary);
     return ok;

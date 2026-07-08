@@ -1,5 +1,76 @@
 # Version Log
 
+## Ver0.3.5.f
+
+Implemented fixes:
+
+1. Bumped the active prototype version to Ver0.3.5.f.
+2. Preserved the Ver0.3.5.e Alliance-view leader color editing, subtler ocean
+   color, 50 percent legend opacity, viewport-blank selection clearing, and
+   diplomacy animation presentation stack.
+3. Restored `MAP_LAYER_CACHE_SCALE` to `2` after the scale-1 optimization
+   changed visible province and national border raster thickness.
+4. Added focused guards for the restored border/cache scale and stale
+   full-window cached-paint behavior.
+5. Reworked cached/deferred full-window presentation paths so old and new
+   top-bar, map, side-panel, and bottom-bar frames are not alternated as a
+   flicker workaround.
+6. Removed a synchronous pressed-state repaint path that could amplify visible
+   full-screen/tool-bar flicker.
+7. Cached diplomacy marker icon bitmaps and kept contact/peace, tension, and
+   war arrows visible before Year 50 without changing diplomatic event rules.
+8. Kept alliance council overview hover from showing the Votes-tab diplomacy
+   relationship tooltip while preserving that tooltip on the Votes tab.
+9. Added/kept active upgrade vote display for joiners as current alliance
+   members marked for next-round voting rather than rewriting historical vote
+   cohorts.
+10. Added war comparison bar support for regular, mercenary, vassal, and
+    alliance force segments, including left/right regular-army visibility
+    guards and long-name layout protection.
+11. Reduced live fill churn by using the existing revision-keyed ownership
+    surface fast path where safe.
+12. Updated the root README, documentation index, version log, side doc, and
+    active version marker for Ver0.3.5.f.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `18`.
+- The changes are UI, rendering, presentation-cache, validation-probe, and
+  release-documentation changes.
+- No gameplay, diplomacy/contact rules, war rules, alliance rules, world
+  generation, route unlock rules, speed semantics, balance values, save schema,
+  plague, population, economy, or resource simulation rules are intentionally
+  changed.
+- The simulation-worker timing change only resets idle-to-active measurement
+  baseline; it does not change speed constants, month scheduling, publish
+  throttling, gameplay rules, or simulation outcomes.
+
+Validation notes:
+
+- Ver0.3.5.f uses `WORLD_SIM_VERSION "0.3.5.f"`.
+- Release validation for this backup checkpoint must include canonical build,
+  batch build, focused presentation probe, text checks, `.c` include scan, and
+  touched `.c/.h` line-count checks.
+- Focused evidence from the candidate stack includes:
+  `case=border_visual_scale_guard ok=1 scale=2 expected=2`,
+  `case=no_fullscreen_flicker_cached_frame_guard ok=1 fullwindow_defer=0`,
+  `case=early_years_no_year_jump_presentation_guard ok=1`,
+  `case=live_province_city_update ok=1`,
+  `case=map_mode_switch_latency ok=1`,
+  `case=alliance_council_no_diplomacy_tooltip ok=1`,
+  `case=war_compare_regular_left_visible ok=1`,
+  `case=war_compare_regular_right_visible ok=1`, and `overall_ok=1`.
+- Targeted GUI evidence for the candidate stack recorded remaining hard
+  performance failures: Year 0-10 max actual ms/month around 328 and max render
+  around 132ms; Year 10-25 around 248 / 142ms; Year 25-50 around 258 / 157ms.
+- Full AGENTS Rule39 validation was not completed for Ver0.3.5.f because the
+  targeted performance gates still failed. Do not claim full release-ready,
+  full gameplay-regression acceptance, or performance acceptance for this
+  checkpoint until a fresh passing Rule39 run records final year/month, natural
+  region count, civilization count, speed setting, five technology-stage-5
+  civilizations, deep-sea hidden-before/revealed-after evidence, realtime
+  province/city correctness, and passing performance evidence.
+
 ## Ver0.3.5.e
 
 Implemented fixes:

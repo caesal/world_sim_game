@@ -321,16 +321,20 @@ static void mask_non_water_from_texture(HDC hdc, RECT viewport, MapLayout layout
         fill_rect(hdc, r, RGB(255, 0, 255));
     }
     for (y = 0; y < snapshot->map_h; y++) {
-        for (x = 0; x < snapshot->map_w; x++) {
-            if (ocean_decoration_water_tile(snapshot, x, y)) continue;
-            {
-                RECT cell = {
-                    layout.map_x + (x * layout.draw_w) / snapshot->map_w,
+        x = 0;
+        while (x < snapshot->map_w) {
+            int start_x;
+            while (x < snapshot->map_w && ocean_decoration_water_tile(snapshot, x, y)) x++;
+            start_x = x;
+            while (x < snapshot->map_w && !ocean_decoration_water_tile(snapshot, x, y)) x++;
+            if (start_x < x) {
+                RECT span = {
+                    layout.map_x + (start_x * layout.draw_w) / snapshot->map_w,
                     layout.map_y + (y * layout.draw_h) / snapshot->map_h,
-                    layout.map_x + ((x + 1) * layout.draw_w) / snapshot->map_w + 1,
+                    layout.map_x + (x * layout.draw_w) / snapshot->map_w + 1,
                     layout.map_y + ((y + 1) * layout.draw_h) / snapshot->map_h + 1
                 };
-                fill_rect(hdc, cell, RGB(255, 0, 255));
+                fill_rect(hdc, span, RGB(255, 0, 255));
             }
         }
     }

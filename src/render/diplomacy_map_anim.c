@@ -1,5 +1,6 @@
 #include "render/diplomacy_map_anim.h"
 
+#include "render/diplomacy_map_marker_cache.h"
 #include "render/render_common.h"
 #include "sim/diplomacy.h"
 #include "ui/ui_layout.h"
@@ -7,10 +8,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DIPLO_ANIM_MAX 16
+#define DIPLO_ANIM_MAX 32
 #define DIPLO_ANIM_MS 3500
 #define DIPLO_ANIM_RECENT_MONTHS 18
-#define DIPLO_EVENT_SCAN_MAX 32
+#define DIPLO_EVENT_SCAN_MAX 256
 
 typedef struct {
     int active;
@@ -255,6 +256,7 @@ void diplomacy_map_anim_consume_events(const RenderSnapshot *snapshot) {
     int total;
     int delta;
     int i;
+    int was_delayed = delayed_waiting_for_snapshot;
     delayed_waiting_for_snapshot = 0;
     if (!snapshot) return;
     total = snapshot->event_total_entries;
@@ -266,7 +268,7 @@ void diplomacy_map_anim_consume_events(const RenderSnapshot *snapshot) {
         for (i = delta - 1; i >= 0; i--) {
             EventLogEntry entry;
             if (render_snapshot_event_get_entry(snapshot, i, &entry) &&
-                event_is_recent_for_snapshot(snapshot, &entry)) {
+                (was_delayed || event_is_recent_for_snapshot(snapshot, &entry))) {
                 enqueue_event_anim(snapshot, &entry);
             }
         }
@@ -312,14 +314,6 @@ static int map_anim_clip_rect(RECT client, MapLayout layout, RECT *out) {
     return 1;
 }
 
-static COLORREF mix_color(COLORREF a, COLORREF b, int percent_b) {
-    int percent_a = 100 - percent_b;
-    int r = (GetRValue(a) * percent_a + GetRValue(b) * percent_b) / 100;
-    int g = (GetGValue(a) * percent_a + GetGValue(b) * percent_b) / 100;
-    int bl = (GetBValue(a) * percent_a + GetBValue(b) * percent_b) / 100;
-    return RGB(r, g, bl);
-}
-
 static void offset_capital_endpoints(MapLayout layout, POINT *p1, POINT *p2) {
     int dx = p2->x - p1->x;
     int dy = p2->y - p1->y;
@@ -342,7 +336,7 @@ static void offset_capital_endpoints(MapLayout layout, POINT *p1, POINT *p2) {
     p2->y -= dy * end_gap / dist;
 }
 
-static void draw_arrow_tip(HDC hdc, POINT from, POINT to, COLORREF color, int width) {
+static void draw_arrow_tip(HDC hdc, POINT from, POINT to) {
     int dx = to.x - from.x;
     int dy = to.y - from.y;
     int dist = max(1, abs(dx) + abs(dy));
@@ -351,48 +345,27 @@ static void draw_arrow_tip(HDC hdc, POINT from, POINT to, COLORREF color, int wi
     POINT base = {to.x - dx * len / dist, to.y - dy * len / dist};
     POINT a = {base.x - dy * wing / dist, base.y + dx * wing / dist};
     POINT b = {base.x + dy * wing / dist, base.y - dx * wing / dist};
-    HPEN pen = CreatePen(PS_SOLID, width, color);
-    HGDIOBJ old_pen = SelectObject(hdc, pen);
     MoveToEx(hdc, a.x, a.y, NULL);
     LineTo(hdc, to.x, to.y);
     LineTo(hdc, b.x, b.y);
-    SelectObject(hdc, old_pen);
-    DeleteObject(pen);
 }
-
 static void draw_icon_marker(HDC hdc, POINT center, COLORREF color, IconId icon) {
-    RECT outer = {center.x - 17, center.y - 17, center.x + 17, center.y + 17};
-    RECT inner = {center.x - 11, center.y - 11, center.x + 11, center.y + 11};
-    HBRUSH brush = CreateSolidBrush(mix_color(color, RGB(26, 24, 22), 28));
-    HPEN pen = CreatePen(PS_SOLID, 1, mix_color(color, RGB(34, 28, 24), 55));
-    HGDIOBJ old_brush = SelectObject(hdc, brush);
-    HGDIOBJ old_pen = SelectObject(hdc, pen);
-    Ellipse(hdc, outer.left, outer.top, outer.right, outer.bottom);
-    SelectObject(hdc, old_pen);
-    SelectObject(hdc, old_brush);
-    DeleteObject(pen);
-    DeleteObject(brush);
-    draw_icon(hdc, icon, inner, RGB(250, 244, 220));
-}
-
-static int clamp_to_span(int value, int lo, int hi) {
-    if (hi < lo) return lo;
-    return clamp(value, lo, hi);
+    diplomacy_map_marker_cache_draw(hdc, center, color, icon);
 }
 
 static void draw_anim(HDC hdc, MapLayout layout, const RenderSnapshot *snapshot,
                       const RECT *clip, const DiplomacyMapAnim *anim, DWORD now) {
     POINT p1 = map_point(layout, snapshot, anim->x1, anim->y1);
     POINT p2 = map_point(layout, snapshot, anim->x2, anim->y2);
-    POINT pts[24];
+    POINT pts[16];
     int mx, my, dx, dy, dist, lift, cx, cy;
     int elapsed = (int)(now - anim->start_ms);
     int i;
     int icon_offset;
-    COLORREF glow_color;
     HPEN pen;
     HGDIOBJ old_pen;
     POINT icon_center;
+    RECT bounds;
     if (elapsed < 0 || elapsed > DIPLO_ANIM_MS) return;
     offset_capital_endpoints(layout, &p1, &p2);
     mx = (p1.x + p2.x) / 2;
@@ -404,28 +377,26 @@ static void draw_anim(HDC hdc, MapLayout layout, const RenderSnapshot *snapshot,
     cx = mx - dy * lift * anim->normal_sign / dist;
     cy = my + dx * lift * anim->normal_sign / dist;
     if (clip) {
-        cx = clamp_to_span(cx, clip->left + 2, clip->right - 2);
-        cy = clamp_to_span(cy, clip->top + 2, clip->bottom - 2);
+        cx = clamp(cx, clip->left + 2, clip->right - 2);
+        cy = clamp(cy, clip->top + 2, clip->bottom - 2);
     }
-    for (i = 0; i < 24; i++) {
-        int t = i * 1000 / 23;
+    bounds.left = min(min(p1.x, p2.x), cx) - 42; bounds.right = max(max(p1.x, p2.x), cx) + 42;
+    bounds.top = min(min(p1.y, p2.y), cy) - 42; bounds.bottom = max(max(p1.y, p2.y), cy) + 42;
+    if (clip && (bounds.right < clip->left || bounds.left > clip->right ||
+                 bounds.bottom < clip->top || bounds.top > clip->bottom)) return;
+    for (i = 0; i < 16; i++) {
+        int t = i * 1000 / 15;
         int omt = 1000 - t;
         pts[i].x = (omt * omt * p1.x + 2 * omt * t * cx + t * t * p2.x) / 1000000;
         pts[i].y = (omt * omt * p1.y + 2 * omt * t * cy + t * t * p2.y) / 1000000;
     }
-    glow_color = mix_color(anim->color, RGB(38, 34, 30), 40);
-    pen = CreatePen(PS_SOLID, elapsed < 650 ? 8 : 6, glow_color);
-    old_pen = SelectObject(hdc, pen);
-    Polyline(hdc, pts, 24);
-    SelectObject(hdc, old_pen);
-    DeleteObject(pen);
     pen = CreatePen(PS_SOLID, elapsed < 650 ? 4 : 3, anim->color);
     old_pen = SelectObject(hdc, pen);
-    Polyline(hdc, pts, 24);
+    Polyline(hdc, pts, 16);
+    draw_arrow_tip(hdc, pts[12], pts[15]);
+    if (anim->bidirectional) draw_arrow_tip(hdc, pts[3], pts[0]);
     SelectObject(hdc, old_pen);
     DeleteObject(pen);
-    draw_arrow_tip(hdc, pts[18], pts[23], anim->color, 4);
-    if (anim->bidirectional) draw_arrow_tip(hdc, pts[5], pts[0], anim->color, 4);
     icon_offset = clamp(dist / 9, 10, 16);
     icon_center.x = ((p1.x + 2 * cx + p2.x) / 4) -
                     dy * icon_offset * anim->normal_sign / dist;

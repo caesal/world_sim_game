@@ -85,12 +85,12 @@ static int max_speed_presentation_overloaded(void) {
 
 static int diplomacy_animation_needs_map_redraw(void) {
     const RenderSnapshot *snapshot;
-    int pending;
-    if (diplomacy_map_anim_active()) return 1;
+    int needed;
+    if (diplomacy_map_anim_active() || diplomacy_map_anim_delayed_waiting_for_snapshot()) return 1;
     snapshot = render_snapshot_acquire();
-    pending = diplomacy_map_anim_pending_events(snapshot);
+    needed = diplomacy_map_anim_requires_dynamic_paint(snapshot);
     render_snapshot_release(snapshot);
-    return pending || diplomacy_map_anim_delayed_waiting_for_snapshot();
+    return needed;
 }
 
 static int coalesce_presentation_redraw(int redraw, DWORD now) {

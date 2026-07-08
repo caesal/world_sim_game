@@ -320,29 +320,6 @@ static int draw_alliance_legend(HDC hdc, int x, int y, int line_h) {
     return y;
 }
 
-static int alliance_legend_height(int line_h) {
-    const RenderSnapshot *snapshot = snapshot_ui_current();
-    int i, active_count = 0;
-    int rows;
-    if (snapshot) {
-        for (i = 0; i < snapshot->alliance_count && i < ALLIANCE_MAX; i++) {
-            if (snapshot->alliances[i].active) active_count++;
-        }
-    }
-    rows = active_count > 0 ? min(active_count, 8) + (active_count > 8 ? 1 : 0) : 1;
-    return 30 + line_h * (1 + rows) + 12;
-}
-
-static RECT legend_toggle_for_box(RECT box) {
-    RECT toggle;
-    if (box.right - box.left <= 40) return box;
-    toggle.right = box.right - 8;
-    toggle.left = toggle.right - 24;
-    toggle.top = box.top + 8;
-    toggle.bottom = toggle.top + 24;
-    return toggle;
-}
-
 static void draw_legend_background(HDC hdc, RECT box) {
     HBRUSH border = CreateSolidBrush(ui_theme_color(UI_COLOR_PANEL_LINE));
     fill_rect_alpha(hdc, box, ui_theme_color(UI_COLOR_PANEL), 128);
@@ -382,13 +359,6 @@ void draw_map_legend(HDC hdc, RECT client) {
     int collapsed;
 
     if (IsRectEmpty(&box)) return;
-    if (display_mode == DISPLAY_ALLIANCE && !map_legend_collapsed && box.bottom - box.top > 40) {
-        int h = alliance_legend_height(line_h);
-        if (h < box.bottom - box.top) {
-            box.top = box.bottom - h;
-            toggle = legend_toggle_for_box(box);
-        }
-    }
     collapsed = map_legend_collapsed || (box.bottom - box.top <= 40);
 
     draw_legend_background(hdc, box);

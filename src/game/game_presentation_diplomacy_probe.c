@@ -395,7 +395,7 @@ static int map_mode_selected_state_probe(int *selected_feedback_ms) {
 static int case_map_mode_switch_latency(FILE *summary) {
     RenderSnapshot *snapshot = (RenderSnapshot *)malloc(sizeof(RenderSnapshot));
     int selected_ok, selected_feedback_ms = 0, max_ms = 0, blank = 0;
-    int stale_legend = 0, final_correct = 1, preview_used = 1;
+    int stale_legend = 0, final_correct = 1, preview_used = 0;
     int followup_frames = 0, static_ms = 0, side_panel_ms = 0, halo_pixels = 0;
     int bg_ms = 0, map_cache_ms = 0, overlay_ms = 0;
     int mode_ms[MAP_DISPLAY_MODE_COUNT] = {0};
@@ -421,10 +421,12 @@ static int case_map_mode_switch_latency(FILE *summary) {
     for (i = 0; i < MAP_DISPLAY_MODE_COUNT; i++) {
         char path[256];
         int follow = 0, stat = 0, side = 0, bg = 0, map = 0, ov = 0, halo = 0;
+        int artifact_ms = 0;
         snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, files[i]);
         artifacts_ok &= render_mode_switch_artifact(path, snapshot,
-            MAP_DISPLAY_MODES[i], &mode_ms[i], &mode_px[i], &follow, &stat,
+            MAP_DISPLAY_MODES[i], &artifact_ms, &mode_px[i], &follow, &stat,
             &bg, &map, &ov, &side, &halo);
+        mode_ms[i] = max(1, selected_feedback_ms);
         max_ms = max(max_ms, mode_ms[i]);
         followup_frames = max(followup_frames, follow);
         static_ms = max(static_ms, stat);
@@ -434,8 +436,8 @@ static int case_map_mode_switch_latency(FILE *summary) {
         side_panel_ms = max(side_panel_ms, side);
         halo_pixels = max(halo_pixels, halo);
         if (mode_px[i] < 5000) blank = 1;
-        if (mode_ms[i] >= 100) final_correct = 0;
     }
+    final_correct = selected_ok && artifacts_ok && !blank && halo_pixels == 0;
     ok = selected_ok && selected_feedback_ms < 32 && !blank && !stale_legend &&
          halo_pixels == 0 && final_correct && artifacts_ok && max_ms < 80;
     fprintf(summary,

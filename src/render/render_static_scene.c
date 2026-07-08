@@ -156,6 +156,28 @@ static int publish_scratch(HDC hdc, RECT client, MapLayout layout,
     return 1;
 }
 
+static void draw_direct_static_scene(HDC hdc, RECT client, MapLayout layout,
+                                     const RenderSnapshot *snapshot) {
+    DWORD start = GetTickCount();
+    DWORD step_start = GetTickCount();
+    scene_last_reason = SCENE_REASON_DIRECT;
+    render_ocean_decoration_draw_background(hdc, client, layout, snapshot);
+    scene_step_ms(step_start, &scene_last_background_ms, "Static scene ocean background");
+    step_start = GetTickCount();
+    draw_cached_static_map_nonblocking(hdc, client, layout);
+    scene_step_ms(step_start, &scene_last_static_map_ms, "Static scene map cache");
+    step_start = GetTickCount();
+    render_ocean_decoration_draw_overlay(hdc, client, layout, snapshot);
+    scene_step_ms(step_start, &scene_last_overlay_ms, "Static scene ocean overlay");
+    scene_cache_last_build_ms = (int)(GetTickCount() - start);
+    profiler_record_spike_phase(PROFILER_SPIKE_STATIC_CACHE, "Static scene direct", scene_cache_last_build_ms);
+    static_base_presented_current = render_static_map_cache_presented_current();
+    static_base_complete = render_static_map_cache_presented_boundary_safe();
+    static_base_fully_current = render_static_map_cache_presented_fully_current();
+    static_base_presentable = static_base_complete;
+    if (!static_base_complete) no_safe_frames++;
+}
+
 void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
                               const RenderSnapshot *snapshot) {
     unsigned int key = static_base_key(client, layout, snapshot);
@@ -204,6 +226,13 @@ void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
         scene_deferred_reuses++;
         blit_presentable(hdc, client, &viewport_static_published_cache, 0, 1, 0,
                          SCENE_REASON_DEFERRED);
+        return;
+    }
+    if (max_speed_static_defer() &&
+        (!exact || render_static_map_cache_needs_work() || !viewport_static_published_current)) {
+        scene_cache_misses++;
+        scene_viewport_rebuilds++;
+        draw_direct_static_scene(hdc, client, layout, snapshot);
         return;
     }
     scene_cache_misses++;

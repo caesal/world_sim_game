@@ -30,6 +30,7 @@ SOURCES := \
 	src/game/game_presentation_map_probe.c \
 	src/game/game_presentation_diplomacy_probe.c \
 	src/game/game_presentation_regression_probe.c \
+	src/game/game_presentation_interaction_probe.c \
 	src/game/game_presentation_layout_probe.c \
 	src/game/game_presentation_topbar_probe.c \
 	src/game/game_economy_probe.c \
@@ -178,6 +179,7 @@ SOURCES := \
 	src/render/panel_view_model_cache.c \
 	src/render/worldgen_progress_overlay.c \
 	src/render/diplomacy_map_anim.c \
+	src/render/diplomacy_map_marker_cache.c \
 	src/render/map_render.c \
 	src/render/map_highlight.c \
 	src/render/map_highlight_batch.c \
@@ -222,6 +224,7 @@ SOURCES := \
 	src/render/panel_country_resources.c \
 	src/render/panel_country_diplomacy.c \
 	src/render/panel_country_diplomacy_cards.c \
+	src/render/panel_war_compare_bar.c \
 	src/render/panel_country_diplomacy_score.c \
 	src/render/panel_country_diplomacy_tooltip.c \
 	src/render/panel_country_disorder.c \

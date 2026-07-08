@@ -192,6 +192,11 @@ int alliance_vote_state_candidate_member_count(const RenderSnapshot *snapshot,
     int subject = candidate && (candidate->type == ALLIANCE_CANDIDATE_MILITARY_UPGRADE ||
                   candidate->type == ALLIANCE_CANDIDATE_UNION) ?
                   -1 : (candidate ? candidate->civ_id : -1);
+    if (candidate && candidate->status == ALLIANCE_CANDIDATE_ACTIVE && !last_vote) {
+        for (i = 0; record && i < record->member_count && i < MAX_CIVS; i++)
+            if (record->members[i] >= 0) count++;
+        return count;
+    }
     if (alliance_council_vote_has_snapshot(record, last_vote)) {
         for (i = 0; record && candidate && i < record->member_count && i < MAX_CIVS; i++) {
             int member = record->members[i];

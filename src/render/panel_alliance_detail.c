@@ -5,6 +5,7 @@
 #include "render/panel_alliance_history.h"
 #include "render/panel_alliance_sections.h"
 #include "render/panel_alliance_votes.h"
+#include "render/panel_country_diplomacy_tooltip.h"
 #include "render/render_common.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
@@ -218,7 +219,12 @@ int alliance_detail_content_height(const RenderSnapshot *snapshot, const Allianc
 
 void alliance_detail_draw_content(HDC hdc, UiCursor *cursor, const RenderSnapshot *snapshot,
                                   const AlliancePanelRow *row) {
-    switch (clamp(alliance_detail_subtab, 0, ALLIANCE_DETAIL_TAB_COUNT - 1)) {
+    int tab = clamp(alliance_detail_subtab, 0, ALLIANCE_DETAIL_TAB_COUNT - 1);
+    if (tab != ALLIANCE_DETAIL_VOTES) {
+        diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
+        diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
+    }
+    switch (tab) {
         case ALLIANCE_DETAIL_MEMBERS: alliance_sections_draw_members(hdc, cursor, snapshot, row); break;
         case ALLIANCE_DETAIL_VOTES: alliance_votes_draw_content(hdc, cursor, snapshot, row); break;
         case ALLIANCE_DETAIL_HISTORY: alliance_history_draw_content(hdc, cursor, snapshot, row); break;

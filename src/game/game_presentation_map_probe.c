@@ -347,6 +347,7 @@ int game_presentation_map_speed_probe(FILE *summary) {
     int old_zoom = map_zoom_percent;
     int old_x = map_offset_x;
     int old_y = map_offset_y;
+    int old_display = display_mode, old_selected_alliance = selected_alliance_id, old_alliance_tab = alliance_detail_subtab;
     int artifact_ok;
     int ok = 1;
     int passive_hit;
@@ -408,6 +409,9 @@ int game_presentation_map_speed_probe(FILE *summary) {
     diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
     diplomacy_score_tooltip_register_bar((RECT){10, 10, 90, 18}, 0, 1);
     diplomacy_score_tooltip_commit_scope(SCORE_TOOLTIP_SCOPE_ALLIANCE_VOTES);
+    display_mode = DISPLAY_ALLIANCE;
+    selected_alliance_id = 1;
+    alliance_detail_subtab = ALLIANCE_DETAIL_VOTES;
     passive_hit = ui_alliance_panel_passive_tooltip_hit(20, 14);
     if (!passive_hit) fail_mask |= 1u << 21;
     diplomacy_score_tooltip_begin_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY);
@@ -436,6 +440,9 @@ int game_presentation_map_speed_probe(FILE *summary) {
     map_zoom_percent = old_zoom;
     map_offset_x = old_x;
     map_offset_y = old_y;
+    display_mode = old_display;
+    selected_alliance_id = old_selected_alliance;
+    alliance_detail_subtab = old_alliance_tab;
     fprintf(summary,
             "case=map_speed_status ok=%d fail_mask=0x%x render=%s/%s queue=%s/%s q99=%s q999=%s status=%s/%s badge=%s empty=%s chips=%ld,%ld,%ld rect=%ld,%ld,%ld,%ld viewport=%ld,%ld map_x=%d passive_bar=%d union_filter=%d artifact=%d files=map_speed_badge_bottom_status_en.bmp/map_speed_badge_bottom_status_zh.bmp\n",
             ok, fail_mask, en.render_label, en.render_value, en.queue_label, en.queue_value,
