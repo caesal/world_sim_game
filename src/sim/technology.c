@@ -7,6 +7,7 @@
 #include "sim/economy.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
+#include "sim/world_announcement.h"
 
 static int tech_progress_remainder[MAX_CIVS];
 
@@ -79,6 +80,7 @@ void technology_update_month(void) {
         }
         if (civ->tech_progress >= required) {
             civ->tech_stage = clamp(civ->tech_stage + 1, 0, 10);
+            world_announcement_emit_age_first(i, civ->tech_stage);
             civ->tech_progress = 0;
             tech_progress_remainder[i] = 0;
             changed = 1;

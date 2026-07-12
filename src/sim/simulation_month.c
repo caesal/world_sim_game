@@ -20,6 +20,7 @@
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
+#include "sim/world_announcement.h"
 #include "world/terrain_query.h"
 #include "core/dirty_flags.h"
 #include "core/plague_perf.h"
@@ -346,6 +347,7 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
         case SIM_MONTH_RANDOM_EVENT:
             random_event(state->log, sizeof(state->log));
+            world_announcement_plague_observe();
             state->phase = SIM_MONTH_TERRITORY;
             break;
         case SIM_MONTH_TERRITORY:

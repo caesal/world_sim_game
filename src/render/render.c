@@ -11,25 +11,23 @@
 #include "render/diplomacy_map_anim.h"
 #include "render/load_progress_overlay.h"
 #include "render/map_highlight.h"
-#include "render/pause_menu_render.h"
 #include "render/panel_view_model_cache.h"
 #include "render/panel_map_speed_badge.h"
 #include "render/plague_visual.h"
 #include "render/profiling_switches.h"
 #include "render/render_context.h"
 #include "render/render_layer_cache.h"
+#include "render/render_partial_ui.h"
 #include "render/render_static_map_cache.h"
 #include "render/render_static_scene.h"
-#include "render/top_notifications.h"
+#include "render/render_transient_ui.h"
 #include "render/worldgen_progress_overlay.h"
 #include "core/worldgen_progress.h"
 #include "sim/simulation_worker.h"
-#include "ui/color_picker.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_theme.h"
 #include <stdio.h>
 static LayerCache ui_cache;
-static LayerCache side_panel_cache;
 static LayerCache window_backbuffer;
 static LayerCache route_overlay_cache;
 static LayerCache city_overlay_cache;
@@ -42,6 +40,7 @@ static char overlay_last_reason_text[48] = "cold";
 static DWORD last_full_map_paint_tick;
 static int last_full_paint_had_progress_overlay;
 static int window_backbuffer_legend_collapsed = -1, window_backbuffer_language = -1;
+static int window_backbuffer_has_transients;
 #define record_render_phase(start, category, name) profiler_record_spike_phase((category), (name), profiler_elapsed_ms_since_us(start))
 #define record_render_subphase(start, category, subphase, name) profiler_record_render_subphase((subphase), (category), (name), profiler_elapsed_ms_since_us(start))
 static void draw_legacy_overlay_nonblocking(HDC hdc, RECT client, MapLayout layout) {
@@ -158,24 +157,6 @@ static int draw_city_overlay_presentation(HDC hdc, RECT client, MapLayout layout
     return 1;
 }
 
-static void draw_stale_ui_indicator(HDC hdc, RECT client) {
-    RECT reset = get_reset_view_button_rect(client), year_box = {client.right / 2 - 112, 9, client.right / 2 + 112, 50};
-    RECT badge = {reset.left - 136, reset.top + 3, reset.left - 8, reset.bottom - 3};
-    if (badge.left < year_box.right + 12) badge.left = year_box.right + 12;
-    if (badge.right - badge.left < 96) return;
-    fill_rect_alpha(hdc, badge, RGB(42, 48, 54), 210); draw_center_text(hdc, badge, tr("Updating data", "数据更新中"), RGB(218, 226, 232));
-}
-
-static int map_data_dirty_for_cached_defer(void) {
-    return dirty_render_terrain() || dirty_render_political() || dirty_render_coast() || dirty_render_hydrology() || dirty_render_borders() || dirty_render_maritime() || dirty_render_labels() || dirty_render_plague();
-}
-static int stale_ui_indicator_needed(void) {
-    if (render_snapshot_age_ms() <= 500) return 0;
-    if (simulation_worker_pending_months() > 0 || simulation_worker_visual_backlog() > 0 || simulation_worker_presentation_throttled() || simulation_worker_overloaded()) return 1;
-    if (map_data_dirty_for_cached_defer()) return 1;
-    return render_static_map_cache_needs_work() || !render_static_scene_complete();
-}
-
 static void draw_legacy_ui_nonblocking(HDC hdc, RECT client, int draw_legend) {
     MapLayout layout = get_map_layout(client);
     long long start;
@@ -197,8 +178,6 @@ static void draw_legacy_ui_nonblocking(HDC hdc, RECT client, int draw_legend) {
         panel_view_model_cache_draw(ui_cache.dc, client);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_SIDE_PANEL, "Side panel");
-        draw_top_notifications(ui_cache.dc, client);
-        if (pause_menu_open) draw_pause_menu_overlay(ui_cache.dc, client);
         start = profiler_now_us();
         BitBlt(hdc, 0, 0, ui_cache.width, ui_cache.height, ui_cache.dc, 0, 0, SRCCOPY);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
@@ -220,69 +199,16 @@ static void draw_legacy_ui_nonblocking(HDC hdc, RECT client, int draw_legend) {
         panel_view_model_cache_draw(hdc, client);
         record_render_subphase(start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_SIDE_PANEL, "Side panel");
-        draw_top_notifications(hdc, client);
-        if (pause_menu_open) draw_pause_menu_overlay(hdc, client);
     }
-    if (stale_ui_indicator_needed()) draw_stale_ui_indicator(hdc, client);
-}
-
-static int rects_intersect(RECT a, RECT b) {
-    RECT out;
-    return IntersectRect(&out, &a, &b);
-}
-
-static int rect_contains_rect(RECT o, RECT i) { return i.left >= o.left && i.top >= o.top && i.right <= o.right && i.bottom <= o.bottom && i.right > i.left && i.bottom > i.top; }
-static RECT speed_badge_dirty_rect(RECT client) { RECT r = panel_map_actual_speed_badge_rect(client); InflateRect(&r, 2, 2); return r; }
-static int paint_is_speed_badge_update(RECT client, RECT paint) { RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom}, badge = speed_badge_dirty_rect(client); return rect_contains_rect(badge, paint) || (rects_intersect(paint, bottom) && rects_intersect(paint, badge) && paint.left >= client.left && paint.right <= client.right && paint.top >= badge.top && paint.bottom <= client.bottom); }
-
-static int paint_is_ui_chrome_only(RECT client, RECT paint) {
-    RECT top = {client.left, client.top, client.right, TOP_BAR_H}, bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
-    RECT side = get_side_panel_draw_rect(client), handle = get_side_panel_handle_rect(client);
-    RECT handle_dirty = get_side_panel_handle_dirty_rect(client);
-    if (!side_panel_collapsed && handle.left < side.left) side.left = handle.left;
-    return rect_contains_rect(top, paint) || rect_contains_rect(bottom, paint) ||
-           rect_contains_rect(side, paint) || rect_contains_rect(handle, paint) ||
-           rect_contains_rect(handle_dirty, paint) || paint_is_speed_badge_update(client, paint);
-}
-
-static void draw_partial_ui(HDC hdc, RECT client, RECT paint) {
-    RECT top = {client.left, client.top, client.right, TOP_BAR_H};
-    RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H, client.right, client.bottom};
-    RECT panel = get_side_panel_draw_rect(client);
-    RECT badge = speed_badge_dirty_rect(client);
-    if (rects_intersect(paint, top)) {
-        draw_top_bar(hdc, client);
-        if (stale_ui_indicator_needed()) draw_stale_ui_indicator(hdc, client);
-    }
-    if (rects_intersect(paint, bottom)) draw_bottom_bar(hdc, client);
-    if (rects_intersect(paint, badge)) panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
-    if (rects_intersect(paint, panel)) {
-        if (side_panel_collapsed) {
-            panel_view_model_cache_draw(hdc, client);
-        } else if (render_layer_cache_ensure(hdc, &side_panel_cache, client, get_map_layout(client), side_panel_w, display_mode)) {
-            fill_rect(side_panel_cache.dc, panel, ui_theme_color(UI_COLOR_PANEL));
-            panel_view_model_cache_draw(side_panel_cache.dc, client);
-            BitBlt(hdc, panel.left, panel.top, panel.right - panel.left, panel.bottom - panel.top,
-                   side_panel_cache.dc, panel.left, panel.top, SRCCOPY);
-        } else {
-            panel_view_model_cache_draw(hdc, client);
-        }
-    }
-}
-
-static int can_paint_ui_only(RECT client, RECT paint) {
-    RECT viewport = get_map_viewport_rect(client);
-    WorldGenProgress progress;
-    worldgen_progress_get(&progress);
-    if (color_picker_active() || pause_menu_open || progress.active || load_progress_active()) return 0;
-    if (paint_is_ui_chrome_only(client, paint)) return 1;
-    return !rects_intersect(paint, viewport);
+    if (render_partial_ui_stale_indicator_needed())
+        render_partial_ui_draw_stale_indicator(hdc, client);
 }
 
 static int render_input_waiting(void) { return 0; }
 static int blit_cached_window(HDC hdc, int width, int height) {
     long long start;
-    if (!window_backbuffer.dc || window_backbuffer.width != width || window_backbuffer.height != height ||
+    if (window_backbuffer_has_transients || render_transient_ui_has_visible(0) ||
+        !window_backbuffer.dc || window_backbuffer.width != width || window_backbuffer.height != height ||
         window_backbuffer.display != display_mode || window_backbuffer.side_w != side_panel_w ||
         window_backbuffer_legend_collapsed != map_legend_collapsed || window_backbuffer_language != ui_language) return 0;
     start = profiler_now_us();
@@ -309,9 +235,10 @@ static void draw_deferred_over_cached_scene(HDC hdc, RECT client, const RenderSn
     if (!draw_ui) return;
     phase_start = profiler_now_us(); draw_top_bar(hdc, client); draw_bottom_bar(hdc, client); draw_map_frame_overlay(hdc, client);
     panel_map_draw_actual_speed_badge(hdc, client, game_loop_actual_ms_per_month());
-    if (stale_ui_indicator_needed()) draw_stale_ui_indicator(hdc, client);
+    if (render_partial_ui_stale_indicator_needed())
+        render_partial_ui_draw_stale_indicator(hdc, client);
     record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION, PROFILER_RENDER_SUB_TOP_BOTTOM_BAR, "Deferred top/bottom");
-    phase_start = profiler_now_us(); panel_view_model_cache_draw(hdc, client); draw_top_notifications(hdc, client);
+    phase_start = profiler_now_us(); panel_view_model_cache_draw(hdc, client);
     record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION, PROFILER_RENDER_SUB_SIDE_PANEL, "Deferred side panel");
 }
 
@@ -419,6 +346,7 @@ void paint_window(HWND hwnd) {
     int width;
     int height;
     int ui_only, continue_static_work;
+    int announcement_activated, transients_handled = 0;
     int deferred_for_input = 0, progress_active;
     DWORD now = GetTickCount();
 
@@ -427,16 +355,18 @@ void paint_window(HWND hwnd) {
     height = client.bottom - client.top;
     snapshot = render_snapshot_acquire();
     render_context_begin(snapshot);
-    ui_only = can_paint_ui_only(client, ps.rcPaint) &&
-              !diplomacy_map_anim_requires_dynamic_paint(snapshot);
     continue_static_work = render_static_map_cache_needs_work();
     worldgen_progress_get(&progress); progress_active = progress.active || load_progress_active();
+    announcement_activated = render_transient_ui_prepare(hdc, client, progress_active);
+    ui_only = !announcement_activated &&
+              render_partial_ui_can_paint(client, ps.rcPaint, snapshot) &&
+              !diplomacy_map_anim_requires_dynamic_paint(snapshot);
     if (ui_only) {
         long long phase_start = profiler_now_us();
-        draw_partial_ui(hdc, client, ps.rcPaint);
+        render_partial_ui_draw(hdc, client, ps.rcPaint);
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Partial UI paint");
     } else if (!progress_active && !last_full_paint_had_progress_overlay &&
-               !map_data_dirty_for_cached_defer() &&
+                !render_partial_ui_map_data_dirty() &&
                static_presentation_safe_for_defer(client, get_map_layout(client), snapshot) &&
                render_input_waiting() &&
                blit_cached_window(hdc, width, height)) {
@@ -450,25 +380,29 @@ void paint_window(HWND hwnd) {
     } else if (render_layer_cache_ensure(hdc, &window_backbuffer, client, get_map_layout(client), side_panel_w, display_mode)) {
         long long phase_start = profiler_now_us();
         render_world(window_backbuffer.dc, client);
+        GdiFlush();
+        window_backbuffer_has_transients = 0;
         window_backbuffer_legend_collapsed = map_legend_collapsed; window_backbuffer_language = ui_language;
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Render world");
-        phase_start = profiler_now_us();
-        color_picker_draw(window_backbuffer.dc, client);
-        record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Color picker draw");
+        if (render_transient_ui_has_visible(progress_active)) {
+            render_transient_ui_draw_full(window_backbuffer.dc, client, progress_active);
+            window_backbuffer_has_transients = 1;
+        }
         phase_start = profiler_now_us();
         BitBlt(hdc, 0, 0, width, height, window_backbuffer.dc, 0, 0, SRCCOPY);
         record_render_subphase(phase_start, PROFILER_SPIKE_PRESENTATION,
                                PROFILER_RENDER_SUB_BACKBUFFER, "Backbuffer blit");
         last_full_map_paint_tick = now;
+        transients_handled = 1;
     } else {
         long long phase_start = profiler_now_us();
         render_world(hdc, client);
+        GdiFlush();
         record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Render world");
-        phase_start = profiler_now_us();
-        color_picker_draw(hdc, client);
-        record_render_phase(phase_start, PROFILER_SPIKE_PRESENTATION, "Color picker draw");
         last_full_map_paint_tick = now;
     }
+    if (!ui_only && !transients_handled)
+        render_transient_ui_draw_full(hdc, client, progress_active);
     if (!ui_only) { if (!deferred_for_input) last_full_paint_had_progress_overlay = progress_active; continue_static_work = render_static_map_cache_needs_work(); }
     if (deferred_for_input) continue_static_work = 1;
     render_context_end();

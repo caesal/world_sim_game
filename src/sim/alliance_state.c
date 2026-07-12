@@ -6,6 +6,7 @@
 #include "sim/diplomacy.h"
 #include "sim/diplomacy_relation_score.h"
 #include "sim/vassal.h"
+#include "sim/world_announcement.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -182,8 +183,7 @@ static int create_alliance_internal(int founder, int second, int min_score) {
     alliance_record_history(id, ALLIANCE_HISTORY_CREATED, founder, second,
                             ALLIANCE_VOTE_CREATE, ALLIANCE_REJECT_NONE);
     alliance_council_recalculate(id, 0);
-    event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE, EVENT_SEVERITY_INFO,
-                              founder, second, -1, -1, id, record->member_count, "");
+    world_announcement_emit_alliance_created(id, founder, second);
     alliance_state.create_years[founder][second] = alliance_state.create_years[second][founder] = 0;
     mark_changed();
     return id;
@@ -203,10 +203,9 @@ static void disband_alliance(int alliance_id, int actor, int emit_event) {
     }
     alliance_record_history(alliance_id, ALLIANCE_HISTORY_DISSOLVED, actor, -1,
                             -1, ALLIANCE_REJECT_ALLIANCE_DISSOLVED);
+    if (emit_event) world_announcement_emit_alliance_dissolved(alliance_id, actor);
     record->active = 0;
     record->member_count = 0;
-    if (emit_event) event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
-                                             actor, -1, -1, -1, alliance_id, count, "");
     mark_changed();
 }
 
@@ -264,8 +263,10 @@ static void leave_member(int alliance_id, int civ_id, int cooldown_years, int ki
     }
     sync_record_pairs(record, 0);
     alliance_council_recalculate(alliance_id, 1);
-    if (emit_event) event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED, EVENT_SEVERITY_WARNING,
-                                             civ_id, -1, -1, -1, alliance_id, record->member_count, "");
+    if (emit_event) {
+        world_announcement_emit_alliance_member_removed(
+            alliance_id, civ_id, record->founder_civ_id);
+    }
     mark_changed();
 }
 
@@ -362,9 +363,8 @@ static int add_member_direct(int alliance_id, int civ_id, int min_score, int rec
                                   ALLIANCE_CANDIDATE_PASSED, ALLIANCE_REJECT_NONE);
     alliance_record_history(alliance_id, ALLIANCE_HISTORY_MEMBER_JOINED,
                             civ_id, -1, ALLIANCE_VOTE_JOIN, ALLIANCE_REJECT_NONE);
-    event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE, EVENT_SEVERITY_INFO,
-                              record->founder_civ_id, civ_id, -1, -1,
-                              alliance_id, record->member_count, "");
+    world_announcement_emit_alliance_member_joined(
+        alliance_id, record->founder_civ_id, civ_id);
     mark_changed();
     return 1;
 }

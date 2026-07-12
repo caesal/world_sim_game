@@ -16,6 +16,8 @@
 
 #define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
+int game_presentation_diplomacy_sort_probe(FILE *summary);
+
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER file_header;
     FILE *file = fopen(path, "wb");
@@ -487,5 +489,6 @@ int game_presentation_diplomacy_probe(FILE *summary) {
     extra_ok &= run_diplomacy_contact_case(summary, "diplomacy_historical_baseline",
         "diplomacy_historical_baseline.bmp", 9, 55, 1, 60, 6, 0);
     extra_ok &= case_map_mode_switch_latency(summary);
+    extra_ok &= game_presentation_diplomacy_sort_probe(summary);
     return ok && extra_ok;
 }

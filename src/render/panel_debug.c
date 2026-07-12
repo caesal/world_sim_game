@@ -146,7 +146,9 @@ static int event_type_matches_filter(EventLogType type, int filter) {
         case DEBUG_EVENT_FILTER_EXPANSION_ROUTES:
             return type == EVENT_TYPE_EXPANSION_CLAIMED ||
                    type == EVENT_TYPE_DEEP_SEA_ROUTE_CREATED ||
-                   type == EVENT_TYPE_DEEP_SEA_ROUTE_FAILED;
+                   type == EVENT_TYPE_DEEP_SEA_ROUTE_FAILED ||
+                   type == EVENT_TYPE_WORLD_TECH_AGE_FIRST ||
+                   type == EVENT_TYPE_WORLD_DEEP_SEA_FIRST;
         case DEBUG_EVENT_FILTER_WAR_DIPLOMACY:
             return type == EVENT_TYPE_WAR_STARTED ||
                    type == EVENT_TYPE_WAR_FRONT_SEVERED ||
@@ -168,6 +170,14 @@ static int event_type_matches_filter(EventLogType type, int filter) {
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
                    type == EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION ||
+                   type == EVENT_TYPE_ALLIANCE_CREATED ||
+                   type == EVENT_TYPE_ALLIANCE_DISSOLVED ||
+                   type == EVENT_TYPE_ALLIANCE_MEMBER_JOINED ||
+                   type == EVENT_TYPE_ALLIANCE_MEMBER_REMOVED ||
+                   type == EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED ||
+                   type == EVENT_TYPE_ALLIANCE_MILITARY_DOWNGRADED ||
+                   type == EVENT_TYPE_ALLIANCE_WAR_STARTED ||
+                   type == EVENT_TYPE_ALLIANCE_WAR_ENDED ||
                    type == EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT ||
                    type == EVENT_TYPE_TREASURY_INDEMNITY ||
                    type == EVENT_TYPE_STABILITY_PROJECT ||

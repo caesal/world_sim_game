@@ -2,6 +2,7 @@
 #define WORLD_SIM_RENDER_SNAPSHOT_H
 
 #include "core/game_types.h"
+#include "core/world_announcement_types.h"
 #include "sim/decision_snapshot.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/population_diagnostics.h"
@@ -11,6 +12,7 @@
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
+#define RENDER_SNAPSHOT_WORLD_ANNOUNCEMENT_COUNT 64
 
 enum {
     RENDER_SNAPSHOT_SECTION_TILES = 1 << 0,
@@ -284,6 +286,8 @@ typedef struct {
     int lane_count;
     int event_count;
     int event_total_entries;
+    int world_announcement_count;
+    int world_announcement_total_entries;
     int alliance_count;
     FragmentationDiagnostics fragmentation;
     int tiles_revision;
@@ -317,6 +321,7 @@ typedef struct {
     int plague_lane_exposure[MAX_SEA_LANES];
     int plague_active;
     SnapshotEvent events[RENDER_SNAPSHOT_EVENT_COUNT];
+    WorldAnnouncementStreamEntry world_announcements[RENDER_SNAPSHOT_WORLD_ANNOUNCEMENT_COUNT];
     SnapshotEvent civ_recent_events[MAX_CIVS][EVENT_LOG_CIV_HISTORY_COUNT];
     int civ_recent_event_count[MAX_CIVS];
 } RenderSnapshot;

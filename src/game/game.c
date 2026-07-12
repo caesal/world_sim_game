@@ -30,6 +30,7 @@
 #include "sim/simulation_worker.h"
 #include "sim/technology.h"
 #include "sim/war.h"
+#include "sim/world_announcement.h"
 #include "ui/ui.h"
 #include "world/ports.h"
 #include "world/terrain_query.h"
@@ -210,6 +211,7 @@ void game_request_after_load_map(int restored_dynamic_state) {
     load_progress_update(LOAD_STAGE_POST_LOAD, 4, 6);
     civilization_repair_alive_colors();
     civilization_colors_debug_check();
+    world_announcement_state_baseline_from_world();
     dirty_mark_world();
     decision_snapshot_cache_mark_all_dirty();
     decision_snapshot_cache_update_budgeted(MAX_CIVS);

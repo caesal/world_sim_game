@@ -10,6 +10,7 @@
 #include "sim/population.h"
 #include "sim/population_military.h"
 #include "sim/war_internal.h"
+#include "sim/world_announcement.h"
 
 #include <string.h>
 
@@ -106,6 +107,7 @@ static void resolve_upgrade_vote(AllianceSaveState *state, int alliance_id) {
         alliance_record_history(alliance_id, ALLIANCE_HISTORY_UPGRADED_TO_MILITARY,
                                 record->founder_civ_id, -1, ALLIANCE_VOTE_MILITARY_UPGRADE,
                                 ALLIANCE_REJECT_NONE);
+        world_announcement_emit_alliance_military_changed(alliance_id, 1);
     }
     dirty_mark_alliance();
 }
@@ -120,6 +122,7 @@ void alliance_military_downgrade(int alliance_id, int history_type) {
     state->military_upgrade_cooldown[alliance_id] = ALLIANCE_MILITARY_RETRY_YEARS;
     alliance_record_history(alliance_id, history_type, state->records[alliance_id].founder_civ_id,
                             -1, ALLIANCE_VOTE_MILITARY_UPGRADE, ALLIANCE_REJECT_NONE);
+    world_announcement_emit_alliance_military_changed(alliance_id, 0);
     dirty_mark_alliance();
 }
 

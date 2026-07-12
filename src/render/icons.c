@@ -134,6 +134,10 @@ static void *icon_image(IconId icon) {
     return icon_images[icon];
 }
 
+void preload_icon(IconId icon) {
+    (void)icon_image(icon);
+}
+
 void draw_icon(HDC hdc, IconId icon, RECT rect, COLORREF fallback) {
     void *image = icon_image(icon);
     void *graphics = NULL;

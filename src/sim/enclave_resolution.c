@@ -15,6 +15,7 @@
 #include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
+#include "sim/world_announcement.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -207,8 +208,9 @@ static int create_component_country(int owner, const int *regions, int count,
     if (make_vassal && valid_alive_civ(owner)) {
         diplomacy_start_vassal(owner, child_id, 70);
         disorder_pacify_vassalization(child_id);
-        event_log_push_structured(EVENT_TYPE_VASSAL_CREATED, EVENT_SEVERITY_INFO,
-                                  child_id, owner, seed_region, city_id, months, count, "");
+        world_announcement_emit_vassal_detail(EVENT_TYPE_VASSAL_CREATED,
+                                               child_id, owner, -1,
+                                               seed_region, city_id, months, count);
         fragmentation_diag_record_enclave_original_vassal();
     } else {
         event_log_push_structured(EVENT_TYPE_ENCLAVE_INDEPENDENT, EVENT_SEVERITY_WARNING,

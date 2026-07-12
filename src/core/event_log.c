@@ -1,20 +1,11 @@
-#include "core/event_log_classify.h"
-#include "core/event_log_history.h"
-#include "core/event_log_store.h"
 #include "core/game_state.h"
 
 #include "sim/collapse.h"
 #include "sim/simulation.h"
+#include "sim/technology.h"
 
 #include <stdio.h>
 #include <string.h>
-char event_log[EVENT_LOG_COUNT][EVENT_LOG_LEN];
-static EventLogEntry event_log_entries[EVENT_LOG_COUNT];
-int event_log_count = 0;
-int event_log_next = 0;
-int event_log_total_entries = 0;
-static int event_log_last_event_id = 0;
-static EventLogEntry event_log_last_entry;
 static const char *event_type_label(EventLogType type, int language) {
     int zh = language != 0;
     switch (type) {
@@ -58,86 +49,18 @@ static const char *event_type_label(EventLogType type, int language) {
         case EVENT_TYPE_TREASURY_INDEMNITY: return zh ? "战争赔款" : "War indemnity";
         case EVENT_TYPE_STABILITY_PROJECT: return zh ? "国库维稳" : "Treasury stability";
         case EVENT_TYPE_MERCENARIES_HIRED: return zh ? "雇佣兵" : "Mercenaries";
+        case EVENT_TYPE_ALLIANCE_CREATED: return zh ? "联盟建立" : "Alliance created";
+        case EVENT_TYPE_ALLIANCE_DISSOLVED: return zh ? "联盟解散" : "Alliance dissolved";
+        case EVENT_TYPE_ALLIANCE_MEMBER_JOINED: return zh ? "成员加入" : "Alliance member joined";
+        case EVENT_TYPE_ALLIANCE_MEMBER_REMOVED: return zh ? "成员离开" : "Alliance member removed";
+        case EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED: return zh ? "军事联盟升级" : "Military Alliance upgrade";
+        case EVENT_TYPE_ALLIANCE_MILITARY_DOWNGRADED: return zh ? "军事联盟降级" : "Military Alliance downgrade";
+        case EVENT_TYPE_ALLIANCE_WAR_STARTED: return zh ? "军事联盟战争" : "Military Alliance war";
+        case EVENT_TYPE_ALLIANCE_WAR_ENDED: return zh ? "军事联盟战果" : "Military Alliance result";
+        case EVENT_TYPE_WORLD_TECH_AGE_FIRST: return zh ? "世界科技里程碑" : "World technology milestone";
+        case EVENT_TYPE_WORLD_DEEP_SEA_FIRST: return zh ? "世界远洋里程碑" : "World deep-sea milestone";
         default: return zh ? "事件" : "Event";
     }
-}
-static int event_param_a_is_civ(EventLogType type) { return type == EVENT_TYPE_VASSAL_TRANSFERRED; }
-static void event_snapshot_civ(EventCivSnapshot *snapshot, int civ_id) {
-    if (!snapshot) return;
-    memset(snapshot, 0, sizeof(*snapshot));
-    if (civ_id < 0 || civ_id >= civ_count) return;
-    snapshot->uid = civs[civ_id].uid;
-    snapshot->symbol = civs[civ_id].symbol;
-    snapshot->color = civs[civ_id].color;
-    snprintf(snapshot->name_en, sizeof(snapshot->name_en), "%s",
-             civilization_display_name_for_language(civ_id, 0));
-    snprintf(snapshot->name_zh, sizeof(snapshot->name_zh), "%s",
-             civilization_display_name_for_language(civ_id, 1));
-}
-void event_log_push_structured(EventLogType type, EventLogSeverity severity, int civ_id,
-                               int target_id, int region_id, int city_id,
-                               int param_a, int param_b, const char *raw_message) {
-    EventLogEntry *entry;
-    int previous;
-    int civ_uid = civ_id >= 0 && civ_id < civ_count ? civs[civ_id].uid : 0;
-    int target_uid = target_id >= 0 && target_id < civ_count ? civs[target_id].uid : 0;
-    int param_a_uid = event_param_a_is_civ(type) && param_a >= 0 && param_a < civ_count ? civs[param_a].uid : 0;
-
-    if (!raw_message) raw_message = "";
-    event_log_total_entries++;
-    if (event_log_last_entry.type == type && event_log_last_entry.civ_id == civ_id && event_log_last_entry.target_id == target_id &&
-        event_log_last_entry.civ_uid == civ_uid && event_log_last_entry.target_uid == target_uid && event_log_last_entry.param_a_uid == param_a_uid &&
-        event_log_last_entry.region_id == region_id && event_log_last_entry.city_id == city_id &&
-        event_log_last_entry.param_a == param_a && event_log_last_entry.param_b == param_b &&
-        strcmp(event_log_last_entry.raw_message, raw_message) == 0 && event_log_last_event_id > 0) {
-        previous = event_log_next - 1;
-        while (previous < 0) previous += EVENT_LOG_COUNT;
-        event_log_entries[previous % EVENT_LOG_COUNT].repeat_count++;
-        event_log_store_increment_repeat(event_log_last_event_id);
-        return;
-    }
-    entry = &event_log_entries[event_log_next];
-    memset(entry, 0, sizeof(*entry));
-    entry->year = year;
-    entry->month = month;
-    entry->type = type;
-    entry->severity = severity;
-    entry->civ_id = civ_id;
-    entry->target_id = target_id;
-    entry->region_id = region_id;
-    entry->city_id = city_id;
-    entry->param_a = param_a;
-    entry->param_b = param_b;
-    entry->repeat_count = 1;
-    entry->civ_uid = civ_uid;
-    entry->target_uid = target_uid;
-    entry->param_a_uid = param_a_uid;
-    event_snapshot_civ(&entry->civ_snapshot, civ_id);
-    event_snapshot_civ(&entry->target_snapshot, target_id);
-    if (event_param_a_is_civ(type)) event_snapshot_civ(&entry->param_a_snapshot, param_a);
-    snprintf(entry->raw_message, sizeof(entry->raw_message), "%s", raw_message);
-    snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", raw_message);
-    event_log_last_entry = *entry;
-    event_log_last_event_id = event_log_store_append(entry);
-    event_log_history_store_related_id(entry, event_log_last_event_id);
-    event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
-    event_log_count = event_log_store_count();
-}
-void event_log_push(const char *text) {
-    EventLogType type;
-    if (!text || !text[0]) return;
-    type = event_log_type_from_text(text);
-    event_log_push_structured(type, event_log_severity_from_type(type), -1, -1, -1, -1, 0, 0, text);
-}
-void event_log_clear(void) {
-    memset(event_log, 0, sizeof(event_log)); memset(event_log_entries, 0, sizeof(event_log_entries));
-    event_log_store_clear();
-    event_log_history_clear();
-    event_log_count = 0;
-    event_log_next = 0;
-    event_log_total_entries = 0;
-    event_log_last_event_id = 0;
-    memset(&event_log_last_entry, 0, sizeof(event_log_last_entry));
 }
 static const char *event_civ_name(int civ_id, const EventCivSnapshot *snapshot, int language) {
     if (snapshot && snapshot->uid > 0) return language ? snapshot->name_zh : snapshot->name_en;
@@ -291,6 +214,10 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
                 snprintf(out, out_size, zh ? "%s爆发瘟疫。" : "Plague started in %s.", civ);
             }
             return;
+        case EVENT_TYPE_PLAGUE_ENDED:
+            snprintf(out, out_size, "%s", zh ? "全球活跃瘟疫已经结束。" :
+                                                "The global active plague ended.");
+            return;
         case EVENT_TYPE_DEEP_SEA_ROUTE_CREATED:
             if (entry->civ_uid <= 0) break;
             snprintf(out, out_size, zh ? "%s建立了深海航道。" : "%s established a deep sea route.", civ);
@@ -341,6 +268,61 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
                      "%s absorbed the other members and completed union in %s.", civ, alliance);
             return;
         }
+        case EVENT_TYPE_ALLIANCE_CREATED: {
+            char alliance[EVENT_LOG_LEN];
+            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size, zh ? "%s与%s建立了%s。" : "%s and %s founded %s.",
+                     civ, target, alliance);
+            return;
+        }
+        case EVENT_TYPE_ALLIANCE_DISSOLVED: {
+            char alliance[EVENT_LOG_LEN];
+            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size, zh ? "%s解散。" : "%s dissolved.", alliance);
+            return;
+        }
+        case EVENT_TYPE_ALLIANCE_MEMBER_JOINED: {
+            char alliance[EVENT_LOG_LEN];
+            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size, zh ? "%s加入%s。" : "%s joined %s.", target, alliance);
+            return;
+        }
+        case EVENT_TYPE_ALLIANCE_MEMBER_REMOVED: {
+            char alliance[EVENT_LOG_LEN];
+            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size, zh ? "%s离开%s。" : "%s left %s.", civ, alliance);
+            return;
+        }
+        case EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED:
+        case EVENT_TYPE_ALLIANCE_MILITARY_DOWNGRADED: {
+            char alliance[EVENT_LOG_LEN];
+            int upgraded = entry->type == EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED;
+            event_log_alliance_snapshot_name(entry, language, alliance, sizeof(alliance));
+            snprintf(out, out_size,
+                     upgraded ? (zh ? "%s升级为军事联盟。" : "%s upgraded to a Military Alliance.") :
+                                (zh ? "%s降级为防御联盟。" : "%s downgraded to a Defensive Alliance."),
+                     alliance);
+            return;
+        }
+        case EVENT_TYPE_ALLIANCE_WAR_STARTED:
+            snprintf(out, out_size, zh ? "%s与%s之间爆发军事联盟战争。" :
+                                         "A Military Alliance war began between %s and %s.",
+                     civ, target);
+            return;
+        case EVENT_TYPE_ALLIANCE_WAR_ENDED:
+            snprintf(out, out_size, zh ? "%s与%s之间的军事联盟战争结束。" :
+                                         "The Military Alliance war between %s and %s ended.",
+                     civ, target);
+            return;
+        case EVENT_TYPE_WORLD_TECH_AGE_FIRST:
+            snprintf(out, out_size, zh ? "%s成为首个进入%s（%d）的国家。" :
+                                         "%s became the first country to enter %s (%d).",
+                     civ, technology_stage_name(entry->param_a, language), entry->param_a);
+            return;
+        case EVENT_TYPE_WORLD_DEEP_SEA_FIRST:
+            snprintf(out, out_size, zh ? "%s成为首个解锁远洋航行的国家。" :
+                                         "%s became the first country to unlock deep-sea navigation.", civ);
+            return;
         case EVENT_TYPE_TREASURY_INDEMNITY:
             snprintf(out, out_size,
                      zh ? "%s向%s支付赔款，抵消%d个割地；实际割让%d个，花费%d。" :
@@ -429,71 +411,4 @@ const char *event_log_get(int index) {
     newline = strchr(formatted, '\n');
     if (newline) *newline = ' ';
     return formatted;
-}
-EventLogType event_log_get_type(int index) {
-    EventLogEntry entry;
-    return event_log_get_entry(index, &entry) ? entry.type : EVENT_TYPE_GENERIC;
-}
-static int event_type_is_country_scoped(EventLogType type) {
-    switch (type) {
-        case EVENT_TYPE_GENERIC:
-        case EVENT_TYPE_PERFORMANCE_THROTTLED:
-        case EVENT_TYPE_PERFORMANCE_SLOW_CALL:
-        case EVENT_TYPE_SCHEDULER_YIELD:
-        case EVENT_TYPE_WORLD_GENERATION_NOTICE:
-        case EVENT_TYPE_DEBUG_NOTICE:
-            return 0;
-        default:
-            return 1;
-    }
-}
-static int event_civ_identity_matches(int civ_id, int stored_id, int stored_uid) {
-    if (stored_id != civ_id || stored_uid <= 0) return 0;
-    return civ_id >= 0 && civ_id < civ_count && civs[civ_id].uid == stored_uid;
-}
-int event_log_entry_involves_civ(const EventLogEntry *entry, int civ_id) {
-    if (!entry || civ_id < 0 || civ_id >= civ_count) return 0;
-    if (!event_type_is_country_scoped(entry->type)) return 0;
-    if (event_civ_identity_matches(civ_id, entry->civ_id, entry->civ_uid)) return 1;
-    if (event_civ_identity_matches(civ_id, entry->target_id, entry->target_uid)) return 1;
-    if (event_param_a_is_civ(entry->type) &&
-        event_civ_identity_matches(civ_id, entry->param_a, entry->param_a_uid)) return 1;
-    return 0;
-}
-int event_log_get_entry(int index, EventLogEntry *out) {
-    if (!out || index < 0 || index >= event_log_count) return 0;
-    return event_log_store_get_newest(index, out);
-}
-void event_log_copy_save_state(EventLogEntry *entries, int max_entries, int *count, int *next, int *total) {
-    int i;
-    int store_count = event_log_store_count();
-    int n = clamp(min(max_entries, store_count), 0, EVENT_LOG_COUNT);
-    if (entries && n > 0) {
-        memset(entries, 0, sizeof(EventLogEntry) * (size_t)max_entries);
-        for (i = 0; i < n; i++) event_log_store_get_oldest(store_count - n + i, &entries[i]);
-    }
-    if (count) *count = n;
-    if (next) *next = n % EVENT_LOG_COUNT;
-    if (total) *total = event_log_total_entries;
-}
-void event_log_restore_save_state(const EventLogEntry *entries, int count, int next, int total) {
-    int i;
-    event_log_clear();
-    count = clamp(count, 0, EVENT_LOG_COUNT); event_log_total_entries = max(0, total);
-    if (!entries) return;
-    for (i = 0; i < count; i++) {
-        int pos = clamp(next, 0, EVENT_LOG_COUNT - 1) - count + i;
-        EventLogEntry entry;
-        while (pos < 0) pos += EVENT_LOG_COUNT;
-        entry = entries[pos % EVENT_LOG_COUNT];
-        if (!entry.raw_message[0] && entry.type == EVENT_TYPE_GENERIC && entry.civ_uid <= 0) continue;
-        event_log_entries[event_log_next] = entry;
-        snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", entry.raw_message);
-        event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
-        event_log_last_event_id = event_log_store_append(&entry);
-        event_log_history_store_related_id(&entry, event_log_last_event_id);
-        event_log_last_entry = entry;
-    }
-    event_log_count = event_log_store_count();
-    event_log_total_entries = max(event_log_total_entries, event_log_count);
 }

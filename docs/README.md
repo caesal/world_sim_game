@@ -10,17 +10,17 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.5.f, this release update intentionally excludes `docs/official`.
-The current changes are a backup UI/rendering checkpoint for the Ver0.3.5.e
-presentation stack, preserving the focused presentation fixes while recording
-the latest border/cache scale restoration, flicker guards, diplomacy marker
-icon caching, alliance council tooltip scoping, alliance upgrade vote joiner
-display, and war comparison force-segment corrections. It is not full
-performance or Rule39 acceptance.
+For Ver0.3.5.g, this release update intentionally excludes `docs/official`.
+The current changes are a backup presentation/world-announcement checkpoint
+over Ver0.3.5.f. They include the structured announcement event pipeline,
+stable identity snapshots, the 82px map-overlay announcement banner, shared
+bottom-bar geometry, map-fill alpha policy, and Tense-page ordering update.
+Fresh Rule39 flow evidence exists for this source stack, but broad performance
+still exceeds the requested thresholds and is not claimed accepted.
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
-- `docs/unofficial/ver0.3.5.f_side_doc.md`
+- `docs/unofficial/ver0.3.5.g_side_doc.md`
 
 The working version log is:
 

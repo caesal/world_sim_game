@@ -2,6 +2,8 @@
 
 #include "core/game_notifications.h"
 #include "core/constants.h"
+#include "ui/ui_layout.h"
+#include "ui/world_announcement_queue.h"
 
 #include <stdio.h>
 
@@ -31,15 +33,20 @@ int ui_notifications_get(int index, UiNotification *out) {
     return 1;
 }
 
-RECT ui_notifications_rect(RECT client) {
+RECT ui_notifications_rect_for_announcement(RECT client, int announcement_active) {
     int width = 560;
+    RECT viewport = get_map_viewport_rect(client);
     RECT rect;
-    if (width > client.right - client.left - 40) width = client.right - client.left - 40;
-    rect.left = client.left + (client.right - client.left - width) / 2;
+    if (width > viewport.right - viewport.left - 40) width = viewport.right - viewport.left - 40;
+    rect.left = viewport.left + (viewport.right - viewport.left - width) / 2;
     rect.right = rect.left + width;
-    rect.top = TOP_BAR_H + 8;
+    rect.top = announcement_active ? get_world_announcement_rect(client).bottom + 8 : TOP_BAR_H + 8;
     rect.bottom = rect.top + UI_NOTIFICATION_MAX * 40;
     return rect;
+}
+
+RECT ui_notifications_rect(RECT client) {
+    return ui_notifications_rect_for_announcement(client, world_announcement_queue_active());
 }
 
 void ui_notifications_invalidate(HWND hwnd) {

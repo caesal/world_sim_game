@@ -16,6 +16,7 @@
 #include "sim/simulation.h"
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
+#include "sim/world_announcement.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -198,8 +199,8 @@ static void collapse_release_vassal_relations(int civ_id) {
     vassal_release(civ_id);
     vassal_release_all(civ_id);
     for (i = 0; i < released_count; i++) {
-        event_log_push_structured(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE, EVENT_SEVERITY_INFO,
-                                  released_vassals[i], civ_id, -1, -1, 0, 0, "");
+        world_announcement_emit_vassal(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE,
+                                       released_vassals[i], civ_id, -1, 0);
     }
 }
 
@@ -208,6 +209,7 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
     int owned_regions;
     int successor_limit;
     CollapsePartitionResult partition;
+    int successor_ids[COLLAPSE_MAX_SUCCESSORS];
     int formed = 0;
     int i;
     int former_overlord = -1;
@@ -278,15 +280,15 @@ static int collapse_civ(int civ_id, CollapseCause cause) {
         }
         diplomacy_start_truce(civ_id, child, 45, 20);
         economy_split_treasury_snapshot_to_child(civ_id, child, parent_treasury_snapshot,
-                                                 child_asset, parent_asset_total);
+                                                  child_asset, parent_asset_total);
+        successor_ids[formed] = child;
         formed++;
     }
     if (formed > 0) {
         apply_post_collapse_grace(civ_id);
         snprintf(collapse_reasons[civ_id], sizeof(collapse_reasons[civ_id]),
                  "Collapse formed %d successor state%s.", formed, formed == 1 ? "" : "s");
-        event_log_push_structured(EVENT_TYPE_COLLAPSE_SUCCEEDED, EVENT_SEVERITY_DANGER,
-                                  civ_id, -1, -1, -1, formed, 0, "");
+        world_announcement_emit_collapse(civ_id, -1, -1, successor_ids, formed, formed);
         if (former_overlord >= 0) {
             event_log_push_structured(EVENT_TYPE_VASSAL_SELF_COLLAPSE_RELEASED, EVENT_SEVERITY_INFO,
                                       civ_id, former_overlord, -1, -1, formed, 0, "");

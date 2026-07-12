@@ -35,6 +35,8 @@ EventLogSeverity event_log_severity_from_type(EventLogType type) {
         case EVENT_TYPE_WAR_FRONT_SEVERED:
         case EVENT_TYPE_BATTLE_RESOLVED:
         case EVENT_TYPE_VASSAL_INDEPENDENCE_WAR:
+        case EVENT_TYPE_ALLIANCE_WAR_STARTED:
+        case EVENT_TYPE_ALLIANCE_WAR_ENDED:
         case EVENT_TYPE_TREASURY_INDEMNITY:
         case EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT:
         case EVENT_TYPE_MERCENARIES_HIRED:
@@ -47,6 +49,10 @@ EventLogSeverity event_log_severity_from_type(EventLogType type) {
         case EVENT_TYPE_COLLAPSE_SUCCEEDED:
         case EVENT_TYPE_CIVIL_UNREST_TRIGGERED:
         case EVENT_TYPE_VASSAL_ANNEXED:
+        case EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED:
+        case EVENT_TYPE_ALLIANCE_MILITARY_DOWNGRADED:
+        case EVENT_TYPE_WORLD_TECH_AGE_FIRST:
+        case EVENT_TYPE_WORLD_DEEP_SEA_FIRST:
         case EVENT_TYPE_ENCLAVE_FAILED:
             return EVENT_SEVERITY_DANGER;
         default:

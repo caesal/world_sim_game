@@ -28,18 +28,14 @@
 #include "ui/ui_types.h"
 #include "ui/ui_wheel.h"
 #include "ui/ui_worldgen_layout.h"
+#include "ui/ui_world_announcement.h"
 #include <string.h>
 #include <windowsx.h>
 static int tracking_mouse_leave = 0;
 static int last_panel_hover_target = -1;
-static void reset_side_panel_hover_tracking(void) {
-    hover_x = -1;
-    hover_y = -1;
-    last_panel_hover_target = -1;
-}
+static void reset_side_panel_hover_tracking(void) { hover_x = hover_y = -1; last_panel_hover_target = -1; }
 static void invalidate_panel_hover_target(HWND hwnd, int old_target, int new_target) {
-    if (old_target == -2 || new_target == -2) ui_invalidate_side_panel_handle(hwnd);
-    else ui_invalidate_side_panel_hover(hwnd);
+    if (old_target == -2 || new_target == -2) ui_invalidate_side_panel_handle(hwnd); else ui_invalidate_side_panel_hover(hwnd);
 }
 
 static int panel_hover_target(RECT client, int x, int y) {
@@ -75,6 +71,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         ui_invalidate_map_viewport(hwnd);
         return;
     }
+    if (ui_world_announcement_handle_click(hwnd, client, mouse_x, mouse_y)) return;
     if (point_in_rect(get_language_button_rect(client), mouse_x, mouse_y)) {
         ui_language = ui_language == UI_LANG_EN ? UI_LANG_ZH : UI_LANG_EN;
         ui_forms_refresh_language(hwnd);
@@ -287,6 +284,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     }
     hover_x = mouse_x;
     hover_y = mouse_y;
+    ui_world_announcement_update_hover(hwnd, client, mouse_x, mouse_y);
     panel_rect = get_side_panel_draw_rect(client);
     was_panel = point_in_rect(panel_rect, old_hover_x, old_hover_y) ||
                 side_panel_handle_hit_test(client, old_hover_x, old_hover_y);
@@ -334,6 +332,7 @@ static void handle_mouse_leave(HWND hwnd) {
         int old_target = last_panel_hover_target;
         hover_x = -1;
         hover_y = -1;
+        ui_world_announcement_mouse_leave(hwnd);
         last_panel_hover_target = -1;
         GetClientRect(hwnd, &client);
         if (old_target != -1) invalidate_panel_hover_target(hwnd, old_target, panel_hover_target(client, -1, -1));
@@ -455,6 +454,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
                 if (redraw) ui_invalidate_game_redraw(hwnd, redraw);
             }
             if (wparam == TIMER_ID && ui_notifications_tick()) ui_notifications_invalidate(hwnd);
+            if (wparam == TIMER_ID) ui_world_announcement_tick(hwnd, GetTickCount());
             return 0;
         case WM_LBUTTONDOWN:
             handle_mouse_down(hwnd, LOWORD(lparam), HIWORD(lparam));

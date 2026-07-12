@@ -36,12 +36,13 @@ void draw_top_bar(HDC hdc, RECT client) {
     UiClayState language_state = ui_clay_state_from_flags(
         language_hot, language_hot && (GetKeyState(VK_LBUTTON) & 0x8000), 0, 0);
     char text[80];
-    HFONT title_font = CreateFontW(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
-                                   OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
-                                   DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
+    HFONT title_font;
     HFONT old_font;
 
     ui_clay_draw_bar_shell(hdc, bar);
+    title_font = CreateFontW(24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                             OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
+                             DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
     ui_clay_draw_card(hdc, year_box, UI_CLAY_STATE_NORMAL);
     snprintf(text, sizeof(text), "%s %d  %s %d", tr("Year", "年"),
              game_loop_display_year(), tr("Month", "月"), game_loop_display_month());

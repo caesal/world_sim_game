@@ -12,6 +12,7 @@
 #include "sim/sea_lanes.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
+#include "sim/world_announcement.h"
 #include <stdlib.h>
 #include <string.h>
 #define MARITIME_TARGET_KEEP 8
@@ -253,6 +254,7 @@ void maritime_try_overseas_expansion(int civ_id, int resource_score, char *log, 
         if (sea_stability > 0 && !civs[civ_id].deep_sea_route_unlocked_event_done) {
             disorder_relieve(civ_id, 25);
             civs[civ_id].deep_sea_route_unlocked_event_done = 1;
+            world_announcement_emit_deep_sea_first(civ_id);
         }
         event_log_push_structured(EVENT_TYPE_EXPANSION_CLAIMED, EVENT_SEVERITY_INFO,
                                   civ_id, -1, targets[index].land_region_id, -1, 0, 1, NULL);

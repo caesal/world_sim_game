@@ -12,6 +12,7 @@
 #include "sim/ports.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
+#include "sim/world_announcement.h"
 
 static void refresh_after_vassal_release(void) {
     world_invalidate_country_summary_cache();
@@ -45,8 +46,8 @@ int game_request_release_vassal(int vassal_id) {
         return 0;
     }
     vassal_release(vassal_id);
-    event_log_push_structured(EVENT_TYPE_VASSAL_RELEASED, EVENT_SEVERITY_INFO,
-                              vassal_id, overlord, -1, -1, 0, 0, "");
+    world_announcement_emit_vassal(EVENT_TYPE_VASSAL_RELEASED,
+                                   vassal_id, overlord, -1, 0);
     refresh_after_vassal_release();
     state_write_unlock();
     render_snapshot_publish_from_live_state();

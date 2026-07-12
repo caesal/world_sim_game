@@ -1,7 +1,6 @@
 #include "sim/alliance.h"
 
 #include "core/dirty_flags.h"
-#include "core/game_notifications.h"
 #include "core/game_state.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
@@ -10,6 +9,7 @@
 #include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
+#include "sim/world_announcement.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -288,35 +288,19 @@ static void deactivate_alliance(int alliance_id, const int *members, int count) 
     alliance_power_cache_reset();
 }
 
-static void notify_union_absorption(const AllianceRecord *record, int proposer, int absorbed_count) {
-    char en[GAME_NOTIFICATION_TEXT], zh[GAME_NOTIFICATION_TEXT];
-    snprintf(en, sizeof(en), "%s completed union: %s absorbed %d other members.",
-             record->name_en, civilization_display_name_for_language(proposer, 0), absorbed_count);
-    snprintf(zh, sizeof(zh), "%s完成联合：%s吞并%d个其他成员国。",
-             record->name_zh, civilization_display_name_for_language(proposer, 1), absorbed_count);
-    game_notifications_push(en, zh);
-}
-
 static void absorb_members(int alliance_id, int proposer, const int *members, int count) {
-    AllianceSaveState *state = alliance_internal_state();
-    AllianceRecord *record = &state->records[alliance_id];
     unsigned char absorbed_mask[MAX_CIVS] = {0};
-    char alliance_snapshot[ALLIANCE_NAME_LEN * 2 + 4];
-    int i, absorbed = 0;
+    int i;
     for (i = 0; i < count; i++) {
         if (members[i] == proposer) continue;
         absorbed_mask[members[i]] = 1;
-        absorbed++;
     }
-    snprintf(alliance_snapshot, sizeof(alliance_snapshot), "%s\t%s", record->name_en, record->name_zh);
+    world_announcement_emit_union(alliance_id, proposer, members, count);
     transfer_owned_world(proposer, absorbed_mask);
     transfer_cities_to_proposer(proposer, members, count);
     retire_absorbed_members(proposer, members, count);
     alliance_record_history(alliance_id, ALLIANCE_HISTORY_UNION_ABSORBED, proposer, -1,
                             ALLIANCE_VOTE_UNION, ALLIANCE_REJECT_NONE);
-    event_log_push_structured(EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION, EVENT_SEVERITY_INFO,
-                              proposer, -1, -1, -1, alliance_id, absorbed, alliance_snapshot);
-    notify_union_absorption(record, proposer, absorbed);
     deactivate_alliance(alliance_id, members, count);
     finish_world_refresh(proposer, members, count);
 }

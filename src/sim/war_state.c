@@ -1,4 +1,5 @@
 #include "sim/war_internal.h"
+#include "sim/world_announcement.h"
 
 #include <string.h>
 
@@ -14,6 +15,7 @@ void war_reset(void) {
     memset(active_wars, 0, sizeof(active_wars));
     memset(support_casualties, 0, sizeof(support_casualties));
     total_started_wars = 0;
+    world_announcement_war_reset();
 }
 
 void war_copy_save_state(ActiveWar *wars, int war_count, int *support,
@@ -40,4 +42,5 @@ void war_restore_save_state(const ActiveWar *wars, int war_count, const int *sup
             !war_state_valid_civ(wars[i].defender)) continue;
         active_wars[i] = wars[i];
     }
+    world_announcement_war_baseline_active();
 }

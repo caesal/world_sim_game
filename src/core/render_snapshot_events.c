@@ -1,4 +1,5 @@
 #include "core/render_snapshot_events.h"
+#include "core/world_announcement_store.h"
 
 #include <string.h>
 
@@ -7,6 +8,9 @@ void render_snapshot_copy_events_locked(RenderSnapshot *snapshot) {
     int i;
     snapshot->event_count = max_events;
     snapshot->event_total_entries = event_log_total_entries;
+    snapshot->world_announcement_count = world_announcement_store_copy_newest_stream(
+        snapshot->world_announcements, RENDER_SNAPSHOT_WORLD_ANNOUNCEMENT_COUNT);
+    snapshot->world_announcement_total_entries = world_announcement_store_total_entries();
     for (i = 0; i < max_events; i++) {
         SnapshotEvent *dst = &snapshot->events[i];
         memset(dst, 0, sizeof(*dst));

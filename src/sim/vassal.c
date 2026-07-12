@@ -9,6 +9,7 @@
 #include "sim/regions_settlement.h"
 #include "sim/simulation.h"
 #include "sim/war.h"
+#include "sim/world_announcement.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -211,8 +212,8 @@ static int annex_direct_vassal(int overlord, int vassal, int vassal_years, int c
         if (!regions_claim_for_civ(region_id, overlord, natural_regions[region_id].city_id, 1)) return 0;
     }
     transfer_remaining_vassal_cities(overlord, vassal);
-    event_log_push_structured(EVENT_TYPE_VASSAL_ANNEXED, EVENT_SEVERITY_DANGER,
-                              vassal, overlord, -1, -1, vassal_years, 0, "");
+    world_announcement_emit_vassal(EVENT_TYPE_VASSAL_ANNEXED,
+                                   vassal, overlord, -1, vassal_years);
     war_end_direct_for_civ(vassal);
     civs[vassal].alive = 0;
     civs[vassal].capital_city = -1;
@@ -295,18 +296,18 @@ int vassal_make(int overlord, int vassal, int relation_score) {
         int child_old_overlord = vassal_overlord(children[i]);
         vassal_release(children[i]);
         diplomacy_start_vassal(overlord, children[i], relation_score);
-        event_log_push_structured(EVENT_TYPE_VASSAL_TRANSFERRED, EVENT_SEVERITY_INFO,
-                                  children[i], child_old_overlord, -1, -1, overlord, 0, "");
+        world_announcement_emit_vassal(EVENT_TYPE_VASSAL_TRANSFERRED,
+                                       children[i], child_old_overlord, overlord, overlord);
     }
     clear_direct_wars_for_vassal(vassal);
     diplomacy_start_vassal(overlord, vassal, relation_score);
     if (vassal_is_direct(overlord, vassal)) disorder_pacify_vassalization(vassal);
     if (old_overlord >= 0 && old_overlord != overlord) {
-        event_log_push_structured(EVENT_TYPE_VASSAL_TRANSFERRED, EVENT_SEVERITY_INFO,
-                                  vassal, old_overlord, -1, -1, overlord, 0, "");
+        world_announcement_emit_vassal(EVENT_TYPE_VASSAL_TRANSFERRED,
+                                       vassal, old_overlord, overlord, overlord);
     } else {
-        event_log_push_structured(EVENT_TYPE_VASSAL_CREATED, EVENT_SEVERITY_INFO,
-                                  vassal, overlord, -1, -1, 0, 0, "");
+        world_announcement_emit_vassal(EVENT_TYPE_VASSAL_CREATED,
+                                       vassal, overlord, -1, 0);
     }
     world_invalidate_country_summary_cache();
     return 1;
@@ -355,18 +356,18 @@ void vassal_update_year(void) {
         overlord_army = max(1, war_current_soldiers_for_civ(overlord));
         if (vassal_army * 100 > overlord_army * 90) {
             vassal_release(vassal);
-            event_log_push_structured(EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE, EVENT_SEVERITY_INFO,
-                                      vassal, overlord, -1, -1, 0, 0, "");
+            world_announcement_emit_vassal(EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE,
+                                           vassal, overlord, -1, 0);
             fragmentation_diag_record_vassal_peaceful_independence();
         } else if (vassal_army * 100 > overlord_army * 65) {
             vassal_release(vassal);
             if (war_start_independence(vassal, overlord)) {
-                event_log_push_structured(EVENT_TYPE_VASSAL_INDEPENDENCE_WAR, EVENT_SEVERITY_WARNING,
-                                          vassal, overlord, -1, -1, 0, 0, "");
+                world_announcement_emit_vassal(EVENT_TYPE_VASSAL_INDEPENDENCE_WAR,
+                                               vassal, overlord, -1, 0);
                 fragmentation_diag_record_vassal_independence_war();
             } else {
-                event_log_push_structured(EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE, EVENT_SEVERITY_INFO,
-                                          vassal, overlord, -1, -1, 0, 0, "");
+                world_announcement_emit_vassal(EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE,
+                                               vassal, overlord, -1, 0);
                 fragmentation_diag_record_vassal_peaceful_independence();
             }
         }

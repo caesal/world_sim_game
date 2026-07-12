@@ -11,6 +11,7 @@
 #include "sim/simulation.h"
 #include "sim/territory_integrity.h"
 #include "sim/vassal.h"
+#include "sim/world_announcement.h"
 #include "sim/war.h"
 
 #include <stdio.h>
@@ -110,8 +111,8 @@ static void release_vassal_relations(int civ_id) {
     vassal_release(civ_id);
     vassal_release_all(civ_id);
     for (i = 0; i < released_count; i++) {
-        event_log_push_structured(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE, EVENT_SEVERITY_INFO,
-                                  released_vassals[i], civ_id, -1, -1, 0, 0, "");
+        world_announcement_emit_vassal(EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE,
+                                       released_vassals[i], civ_id, -1, 0);
     }
 }
 
@@ -180,9 +181,8 @@ int collapse_single_province_execute(int civ_id, CollapseCause cause) {
         }
     }
     if (candidate < 0) unclaim_single_region(region_id, civ_id);
+    world_announcement_emit_collapse(civ_id, candidate, region_id, NULL, 0, -(int)result);
     retire_collapsed_civ(civ_id);
-    event_log_push_structured(EVENT_TYPE_COLLAPSE_SUCCEEDED, EVENT_SEVERITY_DANGER,
-                              civ_id, candidate, region_id, -1, -(int)result, 0, "");
     collapse_refresh_world();
     return 1;
 }

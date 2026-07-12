@@ -149,13 +149,7 @@ int plague_months_since_random_outbreak(void) {
 
 int plague_try_monthly_random_outbreak(void) {
     if (rnd(100) >= 4) return 0;
-    if (!plague_seed_random_outbreak()) return 0;
-    if (last_random_seed_city >= 0 && last_random_seed_city < city_count) {
-        event_log_push_structured(EVENT_TYPE_PLAGUE_STARTED, EVENT_SEVERITY_WARNING,
-                                  cities[last_random_seed_city].owner, -1, -1, last_random_seed_city,
-                                  0, 0, "Random plague outbreak.");
-    }
-    return 1;
+    return plague_seed_random_outbreak();
 }
 
 static void try_infect_city(int source_city, int target_city, int chance, int route_id) {
@@ -383,26 +377,11 @@ void plague_notify_war_casualties(int civ_id, int casualties) {
     }
 }
 
-int plague_city_active(int city_id) {
-    return valid_city(city_id) && city_plagues[city_id].active;
-}
-
-int plague_city_severity(int city_id) {
-    return plague_city_active(city_id) ? city_plagues[city_id].severity : 0;
-}
-
-int plague_city_deaths_total(int city_id) {
-    return valid_city(city_id) ? city_plagues[city_id].deaths_total : 0;
-}
-
-int plague_city_months_left(int city_id) {
-    return plague_city_active(city_id) ? city_plagues[city_id].months_left : 0;
-}
-
-int plague_city_reinfection_cooldown_months(int city_id) {
-    return valid_city(city_id) ? city_plagues[city_id].reinfection_cooldown_months : 0;
-}
-
+int plague_city_active(int city_id) { return valid_city(city_id) && city_plagues[city_id].active; }
+int plague_city_severity(int city_id) { return plague_city_active(city_id) ? city_plagues[city_id].severity : 0; }
+int plague_city_deaths_total(int city_id) { return valid_city(city_id) ? city_plagues[city_id].deaths_total : 0; }
+int plague_city_months_left(int city_id) { return plague_city_active(city_id) ? city_plagues[city_id].months_left : 0; }
+int plague_city_reinfection_cooldown_months(int city_id) { return valid_city(city_id) ? city_plagues[city_id].reinfection_cooldown_months : 0; }
 int plague_tile_severity(int x, int y) {
     int city_id;
 
@@ -421,11 +400,7 @@ int plague_civ_active_count(int civ_id) {
     }
     return count;
 }
-
-int plague_active_for_civ(int civ_id) {
-    return plague_civ_active_count(civ_id) > 0;
-}
-
+int plague_active_for_civ(int civ_id) { return plague_civ_active_count(civ_id) > 0; }
 int plague_civ_pressure(int civ_id) {
     int i;
     int pressure = 0;
@@ -477,8 +452,7 @@ int plague_civ_months_left(int civ_id) {
 }
 
 int plague_random_immunity_months(int civ_id) {
-    if (civ_id < 0 || civ_id >= civ_count) return 0;
-    return civs[civ_id].plague_random_immunity_months;
+    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].plague_random_immunity_months : 0;
 }
 
 int plague_random_immunity_civ_count(void) {
@@ -486,6 +460,17 @@ int plague_random_immunity_civ_count(void) {
     int count = 0;
     for (i = 0; i < civ_count; i++) {
         if (civs[i].alive && civs[i].plague_random_immunity_months > 0) count++;
+    }
+    return count;
+}
+
+int plague_global_active_state(int *first_city_id) {
+    int i, count = 0;
+    if (first_city_id) *first_city_id = -1;
+    for (i = 0; i < city_count; i++) {
+        if (!valid_city(i) || !city_plagues[i].active) continue;
+        if (first_city_id && *first_city_id < 0) *first_city_id = i;
+        count++;
     }
     return count;
 }

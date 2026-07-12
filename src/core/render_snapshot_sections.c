@@ -71,10 +71,14 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
     }
     if (mask & RENDER_SNAPSHOT_SECTION_EVENTS) {
         memcpy(dst->events, src->events, sizeof(dst->events));
+        memcpy(dst->world_announcements, src->world_announcements,
+               sizeof(dst->world_announcements));
         memcpy(dst->civ_recent_events, src->civ_recent_events, sizeof(dst->civ_recent_events));
         memcpy(dst->civ_recent_event_count, src->civ_recent_event_count, sizeof(dst->civ_recent_event_count));
         dst->event_count = src->event_count;
         dst->event_total_entries = src->event_total_entries;
+        dst->world_announcement_count = src->world_announcement_count;
+        dst->world_announcement_total_entries = src->world_announcement_total_entries;
         dst->events_revision = src->events_revision;
     }
 }

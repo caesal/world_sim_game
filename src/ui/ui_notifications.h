@@ -19,6 +19,7 @@ int ui_notifications_active(void);
 int ui_notifications_count(void);
 int ui_notifications_get(int index, UiNotification *out);
 RECT ui_notifications_rect(RECT client);
+RECT ui_notifications_rect_for_announcement(RECT client, int announcement_active);
 void ui_notifications_invalidate(HWND hwnd);
 
 #endif

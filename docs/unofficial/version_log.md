@@ -1,5 +1,72 @@
 # Version Log
 
+## Ver0.3.5.g
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.5.g.
+2. Added a structured World Announcement pipeline with stable event ids,
+   localized event formatting, stable country/alliance identity snapshots, and
+   compact RenderSnapshot delivery.
+3. Added Critical, Major, and Normal announcement policy for the approved
+   collapse, union, alliance, vassal, plague, named-age, deep-route, and
+   Military Alliance war events. Ordinary diplomacy and country-only wars
+   remain in their existing log/arrow paths.
+4. Added an ordered announcement queue with deduplication, priority preemption
+   and resume, pagination, hover pause, Locate, Dismiss, and bounded display
+   durations.
+5. Moved the announcement out of the top bar into an 82px map overlay directly
+   below the unchanged top bar, preserving the date and controls.
+6. Applied exact 191/255 announcement alpha, cached 20/18/16px typography,
+   cached PNG icons, identity-colored rich text, fresh-underlay rejection, and
+   atomic partial-band presentation.
+7. Unified the left bottom controls and three status blocks on a shared 30px
+   row from `bottom-38` to `bottom-8`, with the status dot centered from its
+   actual rectangle.
+8. Set Country fill and independent Alliance-view fill alpha to 136/255 and
+   Alliance-member fill alpha to 176/255 in both live and snapshot paths.
+9. Changed the Tense diplomacy page so truces remain before true tense
+   relations but sort by remaining truce duration from longest to shortest;
+   ties retain population and civilization-id ordering.
+10. Preserved the Ver0.3.5.f diplomacy arrows, border/cache scale, live
+    province/city refresh, map legends, ocean, alliance, war comparison, and
+    presentation correctness stack.
+11. Updated both build lists, focused presentation probes, root README,
+    documentation index, version log, side doc, and active version marker.
+
+Behavioral notes:
+
+- `MAP_SAVE_VERSION` remains `18`.
+- This release does not implement the proposed new named-plague generation,
+  spore-budget, immunity, severity, mortality, or propagation model.
+- Existing plague simulation behavior is unchanged except for producing the
+  approved structured global start/end announcement observations.
+- No speed constants, month scheduling rules, diplomacy-arrow event rules,
+  map draw order, world generation, technology progression, route unlocks,
+  population balance, or save schema are intentionally changed.
+- `docs/official` is intentionally not updated because Ver0.3.5.g is a backup
+  checkpoint rather than a new official documentation freeze.
+
+Validation notes:
+
+- Ver0.3.5.g uses `WORLD_SIM_VERSION "0.3.5.g"`.
+- Focused presentation evidence for the final source stack recorded
+  `overall_ok=1`, including announcement policy, queue, layout, alpha,
+  typography, underlay freshness, partial presentation, Tense ordering, live
+  province/city, diplomacy arrows, legend, border-scale, and ocean guards.
+- Targeted GUI validation covered 1920x1080 and 1366x768, English/Chinese,
+  expanded/collapsed side panels, map modes, announcement/toast coexistence,
+  and a 60-frame flicker sequence.
+- Fresh AGENTS Rule39 evidence used an Extreme 1152x800 world with 26 initial
+  civilizations and 1,103 natural regions at max/5x. It reached Year 692 Month
+  1. Civilization ids/names `0 Leoberg`, `1 Itanaru`, `2 Kwaranmbo`,
+  `3 Eberburg`, and `4 Norborg` reached technology stage 5. Deep routes changed
+  from `84 total / 84 shallow / 0 deep` to `108 / 107 / 1`.
+- Rule39 flow evidence is complete for this checkpoint, including zero dropped
+  presentation months and zero order skips. Broad performance is not accepted:
+  the final sample was 97ms/month with 32ms render average and 129ms render
+  peak, above the requested hard targets.
+
 ## Ver0.3.5.f
 
 Implemented fixes:

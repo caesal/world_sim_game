@@ -196,7 +196,17 @@ typedef enum {
     EVENT_TYPE_DIPLOMACY_ALLIANCE,
     EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED,
     EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT,
-    EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION
+    EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION,
+    EVENT_TYPE_ALLIANCE_CREATED,
+    EVENT_TYPE_ALLIANCE_DISSOLVED,
+    EVENT_TYPE_ALLIANCE_MEMBER_JOINED,
+    EVENT_TYPE_ALLIANCE_MEMBER_REMOVED,
+    EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED,
+    EVENT_TYPE_ALLIANCE_MILITARY_DOWNGRADED,
+    EVENT_TYPE_ALLIANCE_WAR_STARTED,
+    EVENT_TYPE_ALLIANCE_WAR_ENDED,
+    EVENT_TYPE_WORLD_TECH_AGE_FIRST,
+    EVENT_TYPE_WORLD_DEEP_SEA_FIRST
 } EventLogType;
 
 typedef enum {
@@ -248,6 +258,9 @@ void event_log_push(const char *text);
 void event_log_push_structured(EventLogType type, EventLogSeverity severity, int civ_id,
                                int target_id, int region_id, int city_id,
                                int param_a, int param_b, const char *raw_message);
+int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, int civ_id,
+                                 int target_id, int region_id, int city_id,
+                                 int param_a, int param_b, const char *raw_message);
 void event_log_clear(void);
 const char *event_log_get(int index);
 void event_log_format_entry(int index, int language, char *out, size_t out_size);

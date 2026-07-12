@@ -7,20 +7,17 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.5.f is a Windows graphical sandbox prototype written in C.
+Ver0.3.5.g is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.5.f is a backup UI/rendering checkpoint over Ver0.3.5.e. It keeps the
-proposer-led union absorption, Military Alliance / Alliance Council foundation,
-player-directed Alliance Detail actions, cached ancient-ocean asset library,
-textured sea presentation, collapsed top-bar layout fixes, live province/city
-refresh, Alliance-view leader color editing, 50 percent map legend opacity,
-subtler blue ocean base, viewport-blank map click clearing, and diplomacy
-contact/tension/war arrow presentation, then records the latest scoped
-presentation corrections for border/cache scale restoration, cached-window
-flicker guards, diplomacy marker icon caching, alliance council tooltip
-scoping, upgrade-vote joiner display, and war-comparison regular/ally/vassal
-force presentation without intentionally changing gameplay, save format, speed
-semantics, or simulation rules.
+Ver0.3.5.g is a presentation and world-announcement backup checkpoint over
+Ver0.3.5.f. It preserves the existing alliance, diplomacy-arrow, war comparison,
+live province/city, map-cache, ocean, legend, and border presentation stack. It
+adds structured world announcements for selected world-scale events, stable
+identity snapshots, priority/preemption and pagination, identity-colored rich
+text, a 75 percent opaque map-overlay banner below the unchanged top bar, and
+localized announcement controls. It also records shared 30px bottom-bar
+geometry, the approved Country/Alliance map-fill alpha policy, and descending
+truce-duration ordering on the Tense diplomacy page.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -31,13 +28,15 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.5.f is a backup/checkpoint push, not a full performance
-acceptance release. Focused build/probe/static checks and targeted GUI evidence
-exist for the scoped presentation fixes, but the hard stutter gates remain
-open: observed early-year actual-ms/month and render peaks still exceed the
-requested thresholds, and fresh full AGENTS Rule39 acceptance has not been
-completed for Ver0.3.5.f. The earlier Ver0.3.4 Rule39 run remains historical
-evidence for the previous release stack only.
+Validation note: Ver0.3.5.g is a backup/checkpoint release, not a declaration
+that broad simulation or rendering performance meets the requested hard
+thresholds. Focused probes, targeted GUI checks, flicker sampling, and a fresh
+AGENTS Rule39 run were completed for this source stack. The Rule39 run reached
+Year 692 Month 1 on an Extreme 1152x800 world with 26 initial civilizations and
+1,103 natural regions; five named civilizations reached technology stage 5 and
+deep routes changed from 0 visible deep routes to 1. General performance still
+recorded 97ms/month and a 129ms render peak, so performance acceptance remains
+open.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

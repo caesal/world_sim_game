@@ -10,7 +10,6 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#define POLITICAL_FILL_ALPHA 176
 #define POLITICAL_SATURATION_CAP 0.62
 #define POLITICAL_TEXTURE_BLEND 26
 

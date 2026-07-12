@@ -27,12 +27,18 @@ SOURCES := \
 	src/game/game_diplomacy_tooltip_probe.c \
 	src/game/game_diplomacy_visual_probe.c \
 	src/game/game_presentation_probe.c \
+	src/game/game_presentation_probe_runner.c \
 	src/game/game_presentation_map_probe.c \
 	src/game/game_presentation_diplomacy_probe.c \
+	src/game/game_presentation_diplomacy_sort_probe.c \
 	src/game/game_presentation_regression_probe.c \
 	src/game/game_presentation_interaction_probe.c \
 	src/game/game_presentation_layout_probe.c \
 	src/game/game_presentation_topbar_probe.c \
+	src/game/game_presentation_world_policy_probe.c \
+	src/game/game_presentation_world_announcement_event_probe.c \
+	src/game/game_presentation_world_announcement_layout_probe.c \
+	src/game/game_presentation_world_announcement_ui_probe.c \
 	src/game/game_economy_probe.c \
 	src/game/game_collapse_color_probe.c \
 	src/game/game_population_probe.c \
@@ -42,7 +48,9 @@ SOURCES := \
 	src/io/map_save_regions.c \
 	src/io/map_save_state.c \
 	src/core/event_log.c \
+	src/core/event_log_runtime.c \
 	src/core/event_log_classify.c \
+	src/core/world_announcement_store.c \
 	src/core/game_notifications.c \
 	src/core/event_log_history.c \
 	src/core/event_log_store.c \
@@ -77,6 +85,9 @@ SOURCES := \
 	src/sim/simulation_month.c \
 	src/sim/simulation_scheduler.c \
 	src/sim/simulation_worker.c \
+	src/sim/world_announcement.c \
+	src/sim/world_announcement_alliance.c \
+	src/sim/world_announcement_war.c \
 	src/world/noise.c \
 	src/world/ports.c \
 	src/sim/ports.c \
@@ -152,6 +163,8 @@ SOURCES := \
 	src/sim/war_names.c \
 	src/sim/war_state.c \
 	src/render/render.c \
+	src/render/render_partial_ui.c \
+	src/render/render_transient_ui.c \
 	src/render/render_layer_cache.c \
 	src/render/render_static_map_cache_border.c \
 	src/render/render_static_map_cache_fill.c \
@@ -239,6 +252,9 @@ SOURCES := \
 	src/render/panel_debug.c \
 	src/render/panel_population.c \
 	src/render/panel_info.c \
+	src/render/top_world_announcement.c \
+	src/render/top_world_announcement_resources.c \
+	src/render/top_world_announcement_surface.c \
 	src/render/panel_map_speed_badge.c \
 	src/render/panel_map.c \
 	src/render/icons.c \
@@ -256,6 +272,8 @@ SOURCES := \
 	src/ui/ui_map_display.c \
 	src/ui/ui_invalidation.c \
 	src/ui/ui_notifications.c \
+	src/ui/ui_world_announcement.c \
+	src/ui/world_announcement_queue.c \
 	src/ui/ui_pressed_state.c \
 	src/ui/ui_wheel.c \
 	src/ui/ui_worldgen_layout.c \

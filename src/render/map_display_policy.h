@@ -5,6 +5,10 @@
 #include "render/map_ownership_surface.h"
 #include <windows.h>
 
+#define MAP_COUNTRY_FILL_ALPHA 136
+#define MAP_ALLIANCE_INDEPENDENT_FILL_ALPHA 136
+#define MAP_ALLIANCE_MEMBER_FILL_ALPHA 176
+
 typedef struct {
     int active;
     COLORREF color;

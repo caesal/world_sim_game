@@ -21,6 +21,13 @@ int ui_snapshot_civ_alive(int civ_id) {
     return alive;
 }
 
+int ui_snapshot_civ_uid(int civ_id) {
+    const RenderSnapshot *snapshot = render_snapshot_acquire();
+    int uid = snapshot && civ_id >= 0 && civ_id < snapshot->civ_count ? snapshot->civs[civ_id].uid : 0;
+    render_snapshot_release(snapshot);
+    return uid;
+}
+
 unsigned int ui_snapshot_civ_color(int civ_id) {
     const RenderSnapshot *snapshot = render_snapshot_acquire();
     unsigned int color = 0;

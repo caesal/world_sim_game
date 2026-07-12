@@ -29,7 +29,8 @@ typedef struct {
     int id;
     int primary;
     int secondary;
-    int tertiary;
+    int population_sort;
+    int id_sort;
 } DiplomacyEntry;
 
 static const RenderSnapshot *dip_snapshot(void) {
@@ -293,8 +294,9 @@ static int status_order_for_vassal_other(int status) {
 static DiplomacyEntry make_entry(int civ_id, int other_id, DiplomacyDisplayGroup group, int selected_is_vassal) {
     int sort_a = civ_id;
     int sort_b = other_id;
+    const SnapshotCiv *other = dip_civ(other_id);
     SnapshotDiplomacyRelation rel;
-    DiplomacyEntry e = {other_id, 0, 0, other_id};
+    DiplomacyEntry e = {other_id, 0, 0, 0, other_id};
     if (selected_is_vassal && group == DIP_DISPLAY_VASSAL) {
         sort_a = sovereign_id(civ_id);
         sort_b = sovereign_id(other_id);
@@ -304,7 +306,8 @@ static DiplomacyEntry make_entry(int civ_id, int other_id, DiplomacyDisplayGroup
         e.secondary = -rel.relation_score;
     } else if (group == DIP_DISPLAY_TENSE) {
         e.primary = rel.state == DIPLOMACY_TRUCE ? 0 : 1;
-        e.secondary = rel.state == DIPLOMACY_TRUCE ? rel.truce_years_left : -rel.border_tension;
+        e.secondary = rel.state == DIPLOMACY_TRUCE ? -rel.truce_years_left : -rel.border_tension;
+        e.population_sort = other ? -other->population : 0;
     } else if (group == DIP_DISPLAY_WAR) {
         e.secondary = -relation_war_scale(civ_id, other_id);
     } else if (group == DIP_DISPLAY_VASSAL) {
@@ -327,7 +330,10 @@ static void sort_entries(DiplomacyEntry *entries, int count) {
         while (j >= 0 && (entries[j].primary > key.primary ||
                (entries[j].primary == key.primary && entries[j].secondary > key.secondary) ||
                (entries[j].primary == key.primary && entries[j].secondary == key.secondary &&
-                entries[j].tertiary > key.tertiary))) {
+                entries[j].population_sort > key.population_sort) ||
+               (entries[j].primary == key.primary && entries[j].secondary == key.secondary &&
+                entries[j].population_sort == key.population_sort &&
+                entries[j].id_sort > key.id_sort))) {
             entries[j + 1] = entries[j];
             j--;
         }
@@ -346,6 +352,15 @@ static int collect_entries(int civ_id, DiplomacyDisplayGroup group, int selected
         if (count < max_entries) entries[count++] = make_entry(civ_id, i, group, selected_is_vassal);
     }
     sort_entries(entries, count);
+    return count;
+}
+
+int panel_country_diplomacy_probe_collect_tense_order(int civ_id, int *out_ids, int max_ids) {
+    DiplomacyEntry entries[MAX_CIVS];
+    int count = collect_entries(civ_id, DIP_DISPLAY_TENSE, 0, entries, MAX_CIVS);
+    int i;
+    if (!out_ids || max_ids <= 0) return count;
+    for (i = 0; i < count && i < max_ids; i++) out_ids[i] = entries[i].id;
     return count;
 }
 

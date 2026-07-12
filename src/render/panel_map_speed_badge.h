@@ -22,6 +22,7 @@ typedef struct {
 void panel_map_bottom_status_build(PanelMapBottomStatus *out, RECT client, int panel_w,
                                    int language, int render_ms, int pending,
                                    int auto_running, int overloaded);
+RECT panel_map_bottom_status_dot_rect(const PanelMapBottomStatus *status);
 void panel_map_draw_bottom_status_chips(HDC hdc, RECT client, int panel_w,
                                         int language, int render_ms, int pending,
                                         int auto_running, int overloaded);

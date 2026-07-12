@@ -74,10 +74,14 @@ static void anim_style(EventLogType type, COLORREF *color, IconId *icon, int *bi
     if (type == EVENT_TYPE_DIPLOMACY_TENSE) {
         *color = RGB(220, 150, 62);
         *icon = ICON_DISORDER;
-    } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE) {
+    } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
+               type == EVENT_TYPE_ALLIANCE_CREATED ||
+               type == EVENT_TYPE_ALLIANCE_MEMBER_JOINED) {
         *color = RGB(86, 152, 218);
         *icon = ICON_COHESION;
-    } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED) {
+    } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
+               type == EVENT_TYPE_ALLIANCE_DISSOLVED ||
+               type == EVENT_TYPE_ALLIANCE_MEMBER_REMOVED) {
         *color = RGB(150, 118, 192);
         *icon = ICON_COUNTRY_DEFENSE;
     } else if (type == EVENT_TYPE_WAR_STARTED) {
@@ -103,6 +107,10 @@ static int anim_type(EventLogType type) {
            type == EVENT_TYPE_DIPLOMACY_TENSE ||
            type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
            type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
+           type == EVENT_TYPE_ALLIANCE_CREATED ||
+           type == EVENT_TYPE_ALLIANCE_DISSOLVED ||
+           type == EVENT_TYPE_ALLIANCE_MEMBER_JOINED ||
+           type == EVENT_TYPE_ALLIANCE_MEMBER_REMOVED ||
            type == EVENT_TYPE_WAR_STARTED ||
            type == EVENT_TYPE_TRUCE_SIGNED ||
            type == EVENT_TYPE_WAR_FRONT_SEVERED ||
@@ -116,7 +124,11 @@ static int contact_required_anim(EventLogType type) {
     return type == EVENT_TYPE_DIPLOMACY_PEACE ||
            type == EVENT_TYPE_DIPLOMACY_TENSE ||
            type == EVENT_TYPE_DIPLOMACY_ALLIANCE ||
-           type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED;
+           type == EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED ||
+           type == EVENT_TYPE_ALLIANCE_CREATED ||
+           type == EVENT_TYPE_ALLIANCE_DISSOLVED ||
+           type == EVENT_TYPE_ALLIANCE_MEMBER_JOINED ||
+           type == EVENT_TYPE_ALLIANCE_MEMBER_REMOVED;
 }
 
 static int valid_snapshot_pair(const RenderSnapshot *snapshot, int from_id, int to_id) { return snapshot && from_id >= 0 && to_id >= 0 && from_id < snapshot->civ_count && to_id < snapshot->civ_count; }

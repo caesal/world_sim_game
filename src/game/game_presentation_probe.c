@@ -28,20 +28,10 @@
 #include <string.h>
 
 int panel_map_probe_alliance_legend_before(const RenderSnapshot *snapshot, int a_index, int b_index);
-int game_presentation_map_speed_probe(FILE *summary), game_presentation_topbar_probe(FILE *summary), game_presentation_layout_probe(FILE *summary);
-int game_presentation_map_ocean_probe(FILE *summary), game_presentation_map_decision_probe(FILE *summary), game_presentation_diplomacy_probe(FILE *summary);
-int game_presentation_regression_probe(FILE *summary);
-
 #define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 static AllianceSaveState blocking_alliance_state;
 static AllianceSaveState stepped_alliance_state;
-
-static void ensure_probe_dirs(void) {
-    CreateDirectoryA("build", NULL);
-    CreateDirectoryA("build/validation", NULL);
-    CreateDirectoryA(PRESENTATION_PROBE_DIR, NULL);
-}
 
 static int enqueue_month_sequence(int start_year, int start_month, int count) {
     int i;
@@ -496,24 +486,13 @@ static int case_alliance_vote_history_ui_semantics(FILE *summary) {
     return ok;
 }
 
-int run_presentation_probe(void) {
-    FILE *summary;
+int game_presentation_core_probe(FILE *summary) {
     int ok = 1;
-    ensure_probe_dirs();
-    summary = fopen(PRESENTATION_PROBE_DIR "/summary.txt", "w");
-    if (!summary) return 2;
     ok &= case_completed_month_queue(summary);
     ok &= case_visual_backlog_throttle(summary);
     ok &= case_bar_redraw_not_blocked(summary);
-    ok &= game_presentation_map_speed_probe(summary); ok &= game_presentation_topbar_probe(summary); ok &= game_presentation_layout_probe(summary);
-    ok &= game_presentation_diplomacy_probe(summary);
-    ok &= game_presentation_regression_probe(summary);
-    ok &= game_presentation_map_ocean_probe(summary); ok &= game_presentation_map_decision_probe(summary);
     ok &= case_alliance_year_step(summary); ok &= case_map_display_alliance_tab(summary); ok &= case_pressed_feedback_state(summary);
     ok &= case_alliance_panel_model(summary);
     ok &= case_alliance_vote_history_ui_semantics(summary);
-    fprintf(summary, "overall_ok=%d\n", ok);
-    fclose(summary);
-    printf("presentation probe summary: %s\\summary.txt\n", PRESENTATION_PROBE_DIR);
-    return ok ? 0 : 1;
+    return ok;
 }

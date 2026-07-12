@@ -15,6 +15,7 @@
 #include "sim/war_economy.h"
 #include "sim/war_front.h"
 #include "sim/war_internal.h"
+#include "sim/world_announcement.h"
 #include "sim/war_resolution.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -22,9 +23,7 @@
 static int total_active_war_casualties(int civ_id);
 static int support_share_for_front(int overlord, int vassal);
 static int peace_desire(int civ_id, int casualties, int initial_soldiers, int initial_national);
-static int is_valid_civ(int civ_id) {
-    return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive;
-}
+static int is_valid_civ(int civ_id) { return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive; }
 static int mobilized_soldiers(int civ_id, int extreme) {
     (void)extreme;
     return population_military_base_soldiers_for_civ(civ_id);
@@ -179,15 +178,12 @@ static int war_start_internal(int attacker, int defender, int allow_no_border) {
     total_started_wars++;
     event_log_push_structured(EVENT_TYPE_WAR_STARTED, EVENT_SEVERITY_WARNING,
                               attacker, defender, -1, -1, 0, 0, "");
+    world_announcement_war_started(slot, attacker, defender);
     diplomacy_force_war(attacker, defender);
     return 1;
 }
-int war_start(int attacker, int defender) {
-    return war_start_internal(attacker, defender, 0);
-}
-int war_start_independence(int attacker, int defender) {
-    return war_start_internal(attacker, defender, 1);
-}
+int war_start(int attacker, int defender) { return war_start_internal(attacker, defender, 0); }
+int war_start_independence(int attacker, int defender) { return war_start_internal(attacker, defender, 1); }
 int war_active_between(int civ_a, int civ_b) { return active_war_index(civ_a, civ_b) >= 0; }
 ActiveWar war_state_between(int civ_a, int civ_b) {
     ActiveWar empty;
@@ -270,6 +266,7 @@ static void finish_war(ActiveWar *war, WarOutcome outcome, int margin, int last_
         loser_casualties = war->casualties_a + war->support_casualties_a;
         loser_initial = war->initial_soldiers_a;
     }
+    world_announcement_war_ended((int)(war - active_wars), outcome, last_war_result);
     war_apply_outcome_with_result(war->attacker, war->defender, outcome, margin,
                                   loser_casualties, loser_initial, last_war_result);
     memset(war, 0, sizeof(*war));
@@ -279,6 +276,8 @@ static void end_war_severed_front(ActiveWar *war) {
     int defender = war->defender;
     event_log_push_structured(EVENT_TYPE_WAR_FRONT_SEVERED, EVENT_SEVERITY_INFO,
                               attacker, defender, -1, -1, 0, 0, "");
+    world_announcement_war_ended((int)(war - active_wars), WAR_OUTCOME_STALEMATE,
+                                 DIP_LAST_WAR_FRONT_SEVERED);
     diplomacy_record_war_no_winner(attacker, defender, DIP_LAST_WAR_FRONT_SEVERED);
     diplomacy_start_truce(attacker, defender, 25, 45);
     memset(war, 0, sizeof(*war));
@@ -291,6 +290,8 @@ static int resolve_peace_pressure_outcome(ActiveWar *war, int peace_a, int peace
         finish_war(war, WAR_OUTCOME_ATTACKER_WIN, max(1, war_owned_province_count(war->defender) / 5),
                    DIP_LAST_WAR_SURRENDER);
     } else if (attacker_willing && !defender_willing) {
+        world_announcement_war_ended((int)(war - active_wars), WAR_OUTCOME_STALEMATE,
+                                     DIP_LAST_WAR_OFFENSIVE_HALTED);
         diplomacy_record_war_no_winner(war->attacker, war->defender, DIP_LAST_WAR_OFFENSIVE_HALTED);
         diplomacy_start_truce(war->attacker, war->defender, 25, 45);
         memset(war, 0, sizeof(*war));

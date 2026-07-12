@@ -27,6 +27,7 @@
 #include "sim/technology.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
+#include "sim/world_announcement.h"
 #include "core/profiler.h"
 #include "world/terrain_query.h"
 
@@ -401,6 +402,7 @@ int add_civilization_at(const char *name, char symbol, int military, int logisti
 int simulation_last_created_civ_id(void) { return last_created_civ_id; }
 
 void simulation_reset_state(void) {
+    world_announcement_state_reset();
     year = 0;
     month = 1;
     civ_count = 0;

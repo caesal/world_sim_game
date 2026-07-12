@@ -10,7 +10,6 @@
 #include <string.h>
 #include <stddef.h>
 
-#define ALLIANCE_INDEPENDENT_FILL_ALPHA 136
 #define DISPLAY_ALL_FILL_ALPHA 112
 #define REGION_FILL_ALPHA 96
 
@@ -119,7 +118,7 @@ int map_display_policy_snapshot_owner_fill(const RenderSnapshot *snapshot, int o
     if (!owner_alive_snapshot(snapshot, owner)) return 0;
     if (mode == DISPLAY_POLITICAL) {
         return set_fill(out_fill, soften_political_color((COLORREF)snapshot->civs[owner].color),
-                        POLITICAL_FILL_ALPHA);
+                        MAP_COUNTRY_FILL_ALPHA);
     }
     if (mode == DISPLAY_ALLIANCE) {
         const SnapshotCiv *civ = &snapshot->civs[owner];
@@ -132,7 +131,8 @@ int map_display_policy_snapshot_owner_fill(const RenderSnapshot *snapshot, int o
                          soften_political_color((COLORREF)civ->color);
         return set_fill(out_fill,
                         color,
-                        alliance ? POLITICAL_FILL_ALPHA : ALLIANCE_INDEPENDENT_FILL_ALPHA);
+                        alliance ? MAP_ALLIANCE_MEMBER_FILL_ALPHA :
+                                   MAP_ALLIANCE_INDEPENDENT_FILL_ALPHA);
     }
     if (mode == DISPLAY_ALL) {
         return set_fill(out_fill, (COLORREF)snapshot->civs[owner].color, DISPLAY_ALL_FILL_ALPHA);
@@ -205,14 +205,16 @@ int map_display_policy_live_owner_fill(int owner, int mode, MapDisplayFillPolicy
     if (out_fill) memset(out_fill, 0, sizeof(*out_fill));
     if (!owner_alive_live(owner)) return 0;
     if (mode == DISPLAY_POLITICAL) {
-        return set_fill(out_fill, soften_political_color(civs[owner].color), POLITICAL_FILL_ALPHA);
+        return set_fill(out_fill, soften_political_color(civs[owner].color),
+                        MAP_COUNTRY_FILL_ALPHA);
     }
     if (mode == DISPLAY_ALLIANCE) {
         int alliance_id = alliance_display_for_civ(owner);
         return set_fill(out_fill,
                         alliance_id >= 0 ? (COLORREF)alliance_color(alliance_id) :
                         soften_political_color(civs[owner].color),
-                        alliance_id >= 0 ? POLITICAL_FILL_ALPHA : ALLIANCE_INDEPENDENT_FILL_ALPHA);
+                        alliance_id >= 0 ? MAP_ALLIANCE_MEMBER_FILL_ALPHA :
+                                           MAP_ALLIANCE_INDEPENDENT_FILL_ALPHA);
     }
     if (mode == DISPLAY_ALL) return set_fill(out_fill, civs[owner].color, DISPLAY_ALL_FILL_ALPHA);
     return 0;

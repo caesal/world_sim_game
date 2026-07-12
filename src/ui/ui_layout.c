@@ -43,6 +43,21 @@ RECT get_map_content_rect(RECT client) {
     return get_map_viewport_rect(client);
 }
 
+RECT get_map_actual_speed_badge_rect(RECT client) {
+    RECT viewport = get_map_viewport_rect(client);
+    RECT badge = {viewport.left + 12, viewport.top + 10,
+                  viewport.left + 72, viewport.top + 34};
+    if (badge.right > viewport.right - 4) {
+        badge.right = viewport.right - 4;
+        badge.left = badge.right - 60;
+    }
+    if (badge.bottom > viewport.bottom - 4) {
+        badge.bottom = viewport.bottom - 4;
+        badge.top = badge.bottom - 24;
+    }
+    return badge;
+}
+
 MapLayout get_map_layout(RECT client) {
     MapLayout layout;
     RECT viewport = get_map_content_rect(client);
@@ -172,28 +187,37 @@ void ui_toggle_side_panel(RECT client) {
     ui_map_view_clamp(client);
 }
 
+RECT get_bottom_control_row_rect(RECT client) {
+    RECT rect = {client.left, client.bottom - 38, client.right, client.bottom - 8};
+    return rect;
+}
+
 RECT get_play_button_rect(RECT client) {
-    RECT rect = {18, client.bottom - 38, 58, client.bottom - 8};
+    RECT row = get_bottom_control_row_rect(client);
+    RECT rect = {18, row.top, 58, row.bottom};
     return rect;
 }
 
 RECT get_speed_button_rect(RECT client, int index) {
+    RECT row = get_bottom_control_row_rect(client);
     RECT rect;
     rect.left = 68 + index * 64;
-    rect.top = client.bottom - 38;
+    rect.top = row.top;
     rect.right = rect.left + 58;
-    rect.bottom = client.bottom - 8;
+    rect.bottom = row.bottom;
     return rect;
 }
 
 RECT get_mode_button_rect(RECT client, int index) {
     RECT rect;
     int gap = 6;
+    int compact_min_w = 38 * MAP_DISPLAY_MODE_COUNT +
+                        gap * (MAP_DISPLAY_MODE_COUNT - 1);
     int left = client.right - ui_side_panel_reserved_width() + 14;
     int right = client.right - 14;
     int width = right - left;
     int button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
-    if (side_panel_collapsed || width < 360) {
+    if (side_panel_collapsed || width < compact_min_w) {
         RECT reset = get_reset_view_button_rect(client);
         right = reset.left - 10;
         left = max(client.left + 86, right - 430);
@@ -259,6 +283,32 @@ RECT get_reset_view_button_rect(RECT client) {
         rect.left = client.left + 160;
         rect.right = rect.left + 74;
     }
+    return rect;
+}
+
+RECT get_world_announcement_rect(RECT client) {
+    RECT viewport = get_map_viewport_rect(client);
+    RECT badge = get_map_actual_speed_badge_rect(client);
+    RECT rect;
+    rect.left = max(viewport.left + 12, badge.right + 12);
+    rect.top = viewport.top + 8;
+    rect.right = viewport.right - 12;
+    rect.bottom = rect.top + 82;
+    if (rect.bottom > viewport.bottom - 8) rect.bottom = viewport.bottom - 8;
+    if (rect.right <= rect.left || rect.bottom <= rect.top) SetRectEmpty(&rect);
+    return rect;
+}
+
+RECT get_world_announcement_control_rect(RECT client, WorldAnnouncementControl control) {
+    RECT band = get_world_announcement_rect(client);
+    int slot = control == WORLD_ANNOUNCEMENT_CONTROL_DISMISS ? 0 :
+               control == WORLD_ANNOUNCEMENT_CONTROL_LOCATE ? 1 :
+               control == WORLD_ANNOUNCEMENT_CONTROL_NEXT ? 2 : 3;
+    RECT rect;
+    rect.right = band.right - 8 - slot * 32;
+    rect.left = rect.right - 28;
+    rect.top = band.top + 8;
+    rect.bottom = rect.top + 28;
     return rect;
 }
 

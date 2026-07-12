@@ -44,5 +44,6 @@ typedef enum {
 
 void draw_icon(HDC hdc, IconId icon, RECT rect, COLORREF fallback);
 void draw_icon_fit(HDC hdc, IconId icon, RECT rect, COLORREF fallback);
+void preload_icon(IconId icon);
 
 #endif

@@ -49,8 +49,7 @@ static void draw_chip_text_pair(HDC hdc, RECT rect, const char *label,
 void panel_map_bottom_status_build(PanelMapBottomStatus *out, RECT client, int panel_w,
                                    int language, int render_ms, int pending,
                                    int auto_running, int overloaded) {
-    int y0 = client.bottom - 43;
-    int y1 = client.bottom - 8;
+    RECT row = get_bottom_control_row_rect(client);
     int x = 398;
     int right_limit = client.right - panel_w - 12;
     int render_w = language == UI_LANG_ZH ? 132 : 150;
@@ -79,11 +78,19 @@ void panel_map_bottom_status_build(PanelMapBottomStatus *out, RECT client, int p
     }
     if (right_limit - x < total_w) x = right_limit - total_w;
     if (x < 12) x = 12;
-    out->render_rect = (RECT){x, y0, x + render_w, y1};
-    out->queue_rect = (RECT){out->render_rect.right + gap, y0,
-                             out->render_rect.right + gap + queue_w, y1};
-    out->status_rect = (RECT){out->queue_rect.right + gap, y0,
-                              out->queue_rect.right + gap + status_w, y1};
+    out->render_rect = (RECT){x, row.top, x + render_w, row.bottom};
+    out->queue_rect = (RECT){out->render_rect.right + gap, row.top,
+                             out->render_rect.right + gap + queue_w, row.bottom};
+    out->status_rect = (RECT){out->queue_rect.right + gap, row.top,
+                              out->queue_rect.right + gap + status_w, row.bottom};
+}
+
+RECT panel_map_bottom_status_dot_rect(const PanelMapBottomStatus *status) {
+    int center_y;
+    if (!status) return (RECT){0, 0, 0, 0};
+    center_y = (status->status_rect.top + status->status_rect.bottom) / 2;
+    return (RECT){status->status_rect.right - 28, center_y - 5,
+                  status->status_rect.right - 17, center_y + 6};
 }
 
 void panel_map_draw_bottom_status_chips(HDC hdc, RECT client, int panel_w,
@@ -104,8 +111,7 @@ void panel_map_draw_bottom_status_chips(HDC hdc, RECT client, int panel_w,
                    status.status_rect.right - 28, status.status_rect.bottom},
                    status.status_text, status.status_color,
                    DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS);
-    dot = (RECT){status.status_rect.right - 28, status.status_rect.top + 13,
-                 status.status_rect.right - 17, status.status_rect.top + 24};
+    dot = panel_map_bottom_status_dot_rect(&status);
     rounded_panel(hdc, dot, 9, status.status_color, RGB(70, 86, 72));
 }
 
@@ -116,17 +122,7 @@ void panel_map_format_actual_speed_badge(char *out, size_t size, int actual_ms) 
 }
 
 RECT panel_map_actual_speed_badge_rect(RECT client) {
-    RECT viewport = get_map_viewport_rect(client);
-    RECT badge = {viewport.left + 12, viewport.top + 10, viewport.left + 72, viewport.top + 34};
-    if (badge.right > viewport.right - 4) {
-        badge.right = viewport.right - 4;
-        badge.left = badge.right - 60;
-    }
-    if (badge.bottom > viewport.bottom - 4) {
-        badge.bottom = viewport.bottom - 4;
-        badge.top = badge.bottom - 24;
-    }
-    return badge;
+    return get_map_actual_speed_badge_rect(client);
 }
 
 int panel_map_actual_speed_badge_inside_frame(RECT client) {
