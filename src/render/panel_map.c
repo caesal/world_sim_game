@@ -322,7 +322,8 @@ static int draw_alliance_legend(HDC hdc, int x, int y, int line_h) {
 
 static void draw_legend_background(HDC hdc, RECT box) {
     HBRUSH border = CreateSolidBrush(ui_theme_color(UI_COLOR_PANEL_LINE));
-    fill_rect_alpha(hdc, box, ui_theme_color(UI_COLOR_PANEL), 128);
+    fill_rect_alpha(hdc, box, ui_theme_color(UI_COLOR_PANEL),
+                    (BYTE)ui_theme_overlay_alpha());
     FrameRect(hdc, &box, border);
     DeleteObject(border);
 }

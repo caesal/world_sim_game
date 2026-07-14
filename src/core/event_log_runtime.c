@@ -34,12 +34,34 @@ static void event_snapshot_civ(EventCivSnapshot *snapshot, int civ_id) {
              civilization_display_name_for_language(civ_id, 1));
 }
 
-int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, int civ_id,
-                                 int target_id, int region_id, int city_id,
-                                 int param_a, int param_b, const char *raw_message) {
+static void event_snapshot_plague_origin(EventCivSnapshot *snapshot,
+                                         const PlagueEventPayload *plague) {
+    if (!snapshot || !plague || !plague->valid) return;
+    memset(snapshot, 0, sizeof(*snapshot));
+    snapshot->uid = plague->origin_civ_uid;
+    snapshot->symbol = plague->origin_civ_symbol;
+    snapshot->color = plague->origin_civ_color;
+    snprintf(snapshot->name_en, sizeof(snapshot->name_en), "%s",
+             plague->origin_civ_name_en);
+    snprintf(snapshot->name_zh, sizeof(snapshot->name_zh), "%s",
+             plague->origin_civ_name_zh);
+}
+
+static int event_plague_matches(const PlagueEventPayload *plague) {
+    if (!plague || !plague->valid) return !event_log_last_entry.plague.valid;
+    return event_log_last_entry.plague.valid &&
+           event_log_last_entry.plague.stable_event_id == plague->stable_event_id;
+}
+
+static int event_log_push_structured_payload(
+    EventLogType type, EventLogSeverity severity, int civ_id,
+    int target_id, int region_id, int city_id,
+    int param_a, int param_b, const char *raw_message,
+    const PlagueEventPayload *plague) {
     EventLogEntry *entry;
     int previous;
-    int civ_uid = civ_id >= 0 && civ_id < civ_count ? civs[civ_id].uid : 0;
+    int civ_uid = plague && plague->valid ? plague->origin_civ_uid :
+                  (civ_id >= 0 && civ_id < civ_count ? civs[civ_id].uid : 0);
     int target_uid = target_id >= 0 && target_id < civ_count ? civs[target_id].uid : 0;
     int param_a_uid = event_param_a_is_civ(type) && param_a >= 0 && param_a < civ_count ?
                       civs[param_a].uid : 0;
@@ -50,7 +72,8 @@ int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, i
         event_log_last_entry.target_uid == target_uid && event_log_last_entry.param_a_uid == param_a_uid &&
         event_log_last_entry.region_id == region_id && event_log_last_entry.city_id == city_id &&
         event_log_last_entry.param_a == param_a && event_log_last_entry.param_b == param_b &&
-        strcmp(event_log_last_entry.raw_message, raw_message) == 0 && event_log_last_event_id > 0) {
+        strcmp(event_log_last_entry.raw_message, raw_message) == 0 &&
+        event_plague_matches(plague) && event_log_last_event_id > 0) {
         previous = event_log_next - 1;
         while (previous < 0) previous += EVENT_LOG_COUNT;
         event_log_entries[previous % EVENT_LOG_COUNT].repeat_count++;
@@ -76,6 +99,11 @@ int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, i
     event_snapshot_civ(&entry->civ_snapshot, civ_id);
     event_snapshot_civ(&entry->target_snapshot, target_id);
     if (event_param_a_is_civ(type)) event_snapshot_civ(&entry->param_a_snapshot, param_a);
+    if (plague && plague->valid) {
+        entry->plague = *plague;
+        event_snapshot_plague_origin(&entry->civ_snapshot, plague);
+        entry->civ_uid = plague->origin_civ_uid;
+    }
     snprintf(entry->raw_message, sizeof(entry->raw_message), "%s", raw_message);
     snprintf(event_log[event_log_next], EVENT_LOG_LEN, "%s", raw_message);
     event_log_last_entry = *entry;
@@ -84,6 +112,23 @@ int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, i
     event_log_next = (event_log_next + 1) % EVENT_LOG_COUNT;
     event_log_count = event_log_store_count();
     return event_log_last_event_id;
+}
+
+int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, int civ_id,
+                                 int target_id, int region_id, int city_id,
+                                 int param_a, int param_b, const char *raw_message) {
+    return event_log_push_structured_payload(type, severity, civ_id, target_id,
+                                             region_id, city_id, param_a, param_b,
+                                             raw_message, NULL);
+}
+
+int event_log_push_plague_event(EventLogType type, EventLogSeverity severity,
+                                const PlagueEventPayload *payload) {
+    if (!payload || !payload->valid || payload->stable_event_id == 0) return 0;
+    if (type != EVENT_TYPE_PLAGUE_STARTED && type != EVENT_TYPE_PLAGUE_ENDED) return 0;
+    return event_log_push_structured_payload(
+        type, severity, payload->origin_civ_id, -1, -1,
+        payload->origin_city_id, payload->episode_id, payload->size, "", payload);
 }
 
 void event_log_push_structured(EventLogType type, EventLogSeverity severity, int civ_id,

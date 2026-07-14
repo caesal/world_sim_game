@@ -7,6 +7,7 @@ void dirty_mark_territory(void);
 void dirty_mark_province(void);
 void dirty_mark_population(void);
 void dirty_mark_plague(void);
+void dirty_mark_plague_configuration(void);
 void dirty_mark_maritime(void);
 void dirty_mark_hydrology(void);
 void dirty_mark_labels(void);

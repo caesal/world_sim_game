@@ -121,19 +121,29 @@ void ui_clay_draw_swatch(HDC hdc, RECT rect, COLORREF color, UiClayState state) 
     }
 }
 
+RECT ui_clay_metric_icon_rect(RECT rect) {
+    int box_w = max(0, rect.right - rect.left - 14);
+    int box_h = max(0, rect.bottom - rect.top - 10);
+    int size = min(20, min(box_w, box_h));
+    int top = rect.top + (rect.bottom - rect.top - size) / 2;
+    return (RECT){rect.left + 7, top, rect.left + 7 + size, top + size};
+}
+
 void ui_clay_draw_metric_chip_text(HDC hdc, RECT rect, int icon, const char *label,
                                    const char *value, COLORREF accent) {
     RECT stripe = rect;
     int mid = rect.top + (rect.bottom - rect.top) / 2;
-    RECT icon_rect = {rect.left + 6, rect.top + 5, rect.left + 24, rect.bottom - 5};
-    RECT label_rect = {rect.left + 29, rect.top + 3, rect.right - 8, mid + 1};
-    RECT value_rect = {rect.left + 29, mid - 1, rect.right - 8, rect.bottom - 3};
+    RECT icon_rect = ui_clay_metric_icon_rect(rect);
+    RECT label_rect = {icon_rect.right + 7, rect.top + 3,
+                       rect.right - 8, mid + 1};
+    RECT value_rect = {icon_rect.right + 7, mid - 1,
+                       rect.right - 8, rect.bottom - 3};
 
     if (rect.right <= rect.left || rect.bottom <= rect.top) return;
     ui_clay_draw_card(hdc, rect, UI_CLAY_STATE_NORMAL);
     stripe.right = stripe.left + 3;
     fill_rect(hdc, stripe, accent);
-    draw_icon(hdc, (IconId)icon, icon_rect, accent);
+    draw_icon_fit(hdc, (IconId)icon, icon_rect, accent);
     draw_text_rect(hdc, label_rect, label, ui_clay_muted_text_color(),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_text_rect(hdc, value_rect, value, ui_clay_text_color(UI_CLAY_STATE_NORMAL),

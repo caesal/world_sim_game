@@ -1,10 +1,8 @@
 ﻿#include "war.h"
 #include "diplomacy.h"
 #include "core/dirty_flags.h"
-#include "core/plague_perf.h"
 #include "sim/disorder.h"
 #include "sim/economy.h"
-#include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/population_military.h"
 #include "sim/simulation.h"
@@ -245,7 +243,6 @@ static void apply_population_casualties(int civ_id, int soldier_casualties) {
     population_losses = population_apply_casualties(civ_id, soldier_casualties);
     if (population_losses > 0) {
         disorder_add_war_deaths(civ_id, population_losses);
-        if (plague_perf_system_enabled()) plague_notify_war_casualties(civ_id, population_losses);
     }
 }
 static void update_supply_state(ActiveWar *war) {

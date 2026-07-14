@@ -12,11 +12,12 @@
 #include "sim/regions_port_policy.h"
 #include "sim/regions_settlement.h"
 #include "sim/simulation.h"
+#include "ui/ui_types.h"
 #include <commdlg.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
-#define MAP_SAVE_VERSION 18
+#define MAP_SAVE_VERSION 19
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {
@@ -51,6 +52,11 @@ typedef struct {
 
 static const char MAP_SAVE_MAGIC[8] = {'W', 'S', 'G', 'M', 'A', 'P', '1', '\0'};
 static char save_folder[MAP_SAVE_PATH_MAX];
+int map_save_current_version(void) { return MAP_SAVE_VERSION; }
+int map_save_version_supported(int version) { return version == MAP_SAVE_VERSION; }
+static const char *localized_text(const char *en, const char *zh) {
+    return ui_language == UI_LANG_ZH ? zh : en;
+}
 static int path_exists(const char *path) {
     DWORD attributes = GetFileAttributesA(path);
     return attributes != INVALID_FILE_ATTRIBUTES;
@@ -165,9 +171,28 @@ static void fill_header(MapSaveHeader *header) {
     header->region_size_slider = region_size_slider;
     header->plague_fog_alpha = plague_fog_alpha;
 }
+int map_save_probe_fog_header_roundtrip(int value) {
+    MapSaveHeader written;
+    MapSaveHeader restored;
+    FILE *file = tmpfile();
+    int previous = plague_fog_alpha;
+    int ok = 0;
+    plague_fog_alpha = value;
+    fill_header(&written);
+    if (file && write_block(file, &written, sizeof(written), 1)) {
+        rewind(file);
+        if (read_block(file, &restored, sizeof(restored), 1)) {
+            plague_fog_alpha = restored.plague_fog_alpha;
+            ok = plague_fog_alpha == value;
+        }
+    }
+    if (file) fclose(file);
+    plague_fog_alpha = previous;
+    return ok;
+}
 static int validate_header(const MapSaveHeader *header) {
     return memcmp(header->magic, MAP_SAVE_MAGIC, sizeof(header->magic)) == 0 &&
-           (header->version >= 1 && header->version <= MAP_SAVE_VERSION) &&
+           map_save_version_supported(header->version) &&
            header->map_w > 0 && header->map_w <= MAX_MAP_W &&
            header->map_h > 0 && header->map_h <= MAX_MAP_H &&
            header->civ_count >= 0 && header->civ_count <= MAX_CIVS &&
@@ -315,7 +340,8 @@ int load_map_from_file(HWND hwnd) {
     char path[MAP_SAVE_PATH_MAX];
 #define LOAD_FAIL(message) do { fclose(file); load_progress_fail(); \
     load_progress_set_repaint_callback(NULL, NULL); \
-    show_utf8_message(hwnd, message, "Load Map", MB_OK | MB_ICONERROR); return 0; } while (0)
+    show_utf8_message(hwnd, message, localized_text("Load Map", "读取地图"), \
+                      MB_OK | MB_ICONERROR); return 0; } while (0)
 
     if (!ensure_map_save_folder() || !any_save_files()) {
         show_utf8_message(hwnd, "No saved maps found.", "Load Map", MB_OK | MB_ICONINFORMATION);
@@ -331,7 +357,8 @@ int load_map_from_file(HWND hwnd) {
     load_progress_begin();
     load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 0, 1);
     if (!read_block(file, &header, sizeof(header), 1) || !validate_header(&header)) {
-        LOAD_FAIL("The selected file is not a compatible map save.");
+        LOAD_FAIL(localized_text("The selected file is not a compatible map save.",
+                                 "所选文件不是兼容的地图存档。"));
     }
     load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 1, 1);
     load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 0, 1);

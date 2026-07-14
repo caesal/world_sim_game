@@ -13,6 +13,16 @@ SOURCES := \
 	src/game/game_player_actions.c \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
+	src/game/game_plague_baseline_probe.c \
+	src/game/game_plague_probe.c \
+	src/game/game_plague_probe_rules.c \
+	src/game/game_plague_probe_probability.c \
+	src/game/game_plague_probe_state.c \
+	src/game/game_plague_probe_spread.c \
+	src/game/game_plague_probe_population.c \
+	src/game/game_plague_probe_integration.c \
+	src/game/game_plague_performance_probe.c \
+	src/game/game_plague_probability_request.c \
 	src/game/game_expansion_perf_probe.c \
 	src/game/game_worldgen_probe.c \
 	src/game/game_crisis_probe.c \
@@ -28,6 +38,15 @@ SOURCES := \
 	src/game/game_diplomacy_visual_probe.c \
 	src/game/game_presentation_probe.c \
 	src/game/game_presentation_probe_runner.c \
+	src/game/game_presentation_plague_probe.c \
+	src/game/game_presentation_plague_probability_probe.c \
+	src/game/game_presentation_plague_probability_contract_probe.c \
+	src/game/game_presentation_plague_probability_artifact_probe.c \
+	src/game/game_presentation_plague_fixture.c \
+	src/game/game_presentation_plague_impact_probe.c \
+	src/game/game_presentation_plague_history_probe.c \
+	src/game/game_presentation_plague_interaction_probe.c \
+	src/game/game_presentation_plague_fog_probe.c \
 	src/game/game_presentation_map_probe.c \
 	src/game/game_presentation_diplomacy_probe.c \
 	src/game/game_presentation_diplomacy_sort_probe.c \
@@ -47,7 +66,9 @@ SOURCES := \
 	src/io/map_save_civs.c \
 	src/io/map_save_regions.c \
 	src/io/map_save_state.c \
+	src/io/map_save_plague.c \
 	src/core/event_log.c \
+	src/core/event_log_plague.c \
 	src/core/event_log_runtime.c \
 	src/core/event_log_classify.c \
 	src/core/world_announcement_store.c \
@@ -63,6 +84,9 @@ SOURCES := \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
 	src/core/render_snapshot_cache.c \
+	src/core/render_snapshot_plague.c \
+	src/core/render_snapshot_plague_cache.c \
+	src/core/render_snapshot_plague_impact.c \
 	src/core/render_snapshot_civs.c \
 	src/core/render_snapshot_events.c \
 	src/core/render_snapshot_keys.c \
@@ -73,6 +97,7 @@ SOURCES := \
 	src/data/country_names.c \
 	src/data/province_names.c \
 	src/data/game_tables.c \
+	src/data/plague_names.c \
 	src/world/world_gen.c \
 	src/world/world_seed.c \
 	src/world/mountain_gen.c \
@@ -88,6 +113,7 @@ SOURCES := \
 	src/sim/world_announcement.c \
 	src/sim/world_announcement_alliance.c \
 	src/sim/world_announcement_war.c \
+	src/sim/world_announcement_plague.c \
 	src/world/noise.c \
 	src/world/ports.c \
 	src/sim/ports.c \
@@ -118,6 +144,18 @@ SOURCES := \
 	src/sim/population_mortality.c \
 	src/sim/population.c \
 	src/sim/plague.c \
+	src/sim/plague_engine.c \
+	src/sim/plague_episode.c \
+	src/sim/plague_rules.c \
+	src/sim/plague_probability.c \
+	src/sim/plague_state.c \
+	src/sim/plague_immunity.c \
+	src/sim/plague_metrics.c \
+	src/sim/plague_adjacency.c \
+	src/sim/plague_spread.c \
+	src/sim/plague_mortality.c \
+	src/sim/plague_disorder.c \
+	src/sim/plague_diagnostics.c \
 	src/sim/civilization_metrics.c \
 	src/sim/decision_snapshot.c \
 	src/sim/technology.c \
@@ -180,6 +218,7 @@ SOURCES := \
 	src/render/render_context.c \
 	src/render/snapshot_ui.c \
 	src/render/render_common.c \
+	src/render/country_identity_block.c \
 	src/render/map_display_policy.c \
 	src/render/map_ownership_surface.c \
 	src/render/ui_format.c \
@@ -190,6 +229,7 @@ SOURCES := \
 	src/render/load_progress_overlay.c \
 	src/render/panel_diplomacy_cache_key.c \
 	src/render/panel_view_model_cache.c \
+	src/render/panel_view_model_cache_keys.c \
 	src/render/worldgen_progress_overlay.c \
 	src/render/diplomacy_map_anim.c \
 	src/render/diplomacy_map_marker_cache.c \
@@ -244,6 +284,13 @@ SOURCES := \
 	src/render/panel_country_diplomacy_hits.c \
 	src/render/panel_population_page.c \
 	src/render/panel_plague_page.c \
+	src/render/panel_plague_probability.c \
+	src/render/panel_plague_common.c \
+	src/render/panel_plague_live.c \
+	src/render/panel_plague_impact.c \
+	src/render/panel_plague_history.c \
+	src/render/panel_plague_chart.c \
+	src/render/panel_debug_plague.c \
 	src/render/panel_worldgen.c \
 	src/render/panel_debug_worldgen.c \
 	src/render/panel_debug_controls.c \
@@ -253,6 +300,7 @@ SOURCES := \
 	src/render/panel_population.c \
 	src/render/panel_info.c \
 	src/render/top_world_announcement.c \
+	src/render/top_world_announcement_plague.c \
 	src/render/top_world_announcement_resources.c \
 	src/render/top_world_announcement_surface.c \
 	src/render/panel_map_speed_badge.c \
@@ -272,11 +320,17 @@ SOURCES := \
 	src/ui/ui_map_display.c \
 	src/ui/ui_invalidation.c \
 	src/ui/ui_notifications.c \
+	src/ui/ui_panel_hover.c \
 	src/ui/ui_world_announcement.c \
 	src/ui/world_announcement_queue.c \
 	src/ui/ui_pressed_state.c \
 	src/ui/ui_wheel.c \
 	src/ui/ui_worldgen_layout.c \
+	src/ui/ui_plague_fog.c \
+	src/ui/ui_plague_input.c \
+	src/ui/ui_plague_panel.c \
+	src/ui/ui_plague_panel_layout.c \
+	src/ui/ui_plague_probability.c \
 	src/ui/ui_state.c \
 	src/ui/ui_layout.c \
 	src/ui/ui_map_input.c \

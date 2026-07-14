@@ -12,6 +12,8 @@
 #include "ui/ui_invalidation.h"
 #include "ui/ui_alliance_panel_input.h"
 #include "ui/ui_layout.h"
+#include "ui/ui_plague_panel.h"
+#include "ui/ui_plague_panel_layout.h"
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -51,6 +53,15 @@ static int ui_wheel_handle_side_panel(HWND hwnd, RECT client, POINT point, int s
             client, side_panel_w, worldgen_scroll_offset - steps * 72);
         if (worldgen_scroll_offset != old_scroll) {
             ui_forms_layout(hwnd);
+            ui_invalidate_side_panel(hwnd);
+        }
+        return 1;
+    }
+    if (panel_tab == PANEL_PLAGUE && point.y >= TOP_BAR_H && point.y <= client.bottom) {
+        UiPlaguePanelLayout layout;
+        ui_plague_panel_layout_build(client, side_panel_w, &layout);
+        if (point_in_rect(layout.content_viewport, point.x, point.y) &&
+            ui_plague_panel_scroll(client, side_panel_w, -steps * 72)) {
             ui_invalidate_side_panel(hwnd);
         }
         return 1;

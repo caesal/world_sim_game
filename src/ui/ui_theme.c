@@ -16,3 +16,7 @@ COLORREF ui_theme_color(UiThemeColor color) {
         default: return RGB(236, 232, 221);
     }
 }
+
+int ui_theme_overlay_alpha(void) {
+    return 128;
+}

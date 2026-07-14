@@ -12,6 +12,7 @@
 #include "render/top_world_announcement.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_notifications.h"
+#include "ui/ui_theme.h"
 #include "ui/world_announcement_queue.h"
 
 #include <stdio.h>
@@ -243,8 +244,8 @@ done:
     return diff == 0 && date_pixels > 0 && wrote;
 }
 
-static int expected_channel(int foreground, int background) {
-    return (foreground * 191 + background * 64 + 127) / 255;
+static int expected_channel(int foreground, int background, int alpha) {
+    return (foreground * alpha + background * (255 - alpha) + 127) / 255;
 }
 
 static int alpha_typography_cases(FILE *summary,
@@ -257,6 +258,7 @@ static int alpha_typography_cases(FILE *summary,
     COLORREF before = 0, after = 0;
     TopWorldAnnouncementProbeInfo info = {0};
     int x, y, formula = 0, retained = 0, wrote = 0, typography;
+    int overlay_alpha = ui_theme_overlay_alpha();
     memset(&surface, 0, sizeof(surface));
     if (!snapshot || !surface_create(&surface, client.right, client.bottom)) goto done;
     side_panel_w = 380;
@@ -273,9 +275,12 @@ static int alpha_typography_cases(FILE *summary,
     render_transient_ui_draw_full(surface.dc, client, 0);
     after = surface_pixel(&surface, x, y);
     info = top_world_announcement_probe_info();
-    formula = abs(GetRValue(after) - expected_channel(24, GetRValue(before))) <= 2 &&
-              abs(GetGValue(after) - expected_channel(30, GetGValue(before))) <= 2 &&
-              abs(GetBValue(after) - expected_channel(34, GetBValue(before))) <= 2;
+    formula = abs(GetRValue(after) - expected_channel(
+                      24, GetRValue(before), overlay_alpha)) <= 2 &&
+              abs(GetGValue(after) - expected_channel(
+                      30, GetGValue(before), overlay_alpha)) <= 2 &&
+              abs(GetBValue(after) - expected_channel(
+                      34, GetBValue(before), overlay_alpha)) <= 2;
     retained = after != before && after != RGB(24, 30, 34);
     wrote = surface_write(&surface, PROBE_DIR "/world_announcement_alpha_map_overlay.bmp");
     render_context_end();
@@ -285,7 +290,8 @@ done:
                  !info.compact_shrink_enabled;
     fprintf(summary,
         "case=world_announcement_alpha_composite ok=%d alpha=%d patterned_underlay=%d formula_tolerance=%d before=%u after=%u artifact=%s\n",
-        formula && retained && info.background_alpha == 191 && wrote,
+        formula && retained && overlay_alpha == 128 &&
+        info.background_alpha == overlay_alpha && wrote,
         info.background_alpha, retained, formula, (unsigned int)before,
         (unsigned int)after, "world_announcement_alpha_map_overlay.bmp");
     fprintf(summary,
@@ -297,7 +303,8 @@ done:
     world_announcement_queue_reset();
     world_announcement_store_clear();
     restore_ui_state(saved);
-    return formula && retained && info.background_alpha == 191 && wrote && typography;
+    return formula && retained && overlay_alpha == 128 &&
+           info.background_alpha == overlay_alpha && wrote && typography;
 }
 
 static int underlay_freshness_case(FILE *summary,

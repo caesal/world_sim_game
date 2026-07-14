@@ -9,6 +9,12 @@ static void invalidate_pressed(HWND hwnd, UiPressedControlKind kind) {
     if (!hwnd) return;
     if (kind == UI_PRESSED_MAP_MODE) ui_invalidate_top_bar(hwnd);
     else if (kind == UI_PRESSED_PLAY || kind == UI_PRESSED_SPEED) ui_invalidate_bottom_bar(hwnd);
+    else if (kind == UI_PRESSED_PLAGUE_MAIN_TAB ||
+             kind == UI_PRESSED_PLAGUE_IMPACT_PAGER ||
+             kind == UI_PRESSED_PLAGUE_HISTORY_METRIC ||
+             kind == UI_PRESSED_PLAGUE_PROBABILITY) {
+        ui_invalidate_side_panel(hwnd);
+    }
 }
 
 void ui_pressed_control_set(HWND hwnd, UiPressedControlKind kind, int index) {

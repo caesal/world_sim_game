@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_PLAGUE_PERFORMANCE_PROBE_H
+#define WORLD_SIM_GAME_PLAGUE_PERFORMANCE_PROBE_H
+
+int run_plague_performance_probe(void);
+
+#endif

@@ -7,27 +7,16 @@
 #include "render/snapshot_ui.h"
 #include "render/top_world_announcement_surface.h"
 #include "render/top_world_announcement_resources.h"
+#include "render/top_world_announcement_plague.h"
 #include "sim/technology.h"
 #include "ui/ui_layout.h"
+#include "ui/ui_theme.h"
 #include "ui/ui_world_announcement.h"
 #include "ui/world_announcement_queue.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
-
-#define ANNOUNCEMENT_SPAN_MAX 48
-
-typedef struct {
-    char text[192];
-    COLORREF color;
-    int identity_kind;
-} AnnouncementSpan;
-
-typedef struct {
-    AnnouncementSpan spans[ANNOUNCEMENT_SPAN_MAX];
-    int count;
-} AnnouncementLine;
 
 static TopWorldAnnouncementProbeInfo probe_info;
 static int last_draw_ms;
@@ -80,6 +69,10 @@ static void append_civ(AnnouncementLine *line, const WorldAnnouncementCivIdentit
     append_span(line, civ_name(identity), identity_color(identity ? identity->color : 0), 1);
 }
 
+static const TopWorldAnnouncementPlagueOps plague_ops = {
+    append_span, append_neutral, append_civ
+};
+
 static void append_alliance(AnnouncementLine *line,
                             const WorldAnnouncementAllianceIdentity *identity) {
     append_span(line, alliance_name(identity), identity_color(identity ? identity->color : 0), 2);
@@ -98,6 +91,7 @@ static void style_for_event(int type, const char **title, IconId *icon, COLORREF
     *title = ui_language == UI_LANG_ZH ? "世界动态" : "World Announcement";
     *icon = ICON_TERRITORY;
     *accent = RGB(226, 188, 82);
+    if (top_world_announcement_plague_style(type, ui_language, title, icon, accent)) return;
     if (type == EVENT_TYPE_WORLD_TECH_AGE_FIRST || type == EVENT_TYPE_WORLD_DEEP_SEA_FIRST) {
         *title = ui_language == UI_LANG_ZH ? "科技时代里程碑" : "Technology Age Milestone";
         *icon = ICON_INNOVATION; *accent = RGB(104, 188, 232);
@@ -107,9 +101,6 @@ static void style_for_event(int type, const char **title, IconId *icon, COLORREF
     } else if (type == EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION) {
         *title = ui_language == UI_LANG_ZH ? "联盟联合" : "Alliance Union";
         *icon = ICON_COHESION; *accent = RGB(176, 126, 222);
-    } else if (type == EVENT_TYPE_PLAGUE_STARTED || type == EVENT_TYPE_PLAGUE_ENDED) {
-        *title = ui_language == UI_LANG_ZH ? "全球瘟疫" : "Global Plague";
-        *icon = ICON_ADAPTATION; *accent = RGB(116, 196, 126);
     } else if (type == EVENT_TYPE_ALLIANCE_WAR_STARTED || type == EVENT_TYPE_ALLIANCE_WAR_ENDED ||
                type == EVENT_TYPE_VASSAL_INDEPENDENCE_WAR) {
         *title = ui_language == UI_LANG_ZH ? "世界战争" : "World War";
@@ -254,10 +245,8 @@ static void build_body(AnnouncementLine *line, const WorldAnnouncementEvent *eve
         append_civ(line, &event->actor); append_neutral(line, " declared a war of independence from its overlord (", "向宗主国（"); append_civ(line, &event->target); append_neutral(line, ").", "）宣布独立战争。");
     } else if (type == EVENT_TYPE_VASSAL_RELEASED || type == EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE || type == EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE) {
         append_civ(line, &event->actor); append_neutral(line, " became independent from ", "从"); append_civ(line, &event->target); append_neutral(line, ".", "独立。");
-    } else if (type == EVENT_TYPE_PLAGUE_STARTED) {
-        append_neutral(line, "A global plague outbreak began in ", "全球瘟疫在"); append_span(line, ui_language == UI_LANG_ZH ? event->location_name_zh : event->location_name_en, RGB(206, 216, 184), 0); append_neutral(line, " of ", "爆发，所属国家："); append_civ(line, &event->actor); append_neutral(line, ".", "。");
-    } else if (type == EVENT_TYPE_PLAGUE_ENDED) {
-        append_neutral(line, "The global active plague ended.", "全球活跃瘟疫已经结束。");
+    } else if (top_world_announcement_plague_append_body(
+                   line, event, ui_language, &plague_ops)) {
     } else if (type == EVENT_TYPE_ALLIANCE_WAR_STARTED) {
         append_war_side(line, event, 1); append_neutral(line, " entered war against ", "与"); append_war_side(line, event, 2); append_neutral(line, ".", "进入战争。");
     } else if (type == EVENT_TYPE_ALLIANCE_WAR_ENDED) {
@@ -401,14 +390,15 @@ int draw_top_world_announcement(HDC hdc, RECT client) {
     surface_state = top_world_announcement_surface_begin(hdc, band, &surface_key, &draw_hdc);
     layout_ms = profiler_elapsed_ms_since_us(phase_start);
     if (surface_state < 0)
-        top_world_announcement_surface_fill_alpha(draw_hdc, band, RGB(24, 30, 34), 191);
+        top_world_announcement_surface_fill_alpha(
+            draw_hdc, band, RGB(24, 30, 34), (BYTE)ui_theme_overlay_alpha());
     if (surface_state != 0) {
         phase_start = profiler_now_us();
         if (list_event && event->related_count > 0) build_list_body(&line, event, page, starts);
         else build_body(&line, event);
         memset(&probe_info, 0, sizeof(probe_info));
         probe_info.active = 1;
-        probe_info.background_alpha = 191;
+        probe_info.background_alpha = ui_theme_overlay_alpha();
         probe_info.page = page;
         probe_info.page_count = pages;
         if (list_event && event->related_count > 0) {

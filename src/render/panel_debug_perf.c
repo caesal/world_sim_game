@@ -2,8 +2,8 @@
 #include "render/contour_paths.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/panel_debug_spikes.h"
+#include "render/panel_debug_plague.h"
 #include "render/panel_debug_worldgen.h"
-#include "render/plague_visual.h"
 #include "render/panel_view_model_cache.h"
 #include "render/map_highlight.h"
 #include "render/map_labels.h"
@@ -13,7 +13,6 @@
 #include "render/render_context.h"
 #include "render_panel_internal.h"
 #include "core/dirty_flags.h"
-#include "core/plague_perf.h"
 #include "core/profiler.h"
 #include "core/render_snapshot_cache.h"
 #include "core/render_snapshot_civs.h"
@@ -427,33 +426,7 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     snprintf(text, sizeof(text), "infected %d / draw %d ms",
              sea_lane_render_infected_routes(), sea_lane_render_infected_draw_ms());
     perf_row(hdc, cursor, tr("Infected lanes", "感染航道"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "fog %d builds / last %d ms / gate %d ms",
-             plague_visual_fog_rebuild_count(), plague_visual_last_fog_rebuild_ms(),
-             plague_visual_fog_rebuild_interval_ms());
-    perf_row(hdc, cursor, tr("Plague fog", "瘟疫雾"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%dx%d / %s / lanes %d",
-             plague_visual_fog_cache_width(), plague_visual_fog_cache_height(),
-             plague_visual_mode_text(), plague_visual_infected_lane_count());
-    perf_row(hdc, cursor, tr("Plague visual", "瘟疫视觉"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "data %d ms / draw %d ms",
-             plague_visual_data_update_ms(), plague_visual_last_draw_ms());
-    perf_row(hdc, cursor, tr("Plague split", "瘟疫分层"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    snprintf(text, sizeof(text), "%s / %s", plague_visual_last_reason(),
-             plague_visual_reason_summary());
-    perf_row(hdc, cursor, tr("Plague reason", "瘟疫原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
-    perf_row(hdc, cursor, tr("Plague system", "瘟疫系统"),
-              plague_perf_system_enabled() ? "on" : "off", ui_theme_color(UI_COLOR_TEXT_MUTED));
-    perf_row(hdc, cursor, tr("Plague map visuals", "瘟疫地图视觉"),
-              plague_perf_map_visuals_enabled() ? "on" : "off", ui_theme_color(UI_COLOR_TEXT_MUTED));
-    perf_row(hdc, cursor, tr("Plague sim skipped", "瘟疫模拟跳过"),
-              plague_perf_sim_skipped() ? "yes" : "no",
-              plague_perf_sim_skipped() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
-    perf_row(hdc, cursor, tr("Plague visual skipped", "瘟疫视觉跳过"),
-              plague_perf_visual_skipped() ? "yes" : "no",
-              plague_perf_visual_skipped() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
-    perf_row(hdc, cursor, tr("Plague invalidation suppressed", "瘟疫刷新抑制"),
-              plague_perf_invalidation_suppressed() ? "yes" : "no",
-              plague_perf_invalidation_suppressed() ? RGB(218, 178, 78) : ui_theme_color(UI_COLOR_TEXT_MUTED));
+    draw_debug_plague_rows(hdc, cursor);
     snprintf(text, sizeof(text), "contours %d paths / %d ms",
              perf.contour_path_count, perf.contour_rebuild_ms);
     perf_row(hdc, cursor, tr("Contours", "轮廓线"), text,

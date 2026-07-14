@@ -7,7 +7,6 @@
 #include "render/panel_country_events.h"
 #include "render/panel_debug.h"
 #include "render/panel_country_diplomacy_hits.h"
-#include "render/panel_country_diplomacy_tooltip.h"
 #include "render/render.h"
 #include "ui/color_picker.h"
 #include "ui/pause_menu.h"
@@ -21,6 +20,8 @@
 #include "ui/ui_map_input.h"
 #include "ui/ui_map_display.h"
 #include "ui/ui_notifications.h"
+#include "ui/ui_panel_hover.h"
+#include "ui/ui_plague_input.h"
 #include "ui/ui_pressed_state.h"
 #include "ui/ui_selection.h"
 #include "ui/ui_snapshot_read.h"
@@ -32,27 +33,6 @@
 #include <string.h>
 #include <windowsx.h>
 static int tracking_mouse_leave = 0;
-static int last_panel_hover_target = -1;
-static void reset_side_panel_hover_tracking(void) { hover_x = hover_y = -1; last_panel_hover_target = -1; }
-static void invalidate_panel_hover_target(HWND hwnd, int old_target, int new_target) {
-    if (old_target == -2 || new_target == -2) ui_invalidate_side_panel_handle(hwnd); else ui_invalidate_side_panel_hover(hwnd);
-}
-
-static int panel_hover_target(RECT client, int x, int y) {
-    int tooltip_key;
-    if (side_panel_handle_hit_test(client, x, y)) return -2;
-    if (!point_in_rect(get_side_panel_draw_rect(client), x, y)) return -1;
-    if (side_panel_collapsed) return 1;
-    if (panel_tab == PANEL_COUNTRY) {
-        if (display_mode == DISPLAY_ALLIANCE && ui_alliance_panel_owns_input()) return panel_tab * 100000 + ui_alliance_panel_hover_hit(client, x, y);
-        if (selected_civ >= 0 && country_detail_subtab == COUNTRY_DETAIL_DIPLOMACY) {
-            tooltip_key = diplomacy_score_tooltip_hover_key_for_scope(SCORE_TOOLTIP_SCOPE_COUNTRY_DIPLOMACY, x, y);
-            if (tooltip_key > 0) return 7000000 + tooltip_key;
-        }
-        return panel_tab * 100000 + country_panel_hit_test(client, x, y);
-    }
-    return panel_tab * 100000 + (x / 24) * 31 + y / 24;
-}
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client, legend_toggle;
     int i, slider;
@@ -92,17 +72,26 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
     }
-    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) { ui_toggle_side_panel(client); ui_forms_layout(hwnd); ui_invalidate_full(hwnd); return; }
+    if (side_panel_handle_hit_test(client, mouse_x, mouse_y)) {
+        if (panel_tab == PANEL_PLAGUE) ui_plague_input_panel_closed();
+        ui_toggle_side_panel(client); ui_forms_layout(hwnd);
+        ui_invalidate_full(hwnd); return;
+    }
     if (side_panel_collapsed) { ui_select_tile_from_mouse(hwnd, mouse_x, mouse_y); return; }
     for (i = 0; i < PANEL_TAB_COUNT; i++) {
         if (point_in_rect(get_panel_tab_rect(client, i), mouse_x, mouse_y)) {
             if (panel_tab == i) return;
+            if (panel_tab == PANEL_PLAGUE) ui_plague_input_panel_closed();
             panel_tab = i;
-            reset_side_panel_hover_tracking();
+            ui_panel_hover_reset();
             ui_forms_layout(hwnd);
             ui_invalidate_side_panel(hwnd);
             return;
         }
+    }
+    if (panel_tab == PANEL_PLAGUE) {
+        if (ui_plague_input_mouse_down(hwnd, client, side_panel_w,
+                                       mouse_x, mouse_y)) return;
     }
     if (panel_tab == PANEL_DEBUG) {
         if (ui_handle_debug_panel_click(hwnd, client, mouse_x, mouse_y)) return;
@@ -267,9 +256,6 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     TRACKMOUSEEVENT track;
     int old_hover_x = hover_x;
     int old_hover_y = hover_y;
-    RECT panel_rect;
-    int was_panel;
-    int is_panel;
     GetClientRect(hwnd, &client);
     if (color_picker_mouse_move(hwnd, client, mouse_x, mouse_y)) return;
     if (ui_country_target_update_mouse(hwnd, mouse_x, mouse_y)) return;
@@ -285,20 +271,11 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     hover_x = mouse_x;
     hover_y = mouse_y;
     ui_world_announcement_update_hover(hwnd, client, mouse_x, mouse_y);
-    panel_rect = get_side_panel_draw_rect(client);
-    was_panel = point_in_rect(panel_rect, old_hover_x, old_hover_y) ||
-                side_panel_handle_hit_test(client, old_hover_x, old_hover_y);
-    is_panel = point_in_rect(panel_rect, mouse_x, mouse_y) ||
-               side_panel_handle_hit_test(client, mouse_x, mouse_y);
-    if ((panel_tab == PANEL_COUNTRY || panel_tab == PANEL_POPULATION ||
-         panel_tab == PANEL_PLAGUE || panel_tab == PANEL_WORLD ||
-         panel_tab == PANEL_DEBUG) &&
-        (was_panel || is_panel) && panel_hover_target(client, mouse_x, mouse_y) != last_panel_hover_target) {
-        int old_target = last_panel_hover_target;
-        int new_target = panel_hover_target(client, mouse_x, mouse_y);
-        last_panel_hover_target = new_target;
-        invalidate_panel_hover_target(hwnd, old_target, new_target);
-    }
+    ui_panel_hover_update(hwnd, client, old_hover_x, old_hover_y,
+                          mouse_x, mouse_y);
+    if (panel_tab == PANEL_PLAGUE &&
+        ui_plague_input_mouse_move(hwnd, client, side_panel_w,
+                                   mouse_x, mouse_y)) return;
     if (debug_panel_event_scrollbar_drag(mouse_y)) { ui_invalidate_side_panel(hwnd); return; }
     if (dragging_map) {
         map_interaction_preview = 1;
@@ -329,17 +306,23 @@ static void handle_mouse_leave(HWND hwnd) {
     tracking_mouse_leave = 0;
     if (hover_x >= 0 || hover_y >= 0) {
         RECT client;
-        int old_target = last_panel_hover_target;
         hover_x = -1;
         hover_y = -1;
         ui_world_announcement_mouse_leave(hwnd);
-        last_panel_hover_target = -1;
         GetClientRect(hwnd, &client);
-        if (old_target != -1) invalidate_panel_hover_target(hwnd, old_target, panel_hover_target(client, -1, -1));
+        ui_panel_hover_leave(hwnd, client);
     }
 }
-static void handle_mouse_up(HWND hwnd) {
-    int was_dragging_map = dragging_map; ui_pressed_control_clear(hwnd);
+static void handle_mouse_up(HWND hwnd, int mouse_x, int mouse_y) {
+    RECT client;
+    int was_dragging_map = dragging_map;
+    GetClientRect(hwnd, &client);
+    if (ui_plague_input_mouse_up(hwnd, client, side_panel_w,
+                                 mouse_x, mouse_y)) {
+        ui_pressed_control_clear(hwnd);
+        return;
+    }
+    ui_pressed_control_clear(hwnd);
     if (color_picker_mouse_up(hwnd)) return;
     if (debug_panel_event_scrollbar_is_dragging()) { debug_panel_event_scrollbar_end_drag(); ReleaseCapture(); ui_invalidate_side_panel(hwnd); return; }
     if (dragging_panel || dragging_slider >= 0 || dragging_map) {
@@ -466,13 +449,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             handle_mouse_leave(hwnd);
             return 0;
         case WM_LBUTTONUP:
-            handle_mouse_up(hwnd);
+            handle_mouse_up(hwnd, LOWORD(lparam), HIWORD(lparam));
             return 0;
         case WM_RBUTTONDOWN:
             handle_right_mouse_down(hwnd, LOWORD(lparam), HIWORD(lparam));
             return 0;
         case WM_RBUTTONUP:
-            handle_mouse_up(hwnd);
+            handle_mouse_up(hwnd, LOWORD(lparam), HIWORD(lparam));
             return 0;
         case WM_MOUSEWHEEL:
             ui_wheel_accumulate(hwnd, GET_X_LPARAM(lparam), GET_Y_LPARAM(lparam), GET_WHEEL_DELTA_WPARAM(wparam));

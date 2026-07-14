@@ -3,10 +3,8 @@
 
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
-#include "core/plague_perf.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
-#include "sim/plague.h"
 #include "sim/population.h"
 #include "sim/population_military.h"
 #include "sim/war_internal.h"
@@ -189,7 +187,6 @@ static void apply_population_losses(int civ_id, int losses) {
     int population_losses = population_apply_casualties(civ_id, losses);
     if (population_losses > 0) {
         disorder_add_war_deaths(civ_id, population_losses);
-        if (plague_perf_system_enabled()) plague_notify_war_casualties(civ_id, population_losses);
     }
 }
 

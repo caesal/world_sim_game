@@ -5,7 +5,6 @@
 #include "core/game_types.h"
 #include "core/world_announcement_store.h"
 #include "sim/alliance.h"
-#include "sim/plague.h"
 #include "sim/simulation.h"
 
 #include <stdio.h>
@@ -13,7 +12,6 @@
 
 static unsigned int announced_age_mask;
 static int deep_sea_announced;
-static int plague_was_active;
 
 static int active_alliance_id(int alliance_id) {
     AllianceSaveState *state = alliance_internal_state();
@@ -114,10 +112,23 @@ int world_announcement_publish(WorldAnnouncementEvent *event, int severity,
     return world_announcement_store_append(event);
 }
 
+int world_announcement_publish_plague(WorldAnnouncementEvent *event, int severity,
+                                      const PlagueEventPayload *payload) {
+    int event_id;
+    if (!event || !payload || !payload->valid) return 0;
+    event_id = event_log_push_plague_event((EventLogType)event->event_type,
+                                           (EventLogSeverity)severity, payload);
+    if (event_id <= 0) return 0;
+    event->event_id = event_id;
+    event->year = year;
+    event->month = month;
+    event->plague = *payload;
+    return world_announcement_store_append(event);
+}
+
 void world_announcement_state_reset(void) {
     announced_age_mask = 0;
     deep_sea_announced = 0;
-    plague_was_active = 0;
     world_announcement_war_reset();
 }
 
@@ -131,7 +142,6 @@ void world_announcement_state_baseline_from_world(void) {
     }
     for (i = 1; i <= clamp(max_stage, 0, 10); i++) announced_age_mask |= 1u << i;
     if (max_stage >= 6) deep_sea_announced = 1;
-    plague_was_active = plague_global_active_state(NULL) > 0;
     world_announcement_war_baseline_active();
 }
 
@@ -211,27 +221,4 @@ void world_announcement_emit_vassal_detail(int event_type, int vassal_id,
     world_announcement_publish(&event, event_log_severity_from_type((EventLogType)event_type),
                                vassal_id, overlord_id, region_id, city_id,
                                param_a, param_b, "");
-}
-
-void world_announcement_plague_observe(void) {
-    WorldAnnouncementEvent event;
-    int first_city = -1;
-    int active = plague_global_active_state(&first_city) > 0;
-    if (active == plague_was_active) return;
-    plague_was_active = active;
-    if (active) {
-        int owner = first_city >= 0 && first_city < city_count ? cities[first_city].owner : -1;
-        world_announcement_event_init(&event, EVENT_TYPE_PLAGUE_STARTED,
-                                      WORLD_ANNOUNCEMENT_MAJOR);
-        world_announcement_capture_civ(&event.actor, owner);
-        world_announcement_set_location_civ(&event, owner);
-        world_announcement_set_location_city(&event, first_city);
-        world_announcement_publish(&event, EVENT_SEVERITY_WARNING, owner, -1,
-                                   -1, first_city, 0, 0, "");
-    } else {
-        world_announcement_event_init(&event, EVENT_TYPE_PLAGUE_ENDED,
-                                      WORLD_ANNOUNCEMENT_MAJOR);
-        world_announcement_publish(&event, EVENT_SEVERITY_INFO, -1, -1,
-                                   -1, -1, 0, 0, "");
-    }
 }

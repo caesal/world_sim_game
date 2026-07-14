@@ -1,38 +1,12 @@
 #ifndef WORLD_SIM_PLAGUE_H
 #define WORLD_SIM_PLAGUE_H
 
-#include "core/game_types.h"
-
-typedef struct {
-    int active;
-    int infected;
-    int severity;
-    int months_left;
-    int immunity;
-    int deaths_total;
-    int origin_city;
-    int age_months;
-    int reinfection_cooldown_months;
-} PlagueState;
-
-typedef struct {
-    int initialized;
-    int city_cursor;
-    int active_by_civ[MAX_CIVS];
-    int severity_by_civ[MAX_CIVS];
-    int deaths_by_civ[MAX_CIVS];
-    int any_change;
-} PlagueUpdateState;
+#include "sim/plague_engine.h"
 
 void plague_reset(void);
+void plague_after_restore(void);
 void plague_update_month(void);
 int plague_update_month_step(PlagueUpdateState *state, int batch_size);
-int plague_seed_random_outbreak(void);
-int plague_try_monthly_random_outbreak(void);
-int plague_months_since_random_outbreak(void);
-int plague_seed_city(int city_id, int severity, int months);
-void plague_notify_migration(int from_city, int to_city, int migrants);
-void plague_notify_war_casualties(int civ_id, int casualties);
 
 int plague_city_active(int city_id);
 int plague_city_severity(int city_id);
@@ -50,7 +24,5 @@ int plague_random_immunity_months(int civ_id);
 int plague_random_immunity_civ_count(void);
 int plague_global_active_state(int *first_city_id);
 int plague_route_exposure(int route_id);
-void plague_copy_save_state(PlagueState *cities_out, int city_cap, int *routes_out, int route_cap, int *last_city);
-void plague_restore_save_state(const PlagueState *cities_in, int city_cap, const int *routes_in, int route_cap, int last_city);
 
 #endif

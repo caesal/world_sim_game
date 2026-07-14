@@ -10,6 +10,11 @@
 #include "sim/world_announcement.h"
 
 static int tech_progress_remainder[MAX_CIVS];
+static int deep_sea_revision = 1;
+
+static void bump_deep_sea_revision(void) {
+    if (++deep_sea_revision <= 0) deep_sea_revision = 1;
+}
 
 static int resource_score_for_civ(int civ_id) {
     CountrySummary summary = summarize_country(civ_id);
@@ -61,6 +66,7 @@ void technology_initialize_civ(int civ_id) {
     civs[civ_id].tech_progress = 0;
     tech_progress_remainder[civ_id] = 0;
     civs[civ_id].deep_sea_route_unlocked_event_done = 0;
+    bump_deep_sea_revision();
 }
 
 void technology_update_month(void) {
@@ -79,7 +85,9 @@ void technology_update_month(void) {
             changed = 1;
         }
         if (civ->tech_progress >= required) {
+            int deep_was_unlocked = civ->tech_stage >= 6;
             civ->tech_stage = clamp(civ->tech_stage + 1, 0, 10);
+            if (deep_was_unlocked != (civ->tech_stage >= 6)) bump_deep_sea_revision();
             world_announcement_emit_age_first(i, civ->tech_stage);
             civ->tech_progress = 0;
             tech_progress_remainder[i] = 0;
@@ -137,6 +145,10 @@ int technology_stage_progress_percent(int civ_id) {
 
 int technology_deep_sea_unlocked(int civ_id) {
     return normalized_stage(civ_id) >= 6;
+}
+
+int technology_deep_sea_revision(void) {
+    return deep_sea_revision;
 }
 
 int technology_deep_sea_stability(int civ_id) {

@@ -7,7 +7,11 @@ typedef enum {
     UI_PRESSED_NONE = 0,
     UI_PRESSED_PLAY,
     UI_PRESSED_SPEED,
-    UI_PRESSED_MAP_MODE
+    UI_PRESSED_MAP_MODE,
+    UI_PRESSED_PLAGUE_MAIN_TAB,
+    UI_PRESSED_PLAGUE_IMPACT_PAGER,
+    UI_PRESSED_PLAGUE_HISTORY_METRIC,
+    UI_PRESSED_PLAGUE_PROBABILITY
 } UiPressedControlKind;
 
 void ui_pressed_control_set(HWND hwnd, UiPressedControlKind kind, int index);

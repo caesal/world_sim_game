@@ -2,6 +2,7 @@
 #define WORLD_SIM_WORLD_ANNOUNCEMENT_TYPES_H
 
 #include "core/constants.h"
+#include "core/plague_event_types.h"
 #include "core/value_types.h"
 
 #define WORLD_ANNOUNCEMENT_ALLIANCE_NAME_LEN 96
@@ -59,6 +60,7 @@ typedef struct {
     int terminal_result;
     int winner_side;
     int technology_stage;
+    PlagueEventPayload plague;
     int related_count;
     WorldAnnouncementCivIdentity related[MAX_CIVS];
     int location_civ_id;

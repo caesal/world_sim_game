@@ -2,6 +2,9 @@
 #define WORLD_SIM_GAME_H
 
 #include "core/value_types.h"
+#include "game/game_plague_baseline_probe.h"
+#include "game/game_plague_probe.h"
+#include "game/game_plague_performance_probe.h"
 
 int run_game(void);
 int run_game_no_activate(void);

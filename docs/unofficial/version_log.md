@@ -1,5 +1,87 @@
 # Version Log
 
+## Ver0.3.6
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.6.
+2. Replaced the former monthly city plague rolls with one named global episode
+   at a time, scheduled every 20 years with a rolling three-starts-per-100-year
+   cap and a 50/25/15/10 none/small/medium/large default distribution.
+3. Added frozen outbreak budgets, fixed episode severity, bounded six-month
+   spore decisions, generation limits, batched target deduplication, and
+   cached land/shallow/deep contact routing without same-pulse cascades.
+4. Added exact monthly-equivalent mortality, age-weighted death allocation,
+   duration-based 40-year immunity, quarterly plague disorder, and persistent
+   episode/history diagnostics.
+5. Added all 100 unique bilingual plague names before Roman-numeral reuse,
+   stable structured start/end announcements, and localized event formatting.
+6. Reworked the Plague panel into Live, Impact, and History views while
+   preserving fog controls and all existing plague information. Impact shows
+   affected countries before the five highest-death cities; History compares
+   the latest seven completed episodes across seven metrics.
+7. Added linked integer probability controls for No plague, Small, Medium, and
+   Large. Inactive Apply changes the effective distribution immediately;
+   active Apply persists a pending distribution and promotes it once when the
+   episode ends.
+8. Improved country identity blocks, metric-icon fitting, pager geometry,
+   active/completed spore wording, bilingual layout, fog explanation, and
+   shared announcement/legend overlay alpha.
+9. Increased `MAP_SAVE_VERSION` from 18 to 19 and added explicit plague-state
+   serialization for episodes, immunity, history, names, mortality carry,
+   effective/pending probabilities, and stable event identity.
+10. Split plague simulation, save, snapshot, event, panel, UI, and probe work
+    by responsibility; updated both build lists and kept every C/H file at or
+    below 500 lines.
+11. Updated the root README, documentation index, version log, side doc,
+    pause-menu release notes, and active version marker.
+
+Behavioral notes:
+
+- Small/Medium/Large retain 25/55/70 percent spore budgets, maximum generations
+  4/6/8, continuous infection caps 48/72/144 months, and severity ranges
+  1-4/5-8/9-10.
+- Severity controls only annual mortality, linearly from 6 to 15 percent.
+  Spread, spores, generations, duration, route selection, and recovery remain
+  independent of severity.
+- Fog defaults to 50 and retains the `0 -> 0`, `50 -> 80`, `100 -> 120`
+  effective mapping. Fog controls presentation only.
+- Save version 18 and plague-block version 1 are rejected before payload use.
+  No old-save migration is provided.
+- No diplomacy, war, alliance, vassal, world-generation, technology-unlock,
+  route-unlock, speed, population-growth, economy, resource, or map draw-order
+  rule is intentionally changed.
+- `docs/official` is intentionally unchanged because this code release is not
+  a separately requested official documentation freeze.
+
+Validation notes:
+
+- Ver0.3.6 uses `WORLD_SIM_VERSION "0.3.6"` and `MAP_SAVE_VERSION 19`.
+- Both canonical `make -B world_sim.exe` and `build.bat` build paths passed.
+- The named-plague model probe passed 58/58 cases, including 1,414,808 linked
+  probability endpoint/invariant cases, lifecycle promotion, save rejection,
+  mortality, immunity, spread, scheduler, and event behavior.
+- The presentation probe recorded `overall_ok=1`; English/Chinese 340/460
+  layouts, controls, country blocks, metric icons, paging, fog, announcements,
+  Live/Impact/History, and all history charts passed.
+- A 1,000-city large-plague fixture recorded 124 microseconds average and 805
+  microseconds peak plague-step time, with zero tile scans and zero all-city-pair
+  scans. Matched non-plague performance improved against the pre-edit fixture.
+- Targeted hwnd-scoped GUI validation passed probability edit, pending save/load,
+  post-episode promotion, fog, panel, and presentation lifecycle checks.
+- Fresh Rule39 evidence used an Extreme 1152x800 world with 26 initial
+  civilizations and 1,082 natural regions at max/5x, reaching Year 742 Month 2.
+  The first five stage-5 qualifiers were `0 Kraheim`, `1 Tibervia`, `2 Sowon`,
+  `3 Jingcheng`, and `4 Dragor`. Routes changed from `0/0/0`
+  total/shallow/deep before unlock to `68/66/2` after unlock.
+- Rule39 also recorded current political fill/borders/labels, 1,075 city icons,
+  matching selected-country extent, one successful natural collapse, wars,
+  three vassals, 13 natural plague episodes, zero dropped presentation months,
+  zero ordering skips, and zero anomalies in both 60-frame captures.
+- The late natural-world stop recorded 213ms/month, 68ms render average, and a
+  693ms sampled render peak. Matched task performance passed, but broad
+  all-world performance is not declared universally accepted by this release.
+
 ## Ver0.3.5.g
 
 Implemented changes:

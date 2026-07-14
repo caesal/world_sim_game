@@ -237,7 +237,6 @@ static void draw_plague_status(HDC hdc, UiCursor *cursor, int civ_id) {
     char text[160];
     char span[48];
     int active = CIV(civ_id)->plague_active_count;
-    int immunity = CIV(civ_id)->plague_random_immunity_months;
     RECT card;
 
     ui_section(hdc, cursor, tr("Plague Status", "瘟疫状态"));
@@ -253,21 +252,13 @@ static void draw_plague_status(HDC hdc, UiCursor *cursor, int civ_id) {
         snprintf(text, sizeof(text), "%s: %s", tr("Remaining", "剩余"), span);
         draw_text_rect(hdc, (RECT){card.left + 10, card.top + 28, card.right - 10, card.bottom - 5},
                        text, ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    } else if (immunity > 0) {
-        ui_format_months(span, sizeof(span), immunity, UI_MONTH_ZERO_DONE);
-        snprintf(text, sizeof(text), "%s: %s", tr("Random plague immunity", "瘟疫随机免疫"), span);
-        draw_text_rect(hdc, (RECT){card.left + 10, card.top + 6, card.right - 10, card.top + 27},
-                       text, RGB(128, 184, 146), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-        draw_text_rect(hdc, (RECT){card.left + 10, card.top + 29, card.right - 10, card.bottom - 6},
-                       tr("Cannot start naturally; can still be infected externally.",
-                          "不会自然爆发，可被外部传染。"),
-                       ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     } else {
-        snprintf(text, sizeof(text), "%s: %s", tr("Random plague immunity", "瘟疫随机免疫"), tr("None", "无"));
+        snprintf(text, sizeof(text), "%s", tr("No active infected cities.", "没有正在感染的城市。"));
         draw_text_rect(hdc, (RECT){card.left + 10, card.top + 6, card.right - 10, card.top + 27},
                        text, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
         draw_text_rect(hdc, (RECT){card.left + 10, card.top + 29, card.right - 10, card.bottom - 6},
-                       tr("Can start naturally.", "可自然爆发。"),
+                       tr("See Plague tab for city immunity and history.",
+                          "城市免疫和历史请查看瘟疫页。"),
                        ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     }
     cursor->y += 4;

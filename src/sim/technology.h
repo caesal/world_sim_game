@@ -23,6 +23,7 @@ int technology_resource_percent(int civ_id);
 int technology_progress_percent(int civ_id);
 int technology_stage_progress_percent(int civ_id);
 int technology_deep_sea_unlocked(int civ_id);
+int technology_deep_sea_revision(void);
 int technology_deep_sea_stability(int civ_id);
 int technology_deep_sea_death_rate(int civ_id);
 int technology_deep_sea_plague_percent(int civ_id);

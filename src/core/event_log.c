@@ -1,4 +1,5 @@
 #include "core/game_state.h"
+#include "core/event_log_plague.h"
 
 #include "sim/collapse.h"
 #include "sim/simulation.h"
@@ -206,6 +207,8 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
                                         "%s triggered civil unrest and disorder reached 100.", civ);
             return;
         case EVENT_TYPE_PLAGUE_STARTED:
+            if (event_log_plague_format_payload(&entry->plague, language,
+                                                out, out_size)) return;
             if (entry->civ_uid <= 0) break;
             if (entry->city_id >= 0 && entry->city_id < city_count) {
                 if (zh) snprintf(out, out_size, "%s的%s爆发瘟疫。", civ, cities[entry->city_id].name);
@@ -215,6 +218,8 @@ static void event_log_message(const EventLogEntry *entry, int language, char *ou
             }
             return;
         case EVENT_TYPE_PLAGUE_ENDED:
+            if (event_log_plague_format_payload(&entry->plague, language,
+                                                out, out_size)) return;
             snprintf(out, out_size, "%s", zh ? "全球活跃瘟疫已经结束。" :
                                                 "The global active plague ended.");
             return;

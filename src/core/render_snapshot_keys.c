@@ -81,5 +81,8 @@ int render_snapshot_diplomacy_revision_key(void) {
 }
 
 int render_snapshot_plague_revision_key(int lane_key) {
-    return combined_key(dirty_revision_plague(), lane_key);
+    int key = combined_key(dirty_revision_plague(), lane_key);
+    key = combined_key(key, render_snapshot_cities_revision_key());
+    key = combined_key(key, render_snapshot_civs_revision_key());
+    return combined_key(key, year * 12 + month);
 }

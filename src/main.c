@@ -49,6 +49,15 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-population") == 0) {
         return run_population_probe();
     }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-plague-baseline") == 0) {
+        return run_plague_baseline_probe();
+    }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-plague-model") == 0) {
+        return run_plague_model_probe();
+    }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-plague-performance") == 0) {
+        return run_plague_performance_probe();
+    }
     if (no_activate) return run_game_no_activate();
     return run_game();
 }

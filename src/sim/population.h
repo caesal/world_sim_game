@@ -19,7 +19,5 @@ void population_update_month(void);
 int population_update_month_step(int *cursor, int batch_size);
 int population_migrate_between_cities(int from_city, int to_city, int amount);
 int population_apply_casualties(int civ_id, int casualties);
-int population_apply_city_plague(int city_id, int severity);
-int population_apply_plague(int civ_id, int severity);
 
 #endif

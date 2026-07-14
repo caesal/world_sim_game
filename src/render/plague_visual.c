@@ -5,6 +5,7 @@
 #include "core/render_snapshot.h"
 #include "render_map_internal.h"
 #include "render/render_context.h"
+#include "ui/ui_plague_fog.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -20,7 +21,7 @@ static int visual_active;
 static int fog_cache_dirty = 1;
 static int fog_cache_w;
 static int fog_cache_h;
-static int fog_cache_alpha = -1;
+static int fog_cache_strength = -1;
 static HDC fog_cache_dc;
 static HBITMAP fog_cache_bitmap;
 static HBITMAP fog_cache_old_bitmap;
@@ -245,7 +246,7 @@ static void release_fog_cache(void) {
     fog_cache_pixels = NULL;
     fog_cache_w = 0;
     fog_cache_h = 0;
-    fog_cache_alpha = -1;
+    fog_cache_strength = -1;
     fog_cache_dirty = 1;
 }
 
@@ -292,14 +293,21 @@ static int fog_pulse_alpha(void) {
     return clamp(230 + ramp * 22 / 1200, 0, 255);
 }
 
-static void rebuild_fog_cache(const RenderSnapshot *snapshot) {
+static void rebuild_fog_cache(const RenderSnapshot *snapshot, int strength) {
     DWORD start = GetTickCount();
     int i;
+    size_t pixel_count;
+    size_t pixel_index;
 
     if (!fog_cache_pixels) return;
     memset(fog_cache_pixels, 0, (size_t)fog_cache_w * fog_cache_h * sizeof(*fog_cache_pixels));
     for (i = 0; i < snapshot->city_count; i++) add_city_cloud(fog_cache_pixels, snapshot, i);
-    fog_cache_alpha = plague_fog_alpha;
+    pixel_count = (size_t)fog_cache_w * (size_t)fog_cache_h;
+    for (pixel_index = 0; pixel_index < pixel_count; pixel_index++) {
+        fog_cache_pixels[pixel_index] = ui_plague_fog_scale_premultiplied(
+            fog_cache_pixels[pixel_index], strength);
+    }
+    fog_cache_strength = strength;
     fog_cache_dirty = 0;
     fog_rebuild_count++;
     last_fog_rebuild_ms = (int)(GetTickCount() - start);
@@ -310,20 +318,28 @@ void draw_plague_visual_regions(HDC hdc, RECT client, MapLayout layout) {
     DWORD draw_start = GetTickCount();
     int saved_dc;
     BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    int strength = ui_plague_fog_effective_strength(plague_fog_alpha);
+    int strength_mismatch;
 
     if (!plague_perf_visuals_allowed()) {
         plague_perf_note_visual_skipped(1);
         return;
     }
     if (!snapshot || !snapshot->world_generated) return;
-    if (!visual_active || plague_fog_alpha <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
+    if (!visual_active || strength <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
     if (!ensure_fog_cache(hdc, snapshot)) return;
-    if (fog_cache_dirty || dirty_render_plague()) {
-        if (dirty_render_plague()) plague_last_reason = 2;
-        plague_reason_counts[plague_last_reason]++;
-        rebuild_fog_cache(snapshot);
+    strength_mismatch = fog_cache_strength >= 0 && fog_cache_strength != strength;
+    if (strength_mismatch) {
+        fog_cache_dirty = 1;
+        plague_last_reason = 1;
     }
-    blend.SourceConstantAlpha = (BYTE)(fog_pulse_alpha() * clamp(plague_fog_alpha, 0, 100) / 100);
+    if (fog_cache_dirty || dirty_render_plague()) {
+        if (dirty_render_plague() && !strength_mismatch && fog_cache_strength >= 0)
+            plague_last_reason = 2;
+        plague_reason_counts[plague_last_reason]++;
+        rebuild_fog_cache(snapshot, strength);
+    }
+    blend.SourceConstantAlpha = (BYTE)fog_pulse_alpha();
     saved_dc = SaveDC(hdc);
     {
         RECT viewport = get_map_viewport_rect(client);

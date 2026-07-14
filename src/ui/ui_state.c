@@ -1,4 +1,5 @@
 #include "ui_types.h"
+#include "ui/ui_plague_fog.h"
 #include "world/world_gen.h"
 
 int display_mode = DISPLAY_POLITICAL;
@@ -31,7 +32,7 @@ int map_offset_x = 0;
 int map_offset_y = 0;
 int map_interaction_preview = 0;
 int map_legend_collapsed = 0;
-int plague_fog_alpha = 45;
+int plague_fog_alpha = PLAGUE_FOG_DEFAULT_PERCENT;
 int region_size_slider = 50;
 int worldgen_scroll_offset = 0;
 int country_show_fallen = 0;

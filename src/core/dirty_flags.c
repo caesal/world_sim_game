@@ -109,6 +109,10 @@ void dirty_mark_plague(void) {
     bump(&plague_revision);
 }
 
+void dirty_mark_plague_configuration(void) {
+    bump(&ui_revision);
+}
+
 void dirty_mark_maritime(void) {
     mark(DIRTY_RENDER_MARITIME);
     bump(&route_revision);

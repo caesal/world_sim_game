@@ -15,5 +15,7 @@ int world_announcement_publish(WorldAnnouncementEvent *event, int severity,
                                int log_civ_id, int log_target_id,
                                int region_id, int city_id,
                                int param_a, int param_b, const char *raw_message);
+int world_announcement_publish_plague(WorldAnnouncementEvent *event, int severity,
+                                      const PlagueEventPayload *payload);
 
 #endif

@@ -1,0 +1,101 @@
+﻿编号	中文名称	English Name
+1	黑铃疫	Black Bell Plague
+2	灰烛热	Gray Candle Fever
+3	白喉潮	White Throat Tide
+4	赤斑瘟	Redblotch Pestilence
+5	霜肺症	Frostlung Sickness
+6	铁咳疫	Iron Cough Plague
+7	铜皮热	Copperhide Fever
+8	蓝疹瘟	Blue Rash Pestilence
+9	夜汗病	Night Sweat Malady
+10	寒骨疫	Coldbone Plague
+11	乌花瘟	Blackbloom Pestilence
+12	银痂症	Silver Scab Sickness
+13	雾眼病	Mist-Eye Malady
+14	潮骨热	Tidebone Fever
+15	烛泪疫	Candletear Plague
+16	灰鸦瘟	Greyraven Pestilence
+17	瘀星病	Bruised Star Malady
+18	白盐热	Whitesalt Fever
+19	裂唇疫	Splitlip Plague
+20	腐钟瘟	Rotbell Pestilence
+21	黑潮热	Blacktide Fever
+22	金疮疫	Goldwound Plague
+23	绿雾病	Greenmist Malady
+24	枯脉症	Withervein Sickness
+25	月痕瘟	Moonmark Pestilence
+26	砂肺疫	Sandlung Plague
+27	苍斑热	Pale Blotch Fever
+28	断息病	Broken Breath Malady
+29	骨灯疫	Bonelantern Plague
+30	血烬瘟	Bloodash Pestilence
+31	白烬病	Whiteash Malady
+32	苦井热	Bitterwell Fever
+33	黑盐疫	Blacksalt Plague
+34	寒针症	Coldneedle Sickness
+35	焦舌瘟	Charred Tongue Pestilence
+36	银泪热	Silvertear Fever
+37	瘦月疫	Thinmoon Plague
+38	红砂病	Redsand Malady
+39	腐叶瘟	Rotleaf Pestilence
+40	蓝唇症	Bluelip Sickness
+41	夜骨热	Nightbone Fever
+42	雾疮疫	Mistboil Plague
+43	白爪瘟	Whiteclaw Pestilence
+44	赤潮症	Redtide Sickness
+45	锈肺病	Rustlung Malady
+46	黑羽热	Blackfeather Fever
+47	暮斑疫	Duskblotch Plague
+48	寒鳞瘟	Coldscale Pestilence
+49	灰喉症	Graythroat Sickness
+50	盐泪病	Salttear Malady
+51	枯花疫	Witherbloom Plague
+52	银雾瘟	Silvermist Pestilence
+53	裂骨热	Crackbone Fever
+54	乌血症	Blackblood Sickness
+55	霜疮疫	Frostboil Plague
+56	火痂瘟	Firescab Pestilence
+57	青汗病	Green Sweat Malady
+58	白蚀热	Whiteblight Fever
+59	暗潮疫	Darktide Plague
+60	赤眼瘟	Redeye Pestilence
+61	灰鳞症	Grayscale Sickness
+62	铁斑病	Ironspot Malady
+63	月咳疫	Mooncough Plague
+64	寒烬热	Coldash Fever
+65	腐银症	Tarnished Silver Sickness
+66	黑露瘟	Blackdew Pestilence
+67	白脉病	Whitevein Malady
+68	苍灯疫	Palelantern Plague
+69	血潮热	Bloodtide Fever
+70	锈舌症	Rusttongue Sickness
+71	夜瘀病	Nightbruise Malady
+72	枯泉疫	Withered Spring Plague
+73	银喉瘟	Silverthroat Pestilence
+74	红烛热	Redcandle Fever
+75	灰面症	Grayface Sickness
+76	黑星疫	Blackstar Plague
+77	苦风病	Bitterwind Malady
+78	寒雾瘟	Coldmist Pestilence
+79	白骨热	Whitebone Fever
+80	青痕症	Greenmark Sickness
+81	血铃疫	Bloodbell Plague
+82	裂肺瘟	Splitlung Pestilence
+83	银斑病	Silverspot Malady
+84	乌潮热	Raventide Fever
+85	霜泪症	Frosttear Sickness
+86	赤叶疫	Redleaf Plague
+87	黑痂瘟	Blackscab Pestilence
+88	苍咳病	Palecough Malady
+89	盐骨热	Saltbone Fever
+90	月盐疫	Moonsalt Plague
+91	灰井瘟	Graywell Pestilence
+92	铁泪症	Irontear Sickness
+93	白烛病	Whitecandle Malady
+94	暗羽热	Darkfeather Fever
+95	腐潮疫	Rottide Plague
+96	蓝骨瘟	Bluebone Pestilence
+97	寒星病	Coldstar Malady
+98	红雾症	Redmist Sickness
+99	黑脉热	Blackvein Fever
+100	终钟疫	Lastbell Plague

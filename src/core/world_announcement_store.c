@@ -52,8 +52,12 @@ int world_announcement_store_append(const WorldAnnouncementEvent *event) {
     init_lock();
     EnterCriticalSection(&store_lock);
     for (i = event_count - 1; i >= 0; i--) {
+        int same_plague_source;
         index = (event_start + i) % WORLD_ANNOUNCEMENT_STORE_CAP;
-        if (events[index].event_id != event->event_id) continue;
+        same_plague_source = event->plague.valid && events[index].plague.valid &&
+            event->plague.stable_event_id != 0 &&
+            events[index].plague.stable_event_id == event->plague.stable_event_id;
+        if (events[index].event_id != event->event_id && !same_plague_source) continue;
         events[index] = *event;
         ok = 1;
         break;

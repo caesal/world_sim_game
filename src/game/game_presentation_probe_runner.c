@@ -1,4 +1,6 @@
 #include "game/game_presentation_probe.h"
+#include "game/game_presentation_plague_fog_probe.h"
+#include "game/game_presentation_plague_probability_probe.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -17,6 +19,7 @@ int game_presentation_diplomacy_probe(FILE *summary);
 int game_presentation_regression_probe(FILE *summary);
 int game_presentation_world_policy_probe(FILE *summary);
 int game_presentation_world_announcement_probe(FILE *summary);
+int game_presentation_plague_probe(FILE *summary);
 
 int run_presentation_probe(void) {
     FILE *summary;
@@ -36,6 +39,9 @@ int run_presentation_probe(void) {
     ok &= game_presentation_map_decision_probe(summary);
     ok &= game_presentation_world_policy_probe(summary);
     ok &= game_presentation_world_announcement_probe(summary);
+    ok &= game_presentation_plague_probe(summary);
+    ok &= game_presentation_plague_probability_probe(summary);
+    ok &= game_presentation_plague_fog_probe(summary);
     fprintf(summary, "overall_ok=%d\n", ok);
     fclose(summary);
     printf("presentation probe summary: %s\\summary.txt\n", PRESENTATION_PROBE_DIR);

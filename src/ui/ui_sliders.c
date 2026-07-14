@@ -1,9 +1,9 @@
 #include "ui_sliders.h"
 
-#include "core/dirty_flags.h"
 #include "game/game.h"
 #include "game/game_loop.h"
 #include "ui/ui_invalidation.h"
+#include "ui/ui_plague_fog.h"
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_layout.h"
 
@@ -18,16 +18,14 @@ int divider_hit_test(HWND hwnd, int mouse_x, int mouse_y) {
 }
 
 static WorldgenSliderLayout plague_slider_layout(RECT client) {
+    PlaguePanelLayout plague_layout;
     WorldgenSliderLayout slider;
-    int x = client.right - side_panel_w + FORM_X_PAD;
-    int width = side_panel_w - FORM_X_PAD * 2 - 8;
-    int y = TOP_BAR_H + 154;
-
-    slider.label = (RECT){x, y, x + width - 58, y + 18};
-    slider.value = (RECT){x + width - 50, y, x + width, y + 18};
-    slider.track = (RECT){x, y + 24, x + width, y + 34};
-    slider.help = (RECT){x, y + 40, x + width, y + 58};
-    slider.hit = (RECT){x - 8, y - 4, x + width + 8, y + 60};
+    ui_plague_fog_layout_build(client, side_panel_w, &plague_layout);
+    slider.label = plague_layout.slider.label;
+    slider.value = plague_layout.slider.value;
+    slider.track = plague_layout.slider.track;
+    slider.help = plague_layout.slider.help;
+    slider.hit = plague_layout.slider.hit;
     return slider;
 }
 
@@ -79,11 +77,12 @@ void update_setup_slider(HWND hwnd, int index, int mouse_x) {
         game_request_regenerate_regions();
     }
     else if (index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
-        if (plague_fog_alpha == value) return;
+        if (ui_plague_fog_percent(plague_fog_alpha) == value) return;
         plague_fog_alpha = value;
-        dirty_mark_plague();
     }
-    if (index == UI_SLIDER_REGION_SIZE || index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
+    if (index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_PLAGUE_OVERLAY | GAME_REDRAW_SIDE_PANEL);
+    } else if (index == UI_SLIDER_REGION_SIZE) {
         ui_invalidate_game_redraw(hwnd, GAME_REDRAW_MAP_DYNAMIC | GAME_REDRAW_SIDE_PANEL);
     } else {
         ui_invalidate_side_panel(hwnd);

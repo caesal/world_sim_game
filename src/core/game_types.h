@@ -7,6 +7,8 @@
 #include <stddef.h>
 
 #include "constants.h"
+#include "event_log_types.h"
+#include "plague_event_types.h"
 #include "world_types.h"
 #include "sim_types.h"
 
@@ -155,66 +157,6 @@ extern int event_log_count;
 extern int event_log_next;
 extern int event_log_total_entries;
 
-typedef enum {
-    EVENT_TYPE_GENERIC,
-    EVENT_TYPE_EXPANSION_CLAIMED,
-    EVENT_TYPE_WAR_STARTED,
-    EVENT_TYPE_WAR_FRONT_SEVERED,
-    EVENT_TYPE_BATTLE_RESOLVED,
-    EVENT_TYPE_TRUCE_SIGNED,
-    EVENT_TYPE_COLLAPSE_SUCCEEDED,
-    EVENT_TYPE_COLLAPSE_FAILED,
-    EVENT_TYPE_PLAGUE_STARTED,
-    EVENT_TYPE_PLAGUE_SPREAD,
-    EVENT_TYPE_PLAGUE_ENDED,
-    EVENT_TYPE_VASSAL_CREATED,
-    EVENT_TYPE_VASSAL_RELEASED,
-    EVENT_TYPE_VASSAL_TRANSFERRED,
-    EVENT_TYPE_VASSAL_PEACEFUL_INDEPENDENCE,
-    EVENT_TYPE_VASSAL_INDEPENDENCE_WAR,
-    EVENT_TYPE_VASSAL_COLLAPSE_INDEPENDENCE,
-    EVENT_TYPE_VASSAL_SELF_COLLAPSE_RELEASED,
-    EVENT_TYPE_VASSAL_ANNEXED,
-    EVENT_TYPE_PERFORMANCE_THROTTLED,
-    EVENT_TYPE_PERFORMANCE_SLOW_CALL,
-    EVENT_TYPE_SCHEDULER_YIELD,
-    EVENT_TYPE_WORLD_GENERATION_NOTICE,
-    EVENT_TYPE_DISORDER_CHANGED,
-    EVENT_TYPE_DEBUG_NOTICE,
-    EVENT_TYPE_DEEP_SEA_ROUTE_CREATED,
-    EVENT_TYPE_DEEP_SEA_ROUTE_FAILED,
-    EVENT_TYPE_CIVIL_UNREST_TRIGGERED,
-    EVENT_TYPE_ENCLAVE_JOINED,
-    EVENT_TYPE_ENCLAVE_INDEPENDENT,
-    EVENT_TYPE_ENCLAVE_FAILED,
-    EVENT_TYPE_CIV_CREATED,
-    EVENT_TYPE_DIPLOMACY_PEACE,
-    EVENT_TYPE_DIPLOMACY_TENSE,
-    EVENT_TYPE_TREASURY_INDEMNITY,
-    EVENT_TYPE_STABILITY_PROJECT,
-    EVENT_TYPE_MERCENARIES_HIRED,
-    EVENT_TYPE_DIPLOMACY_ALLIANCE,
-    EVENT_TYPE_DIPLOMACY_ALLIANCE_ENDED,
-    EVENT_TYPE_WAR_FORCED_ALLIANCE_EXIT,
-    EVENT_TYPE_DIPLOMACY_ALLIANCE_UNION,
-    EVENT_TYPE_ALLIANCE_CREATED,
-    EVENT_TYPE_ALLIANCE_DISSOLVED,
-    EVENT_TYPE_ALLIANCE_MEMBER_JOINED,
-    EVENT_TYPE_ALLIANCE_MEMBER_REMOVED,
-    EVENT_TYPE_ALLIANCE_MILITARY_UPGRADED,
-    EVENT_TYPE_ALLIANCE_MILITARY_DOWNGRADED,
-    EVENT_TYPE_ALLIANCE_WAR_STARTED,
-    EVENT_TYPE_ALLIANCE_WAR_ENDED,
-    EVENT_TYPE_WORLD_TECH_AGE_FIRST,
-    EVENT_TYPE_WORLD_DEEP_SEA_FIRST
-} EventLogType;
-
-typedef enum {
-    EVENT_SEVERITY_INFO,
-    EVENT_SEVERITY_WARNING,
-    EVENT_SEVERITY_DANGER
-} EventLogSeverity;
-
 typedef struct {
     int uid;
     char name_en[NAME_LEN];
@@ -241,6 +183,7 @@ typedef struct {
     EventCivSnapshot civ_snapshot;
     EventCivSnapshot target_snapshot;
     EventCivSnapshot param_a_snapshot;
+    PlagueEventPayload plague;
     char raw_message[EVENT_LOG_LEN];
 } EventLogEntry;
 
@@ -261,6 +204,8 @@ void event_log_push_structured(EventLogType type, EventLogSeverity severity, int
 int event_log_push_structured_id(EventLogType type, EventLogSeverity severity, int civ_id,
                                  int target_id, int region_id, int city_id,
                                  int param_a, int param_b, const char *raw_message);
+int event_log_push_plague_event(EventLogType type, EventLogSeverity severity,
+                                const PlagueEventPayload *payload);
 void event_log_clear(void);
 const char *event_log_get(int index);
 void event_log_format_entry(int index, int language, char *out, size_t out_size);

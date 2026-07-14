@@ -18,5 +18,6 @@ typedef enum {
 } UiThemeColor;
 
 COLORREF ui_theme_color(UiThemeColor color);
+int ui_theme_overlay_alpha(void);
 
 #endif

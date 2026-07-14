@@ -1,5 +1,6 @@
 #include "render/top_world_announcement_surface.h"
 #include "render/top_world_announcement_resources.h"
+#include "ui/ui_theme.h"
 
 #include <string.h>
 
@@ -106,11 +107,12 @@ static int ensure_bitmap(HDC target, int width, int height) {
 
 static void compile_alpha_overlay(int width, int height) {
     unsigned int key = dib_rgb(ANNOUNCEMENT_TRANSPARENT_KEY);
+    unsigned int alpha = (unsigned int)ui_theme_overlay_alpha();
     unsigned int background =
-        ((unsigned int)((34 * 191 + 127) / 255)) |
-        ((unsigned int)((30 * 191 + 127) / 255) << 8) |
-        ((unsigned int)((24 * 191 + 127) / 255) << 16) |
-        (191u << 24);
+        ((34u * alpha + 127u) / 255u) |
+        (((30u * alpha + 127u) / 255u) << 8) |
+        (((24u * alpha + 127u) / 255u) << 16) |
+        (alpha << 24);
     int x;
     int y;
     GdiFlush();

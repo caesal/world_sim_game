@@ -203,6 +203,8 @@ static int artifact_cases(FILE *summary, const WorldAnnouncementProbeBundle *bun
     ok &= render_event(&bundle->military_downgrade, PROBE_DIR "/announcement_military_downgrade.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
     ok &= render_event(&bundle->plague_started, PROBE_DIR "/announcement_plague_started.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
     ok &= render_event(&bundle->plague_ended, PROBE_DIR "/announcement_plague_ended.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->plague_started, PROBE_DIR "/announcement_plague_started_zh.bmp", UI_LANG_ZH, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->plague_ended, PROBE_DIR "/announcement_plague_ended_zh.bmp", UI_LANG_ZH, 1920, 0, 0, 0, NULL);
     ok &= render_event(&bundle->alliance_war_started, PROBE_DIR "/announcement_alliance_war_start.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
     ok &= render_event(&bundle->alliance_war_victory, PROBE_DIR "/announcement_alliance_war_victory.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
     ok &= render_event(&bundle->alliance_war_truce, PROBE_DIR "/announcement_alliance_war_negotiated_truce.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);

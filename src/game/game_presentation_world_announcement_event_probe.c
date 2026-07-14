@@ -7,10 +7,12 @@
 #include "sim/alliance.h"
 #include "sim/diplomacy.h"
 #include "sim/plague.h"
+#include "sim/plague_state.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
 #include "sim/war.h"
 #include "sim/world_announcement.h"
+#include "sim/world_announcement_plague.h"
 #include "ui/ui_types.h"
 
 #include <stdio.h>
@@ -24,9 +26,7 @@ typedef struct {
     Civilization civs[FIXTURE_CIVS];
     City city0;
     AllianceSaveState *alliance;
-    PlagueState *plagues;
-    int *route_exposure;
-    int plague_last_city;
+    PlagueModelState *plague;
 } AnnouncementFixtureBackup;
 
 static int latest(WorldAnnouncementEvent *event) {
@@ -66,11 +66,9 @@ static int fixture_begin(AnnouncementFixtureBackup *backup, AllianceSaveState *w
     int i;
     memset(backup, 0, sizeof(*backup));
     backup->alliance = malloc(sizeof(*backup->alliance));
-    backup->plagues = malloc(sizeof(*backup->plagues) * MAX_CITIES);
-    backup->route_exposure = malloc(sizeof(*backup->route_exposure) * MAX_MARITIME_ROUTES);
-    if (!backup->alliance || !backup->plagues || !backup->route_exposure) {
-        free(backup->route_exposure);
-        free(backup->plagues);
+    backup->plague = malloc(sizeof(*backup->plague));
+    if (!backup->alliance || !backup->plague) {
+        free(backup->plague);
         free(backup->alliance);
         return 0;
     }
@@ -81,8 +79,7 @@ static int fixture_begin(AnnouncementFixtureBackup *backup, AllianceSaveState *w
     memcpy(backup->civs, civs, sizeof(backup->civs));
     backup->city0 = cities[0];
     alliance_copy_save_state(backup->alliance);
-    plague_copy_save_state(backup->plagues, MAX_CITIES, backup->route_exposure,
-                           MAX_MARITIME_ROUTES, &backup->plague_last_city);
+    plague_state_copy(backup->plague);
     civ_count = FIXTURE_CIVS;
     city_count = max(city_count, 1);
     year = 88;
@@ -111,8 +108,8 @@ static int fixture_begin(AnnouncementFixtureBackup *backup, AllianceSaveState *w
 }
 
 static void fixture_end(AnnouncementFixtureBackup *backup) {
-    plague_restore_save_state(backup->plagues, MAX_CITIES, backup->route_exposure,
-                              MAX_MARITIME_ROUTES, backup->plague_last_city);
+    plague_state_restore(backup->plague);
+    plague_after_restore();
     alliance_restore_save_state(backup->alliance);
     memcpy(civs, backup->civs, sizeof(backup->civs));
     cities[0] = backup->city0;
@@ -120,8 +117,7 @@ static void fixture_end(AnnouncementFixtureBackup *backup) {
     city_count = backup->city_count;
     year = backup->saved_year;
     month = backup->saved_month;
-    free(backup->route_exposure);
-    free(backup->plagues);
+    free(backup->plague);
     free(backup->alliance);
 }
 
@@ -213,29 +209,68 @@ static int case_vassal_alliance(FILE *summary, WorldAnnouncementProbeBundle *bun
 }
 
 static int case_plague(FILE *summary, WorldAnnouncementProbeBundle *bundle) {
-    PlagueState *states = calloc(MAX_CITIES, sizeof(*states));
-    int start, spread, end;
-    if (!states) return 0;
+    PlagueEpisodeState episode;
+    PlagueEpisodeHistory history;
+    int start, start_payload, spread, end, end_payload;
     event_log_clear();
     world_announcement_state_reset();
-    plague_restore_save_state(states, MAX_CITIES, NULL, 0, -1);
-    world_announcement_plague_observe();
-    states[0].active = 1; states[0].infected = 1; states[0].severity = 4; states[0].months_left = 12;
-    plague_restore_save_state(states, MAX_CITIES, NULL, 0, 0);
-    world_announcement_plague_observe();
+    plague_reset();
+    memset(&episode, 0, sizeof(episode));
+    episode.active = 1;
+    episode.episode_id = 77;
+    episode.size = PLAGUE_SIZE_MEDIUM;
+    episode.severity = 6;
+    episode.name_id = 0;
+    episode.name_cycle = 1;
+    episode.origin_city_id = 0;
+    episode.origin_civ_id = 0;
+    episode.origin_civ_uid = civs[0].uid;
+    episode.origin_civ_symbol = civs[0].symbol;
+    episode.origin_civ_color = civs[0].color;
+    episode.start_month = 1000;
+    snprintf(episode.origin_city_name, sizeof(episode.origin_city_name), "%s", cities[0].name);
+    snprintf(episode.origin_civ_name_en, sizeof(episode.origin_civ_name_en), "%s",
+             civilization_display_name_for_language(0, UI_LANG_EN));
+    snprintf(episode.origin_civ_name_zh, sizeof(episode.origin_civ_name_zh), "%s",
+             civilization_display_name_for_language(0, UI_LANG_ZH));
+    plague_state_begin_episode(&episode);
+    plague_state_infect_city(0, 0, 1000, 60);
+    plague_state_note_current_country(0);
+    plague_state_note_ever_country(0);
+    world_announcement_plague_emit_start(&plague_state_mutable()->episode);
     start = world_announcement_store_count() == 1 && latest(&bundle->plague_started);
+    start_payload = bundle->plague_started.priority == WORLD_ANNOUNCEMENT_MAJOR &&
+                    bundle->plague_started.plague.valid &&
+                    bundle->plague_started.plague.kind == PLAGUE_EVENT_START &&
+                    bundle->plague_started.plague.stable_event_id == 154 &&
+                    bundle->plague_started.plague.episode_id == 77 &&
+                    bundle->plague_started.plague.size == PLAGUE_SIZE_MEDIUM &&
+                    bundle->plague_started.plague.severity == 6 &&
+                    bundle->plague_started.plague.affected_city_count == 1 &&
+                    bundle->plague_started.plague.affected_country_count == 1 &&
+                    bundle->plague_started.plague.origin_civ_uid == civs[0].uid &&
+                    bundle->plague_started.plague.name_en[0] != '\0' &&
+                    bundle->plague_started.plague.name_zh[0] != '\0';
     event_log_push_structured(EVENT_TYPE_PLAGUE_SPREAD, EVENT_SEVERITY_INFO, 0, -1, -1, 0, 0, 0, "");
-    world_announcement_plague_observe();
+    world_announcement_plague_emit_start(&plague_state_mutable()->episode);
     spread = world_announcement_store_count() == 1;
-    memset(states, 0, sizeof(*states) * MAX_CITIES);
-    plague_restore_save_state(states, MAX_CITIES, NULL, 0, -1);
-    world_announcement_plague_observe();
+    plague_state_finish_episode(1060, &history);
+    world_announcement_plague_emit_end(&plague_state_mutable()->episode, &history);
     end = world_announcement_store_count() == 2 && latest(&bundle->plague_ended);
+    end_payload = bundle->plague_ended.priority == WORLD_ANNOUNCEMENT_MAJOR &&
+                  bundle->plague_ended.plague.valid &&
+                  bundle->plague_ended.plague.kind == PLAGUE_EVENT_END &&
+                  bundle->plague_ended.plague.stable_event_id == 155 &&
+                  bundle->plague_ended.plague.episode_id == history.episode_id &&
+                  bundle->plague_ended.plague.duration_months == history.duration_months &&
+                  bundle->plague_ended.plague.affected_city_count == history.infected_city_count &&
+                  bundle->plague_ended.plague.affected_country_count == history.affected_country_count &&
+                  bundle->plague_ended.plague.total_deaths == history.total_deaths;
     fprintf(summary,
-        "case=world_announcement_plague_policy ok=%d global_start=%d spread_suppressed=%d global_end=%d\n",
-        start && spread && end, start, spread, end);
-    free(states);
-    return start && spread && end;
+        "case=world_announcement_plague_policy ok=%d global_start=%d start_payload=%d spread_suppressed=%d global_end=%d end_payload=%d\n",
+        start && start_payload && spread && end && end_payload,
+        start, start_payload, spread, end, end_payload);
+    return start && start_payload && spread && end && end_payload;
 }
 
 static int case_war(FILE *summary, WorldAnnouncementProbeBundle *bundle,

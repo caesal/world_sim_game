@@ -1,0 +1,11 @@
+#ifndef WORLD_SIM_RENDER_SNAPSHOT_PLAGUE_CACHE_H
+#define WORLD_SIM_RENDER_SNAPSHOT_PLAGUE_CACHE_H
+
+void render_snapshot_plague_cache_reset(void);
+void render_snapshot_plague_cache_begin_snapshot_copy(void);
+int render_snapshot_plague_cache_update_if_dirty(int key);
+void render_snapshot_plague_cache_refresh(int key);
+void render_snapshot_plague_cache_invalidate(void);
+int render_snapshot_plague_cache_is_dirty(int key);
+
+#endif

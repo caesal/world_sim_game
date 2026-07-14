@@ -67,6 +67,10 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
         memcpy(dst->plague_city_severity, src->plague_city_severity, sizeof(dst->plague_city_severity));
         memcpy(dst->plague_lane_exposure, src->plague_lane_exposure, sizeof(dst->plague_lane_exposure));
         dst->plague_active = src->plague_active;
+        dst->plague_state = src->plague_state;
+        dst->plague_metrics = src->plague_metrics;
+        dst->plague_names = src->plague_names;
+        dst->plague_impact = src->plague_impact;
         dst->plague_revision = src->plague_revision;
     }
     if (mask & RENDER_SNAPSHOT_SECTION_EVENTS) {

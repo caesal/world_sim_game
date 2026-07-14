@@ -1,348 +1,59 @@
-#include "plague.h"
+#include "sim/plague.h"
 
-#include "core/dirty_flags.h"
-#include "sim/disorder.h"
-#include "sim/maritime.h"
-#include "sim/population.h"
+#include "core/game_types.h"
+#include "sim/plague_adjacency.h"
+#include "sim/plague_disorder.h"
+#include "sim/plague_diagnostics.h"
+#include "sim/plague_immunity.h"
+#include "sim/plague_metrics.h"
+#include "sim/plague_rules.h"
+#include "sim/plague_spread.h"
+#include "sim/plague_state.h"
 #include "sim/sea_lanes.h"
-#include "sim/simulation.h"
-#include "world/terrain_query.h"
 
-#include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 
-#define PLAGUE_MIN_DURATION 4
-#define PLAGUE_MAX_DURATION 18
-#define PLAGUE_LOCAL_RADIUS 88
-#define PLAGUE_RANDOM_IMMUNITY_MONTHS (50 * 12)
-#define PLAGUE_CITY_RECOVERY_COOLDOWN_MONTHS (36 * 12)
-
-static PlagueState city_plagues[MAX_CITIES];
-static int route_exposure[MAX_MARITIME_ROUTES];
-static int last_random_seed_city = -1;
-
-static int valid_city(int city_id) {
-    return city_id >= 0 && city_id < city_count && cities[city_id].alive;
+static int absolute_month_now(void) {
+    return plague_rules_absolute_month(year, month);
 }
 
-static int manhattan_city_distance(int a, int b) {
-    return abs(cities[a].x - cities[b].x) + abs(cities[a].y - cities[b].y);
-}
-
-static void raise_city_immunity(int city_id, int amount) {
-    if (!valid_city(city_id)) return;
-    city_plagues[city_id].immunity = clamp(city_plagues[city_id].immunity + amount, 0, 10);
-}
-
-static int city_plague_cooldown_active(int city_id) {
-    return valid_city(city_id) && !city_plagues[city_id].active &&
-           city_plagues[city_id].reinfection_cooldown_months > 0;
-}
-
-static void set_city_recovery_cooldown(int city_id) {
-    if (!valid_city(city_id)) return;
-    city_plagues[city_id].reinfection_cooldown_months = PLAGUE_CITY_RECOVERY_COOLDOWN_MONTHS;
-}
-
-int plague_seed_city(int city_id, int severity, int months) {
-    PlagueState *state;
-
-    if (!valid_city(city_id) || cities[city_id].population <= 0) return 0;
-    state = &city_plagues[city_id];
-    if (state->active) {
-        state->severity = clamp(state->severity + severity / 3, 1, 10);
-        state->months_left = clamp(state->months_left + months / 3, 1, PLAGUE_MAX_DURATION);
-        dirty_mark_plague();
-        return 1;
-    }
-    if (state->reinfection_cooldown_months > 0) return 0;
-    state->active = 1;
-    state->infected = 1;
-    state->severity = clamp(severity - state->immunity / 3, 1, 10);
-    state->months_left = clamp(months, PLAGUE_MIN_DURATION, PLAGUE_MAX_DURATION);
-    state->origin_city = city_id;
-    state->age_months = 0;
-    dirty_mark_plague();
-    return 1;
-}
-
-static int nearby_plague_pressure(int city_id) {
-    int i;
-    int pressure = 0;
-
-    for (i = 0; i < city_count; i++) {
-        int distance;
-        if (i == city_id || !city_plagues[i].active || !valid_city(i)) continue;
-        distance = manhattan_city_distance(city_id, i);
-        if (distance > PLAGUE_LOCAL_RADIUS) continue;
-        pressure += clamp(city_plagues[i].severity * 3 - distance / 8, 0, 30);
-    }
-    return pressure;
-}
-
-static int city_outbreak_risk(int city_id) {
-    City *city;
-    Civilization *civ = NULL;
-    PopulationSummary pop;
-    TerrainStats stats;
-    int risk;
-
-    if (!valid_city(city_id) || city_plagues[city_id].active) return 0;
-    if (city_plague_cooldown_active(city_id)) return 0;
-    city = &cities[city_id];
-    if (city->owner >= 0 && city->owner < civ_count &&
-        civs[city->owner].plague_random_immunity_months > 0) return 0;
-    pop = population_city_summary(city_id);
-    stats = tile_stats(city->x, city->y);
-    if (pop.total <= 20) return 0;
-    if (city->owner >= 0 && city->owner < civ_count) civ = &civs[city->owner];
-
-    risk = 2 + pop.total / 700 + clamp(pop.pressure - 95, 0, 80) / 5;
-    risk += clamp(5 - stats.water, 0, 5) * 4;
-    risk += clamp(5 - stats.habitability, 0, 5) * 3;
-    risk += city->port ? 5 : 0;
-    risk += nearby_plague_pressure(city_id);
-    if (civ) risk += civ->disorder / 2 + civ->disorder_plague / 2;
-    risk -= city_plagues[city_id].immunity * 5;
-    return clamp(risk, 0, 120);
-}
-
-int plague_seed_random_outbreak(void) {
-    int i;
-    int best_city = -1;
-    int best_score = 0;
-
-    for (i = 0; i < city_count; i++) {
-        int score = city_outbreak_risk(i) + rnd(24);
-        if (score > best_score) {
-            best_score = score;
-            best_city = i;
-        }
-    }
-    if (best_city < 0 || best_score < 16) return 0;
-    if (!plague_seed_city(best_city, 2 + best_score / 18 + rnd(3), PLAGUE_MIN_DURATION + rnd(9))) return 0;
-    last_random_seed_city = best_city;
-    return 1;
+static int valid_city_id(int city_id) {
+    return city_id >= 0 && city_id < city_count;
 }
 
 void plague_reset(void) {
     int i;
-    memset(city_plagues, 0, sizeof(city_plagues));
-    memset(route_exposure, 0, sizeof(route_exposure));
-    last_random_seed_city = -1;
+    plague_state_reset();
+    plague_spread_reset();
+    plague_adjacency_reset();
+    plague_metrics_reset();
+    plague_disorder_reset();
+    plague_diagnostics_reset();
     for (i = 0; i < MAX_CIVS; i++) {
         civs[i].plague_random_immunity_months = 0;
         civs[i].plague_was_active_last_month = 0;
+        civs[i].plague_recovery_months = 0;
     }
 }
 
-int plague_months_since_random_outbreak(void) {
+void plague_after_restore(void) {
     int i;
-    int shortest = PLAGUE_RANDOM_IMMUNITY_MONTHS;
-    for (i = 0; i < civ_count; i++) {
-        if (!civs[i].alive) continue;
-        if (civs[i].plague_random_immunity_months <= 0) return PLAGUE_RANDOM_IMMUNITY_MONTHS;
-        if (civs[i].plague_random_immunity_months < shortest) shortest = civs[i].plague_random_immunity_months;
-    }
-    return PLAGUE_RANDOM_IMMUNITY_MONTHS - shortest;
-}
-
-int plague_try_monthly_random_outbreak(void) {
-    if (rnd(100) >= 4) return 0;
-    return plague_seed_random_outbreak();
-}
-
-static void try_infect_city(int source_city, int target_city, int chance, int route_id) {
-    int immunity;
-
-    if (!valid_city(source_city) || !valid_city(target_city) || city_plagues[target_city].active) return;
-    if (city_plague_cooldown_active(target_city)) return;
-    immunity = city_plagues[target_city].immunity;
-    chance = clamp(chance - immunity * 6, 0, 65);
-    if (rnd(100) >= chance) return;
-    plague_seed_city(target_city, clamp(city_plagues[source_city].severity - 1 + rnd(3), 1, 9),
-                     PLAGUE_MIN_DURATION + rnd(8));
-    if (route_id >= 0 && route_id < MAX_MARITIME_ROUTES) {
-        route_exposure[route_id] = clamp(route_exposure[route_id] + city_plagues[source_city].severity + 2, 0, 10);
-        dirty_mark_plague();
-    }
-}
-
-static void spread_locally_from_city(int source_city) {
-    int i;
-    int source_owner = cities[source_city].owner;
-    int severity = city_plagues[source_city].severity;
-
-    for (i = 0; i < city_count; i++) {
-        int distance;
-        int chance;
-        if (i == source_city || !valid_city(i)) continue;
-        distance = manhattan_city_distance(source_city, i);
-        if (distance > PLAGUE_LOCAL_RADIUS) continue;
-        chance = severity * 4 + clamp(PLAGUE_LOCAL_RADIUS - distance, 0, PLAGUE_LOCAL_RADIUS) / 7;
-        if (cities[i].owner == source_owner) chance += 5;
-        if (cities[source_city].port && cities[i].port) chance += 3;
-        try_infect_city(source_city, i, chance, -1);
-    }
-}
-
-static void spread_by_maritime_from_city(int source_city) {
-    SeaLanePlagueContact contacts[32];
-    int contact_count;
-    int i;
-    int severity = city_plagues[source_city].severity;
-
-    contact_count = sea_lanes_plague_contacts_from_city(source_city, contacts,
-                                                        (int)(sizeof(contacts) / sizeof(contacts[0])));
-    for (i = 0; i < contact_count; i++) {
-        SeaLanePlagueContact *contact = &contacts[i];
-        int chance;
-        int exposure_percent = contact->type == SEA_LANE_DEEP ? contact->deep_plague_percent : 100;
-        if (!valid_city(contact->target_city) || exposure_percent <= 0) continue;
-        sea_lanes_add_exposure(contact->lane_id, max(1, severity * exposure_percent / 100));
-        dirty_mark_plague();
-        chance = severity * 3 + clamp(42 - contact->distance / 10, 0, 34);
-        if (contact->type == SEA_LANE_DEEP) chance = chance * exposure_percent / 100;
-        if (cities[contact->target_city].owner == cities[source_city].owner) chance += 4;
-        try_infect_city(source_city, contact->target_city, chance, -1);
-    }
-}
-
-static int decay_route_exposure(void) {
-    int i;
-    int changed = 0;
-
-    for (i = 0; i < MAX_MARITIME_ROUTES; i++) {
-        if (route_exposure[i] > 0) {
-            route_exposure[i]--;
-            changed = 1;
-        }
-    }
-    if (sea_lanes_decay_exposure()) changed = 1;
-    return changed;
-}
-
-static void decay_city_immunity(void) {
-    int i;
-
-    for (i = 0; i < city_count; i++) {
-        if (!valid_city(i) || city_plagues[i].active || city_plagues[i].immunity <= 0) continue;
-        if (rnd(100) < 12) city_plagues[i].immunity--;
-    }
-}
-
-static void decay_city_reinfection_cooldowns(void) {
-    int i;
-
-    for (i = 0; i < city_count; i++) {
-        if (!valid_city(i) || city_plagues[i].active ||
-            city_plagues[i].reinfection_cooldown_months <= 0) continue;
-        city_plagues[i].reinfection_cooldown_months--;
-    }
-}
-
-static void update_active_city(int city_id, int active_by_civ[MAX_CIVS],
-                               int severity_by_civ[MAX_CIVS], int deaths_by_civ[MAX_CIVS],
-                               int *any_change) {
-    PlagueState *state = &city_plagues[city_id];
-    int owner = cities[city_id].owner;
-    int deaths;
-
-    if (!state->active || !valid_city(city_id)) return;
-    deaths = population_apply_city_plague(city_id, state->severity);
-    state->deaths_total += deaths;
-    state->age_months++;
-    state->months_left--;
-    if (owner >= 0 && owner < civ_count) {
-        active_by_civ[owner]++;
-        severity_by_civ[owner] += state->severity;
-        deaths_by_civ[owner] += deaths;
-    }
-    if (deaths > 0) *any_change = 1;
-    spread_locally_from_city(city_id);
-    spread_by_maritime_from_city(city_id);
-    if (state->age_months <= 2 && rnd(100) < 28) state->severity = clamp(state->severity + 1, 1, 10);
-    else if (state->months_left <= 5 || rnd(100) < 35) state->severity = clamp(state->severity - 1, 0, 10);
-    if (state->months_left <= 0 || state->severity <= 0 || cities[city_id].population <= 0) {
-        state->active = 0;
-        state->infected = 0;
-        state->severity = 0;
-        state->months_left = 0;
-        raise_city_immunity(city_id, 3 + state->age_months / 4);
-        set_city_recovery_cooldown(city_id);
-        *any_change = 1;
-    }
-}
-
-static void apply_plague_disorder(int active_by_civ[MAX_CIVS], int severity_by_civ[MAX_CIVS],
-                                  int deaths_by_civ[MAX_CIVS]) {
-    int i;
-
-    for (i = 0; i < civ_count; i++) {
-        int pressure;
-        if (!civs[i].alive || active_by_civ[i] <= 0) continue;
-        pressure = active_by_civ[i] * 5 + severity_by_civ[i] + deaths_by_civ[i] / 120;
-        disorder_add_plague_pressure(i, pressure);
-        disorder_add_plague_deaths(i, deaths_by_civ[i]);
-    }
-}
-
-static void collect_current_active_by_civ(int active_by_civ[MAX_CIVS]) {
-    int i;
-    memset(active_by_civ, 0, sizeof(int) * MAX_CIVS);
-    for (i = 0; i < city_count; i++) {
-        int owner;
-        if (!valid_city(i) || !city_plagues[i].active) continue;
-        owner = cities[i].owner;
-        if (owner >= 0 && owner < civ_count) active_by_civ[owner]++;
-    }
-}
-
-static void update_random_immunity_after_month(void) {
-    int i;
-    int active_by_civ[MAX_CIVS];
-    collect_current_active_by_civ(active_by_civ);
-    for (i = 0; i < civ_count; i++) {
-        if (!civs[i].alive) continue;
-        if (active_by_civ[i] > 0) {
-            civs[i].plague_was_active_last_month = 1;
-        } else if (civs[i].plague_was_active_last_month) {
-            civs[i].plague_random_immunity_months = PLAGUE_RANDOM_IMMUNITY_MONTHS;
-            civs[i].plague_was_active_last_month = 0;
-        } else if (civs[i].plague_random_immunity_months > 0) {
-            civs[i].plague_random_immunity_months--;
-        }
+    plague_spread_reset();
+    plague_adjacency_reset();
+    plague_metrics_reset();
+    plague_disorder_reset();
+    plague_disorder_refresh_targets(absolute_month_now());
+    plague_diagnostics_refresh(absolute_month_now());
+    for (i = 0; i < MAX_CIVS; i++) {
+        civs[i].plague_random_immunity_months = 0;
+        civs[i].plague_was_active_last_month = 0;
+        civs[i].plague_recovery_months = 0;
     }
 }
 
 int plague_update_month_step(PlagueUpdateState *state, int batch_size) {
-    int processed = 0;
-
-    if (!state) return 1;
-    if (batch_size < 1) batch_size = 1;
-    if (!state->initialized) {
-        memset(state, 0, sizeof(*state));
-        state->initialized = 1;
-        if (decay_route_exposure()) dirty_mark_plague();
-        decay_city_immunity();
-        decay_city_reinfection_cooldowns();
-    }
-    while (state->city_cursor < city_count && processed < batch_size) {
-        update_active_city(state->city_cursor, state->active_by_civ, state->severity_by_civ,
-                           state->deaths_by_civ, &state->any_change);
-        state->city_cursor++;
-        processed++;
-    }
-    if (state->city_cursor < city_count) return 0;
-    apply_plague_disorder(state->active_by_civ, state->severity_by_civ, state->deaths_by_civ);
-    update_random_immunity_after_month();
-    if (state->any_change) {
-        dirty_mark_plague();
-        population_sync_all();
-        world_invalidate_population_cache();
-    }
-    state->initialized = 0;
-    return 1;
+    return plague_engine_update_month_step(state, batch_size);
 }
 
 void plague_update_month(void) {
@@ -351,150 +62,129 @@ void plague_update_month(void) {
     while (!plague_update_month_step(&state, 16)) {}
 }
 
-void plague_notify_migration(int from_city, int to_city, int migrants) {
-    int chance;
-
-    if (migrants <= 0 || !valid_city(from_city) || !valid_city(to_city)) return;
-    if (!city_plagues[from_city].active || city_plagues[to_city].active) return;
-    chance = city_plagues[from_city].severity * 7 + migrants * 3;
-    try_infect_city(from_city, to_city, chance, -1);
+int plague_city_active(int city_id) {
+    const PlagueModelState *model = plague_state_get();
+    return model->episode.active && valid_city_id(city_id) &&
+           model->cities[city_id].active &&
+           model->cities[city_id].infection_start_month <= absolute_month_now() &&
+           model->cities[city_id].recovery_month > absolute_month_now();
 }
 
-void plague_notify_war_casualties(int civ_id, int casualties) {
-    int tries;
-
-    if (civ_id < 0 || civ_id >= civ_count || casualties <= 0 || !civs[civ_id].alive) return;
-    for (tries = 0; tries < 6; tries++) {
-        int city_id = rnd(city_count);
-        int chance;
-        if (!valid_city(city_id) || cities[city_id].owner != civ_id) continue;
-        if (city_plague_cooldown_active(city_id)) continue;
-        chance = clamp(casualties / 2 + civs[civ_id].disorder / 2 + city_outbreak_risk(city_id) / 4, 0, 55);
-        if (rnd(100) < chance) {
-            plague_seed_city(city_id, 3 + rnd(4), PLAGUE_MIN_DURATION + rnd(8));
-            return;
-        }
-    }
+int plague_city_severity(int city_id) {
+    return plague_city_active(city_id) ? plague_state_get()->episode.severity : 0;
 }
 
-int plague_city_active(int city_id) { return valid_city(city_id) && city_plagues[city_id].active; }
-int plague_city_severity(int city_id) { return plague_city_active(city_id) ? city_plagues[city_id].severity : 0; }
-int plague_city_deaths_total(int city_id) { return valid_city(city_id) ? city_plagues[city_id].deaths_total : 0; }
-int plague_city_months_left(int city_id) { return plague_city_active(city_id) ? city_plagues[city_id].months_left : 0; }
-int plague_city_reinfection_cooldown_months(int city_id) { return valid_city(city_id) ? city_plagues[city_id].reinfection_cooldown_months : 0; }
+int plague_city_deaths_total(int city_id) {
+    return valid_city_id(city_id) ? (int)plague_state_get()->cities[city_id].episode_deaths : 0;
+}
+
+int plague_city_months_left(int city_id) {
+    int remaining;
+    if (!plague_city_active(city_id)) return 0;
+    remaining = plague_state_get()->cities[city_id].recovery_month - absolute_month_now();
+    return remaining > 0 ? remaining : 0;
+}
+
+int plague_city_reinfection_cooldown_months(int city_id) {
+    int remaining;
+    const PlagueCityEpisodeState *city;
+    if (!valid_city_id(city_id)) return 0;
+    city = &plague_state_get()->cities[city_id];
+    remaining = city->immunity_expiry_month - absolute_month_now();
+    return remaining > 0 ? remaining : 0;
+}
+
 int plague_tile_severity(int x, int y) {
     int city_id;
-
     if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
     city_id = world[y][x].province_id;
     return plague_city_severity(city_id);
 }
 
 int plague_civ_active_count(int civ_id) {
-    int i;
+    const PlagueModelState *model = plague_state_get();
     int count = 0;
-
+    int i;
     if (civ_id < 0 || civ_id >= civ_count) return 0;
-    for (i = 0; i < city_count; i++) {
-        if (valid_city(i) && cities[i].owner == civ_id && city_plagues[i].active) count++;
+    for (i = 0; i < model->active_city_count; i++) {
+        int city_id = model->active_city_ids[i];
+        if (plague_city_active(city_id) && cities[city_id].owner == civ_id) count++;
     }
     return count;
 }
-int plague_active_for_civ(int civ_id) { return plague_civ_active_count(civ_id) > 0; }
-int plague_civ_pressure(int civ_id) {
-    int i;
-    int pressure = 0;
 
-    if (civ_id < 0 || civ_id >= civ_count) return 0;
-    for (i = 0; i < city_count; i++) {
-        if (valid_city(i) && cities[i].owner == civ_id && city_plagues[i].active) {
-            pressure += city_plagues[i].severity + city_plagues[i].deaths_total / 600;
-        }
-    }
-    return clamp(pressure, 0, 10);
+int plague_active_for_civ(int civ_id) { return plague_civ_active_count(civ_id) > 0; }
+
+int plague_civ_pressure(int civ_id) {
+    if (!plague_active_for_civ(civ_id)) return 0;
+    return plague_state_get()->episode.severity;
 }
 
 int plague_civ_deaths_total(int civ_id) {
+    const PlagueModelState *model = plague_state_get();
+    int64_t total = 0;
     int i;
-    int total = 0;
-
     if (civ_id < 0 || civ_id >= civ_count) return 0;
-    for (i = 0; i < city_count; i++) {
-        if (valid_city(i) && cities[i].owner == civ_id) total += city_plagues[i].deaths_total;
+    for (i = 0; i < model->ever_infected_city_count; i++) {
+        int city_id = model->ever_infected_city_ids[i];
+        if (valid_city_id(city_id) && cities[city_id].owner == civ_id) {
+            total += model->cities[city_id].episode_deaths;
+        }
     }
-    return total;
+    return total > INT_MAX ? INT_MAX : (int)total;
 }
 
 int plague_civ_peak_severity(int civ_id) {
-    int i;
-    int peak = 0;
-
-    if (civ_id < 0 || civ_id >= civ_count) return 0;
-    for (i = 0; i < city_count; i++) {
-        if (valid_city(i) && cities[i].owner == civ_id && city_plagues[i].severity > peak) {
-            peak = city_plagues[i].severity;
-        }
-    }
-    return peak;
+    return plague_active_for_civ(civ_id) ? plague_state_get()->episode.severity : 0;
 }
 
 int plague_civ_months_left(int civ_id) {
+    const PlagueModelState *model = plague_state_get();
+    int remaining = 0;
     int i;
-    int left = 0;
-
     if (civ_id < 0 || civ_id >= civ_count) return 0;
-    for (i = 0; i < city_count; i++) {
-        if (valid_city(i) && cities[i].owner == civ_id && city_plagues[i].months_left > left) {
-            left = city_plagues[i].months_left;
+    for (i = 0; i < model->active_city_count; i++) {
+        int city_id = model->active_city_ids[i];
+        if (plague_city_active(city_id) && cities[city_id].owner == civ_id) {
+            int city_remaining = plague_city_months_left(city_id);
+            if (city_remaining > remaining) remaining = city_remaining;
         }
     }
-    return left;
+    return remaining;
 }
 
 int plague_random_immunity_months(int civ_id) {
-    return civ_id >= 0 && civ_id < civ_count ? civs[civ_id].plague_random_immunity_months : 0;
+    const PlagueModelState *model = plague_state_get();
+    int maximum = 0;
+    int city_id;
+    if (civ_id < 0 || civ_id >= civ_count) return 0;
+    for (city_id = 0; city_id < city_count; city_id++) {
+        int remaining;
+        if (cities[city_id].owner != civ_id) continue;
+        remaining = model->cities[city_id].immunity_expiry_month - absolute_month_now();
+        if (plague_immunity_effective_percent(&model->cities[city_id], absolute_month_now()) > 0 &&
+            remaining > maximum) maximum = remaining;
+    }
+    return maximum;
 }
 
 int plague_random_immunity_civ_count(void) {
-    int i;
     int count = 0;
-    for (i = 0; i < civ_count; i++) {
-        if (civs[i].alive && civs[i].plague_random_immunity_months > 0) count++;
+    int civ_id;
+    for (civ_id = 0; civ_id < civ_count; civ_id++) {
+        if (civs[civ_id].alive && plague_random_immunity_months(civ_id) > 0) count++;
     }
     return count;
 }
 
 int plague_global_active_state(int *first_city_id) {
-    int i, count = 0;
-    if (first_city_id) *first_city_id = -1;
-    for (i = 0; i < city_count; i++) {
-        if (!valid_city(i) || !city_plagues[i].active) continue;
-        if (first_city_id && *first_city_id < 0) *first_city_id = i;
-        count++;
+    const PlagueModelState *model = plague_state_get();
+    if (first_city_id) {
+        *first_city_id = model->active_city_count > 0 ? model->active_city_ids[0] : -1;
     }
-    return count;
+    return model->episode.active ? model->active_city_count : 0;
 }
 
 int plague_route_exposure(int route_id) {
-    MaritimeRoute *route;
-    int exposure;
-
-    if (route_id < 0 || route_id >= maritime_route_count || route_id >= MAX_MARITIME_ROUTES) return 0;
-    route = &maritime_routes[route_id];
-    if (!route->active) return 0;
-    exposure = route_exposure[route_id];
-    exposure = clamp(exposure + plague_city_severity(route->from_city) / 2, 0, 10);
-    exposure = clamp(exposure + plague_city_severity(route->to_city) / 2, 0, 10);
-    return exposure;
-}
-void plague_copy_save_state(PlagueState *cities_out, int city_cap, int *routes_out, int route_cap, int *last_city) {
-    if (cities_out && city_cap > 0) memcpy(cities_out, city_plagues, sizeof(PlagueState) * min(city_cap, MAX_CITIES));
-    if (routes_out && route_cap > 0) memcpy(routes_out, route_exposure, sizeof(int) * min(route_cap, MAX_MARITIME_ROUTES));
-    if (last_city) *last_city = last_random_seed_city;
-}
-void plague_restore_save_state(const PlagueState *cities_in, int city_cap, const int *routes_in, int route_cap, int last_city) {
-    plague_reset();
-    if (cities_in && city_cap > 0) memcpy(city_plagues, cities_in, sizeof(PlagueState) * min(city_cap, MAX_CITIES));
-    if (routes_in && route_cap > 0) memcpy(route_exposure, routes_in, sizeof(int) * min(route_cap, MAX_MARITIME_ROUTES));
-    last_random_seed_city = last_city >= 0 && last_city < MAX_CITIES ? last_city : -1;
+    return sea_lanes_exposure(route_id);
 }

@@ -1,6 +1,7 @@
 #include "render/panel_country_events.h"
 
 #include "core/render_snapshot.h"
+#include "render/country_identity_block.h"
 #include "render/render_context.h"
 #include "render/render_common.h"
 #include "ui/ui_theme.h"
@@ -77,18 +78,13 @@ static int event_param_a_is_civ_local(EventLogType type) {
 }
 
 static void draw_country_chip(HDC hdc, RECT *line, int civ_id, const EventCivSnapshot *snapshot) {
-    char text[96];
-    SIZE size;
     RECT chip;
     if (!snapshot || snapshot->uid <= 0 || line->left >= line->right - 18) return;
-    snprintf(text, sizeof(text), "%c %.48s", snapshot->symbol,
-             ui_language == UI_LANG_ZH ? snapshot->name_zh : snapshot->name_en);
-    measure_text_utf8(hdc, text, &size);
-    chip = (RECT){line->left, line->top, min(line->left + size.cx + 20, line->right), line->top + 22};
-    if (chip.right <= chip.left + 10) return;
-    fill_rect_alpha(hdc, chip, snapshot->color, 112);
-    draw_text_rect(hdc, (RECT){chip.left + 6, chip.top, chip.right - 6, chip.bottom}, text,
-                   RGB(246, 248, 250), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
+    chip = country_identity_block_draw(
+        hdc, *line, snapshot->symbol,
+        ui_language == UI_LANG_ZH ? snapshot->name_zh : snapshot->name_en,
+        snapshot->color);
+    if (chip.right <= chip.left) return;
     add_country_hit(chip, civ_id, snapshot->uid);
     line->left = chip.right + 6;
 }

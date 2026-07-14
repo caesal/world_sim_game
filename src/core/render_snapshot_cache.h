@@ -26,6 +26,10 @@ int render_snapshot_cache_plague_city(int city_id, int key, int *active,
                                       int *severity, int *months_left,
                                       int *deaths_total);
 int render_snapshot_cache_plague_lane(int lane_id, int key, int *exposure);
+int render_snapshot_cache_plague_summary(int key, PlagueStateView *state,
+                                         PlagueMetricsSnapshot *metrics,
+                                         SnapshotPlagueNames *names);
+int render_snapshot_cache_plague_impact(int key, SnapshotPlagueImpact *impact);
 void render_snapshot_cache_note_city_fallback(void);
 void render_snapshot_cache_note_diplomacy_fallback(void);
 void render_snapshot_cache_note_plague_fallback(void);

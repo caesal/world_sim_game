@@ -7,17 +7,22 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.5.g is a Windows graphical sandbox prototype written in C.
+Ver0.3.6 is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.5.g is a presentation and world-announcement backup checkpoint over
-Ver0.3.5.f. It preserves the existing alliance, diplomacy-arrow, war comparison,
-live province/city, map-cache, ocean, legend, and border presentation stack. It
-adds structured world announcements for selected world-scale events, stable
-identity snapshots, priority/preemption and pagination, identity-colored rich
-text, a 75 percent opaque map-overlay banner below the unchanged top bar, and
-localized announcement controls. It also records shared 30px bottom-bar
-geometry, the approved Country/Alliance map-fill alpha policy, and descending
-truce-duration ordering on the Tense diplomacy page.
+Ver0.3.6 replaces the former city-roll plague mechanics with one scheduled,
+named global plague episode at a time. The model uses bounded spore budgets,
+batched route-aware spread, fixed episode severity, exact monthly-equivalent
+mortality, duration-based immunity, plague disorder, bilingual structured
+announcements, persistent history, and save-version-19 state. Old save versions
+are rejected cleanly; no migration is provided.
+
+The Plague panel now keeps fog and linked outbreak-probability controls above
+Live, Impact, and History views. Live shows the active episode or most recently
+completed episode. Impact prioritizes affected countries and the five cities
+with the most plague deaths. History compares the latest seven completed
+episodes across type, severity, duration, deaths, cities, countries, and spores.
+Probability changes apply immediately while no episode is active; changes made
+during an active episode are persisted as pending and apply when it ends.
 
 Future performance, stutter, scheduler, rendering, map-display, simulation
 speed, or Phase 6 validation must use an Extreme map, at least 26 placed
@@ -28,15 +33,16 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.5.g is a backup/checkpoint release, not a declaration
-that broad simulation or rendering performance meets the requested hard
-thresholds. Focused probes, targeted GUI checks, flicker sampling, and a fresh
-AGENTS Rule39 run were completed for this source stack. The Rule39 run reached
-Year 692 Month 1 on an Extreme 1152x800 world with 26 initial civilizations and
-1,103 natural regions; five named civilizations reached technology stage 5 and
-deep routes changed from 0 visible deep routes to 1. General performance still
-recorded 97ms/month and a 129ms render peak, so performance acceptance remains
-open.
+Validation note: Ver0.3.6 passed deterministic plague-model and presentation
+probes, a 1,000-city bounded-spread stress fixture, matched performance checks,
+targeted non-activating GUI validation, 60-frame flicker checks, and a fresh
+AGENTS Rule39 run. That run reached Year 742 Month 2 on an Extreme 1152x800
+world with 26 initial civilizations and 1,082 natural regions; 31 civilizations
+reached technology stage 5 or higher, and routes changed from `0/0/0`
+total/shallow/deep before unlock to `68/66/2` afterward. Matched task
+performance passed. The late natural-world stop recorded 213ms/month, 68ms
+render average, and a 693ms sampled render peak, so this release does not claim
+a universal performance ceiling for every generated world or machine.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope
@@ -187,6 +193,12 @@ You can:
 129. Target Declare War and Vassalize commands with dynamic red or purple arrows and top stacked notifications
 130. End a selected country's active direct wars through no-winner Peace commands
 131. Route side-panel tab switching through normal invalidation to reduce direct-paint flicker
+132. Run one bilingual named global plague episode at a time on a 20-year schedule with a rolling 100-year outbreak cap
+133. Spread plague through cached land, shallow-sea, and unlocked deep-sea contacts with bounded batched spore decisions
+134. Track fixed episode severity, exact monthly-equivalent mortality, duration-based immunity, plague disorder, and seven completed-episode comparisons
+135. Inspect active or latest plague data through Live, affected countries and top-five cities through Impact, and completed episodes through History
+136. Adjust linked No plague, Small, Medium, and Large outbreak probabilities while preserving an exact total of 100 percent
+137. Save effective and pending plague probabilities in save version 19, applying active-episode changes only after that episode ends
 
 ## Controls
 
@@ -210,6 +222,7 @@ You can:
 18. In the Map tab, drag generation sliders to adjust the next generated world
 19. Hold right mouse button and drag the map to pan
 20. Hover over compact stat blocks in the right panel to see their meaning
+21. In the Plague panel, adjust the four linked outbreak probabilities and use Apply or Reset; active-episode changes become effective after the episode ends
 
 ## Build
 

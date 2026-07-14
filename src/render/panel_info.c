@@ -5,6 +5,7 @@
 #include "ui/ui_map_display.h"
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
+#include "ui/ui_plague_fog.h"
 #include "ui/ui_pressed_state.h"
 #include "ui/ui_theme.h"
 #include "ui/ui_worldgen_layout.h"
@@ -82,35 +83,6 @@ void draw_panel_tabs(HDC hdc, RECT client) {
     }
 }
 
-static WorldgenSliderLayout plague_slider_layout(RECT client) {
-    WorldgenSliderLayout slider;
-    int x = client.right - side_panel_w + FORM_X_PAD;
-    int width = side_panel_w - FORM_X_PAD * 2 - 8;
-    int y = TOP_BAR_H + 154;
-
-    slider.label.left = x;
-    slider.label.top = y;
-    slider.label.right = x + width - 58;
-    slider.label.bottom = y + 18;
-    slider.value.left = x + width - 50;
-    slider.value.top = y;
-    slider.value.right = x + width;
-    slider.value.bottom = y + 18;
-    slider.track.left = x;
-    slider.track.top = y + 24;
-    slider.track.right = x + width;
-    slider.track.bottom = y + 34;
-    slider.help.left = x;
-    slider.help.top = y + 40;
-    slider.help.right = x + width;
-    slider.help.bottom = y + 58;
-    slider.hit.left = x - 8;
-    slider.hit.top = y - 4;
-    slider.hit.right = x + width + 8;
-    slider.hit.bottom = y + 60;
-    return slider;
-}
-
 void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int value) {
     WorldgenLayout layout;
     WorldgenSliderLayout slider;
@@ -119,7 +91,14 @@ void draw_setup_slider(HDC hdc, RECT client, int index, const char *name, int va
     char value_text[16];
 
     if (index == UI_SLIDER_PLAGUE_FOG_ALPHA) {
-        slider = plague_slider_layout(client);
+        PlaguePanelLayout plague_layout;
+        ui_plague_fog_layout_build(client, side_panel_w, &plague_layout);
+        slider.label = plague_layout.slider.label;
+        slider.value = plague_layout.slider.value;
+        slider.track = plague_layout.slider.track;
+        slider.help = plague_layout.slider.help;
+        slider.hit = plague_layout.slider.hit;
+        value = ui_plague_fog_percent(value);
     } else {
         worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
         slider = layout.sliders[index];

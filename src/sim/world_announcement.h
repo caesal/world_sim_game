@@ -16,7 +16,6 @@ void world_announcement_emit_vassal_detail(int event_type, int vassal_id,
                                            int overlord_id, int other_overlord_id,
                                            int region_id, int city_id,
                                            int param_a, int param_b);
-void world_announcement_plague_observe(void);
 
 void world_announcement_emit_alliance_created(int alliance_id, int founder, int second);
 void world_announcement_emit_alliance_dissolved(int alliance_id, int actor);

@@ -7,12 +7,15 @@
 #include "sim/fragmentation_diag.h"
 #include "sim/population_diagnostics.h"
 #include "sim/population_display_cohorts.h"
+#include "sim/plague_types.h"
+#include "core/render_snapshot_plague_types.h"
 #include "sim/alliance.h"
 #include "sim/diplomacy_relation_score.h"
 #include "sim/sea_lanes.h"
 
 #define RENDER_SNAPSHOT_EVENT_COUNT 200
 #define RENDER_SNAPSHOT_WORLD_ANNOUNCEMENT_COUNT 64
+#define RENDER_SNAPSHOT_PLAGUE_NAME_LEN 128
 
 enum {
     RENDER_SNAPSHOT_SECTION_TILES = 1 << 0,
@@ -272,6 +275,13 @@ typedef struct {
 } SnapshotEvent;
 
 typedef struct {
+    char active_en[RENDER_SNAPSHOT_PLAGUE_NAME_LEN];
+    char active_zh[RENDER_SNAPSHOT_PLAGUE_NAME_LEN];
+    char history_en[PLAGUE_VIEW_HISTORY_COUNT][RENDER_SNAPSHOT_PLAGUE_NAME_LEN];
+    char history_zh[PLAGUE_VIEW_HISTORY_COUNT][RENDER_SNAPSHOT_PLAGUE_NAME_LEN];
+} SnapshotPlagueNames;
+
+typedef struct {
     int map_w;
     int map_h;
     int year;
@@ -320,6 +330,10 @@ typedef struct {
     int plague_city_severity[MAX_CITIES];
     int plague_lane_exposure[MAX_SEA_LANES];
     int plague_active;
+    PlagueStateView plague_state;
+    PlagueMetricsSnapshot plague_metrics;
+    SnapshotPlagueNames plague_names;
+    SnapshotPlagueImpact plague_impact;
     SnapshotEvent events[RENDER_SNAPSHOT_EVENT_COUNT];
     WorldAnnouncementStreamEntry world_announcements[RENDER_SNAPSHOT_WORLD_ANNOUNCEMENT_COUNT];
     SnapshotEvent civ_recent_events[MAX_CIVS][EVENT_LOG_CIV_HISTORY_COUNT];

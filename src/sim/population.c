@@ -1,8 +1,6 @@
 #include "population.h"
 
 #include "core/dirty_flags.h"
-#include "core/plague_perf.h"
-#include "sim/disorder.h"
 #include "sim/economy.h"
 #include "sim/population_aging.h"
 #include "sim/population_diagnostics.h"
@@ -415,59 +413,4 @@ int population_migrate_between_cities(int from_city, int to_city, int amount) {
 
 int population_apply_casualties(int civ_id, int casualties) {
     return population_military_apply_casualties(civ_id, casualties);
-}
-
-int population_apply_city_plague(int city_id, int severity) {
-    int band;
-    int removed = 0;
-    int max_deaths;
-
-    if (!plague_perf_system_enabled()) return 0;
-    if (city_id < 0 || city_id >= city_count || !cities[city_id].alive) return 0;
-    ensure_city_population(city_id);
-    severity = clamp(severity, 1, 12);
-    max_deaths = clamp(cities[city_id].population / 7, 1, cities[city_id].population);
-    for (band = 0; band < POP_COHORT_COUNT && removed < max_deaths; band++) {
-        int vulnerability = 1;
-        int available = cohort_total(cities[city_id].population_cohorts[band]);
-        int deaths;
-
-        if (band == POP_AGE_0_4) vulnerability = 3;
-        else if (band == POP_AGE_65_74) vulnerability = 3;
-        else if (band == POP_AGE_75_PLUS) vulnerability = 5;
-        else if (band == POP_AGE_5_17 || band == POP_AGE_55_64) vulnerability = 2;
-
-        deaths = available * severity * vulnerability / 1800;
-        if (deaths <= 0 && available > 80 && rnd(100) < severity * vulnerability * 3) deaths = 1;
-        if (removed + deaths > max_deaths) deaths = max_deaths - removed;
-        removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[band], deaths));
-    }
-    population_sync_city(city_id);
-    population_mark_dirty();
-    return removed;
-}
-
-int population_apply_plague(int civ_id, int severity) {
-    int city_id;
-    int removed = 0;
-
-    if (!plague_perf_system_enabled()) return 0;
-    if (civ_id < 0 || civ_id >= civ_count) return 0;
-    severity = clamp(severity, 1, 12);
-    for (city_id = 0; city_id < city_count; city_id++) {
-        int band;
-        if (!cities[city_id].alive || cities[city_id].owner != civ_id) continue;
-        ensure_city_population(city_id);
-        for (band = 0; band < POP_COHORT_COUNT; band++) {
-            int vulnerability = band == POP_AGE_0_4 || band >= POP_AGE_65_74 ? 2 : 1;
-            int deaths = cohort_total(cities[city_id].population_cohorts[band]) * severity * vulnerability / 900;
-            removed += cohort_total(take_from_cohort(&cities[city_id].population_cohorts[band], deaths));
-        }
-        population_sync_city(city_id);
-    }
-    disorder_add_plague_pressure(civ_id, severity * 3 + removed / 1200);
-    disorder_add_plague_deaths(civ_id, removed);
-    population_sync_all();
-    world_invalidate_population_cache();
-    return removed;
 }

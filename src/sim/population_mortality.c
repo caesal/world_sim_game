@@ -2,6 +2,8 @@
 
 #include "core/game_types.h"
 
+#include <string.h>
+
 static int cohort_total(PopulationCohort cohort) {
     return cohort.male + cohort.female;
 }
@@ -119,4 +121,87 @@ int population_apply_natural_age_deaths(int city_id, PopulationSummary summary,
                                                 removed_75);
     }
     return removed + removed_75;
+}
+
+static int plague_band_weight(int band) {
+    static const int weights[POP_COHORT_COUNT] = {3, 2, 1, 1, 1, 2, 3, 5};
+    return band >= 0 && band < POP_COHORT_COUNT ? weights[band] : 0;
+}
+
+static void plague_display_age_range(int band, int *first, int *last) {
+    static const int first_age[POP_COHORT_COUNT] = {0, 5, 18, 25, 40, 55, 65, 75};
+    static const int last_age[POP_COHORT_COUNT] = {4, 17, 24, 39, 54, 64, 74, POP_DISPLAY_MAX_AGE};
+    if (first) *first = first_age[clamp(band, 0, POP_COHORT_COUNT - 1)];
+    if (last) *last = last_age[clamp(band, 0, POP_COHORT_COUNT - 1)];
+}
+
+static int allocate_plague_deaths(const int available[POP_COHORT_COUNT], int requested,
+                                  int allocated[POP_COHORT_COUNT]) {
+    int total_allocated = 0;
+    int band;
+    memset(allocated, 0, sizeof(int) * POP_COHORT_COUNT);
+    while (total_allocated < requested) {
+        long long weighted_total = 0;
+        long long remainders[POP_COHORT_COUNT] = {0};
+        int remaining = requested - total_allocated;
+        int added = 0;
+        int best = -1;
+        for (band = 0; band < POP_COHORT_COUNT; band++) {
+            int capacity = available[band] - allocated[band];
+            if (capacity > 0) weighted_total += (long long)capacity * plague_band_weight(band);
+        }
+        if (weighted_total <= 0) break;
+        for (band = 0; band < POP_COHORT_COUNT; band++) {
+            int capacity = available[band] - allocated[band];
+            long long numerator;
+            int share;
+            if (capacity <= 0) continue;
+            numerator = (long long)remaining * capacity * plague_band_weight(band);
+            share = (int)(numerator / weighted_total);
+            if (share > capacity) share = capacity;
+            allocated[band] += share;
+            total_allocated += share;
+            added += share;
+            remainders[band] = numerator % weighted_total;
+        }
+        if (total_allocated >= requested) break;
+        for (band = 0; band < POP_COHORT_COUNT; band++) {
+            if (available[band] <= allocated[band]) continue;
+            if (best < 0 || remainders[band] > remainders[best]) best = band;
+        }
+        if (best < 0) break;
+        allocated[best]++;
+        total_allocated++;
+        if (added == 0 && total_allocated >= requested) break;
+    }
+    return total_allocated;
+}
+
+PopulationPlagueDeaths population_apply_weighted_plague_deaths(int city_id,
+                                                               int requested_deaths) {
+    PopulationPlagueDeaths result;
+    int available[POP_COHORT_COUNT];
+    int planned[POP_COHORT_COUNT];
+    int total_available = 0;
+    int band;
+    memset(&result, 0, sizeof(result));
+    if (city_id < 0 || city_id >= city_count || !cities[city_id].alive || requested_deaths <= 0) {
+        return result;
+    }
+    for (band = 0; band < POP_COHORT_COUNT; band++) {
+        available[band] = cohort_total(cities[city_id].population_cohorts[band]);
+        total_available += available[band];
+    }
+    requested_deaths = clamp(requested_deaths, 0, total_available);
+    allocate_plague_deaths(available, requested_deaths, planned);
+    for (band = 0; band < POP_COHORT_COUNT; band++) {
+        int first, last;
+        PopulationCohort removed = take_from_cohort(&cities[city_id].population_cohorts[band],
+                                                     planned[band]);
+        result.by_band[band] = cohort_total(removed);
+        result.total += result.by_band[band];
+        plague_display_age_range(band, &first, &last);
+        population_display_remove_ordered_range(city_id, first, last, result.by_band[band]);
+    }
+    return result;
 }

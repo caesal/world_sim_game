@@ -7,6 +7,7 @@
 #include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_keys.h"
 #include "core/render_snapshot_profile.h"
+#include "core/render_snapshot_plague.h"
 #include "core/render_snapshot_sections.h"
 #include "core/state_lock.h"
 #include "data/province_names.h"
@@ -17,8 +18,8 @@
 #include "sim/disorder.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/maritime.h"
-#include "sim/plague.h"
 #include "sim/population.h"
+#include "sim/plague_state.h"
 #include "sim/regions.h"
 #include "sim/simulation.h"
 #include "sim/technology.h"
@@ -187,63 +188,6 @@ static int copy_lanes(RenderSnapshot *snapshot, int key) {
     return 1;
 }
 
-static int copy_plague(RenderSnapshot *snapshot, int key) {
-    int i;
-    int complete = 1;
-    int active_known = 1;
-    int active = 0;
-    for (i = 0; i < snapshot->civ_count; i++) {
-        SnapshotCiv *civ = &snapshot->civs[i];
-        if (!render_snapshot_cache_plague_civ(i, key, &civ->plague_active_count,
-                                              &civ->plague_months_left,
-                                              &civ->plague_peak_severity,
-                                              &civ->plague_deaths_total)) {
-            complete = 0;
-            if (snapshot->revision == 0) {
-                civ->plague_active_count = 0;
-                civ->plague_months_left = 0;
-                civ->plague_peak_severity = 0;
-                civ->plague_deaths_total = 0;
-                render_snapshot_cache_note_plague_fallback();
-            }
-        }
-    }
-    for (i = 0; i < snapshot->city_count; i++) {
-        SnapshotCity *city = &snapshot->cities[i];
-        int severity = 0;
-        if (render_snapshot_cache_plague_city(i, key, &city->plague_active,
-                                             &severity, &city->plague_months_left,
-                                             &city->plague_deaths_total)) {
-            city->plague_severity = severity;
-            snapshot->plague_city_severity[i] = severity;
-            if (severity > 0) active = 1;
-        } else {
-            complete = 0;
-            active_known = 0;
-            if (snapshot->revision == 0) {
-                city->plague_active = 0;
-                city->plague_severity = 0;
-                city->plague_months_left = 0;
-                city->plague_deaths_total = 0;
-                snapshot->plague_city_severity[i] = 0;
-                render_snapshot_cache_note_plague_fallback();
-            }
-        }
-    }
-    for (i = 0; i < snapshot->lane_count; i++) {
-        int exposure;
-        if (render_snapshot_cache_plague_lane(i, key, &exposure)) {
-            snapshot->plague_lane_exposure[i] = exposure;
-            snapshot->lanes[i].exposure = exposure;
-        } else {
-            complete = 0;
-            if (snapshot->revision == 0) render_snapshot_cache_note_plague_fallback();
-        }
-    }
-    if (active_known) snapshot->plague_active = active;
-    return complete;
-}
-
 void render_snapshot_init(void) {
     memset(buffers, 0, sizeof(buffers)); memset((void *)refs, 0, sizeof(refs));
     front_index = 0; published_revision = 0; last_publish_tick = 0; last_publish_ms = 0;
@@ -269,6 +213,9 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     int lane_key;
     int plague_key;
     int event_key;
+    PlagueProbabilityDistribution plague_effective_probabilities;
+    PlagueProbabilityDistribution plague_pending_probabilities;
+    int plague_pending_probabilities_valid;
     const RenderSnapshot *base_snapshot = NULL;
     DWORD wait_start;
     DWORD lock_start;
@@ -327,6 +274,12 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     lane_key = render_snapshot_lanes_revision_key();
     plague_key = render_snapshot_plague_revision_key(lane_key);
     event_key = event_log_total_entries;
+    plague_effective_probabilities =
+        plague_state_get()->effective_probabilities;
+    plague_pending_probabilities =
+        plague_state_get()->pending_probabilities;
+    plague_pending_probabilities_valid =
+        plague_state_get()->pending_probabilities_valid;
     snapshot->sections_copied_mask = 0;
     snapshot->sections_skipped_mask = 0;
     if (snapshot->revision == 0 || snapshot->tiles_revision != tile_key) {
@@ -386,7 +339,7 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
             copy_plague_after_unlock = 1;
             PROFILE_SKIP(SNAPSHOT_PROFILE_PLAGUE);
         } else {
-            PROFILE_SECTION(SNAPSHOT_PROFILE_PLAGUE, complete = copy_plague(snapshot, plague_key));
+            PROFILE_SECTION(SNAPSHOT_PROFILE_PLAGUE, complete = render_snapshot_copy_plague(snapshot, plague_key));
             if (complete) snapshot->plague_revision = plague_key;
         }
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_PLAGUE;
@@ -401,11 +354,17 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     if (copy_plague_after_unlock) {
         int complete = 0;
         DWORD plague_start = GetTickCount();
-        complete = copy_plague(snapshot, plague_key);
+        complete = render_snapshot_copy_plague(snapshot, plague_key);
         render_snapshot_profile_record_section(SNAPSHOT_PROFILE_PLAGUE,
                                                (int)(GetTickCount() - plague_start), 1);
         if (complete) snapshot->plague_revision = plague_key;
     }
+    snapshot->plague_state.effective_probabilities =
+        plague_effective_probabilities;
+    snapshot->plague_state.pending_probabilities =
+        plague_pending_probabilities;
+    snapshot->plague_state.pending_probabilities_valid =
+        plague_pending_probabilities_valid;
     if (snapshot->sections_copied_mask & RENDER_SNAPSHOT_SECTION_EVENTS) render_snapshot_format_events(snapshot);
     snapshot->revision = (unsigned int)InterlockedIncrement(&published_revision);
     last_publish_tick = (LONG)GetTickCount();

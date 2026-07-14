@@ -12,6 +12,11 @@ typedef struct {
     int total;
 } PopulationNaturalAgeDeaths;
 
+typedef struct {
+    int by_band[POP_COHORT_COUNT];
+    int total;
+} PopulationPlagueDeaths;
+
 int population_mortality_natural_age_deaths_x100(
     PopulationSummary summary, const PopulationDisplayCohorts *display);
 PopulationNaturalAgeDeaths population_natural_age_deaths_sample_with_display(
@@ -20,5 +25,7 @@ PopulationNaturalAgeDeaths population_natural_age_deaths_sample_with_display(
 int population_apply_natural_age_deaths(int city_id, PopulationSummary summary,
                                         int roll55, int roll65,
                                         int roll75_80, int roll81_plus);
+PopulationPlagueDeaths population_apply_weighted_plague_deaths(int city_id,
+                                                               int requested_deaths);
 
 #endif

@@ -166,11 +166,6 @@ static void random_event(char *log, size_t log_size) {
     for (i = 0; i < civ_count; i++) {
         if (civs[i].alive) alive_ids[alive_count++] = i;
     }
-    if (plague_perf_system_enabled()) {
-        if (plague_try_monthly_random_outbreak()) append_log(log, log_size, "Plague outbreak reported. ");
-    } else {
-        plague_perf_note_sim_skipped(1);
-    }
     if (alive_count == 0 || rnd(100) > 18) return;
     id = alive_ids[rnd(alive_count)];
     civ = &civs[id];
@@ -347,7 +342,6 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
         case SIM_MONTH_RANDOM_EVENT:
             random_event(state->log, sizeof(state->log));
-            world_announcement_plague_observe();
             state->phase = SIM_MONTH_TERRITORY;
             break;
         case SIM_MONTH_TERRITORY:

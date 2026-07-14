@@ -3,6 +3,7 @@
 #include "core/game_state.h"
 #include "core/game_notifications.h"
 #include "game/game_worldgen.h"
+#include "io/map_save.h"
 #include "io/map_save_state.h"
 #include "sim/alliance.h"
 #include "sim/alliance_contact.h"
@@ -189,7 +190,7 @@ static int case_alliance_record_roundtrip(FILE *summary) {
         ok &= map_save_write_dynamic_state(file);
         alliance_reset();
         rewind(file);
-        ok &= map_save_read_dynamic_state(file, 15) > 0;
+        ok &= map_save_read_dynamic_state(file, map_save_current_version()) > 0;
         fclose(file);
     }
     state = alliance_internal_state();

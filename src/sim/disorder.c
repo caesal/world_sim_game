@@ -4,7 +4,7 @@
 #include "core/game_state.h"
 #include "core/plague_perf.h"
 #include "sim/collapse.h"
-#include "sim/plague.h"
+#include "sim/plague_disorder.h"
 #include "sim/population.h"
 #include "sim/simulation.h"
 #include "sim/vassal.h"
@@ -62,20 +62,6 @@ static void finish_disorder_change(int civ_id, int old_disorder, int allow_immed
     if (allow_immediate && old_disorder < 100 && civs[civ_id].disorder >= 100) {
         collapse_check_immediate(civ_id, COLLAPSE_CAUSE_PRESSURE);
     }
-}
-
-static int plague_decay_for_civ(Civilization *civ, int civ_id) {
-    if (!plague_perf_system_enabled()) return 0;
-    if (civ->disorder_plague <= 0) return 0;
-    if (plague_active_for_civ(civ_id)) {
-        civ->plague_recovery_months = 0;
-        return 1;
-    }
-    if (civ->plague_recovery_months < 0) civ->plague_recovery_months = 0;
-    civ->plague_recovery_months++;
-    if (civ->plague_recovery_months <= 12) return 4;
-    if (civ->plague_recovery_months <= 24) return 3;
-    return 2;
 }
 
 static int war_decay_for_civ(Civilization *civ, int civ_id) {
@@ -175,10 +161,13 @@ void disorder_update_month(int civ_id, int resource_score) {
     old_disorder = civ->disorder;
     pressure = clamp(civ->resource_pressure, 0, 100);
     civ->disorder_resource = pressure;
-    plague_decay = plague_decay_for_civ(civ, civ_id);
+    plague_decay = 0;
     war_decay = war_decay_for_civ(civ, civ_id);
     migration_decay = civ->disorder_migration > 0 ? 4 : 0;
-    civ->disorder_plague = clamp(civ->disorder_plague - plague_decay, 0, 100);
+    if (plague_perf_system_enabled()) {
+        civ->disorder_plague = plague_disorder_step(civ_id, civ->disorder_plague,
+                                                     &plague_decay);
+    }
     civ->disorder_migration = clamp(civ->disorder_migration - migration_decay, 0, 100);
     civ->disorder_stability = clamp(civ->disorder_stability - war_decay, 0, 100);
     has_war = war_active_for_civ(civ_id);
@@ -289,12 +278,6 @@ void disorder_add_war_pressure(int civ_id, int amount) {
     civs[civ_id].disorder_stability = clamp(civs[civ_id].disorder_stability + amount, 0, 100);
 }
 
-void disorder_add_plague_pressure(int civ_id, int amount) {
-    if (!plague_perf_system_enabled()) return;
-    if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
-    civs[civ_id].disorder_plague = clamp(civs[civ_id].disorder_plague + amount, 0, 100);
-}
-
 void disorder_add_migration_pressure(int civ_id, int amount) {
     if (civ_id < 0 || civ_id >= civ_count || amount <= 0 || !civs[civ_id].alive) return;
     civs[civ_id].disorder_migration = clamp(civs[civ_id].disorder_migration + amount, 0, 100);
@@ -302,10 +285,6 @@ void disorder_add_migration_pressure(int civ_id, int amount) {
 
 void disorder_add_war_deaths(int civ_id, int deaths) {
     disorder_add_war_pressure(civ_id, deaths / 2000 + 1);
-}
-
-void disorder_add_plague_deaths(int civ_id, int deaths) {
-    disorder_add_plague_pressure(civ_id, deaths / 2500 + 1);
 }
 
 int disorder_last_pressure(int civ_id) {
