@@ -2,6 +2,7 @@
 #define WORLD_SIM_UI_LAYOUT_H
 
 #include "ui_types.h"
+#include "ui/ui_map_legend_layout.h"
 
 typedef enum {
     WORLD_ANNOUNCEMENT_CONTROL_PREVIOUS,
@@ -35,9 +36,6 @@ RECT get_language_button_rect(RECT client);
 RECT get_reset_view_button_rect(RECT client);
 RECT get_world_announcement_rect(RECT client);
 RECT get_world_announcement_control_rect(RECT client, WorldAnnouncementControl control);
-RECT get_map_legend_box_rect(RECT client);
-RECT get_map_legend_toggle_rect(RECT client);
-RECT get_map_legend_hit_rect(RECT client);
 const char *speed_seconds_text(int index);
 const char *speed_button_icon(int index);
 

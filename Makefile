@@ -13,6 +13,7 @@ SOURCES := \
 	src/game/game_player_actions.c \
 	src/game/game_vassal_actions.c \
 	src/game/game_worldgen.c \
+	src/game/game_worldgen_live_validation.c \
 	src/game/game_plague_baseline_probe.c \
 	src/game/game_plague_probe.c \
 	src/game/game_plague_probe_rules.c \
@@ -25,6 +26,29 @@ SOURCES := \
 	src/game/game_plague_probability_request.c \
 	src/game/game_expansion_perf_probe.c \
 	src/game/game_worldgen_probe.c \
+	src/game/game_worldgen_coast_threshold_probe.c \
+	src/game/game_worldgen_coast_semantic_fixture.c \
+	src/game/game_worldgen_river_e2e_probe.c \
+	src/game/game_worldgen_failure_probe.c \
+	src/game/game_worldgen_failure_render_probe.c \
+	src/game/game_worldgen_snapshot_recovery_probe.c \
+	src/game/game_worldgen_live_validation_probe.c \
+	src/game/game_worldgen_commit_probe.c \
+	src/game/game_worldgen_diagnostics_probe.c \
+	src/game/game_worldgen_river_payload_probe.c \
+	src/game/game_worldgen_physical_probe.c \
+	src/game/game_worldgen_landform_semantics_probe.c \
+	src/game/game_worldgen_lake_lifecycle_probe.c \
+	src/game/game_worldgen_lake_lifecycle_render_probe.c \
+	src/game/game_worldgen_lake_qualification_probe.c \
+	src/game/game_worldgen_lake_semantics_probe.c \
+	src/game/game_worldgen_region_water_probe.c \
+	src/game/game_worldgen_hydrology_probe.c \
+	src/game/game_worldgen_hydrology_direction_probe.c \
+	src/game/game_worldgen_hydrology_invariant_probe.c \
+	src/game/game_worldgen_climate_probe.c \
+	src/game/game_worldgen_mountain_shape_probe.c \
+	src/game/game_worldgen_terrain_probe.c \
 	src/game/game_crisis_probe.c \
 	src/game/game_alliance_lifecycle_probe.c \
 	src/game/game_alliance_record_probe.c \
@@ -47,12 +71,35 @@ SOURCES := \
 	src/game/game_presentation_plague_history_probe.c \
 	src/game/game_presentation_plague_interaction_probe.c \
 	src/game/game_presentation_plague_fog_probe.c \
+	src/game/game_presentation_worldgen_contract_probe.c \
+	src/game/game_presentation_worldgen_probe.c \
+	src/game/game_presentation_static_physical_probe.c \
+	src/game/game_presentation_static_camera_probe.c \
+	src/game/game_presentation_static_physical_artifacts.c \
+	src/game/game_presentation_static_physical_metrics.c \
+	src/game/game_presentation_water_river_probe.c \
+	src/game/game_presentation_lake_semantics_probe.c \
+	src/game/game_presentation_river_style_probe.c \
+	src/game/game_presentation_coast_artifact_probe.c \
+	src/game/game_presentation_coast_multiscale_probe.c \
+	src/game/game_presentation_water_edge_probe.c \
+	src/game/game_presentation_coast_smoothing_probe.c \
+	src/game/game_presentation_coast_protection_probe.c \
+	src/game/game_presentation_coast_artifact_metrics.c \
+	src/game/game_presentation_coast_artifact_pattern.c \
+	src/game/game_presentation_water_surface_probe.c \
+	src/game/game_presentation_water_reference_probe.c \
+	src/game/game_presentation_water_legend_probe.c \
+	src/game/game_presentation_river_lod_probe.c \
+	src/game/game_presentation_river_terminal_probe.c \
+	src/game/game_presentation_ocean_surface_probe.c \
 	src/game/game_presentation_map_probe.c \
 	src/game/game_presentation_diplomacy_probe.c \
 	src/game/game_presentation_diplomacy_sort_probe.c \
 	src/game/game_presentation_regression_probe.c \
 	src/game/game_presentation_interaction_probe.c \
 	src/game/game_presentation_layout_probe.c \
+	src/game/game_presentation_live_map_probe.c \
 	src/game/game_presentation_topbar_probe.c \
 	src/game/game_presentation_world_policy_probe.c \
 	src/game/game_presentation_world_announcement_event_probe.c \
@@ -63,9 +110,12 @@ SOURCES := \
 	src/game/game_population_probe.c \
 	src/game/game_population_corner_probe.c \
 	src/io/map_save.c \
+	src/io/map_save_load_river_preflight.c \
+	src/io/map_save_river_paths.c \
 	src/io/map_save_civs.c \
 	src/io/map_save_regions.c \
 	src/io/map_save_state.c \
+	src/io/map_save_world_physical.c \
 	src/io/map_save_plague.c \
 	src/core/event_log.c \
 	src/core/event_log_plague.c \
@@ -83,6 +133,9 @@ SOURCES := \
 	src/core/plague_perf.c \
 	src/core/profiler.c \
 	src/core/render_snapshot.c \
+	src/core/render_snapshot_wind.c \
+	src/core/render_snapshot_river.c \
+	src/core/render_snapshot_river_lakes.c \
 	src/core/render_snapshot_cache.c \
 	src/core/render_snapshot_plague.c \
 	src/core/render_snapshot_plague_cache.c \
@@ -94,16 +147,42 @@ SOURCES := \
 	src/core/render_snapshot_sections.c \
 	src/core/state_lock.c \
 	src/core/worldgen_progress.c \
+	src/core/worldgen_attempt.c \
+	src/core/worldgen_failure_notice.c \
+	src/core/worldgen_fault_injection.c \
 	src/data/country_names.c \
 	src/data/province_names.c \
 	src/data/game_tables.c \
 	src/data/plague_names.c \
 	src/world/world_gen.c \
+	src/world/world_gen_context.c \
+	src/world/world_gen_diagnostics.c \
+	src/world/world_gen_rng.c \
+	src/world/world_gen_elevation.c \
+	src/world/world_gen_land_mask.c \
+	src/world/world_gen_land_mask_metrics.c \
+	src/world/world_gen_land_mask_refine.c \
 	src/world/world_seed.c \
 	src/world/mountain_gen.c \
+	src/world/world_gen_climate.c \
+	src/world/world_gen_moisture.c \
+	src/world/wind_vector.c \
+	src/world/world_gen_classify.c \
+	src/world/world_physical_state.c \
 	src/world/terrain_query.c \
 	src/world/world_smoothing.c \
 	src/world/rivers.c \
+	src/world/river_path_validation.c \
+	src/world/river_state.c \
+	src/world/river_drainage.c \
+	src/world/river_routing.c \
+	src/world/river_lakes.c \
+	src/world/river_lake_qualification.c \
+	src/world/river_lake_shape.c \
+	src/world/river_lake_final_validation.c \
+	src/world/river_flow.c \
+	src/world/river_mouths.c \
+	src/world/river_hydroclimate.c \
 	src/sim/civilization_names.c \
 	src/sim/simulation.c \
 	src/sim/simulation_seed.c \
@@ -165,6 +244,7 @@ SOURCES := \
 	src/sim/regions_config.c \
 	src/sim/regions_balance.c \
 	src/sim/regions.c \
+	src/sim/regions_land_anchor.c \
 	src/sim/regions_validate.c \
 	src/sim/regions_shape.c \
 	src/sim/regions_settlement.c \
@@ -204,14 +284,32 @@ SOURCES := \
 	src/render/render_partial_ui.c \
 	src/render/render_transient_ui.c \
 	src/render/render_layer_cache.c \
+	src/render/render_dynamic_overlay_cache.c \
+	src/render/render_allocation_diagnostics.c \
 	src/render/render_static_map_cache_border.c \
 	src/render/render_static_map_cache_fill.c \
 	src/render/render_static_map_cache.c \
 	src/render/render_static_map_cache_status.c \
+	src/render/render_static_map_surface.c \
 	src/render/render_static_scene.c \
+	src/render/render_static_scene_pool.c \
+	src/render/render_static_physical_cache.c \
+	src/render/coast_geometry.c \
+	src/render/render_static_physical_overlay_cache.c \
+	src/render/render_water_coverage.c \
+	src/render/render_water_coverage_raster.c \
+	src/render/render_water_coast_smoothing.c \
+	src/render/render_water_coast_presentation.c \
+	src/render/render_coast_pattern.c \
+	src/render/render_water_surface_cache.c \
+	src/render/render_world_physical_prewarm.c \
+	src/render/render_world_static_prewarm.c \
 	src/render/render_ocean_assets.c \
 	src/render/render_ocean_decoration_rules.c \
+	src/render/render_ocean_decoration_cache.c \
+	src/render/render_ocean_decoration_items.c \
 	src/render/render_ocean_decoration_water.c \
+	src/render/render_ocean_coverage.c \
 	src/render/render_ocean_decoration.c \
 	src/render/render_ocean_texture.c \
 	src/render/render_ocean_motifs.c \
@@ -220,6 +318,7 @@ SOURCES := \
 	src/render/render_common.c \
 	src/render/country_identity_block.c \
 	src/render/map_display_policy.c \
+	src/render/map_shore_color_cache.c \
 	src/render/map_ownership_surface.c \
 	src/render/ui_format.c \
 	src/render/cartography_layers.c \
@@ -242,13 +341,21 @@ SOURCES := \
 	src/render/terrain_present.c \
 	src/render/region_render.c \
 	src/render/snapshot_map_layers.c \
+	src/render/wind_render.c \
 	src/render/map_labels.c \
 	src/render/map_label_alliance.c \
 	src/render/map_label_cache.c \
+	src/render/map_label_cache_key.c \
+	src/render/map_label_projection.c \
+	src/render/map_label_placement_pool.c \
 	src/render/map_label_style.c \
 	src/render/route_render.c \
 	src/render/river_geometry.c \
+	src/render/river_geometry_curve.c \
 	src/render/river_render.c \
+	src/render/river_topology.c \
+	src/render/river_lod_policy.c \
+	src/render/river_presentation_filter.c \
 	src/render/sea_lane_dash_cache.c \
 	src/render/sea_lane_render.c \
 	src/render/plague_render.c \
@@ -304,6 +411,8 @@ SOURCES := \
 	src/render/top_world_announcement_resources.c \
 	src/render/top_world_announcement_surface.c \
 	src/render/panel_map_speed_badge.c \
+	src/render/panel_map_legend_glyphs.c \
+	src/render/panel_map_water_legend.c \
 	src/render/panel_map.c \
 	src/render/icons.c \
 	src/ui/ui_clay_theme.c \
@@ -333,6 +442,7 @@ SOURCES := \
 	src/ui/ui_plague_probability.c \
 	src/ui/ui_state.c \
 	src/ui/ui_layout.c \
+	src/ui/ui_map_legend_layout.c \
 	src/ui/ui_map_input.c \
 	src/ui/ui_sliders.c \
 	src/ui/ui_forms.c \

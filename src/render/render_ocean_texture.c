@@ -59,6 +59,10 @@ int render_ocean_texture_score(void) {
     return ocean_texture_score;
 }
 
+RenderLayerCacheMemory render_ocean_texture_memory(void) {
+    return render_layer_cache_memory(&ocean_texture_cache);
+}
+
 void render_ocean_texture_reset_debug(void) {
     ocean_texture_cache.valid = 0;
     ocean_texture_score = 0;

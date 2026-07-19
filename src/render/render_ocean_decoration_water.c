@@ -8,8 +8,7 @@ int ocean_decoration_water_tile(const RenderSnapshot *snapshot, int x, int y) {
     const SnapshotTile *t;
     if (!snapshot || x < 0 || y < 0 || x >= snapshot->map_w || y >= snapshot->map_h) return 0;
     t = &snapshot->tiles[y * snapshot->map_w + x];
-    return t->water_depth != WATER_DEPTH_NONE || t->geography == GEO_OCEAN ||
-           t->geography == GEO_BAY || t->geography == GEO_LAKE;
+    return t->geography == GEO_OCEAN || t->geography == GEO_BAY;
 }
 
 int ocean_decoration_deep_ocean_tile(const RenderSnapshot *snapshot, int x, int y) {

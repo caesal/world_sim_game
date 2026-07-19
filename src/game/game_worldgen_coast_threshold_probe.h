@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_WORLDGEN_COAST_THRESHOLD_PROBE_H
+#define WORLD_SIM_GAME_WORLDGEN_COAST_THRESHOLD_PROBE_H
+
+int run_worldgen_coast_threshold_probe(void);
+
+#endif

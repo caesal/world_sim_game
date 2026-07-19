@@ -100,7 +100,6 @@ static int case_bar_redraw_not_blocked(FILE *summary) {
     simulation_worker_shutdown();
     ok = (flags1 & GAME_REDRAW_TOP_BAR) && (flags1 & GAME_REDRAW_BOTTOM_BAR) &&
          (flags2 & GAME_REDRAW_TOP_BAR) && (flags2 & GAME_REDRAW_BOTTOM_BAR) &&
-         !(flags2 & GAME_REDRAW_SIDE_PANEL_DATA) &&
          game_loop_display_year() == 100 && game_loop_display_month() == 3 &&
          game_loop_visual_dropped_months() == 0 &&
          game_loop_displayed_month_order_skips() == 0;

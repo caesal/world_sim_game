@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "core/render_snapshot_keys.h"
 #include "sim/regions.h"
 #include "world/terrain_query.h"
 
@@ -39,8 +40,8 @@ int map_ownership_surface_snapshot_revision(const RenderSnapshot *snapshot) {
 }
 
 int map_ownership_surface_live_revision(void) {
-    int key = mix_key(dirty_revision_terrain(), dirty_revision_ownership());
-    key = mix_key(key, dirty_revision_province());
+    int key = mix_key(render_snapshot_tile_revision_key(),
+                      render_snapshot_regions_revision_key());
     key = mix_key(key, region_count * 31 + city_count);
     key = mix_key(key, map_w * 4099 + map_h);
     return mix_key(key, world_generated);

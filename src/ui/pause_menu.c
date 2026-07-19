@@ -58,18 +58,18 @@ void pause_menu_show_version_log(HWND hwnd) {
     if (ui_language == UI_LANG_ZH) {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\n本版本改进：\n"
-                 "全面重做全局命名瘟疫：周期检查、孢子传播、路线、免疫、死亡、混乱和历史。\n"
-                 "瘟疫面板新增实时、影响和历史对比，并优化国家色块、图标和翻页。\n"
-                 "新增无瘟疫、小型、中型和大型概率控制；活动瘟疫期间的设置会在结束后生效。\n"
-                 "存档版本升至 19；旧版存档会以本地化提示安全拒绝，不进行迁移。\n",
+                 "重构静态地理生成：宽山脉、固定风场、气候输送、河网、湖泊、河口和三角洲在生成后保持固定。\n"
+                 "从生成源头消除海岸斜线和网格伪影，并让极大地图在低海洋比例下可靠生成。\n"
+                 "河流按 100/150/225/300%% 缩放逐级显示；300%% 显示完整河网，镜头切换不再重栅格化静态地图。\n"
+                 "存档版本升至 20；旧版存档会以本地化提示安全拒绝，不进行迁移。\n",
                  WORLD_SIM_VERSION);
     } else {
         snprintf(message, sizeof(message),
                  "World Sim Game Ver %s\n\nImproved in this version:\n"
-                 "Rebuilt global named plagues with scheduled checks, spore spread, routes, immunity, mortality, disorder, and history.\n"
-                 "Added Live, Impact, and History comparison views with country-color blocks, fitted icons, and compact paging.\n"
-                 "Added linked No plague, Small, Medium, and Large probability controls; changes made during an episode apply after it ends.\n"
-                 "Save version is now 19; older saves are rejected with a localized message and are not migrated.",
+                 "Rebuilt static geography with broad mountains, fixed wind, climate transport, river networks, lakes, mouths, and deltas.\n"
+                 "Eliminated diagonal coast meshes at generation time and made low-ocean Extreme worlds generate reliably.\n"
+                 "Rivers now progress through 100/150/225/300%% zoom, with the full network at 300%% and no static rerasterization on camera changes.\n"
+                 "Save version is now 20; older saves are rejected with a localized message and are not migrated.",
                  WORLD_SIM_VERSION);
     }
     show_utf8_message(hwnd, message, pause_menu_button_label(PAUSE_MENU_VERSION_LOG));

@@ -2,6 +2,7 @@
 #define WORLD_SIM_RENDER_OCEAN_DECORATION_H
 
 #include "core/render_snapshot.h"
+#include "render/render_layer_cache.h"
 #include "ui/ui_types.h"
 #include <windows.h>
 
@@ -25,16 +26,23 @@ typedef struct {
     int texture_asset_ready;
     int motif_asset_ready;
     int primitive_wave_stamps;
+    int coverage_rebuilds;
+    int coverage_row_spans;
+    int coverage_ocean_tiles;
+    int coverage_lake_tiles_excluded;
+    int coverage_uses_color_key;
     unsigned int item_hash;
     unsigned int motif_mask;
 } OceanDecorationProbeInfo;
 
 void render_ocean_decoration_draw_background(HDC hdc, RECT client, MapLayout layout,
                                              const RenderSnapshot *snapshot);
-void render_ocean_decoration_draw_overlay(HDC hdc, RECT client, MapLayout layout,
-                                          const RenderSnapshot *snapshot);
+int render_ocean_decoration_prewarm_background(
+    HDC hdc, RECT client, MapLayout layout,
+    const RenderSnapshot *snapshot);
 void render_ocean_decoration_draw(HDC hdc, RECT client, MapLayout layout,
                                   const RenderSnapshot *snapshot);
+RenderLayerCacheMemory render_ocean_decoration_memory(void);
 void render_ocean_decoration_reset_debug(void);
 OceanDecorationProbeInfo render_ocean_decoration_probe_info(void);
 

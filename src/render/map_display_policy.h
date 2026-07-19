@@ -15,7 +15,34 @@ typedef struct {
     int alpha;
 } MapDisplayFillPolicy;
 
+typedef enum {
+    MAP_PHYSICAL_BASE_OVERVIEW = 0,
+    MAP_PHYSICAL_BASE_GEOGRAPHY,
+    MAP_PHYSICAL_BASE_CLIMATE,
+    MAP_PHYSICAL_BASE_COUNT
+} MapPhysicalBaseFamily;
+
+typedef enum {
+    MAP_LABEL_FAMILY_ORDINARY = 0,
+    MAP_LABEL_FAMILY_ALLIANCE,
+    MAP_LABEL_FAMILY_REGIONS
+} MapLabelFamily;
+
 int map_display_policy_requires_fill_layer(int mode);
+int map_display_policy_shows_wind(int mode);
+MapPhysicalBaseFamily map_display_policy_physical_family(int mode);
+MapLabelFamily map_display_policy_label_family(int mode);
+COLORREF map_display_policy_snapshot_physical_color(const SnapshotTile *tile,
+                                                     MapPhysicalBaseFamily family);
+COLORREF map_display_policy_snapshot_smoothed_physical_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family);
+COLORREF map_display_policy_snapshot_nearby_land_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family);
+COLORREF map_display_policy_snapshot_nearby_ocean_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family);
 COLORREF map_display_policy_snapshot_base_color(const SnapshotTile *tile, int mode);
 int map_display_policy_snapshot_effective_owner(const RenderSnapshot *snapshot,
                                                 const SnapshotTile *tile,

@@ -23,7 +23,6 @@ typedef struct {
 void render_static_map_cache_build_border_pixels(MapLayerCache *cache,
                                                  const RenderSnapshot *snapshot);
 void render_static_map_cache_build_fill_pixels(MapLayerCache *cache,
-                                               const RenderSnapshot *snapshot,
-                                               int live);
+                                               const RenderSnapshot *snapshot);
 
 #endif

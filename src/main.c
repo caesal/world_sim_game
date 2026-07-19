@@ -40,6 +40,9 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-worldgen") == 0) {
         return run_worldgen_probe();
     }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-worldgen-coast") == 0) {
+        return run_worldgen_coast_threshold_probe();
+    }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-expansion-perf") == 0) {
         return run_expansion_perf_probe();
     }

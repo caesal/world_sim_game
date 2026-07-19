@@ -33,6 +33,7 @@
 #include "sim/world_announcement.h"
 #include "ui/ui.h"
 #include "world/ports.h"
+#include "world/river_presentation_state.h"
 #include "world/terrain_query.h"
 #include <stdio.h>
 #include <string.h>
@@ -188,7 +189,7 @@ Color32 game_preview_civilization_color_auto_avoid(int civ_id, Color32 preferred
 void game_request_set_civilization_color(int civ_id, Color32 color) {
     game_request_set_civilization_color_exact(civ_id, color);
 }
-void game_request_after_load_map(int restored_dynamic_state) {
+void game_request_after_load_map(HWND hwnd, int restored_dynamic_state) {
     load_progress_update(LOAD_STAGE_POST_LOAD, 0, 6);
     selected_x = -1;
     selected_y = -1;
@@ -217,7 +218,7 @@ void game_request_after_load_map(int restored_dynamic_state) {
     decision_snapshot_cache_update_budgeted(MAX_CIVS);
     world_visual_revision++;
     render_snapshot_cache_update_all();
-    render_snapshot_publish_from_live_state();
+    game_worldgen_publish_and_prewarm(hwnd);
     load_progress_update(LOAD_STAGE_POST_LOAD, 6, 6);
 }
 int game_request_trigger_civil_unrest(int civ_id) {
@@ -247,8 +248,9 @@ int game_request_trigger_civil_unrest(int civ_id) {
     return 1;
 }
 int game_tick_auto_run(void) {
-    if (!world_generated || !auto_run) return 0;
-    return game_loop_tick_frame();
+    int redraw = game_worldgen_service_pending_presentation() ? GAME_REDRAW_FULL : 0;
+    if (!world_generated || !auto_run) return redraw;
+    return redraw | game_loop_tick_frame();
 }
 static void probe_write_checkpoint(FILE *file, int checkpoint_year) {
     int owned_regions = 0;
@@ -470,6 +472,7 @@ static int run_game_internal(int no_activate) {
     }
     simulation_worker_shutdown();
     render_snapshot_shutdown();
+    river_presentation_state_clear();
     return 0;
 }
 int run_game(void) { return run_game_internal(0); }

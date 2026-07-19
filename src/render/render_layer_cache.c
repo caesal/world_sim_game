@@ -1,10 +1,13 @@
 #include "render/render_layer_cache.h"
 #include "core/profiler.h"
+#include "render/render_allocation_diagnostics.h"
 #include "ui/ui_layout.h"
 #include <string.h>
 
 static void release_layer_cache(LayerCache *cache) {
-    if (cache->dc && cache->old_bitmap) SelectObject(cache->dc, cache->old_bitmap);
+    if (cache->dc && cache->old_bitmap &&
+        (HGDIOBJ)cache->old_bitmap != HGDI_ERROR)
+        SelectObject(cache->dc, cache->old_bitmap);
     if (cache->bitmap) DeleteObject(cache->bitmap);
     if (cache->dc) DeleteDC(cache->dc);
     memset(cache, 0, sizeof(*cache));
@@ -33,14 +36,26 @@ int render_layer_cache_ensure(HDC hdc, LayerCache *cache, RECT client, MapLayout
     if (width <= 0 || height <= 0) return 0;
     if (!cache->dc || cache->width != width || cache->height != height) {
         release_layer_cache(cache);
+        render_allocation_note_attempt(RENDER_ALLOCATION_LAYER_CACHE, width, height);
+        if (render_allocation_inject_failure(RENDER_ALLOCATION_LAYER_CACHE,
+                                             width, height)) return 0;
         cache->dc = CreateCompatibleDC(hdc);
         cache->bitmap = CreateCompatibleBitmap(hdc, width, height);
         if (!cache->dc || !cache->bitmap) {
+            render_allocation_note_failure(RENDER_ALLOCATION_LAYER_CACHE, width, height);
             release_layer_cache(cache);
             return 0;
         }
         profiler_add_gdi_recreate();
         cache->old_bitmap = SelectObject(cache->dc, cache->bitmap);
+        if (!cache->old_bitmap ||
+            (HGDIOBJ)cache->old_bitmap == HGDI_ERROR) {
+            cache->old_bitmap = NULL;
+            render_allocation_note_failure(RENDER_ALLOCATION_LAYER_CACHE,
+                                           width, height);
+            release_layer_cache(cache);
+            return 0;
+        }
         cache->width = width;
         cache->height = height;
     }
@@ -62,6 +77,15 @@ int render_layer_cache_matches(const LayerCache *cache, RECT client, MapLayout l
            cache->height == height && cache->map_x == layout.map_x &&
            cache->map_y == layout.map_y && cache->draw_w == layout.draw_w &&
            cache->draw_h == layout.draw_h && cache->display == display;
+}
+
+int render_layer_cache_content_matches(const LayerCache *cache, RECT client,
+                                       unsigned int key, int display) {
+    int width = client.right - client.left;
+    int height = client.bottom - client.top;
+    return cache && cache->valid && cache->key == key &&
+           cache->width == width && cache->height == height &&
+           cache->display == display;
 }
 
 int render_layer_cache_preview_presentable(const LayerCache *cache, RECT client, int display) {
@@ -91,25 +115,22 @@ void render_layer_cache_transparent_viewport(HDC hdc, RECT client, const LayerCa
                    RGB(255, 0, 255));
 }
 
-void render_layer_cache_transparent_map(HDC hdc, RECT client, MapLayout layout,
-                                        const LayerCache *cache) {
-    RECT bounds = {0, 0, cache->width, cache->height};
-    RECT old_map = {cache->map_x, cache->map_y,
-                    cache->map_x + cache->draw_w, cache->map_y + cache->draw_h};
-    RECT src, content = get_map_content_rect(client);
-    RECT dst;
-    int saved_dc;
-    if (cache->draw_w <= 0 || cache->draw_h <= 0 || layout.draw_w <= 0 || layout.draw_h <= 0) return;
-    if (!IntersectRect(&src, &old_map, &bounds)) return;
-    dst.left = layout.map_x + (src.left - old_map.left) * layout.draw_w / cache->draw_w;
-    dst.top = layout.map_y + (src.top - old_map.top) * layout.draw_h / cache->draw_h;
-    dst.right = layout.map_x + (src.right - old_map.left) * layout.draw_w / cache->draw_w;
-    dst.bottom = layout.map_y + (src.bottom - old_map.top) * layout.draw_h / cache->draw_h;
-    if (dst.right <= dst.left || dst.bottom <= dst.top) return;
-    saved_dc = SaveDC(hdc);
-    IntersectClipRect(hdc, content.left, content.top, content.right, content.bottom);
-    TransparentBlt(hdc, dst.left, dst.top, dst.right - dst.left, dst.bottom - dst.top,
-                   cache->dc, src.left, src.top, src.right - src.left, src.bottom - src.top,
-                   RGB(255, 0, 255));
-    RestoreDC(hdc, saved_dc);
+RenderLayerCacheMemory render_layer_cache_memory(const LayerCache *cache) {
+    RenderLayerCacheMemory memory = {0};
+    if (!cache) return memory;
+    if (cache->bitmap) {
+        memory.bitmaps = 1;
+        memory.bitmap_bytes =
+            (uint64_t)max(0, cache->width) * (uint64_t)max(0, cache->height) * 4u;
+    }
+    if (cache->dc) memory.dcs = 1;
+    return memory;
+}
+
+void render_layer_cache_memory_add(RenderLayerCacheMemory *total,
+                                   RenderLayerCacheMemory value) {
+    if (!total) return;
+    total->bitmaps += value.bitmaps;
+    total->dcs += value.dcs;
+    total->bitmap_bytes += value.bitmap_bytes;
 }

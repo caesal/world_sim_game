@@ -4,6 +4,7 @@
 #include "core/game_types.h"
 #include "data/province_names.h"
 #include "sim/region_boundary.h"
+#include "sim/regions_land_anchor.h"
 #include "sim/regions_validate.h"
 #include "sim/regions_shape.h"
 #include "world/terrain_query.h"
@@ -245,7 +246,7 @@ static void consider_region_site(NaturalRegion *region, int x, int y, int *best_
 
     if (x < REGION_CAPITAL_EDGE_PAD || y < REGION_CAPITAL_EDGE_PAD ||
         x >= MAP_W - REGION_CAPITAL_EDGE_PAD || y >= MAP_H - REGION_CAPITAL_EDGE_PAD) return;
-    if (world[y][x].geography == GEO_MOUNTAIN || world[y][x].geography == GEO_CANYON ||
+    if (world[y][x].geography == GEO_LAKE || world[y][x].geography == GEO_MOUNTAIN || world[y][x].geography == GEO_CANYON ||
         world[y][x].geography == GEO_VOLCANO) return;
     if (stats.water < 2 || stats.habitability < 2) return;
     depth = same_region_depth(x, y, region->id);
@@ -314,6 +315,11 @@ static void rebuild_region_metadata(void) {
         region->alive = 1;
         region->center_x /= region->tile_count;
         region->center_y /= region->tile_count;
+        if (world[region->center_y][region->center_x].geography == GEO_LAKE) {
+            regions_land_anchor_find_nearest_member(region->id, region->center_x,
+                                                    region->center_y, &region->center_x,
+                                                    &region->center_y);
+        }
         region->average_stats = stats_average(region->total_stats, region->tile_count);
         for (g = 1; g < GEO_COUNT; g++) if (geo_counts[i][g] > geo_counts[i][best_geo]) best_geo = g;
         for (c = 1; c < CLIMATE_COUNT; c++) if (climate_counts[i][c] > climate_counts[i][best_climate]) best_climate = c;
@@ -334,6 +340,9 @@ static void rebuild_region_metadata(void) {
         if (region->capital_x < 0) {
             region->capital_x = region->center_x;
             region->capital_y = region->center_y;
+            if (world[region->capital_y][region->capital_x].geography == GEO_LAKE) {
+                region->capital_x = region->capital_y = -1;
+            }
         }
         region->cradle_score += region->development_score + region->tile_count / 4;
     }

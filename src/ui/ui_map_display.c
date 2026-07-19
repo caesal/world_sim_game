@@ -4,6 +4,7 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "game/game_loop.h"
+#include "render/map_label_cache_key.h"
 #include "ui/ui_invalidation.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
@@ -59,7 +60,7 @@ int ui_set_map_display_mode(HWND hwnd, int mode_index) {
     old_mode = display_mode;
     display_mode = new_mode;
     map_interaction_preview = 0;
-    dirty_mark_labels();
+    if (map_label_cache_display_family_changed(old_mode, new_mode)) dirty_mark_labels();
     if (mode_switch_side_panel_depends(old_mode, new_mode)) followup_flags |= GAME_REDRAW_SIDE_PANEL;
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR);
     request_next_frame_map_mode_redraw(hwnd, followup_flags);

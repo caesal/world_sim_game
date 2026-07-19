@@ -228,3 +228,7 @@ void worldgen_progress_get(WorldGenProgress *out) {
 int worldgen_progress_active(void) {
     return progress_state.active;
 }
+
+int worldgen_progress_repaint_callback_active(void) {
+    return repaint_fn != NULL;
+}

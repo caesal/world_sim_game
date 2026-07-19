@@ -6,6 +6,8 @@
 #include "game/game_plague_probe.h"
 #include "game/game_plague_performance_probe.h"
 
+#include <windows.h>
+
 int run_game(void);
 int run_game_no_activate(void);
 void game_toggle_auto_run(void);
@@ -33,7 +35,7 @@ void game_request_set_civilization_color(int civ_id, Color32 color);
 void game_request_set_civilization_color_exact(int civ_id, Color32 color);
 void game_request_set_civilization_color_auto_avoid(int civ_id, Color32 preferred_color);
 Color32 game_preview_civilization_color_auto_avoid(int civ_id, Color32 preferred_color);
-void game_request_after_load_map(int restored_dynamic_state);
+void game_request_after_load_map(HWND hwnd, int restored_dynamic_state);
 int game_request_trigger_civil_unrest(int civ_id);
 int game_request_release_vassal(int vassal_id);
 int game_request_annex_vassal(int overlord_id, int vassal_id);
@@ -47,6 +49,7 @@ int run_diplomacy_probe(void);
 int run_population_probe(void);
 int run_presentation_probe(void);
 int run_worldgen_probe(void);
+int run_worldgen_coast_threshold_probe(void);
 int run_expansion_perf_probe(void);
 int run_military_alliance_probe(void);
 

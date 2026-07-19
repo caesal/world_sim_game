@@ -73,11 +73,12 @@ void simulation_seed_default_civilizations(void) {
     }
     simulation_seed_build_default_heritage_queue(count, heritage_queue);
     for (i = 0; i < count; i++) {
-        int ok = add_civilization_at_with_heritage("", default_symbol_for_index(i), heritage_queue[i],
-                                                   default_trait_for_index(i, 0), default_trait_for_index(i, 1),
-                                                   default_trait_for_index(i, 2), default_trait_for_index(i, 3),
-                                                   default_trait_for_index(i, 4), default_trait_for_index(i, 5),
-                                                   default_trait_for_index(i, 6), -1, -1);
+        int ok = simulation_add_generated_civilization(
+            "", default_symbol_for_index(i), heritage_queue[i],
+            default_trait_for_index(i, 0), default_trait_for_index(i, 1),
+            default_trait_for_index(i, 2), default_trait_for_index(i, 3),
+            default_trait_for_index(i, 4), default_trait_for_index(i, 5),
+            default_trait_for_index(i, 6));
         if (ok) placed++;
     }
     if (placed < count) {

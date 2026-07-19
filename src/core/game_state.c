@@ -6,13 +6,17 @@
 #include <string.h>
 
 #include "sim/simulation.h"
+#include "world/river_path_validation.h"
+#include "world/river_presentation_state.h"
 
 Tile world[MAX_MAP_H][MAX_MAP_W];
-RiverPath river_paths[MAX_RIVER_PATHS];
+RiverPath *river_paths;
 MaritimeRoute maritime_routes[MAX_MARITIME_ROUTES];
 Civilization civs[MAX_CIVS];
 City cities[MAX_CITIES];
 int river_path_count = 0;
+static int river_path_capacity;
+static uint32_t river_path_revision = 1;
 int maritime_route_count = 0;
 int civ_count = 0;
 int city_count = 0;
@@ -29,6 +33,62 @@ int map_h = DEFAULT_MAP_H;
 int map_size_index = MAP_SIZE_MEDIUM;
 int pending_map_size = MAP_SIZE_MEDIUM;
 int world_generated = 0;
+
+int river_presentation_state_can_adopt(const RiverPath *owned_paths, int count,
+                                       int width, int height) {
+    if (!river_path_count_valid(count, width, height)) return 0;
+    if (count > 0) return owned_paths && owned_paths != river_paths;
+    return !owned_paths || owned_paths != river_paths;
+}
+
+void river_presentation_state_adopt_prevalidated(RiverPath **owned_paths,
+                                                 int count) {
+    RiverPath *paths;
+    RiverPath *previous;
+    paths = *owned_paths;
+    if (count == 0) {
+        free(paths);
+        paths = NULL;
+    }
+    previous = river_paths;
+    river_paths = paths;
+    river_path_count = count;
+    river_path_capacity = count;
+    river_path_revision++;
+    if (river_path_revision == 0) river_path_revision = 1;
+    *owned_paths = NULL;
+    free(previous);
+}
+
+int river_presentation_state_adopt(RiverPath **owned_paths, int count,
+                                   int width, int height) {
+    if (!owned_paths ||
+        !river_presentation_state_can_adopt(*owned_paths, count, width, height))
+        return 0;
+    river_presentation_state_adopt_prevalidated(owned_paths, count);
+    return 1;
+}
+
+void river_presentation_state_clear(void) {
+    int changed = river_paths != NULL || river_path_count != 0 ||
+                  river_path_capacity != 0;
+    free(river_paths);
+    river_paths = NULL;
+    river_path_count = 0;
+    river_path_capacity = 0;
+    if (changed) {
+        river_path_revision++;
+        if (river_path_revision == 0) river_path_revision = 1;
+    }
+}
+
+size_t river_presentation_state_retained_bytes(void) {
+    return (size_t)river_path_capacity * sizeof(*river_paths);
+}
+
+uint32_t river_presentation_state_revision(void) {
+    return river_path_revision;
+}
 
 GameState g_game = {
     world,

@@ -108,36 +108,56 @@ int ocean_assets_texture_ready(void) {
     return texture() != NULL;
 }
 
-int ocean_assets_draw_texture(HDC hdc, RECT rect) {
+int ocean_assets_texture_loaded(void) {
+    return texture_attempted && texture_image != NULL;
+}
+
+static int draw_texture_tiled(HDC hdc, RECT rect, int tile_px, void *image) {
     void *graphics = NULL;
-    void *image = texture();
     int w = rect.right - rect.left;
     int h = rect.bottom - rect.top;
     int x, y, saved_dc;
-    if (!image || w <= 0 || h <= 0) return 0;
+    int ok = 1;
+    if (!image || w <= 0 || h <= 0 || tile_px <= 0) return 0;
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, rect.left, rect.top, rect.right, rect.bottom);
     if (gdip_create_from_hdc(hdc, &graphics) != 0 || !graphics) {
         RestoreDC(hdc, saved_dc);
         return 0;
     }
-    x = rect.left - OCEAN_TEXTURE_TILE_PX;
-    while (x + OCEAN_TEXTURE_TILE_PX < rect.left) x += OCEAN_TEXTURE_TILE_PX;
-    y = rect.top - OCEAN_TEXTURE_TILE_PX;
-    while (y + OCEAN_TEXTURE_TILE_PX < rect.top) y += OCEAN_TEXTURE_TILE_PX;
-    for (; y < rect.bottom; y += OCEAN_TEXTURE_TILE_PX) {
-        for (x = rect.left - OCEAN_TEXTURE_TILE_PX;
-             x + OCEAN_TEXTURE_TILE_PX < rect.left; x += OCEAN_TEXTURE_TILE_PX) {
+    x = rect.left - tile_px;
+    while (x + tile_px < rect.left) x += tile_px;
+    y = rect.top - tile_px;
+    while (y + tile_px < rect.top) y += tile_px;
+    for (; y < rect.bottom; y += tile_px) {
+        for (x = rect.left - tile_px;
+             x + tile_px < rect.left; x += tile_px) {
         }
-        for (; x < rect.right; x += OCEAN_TEXTURE_TILE_PX) {
-            gdip_draw_image_rect_i(graphics, image, x, y,
-                                   OCEAN_TEXTURE_TILE_PX, OCEAN_TEXTURE_TILE_PX);
+        for (; x < rect.right; x += tile_px) {
+            if (gdip_draw_image_rect_i(graphics, image, x, y,
+                                       tile_px, tile_px) != 0) ok = 0;
         }
     }
     gdip_delete_graphics(graphics);
     RestoreDC(hdc, saved_dc);
-    return 1;
+    return ok;
 }
+
+int ocean_assets_draw_texture_tiled(HDC hdc, RECT rect, int tile_px) {
+    return draw_texture_tiled(hdc, rect, tile_px, texture());
+}
+
+int ocean_assets_draw_texture_tiled_loaded(HDC hdc, RECT rect, int tile_px) {
+    return draw_texture_tiled(
+        hdc, rect, tile_px,
+        ocean_assets_texture_loaded() ? texture_image : NULL);
+}
+
+int ocean_assets_draw_texture(HDC hdc, RECT rect) {
+    return ocean_assets_draw_texture_tiled(hdc, rect, OCEAN_TEXTURE_TILE_PX);
+}
+
+int ocean_assets_texture_tile_px(void) { return OCEAN_TEXTURE_TILE_PX; }
 
 static int yes_field(const char *s) {
     return s && (strcmp(s, "yes") == 0 || strcmp(s, "1") == 0 || strcmp(s, "true") == 0);
@@ -199,9 +219,22 @@ int ocean_assets_motif_count(void) {
     return motif_count;
 }
 
+int ocean_assets_manifest_loaded(void) {
+    return manifest_attempted && manifest_loaded;
+}
+
+int ocean_assets_motif_count_loaded(void) {
+    return motif_count;
+}
+
 const OceanMotifAssetInfo *ocean_assets_motif_info(int index) {
     ensure_manifest();
     if (index < 0 || index >= motif_count) return NULL;
+    return &motif_assets[index].info;
+}
+
+const OceanMotifAssetInfo *ocean_assets_motif_info_loaded(int index) {
+    if (!manifest_attempted || index < 0 || index >= motif_count) return NULL;
     return &motif_assets[index].info;
 }
 
@@ -227,13 +260,24 @@ int ocean_assets_motifs_ready(void) {
     return 1;
 }
 
+int ocean_assets_motifs_loaded(void) {
+    int i;
+    if (!manifest_attempted || !manifest_loaded) return 0;
+    for (i = 0; i < motif_count; i++) {
+        if (!motif_assets[i].load_attempted || !motif_assets[i].image) return 0;
+    }
+    return 1;
+}
+
 int ocean_assets_draw_motif(HDC hdc, int index, RECT dst) {
     void *graphics = NULL;
     void *image = motif_image(index);
+    int ok;
     if (!image || dst.right <= dst.left || dst.bottom <= dst.top) return 0;
     if (gdip_create_from_hdc(hdc, &graphics) != 0 || !graphics) return 0;
-    gdip_draw_image_rect_i(graphics, image, dst.left, dst.top,
-                           dst.right - dst.left, dst.bottom - dst.top);
+    ok = gdip_draw_image_rect_i(graphics, image, dst.left, dst.top,
+                                dst.right - dst.left,
+                                dst.bottom - dst.top) == 0;
     gdip_delete_graphics(graphics);
-    return 1;
+    return ok;
 }

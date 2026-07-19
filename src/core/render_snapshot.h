@@ -1,6 +1,8 @@
 #ifndef WORLD_SIM_RENDER_SNAPSHOT_H
 #define WORLD_SIM_RENDER_SNAPSHOT_H
 
+#include <stddef.h>
+
 #include "core/game_types.h"
 #include "core/world_announcement_types.h"
 #include "sim/decision_snapshot.h"
@@ -9,6 +11,8 @@
 #include "sim/population_display_cohorts.h"
 #include "sim/plague_types.h"
 #include "core/render_snapshot_plague_types.h"
+#include "core/render_snapshot_river_types.h"
+#include "core/render_snapshot_wind_types.h"
 #include "sim/alliance.h"
 #include "sim/diplomacy_relation_score.h"
 #include "sim/sea_lanes.h"
@@ -25,7 +29,9 @@ enum {
     RENDER_SNAPSHOT_SECTION_LANES = 1 << 4,
     RENDER_SNAPSHOT_SECTION_PLAGUE = 1 << 5,
     RENDER_SNAPSHOT_SECTION_EVENTS = 1 << 6,
-    RENDER_SNAPSHOT_SECTION_DIPLOMACY = 1 << 7
+    RENDER_SNAPSHOT_SECTION_DIPLOMACY = 1 << 7,
+    RENDER_SNAPSHOT_SECTION_WIND = 1 << 8,
+    RENDER_SNAPSHOT_SECTION_RIVERS = 1 << 9
 };
 
 typedef struct {
@@ -304,6 +310,8 @@ typedef struct {
     int terrain_revision;
     int coast_revision;
     int hydrology_revision;
+    int river_revision;
+    int wind_revision;
     int civs_revision;
     int civ_visual_revision;
     int alliance_revision;
@@ -318,6 +326,8 @@ typedef struct {
     int sections_skipped_mask;
     unsigned int revision;
     SnapshotTile tiles[MAX_MAP_W * MAX_MAP_H];
+    SnapshotRiverField rivers;
+    SnapshotWindField wind;
     SnapshotCiv civs[MAX_CIVS];
     AllianceSnapshotRecord alliances[ALLIANCE_MAX];
     SnapshotCity cities[MAX_CITIES];
@@ -342,6 +352,7 @@ typedef struct {
 
 void render_snapshot_init(void);
 void render_snapshot_shutdown(void);
+size_t render_snapshot_river_buffers_retained_bytes(void);
 void render_snapshot_publish_from_live_state(void);
 int render_snapshot_publish_from_live_state_throttled(int force);
 const RenderSnapshot *render_snapshot_acquire(void);

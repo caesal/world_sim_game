@@ -6,6 +6,7 @@
 #include "render/render_context.h"
 #include "render/render_map_internal.h"
 #include "render/river_render.h"
+#include "render/wind_render.h"
 #include "world/terrain_query.h"
 
 #include <stddef.h>
@@ -47,20 +48,40 @@ static COLORREF snapshot_tile_color(const RenderSnapshot *snapshot, int x, int y
 
 static void draw_snapshot_tiles(HDC hdc, RECT client, MapLayout layout) {
     const RenderSnapshot *snapshot = render_context_snapshot();
-    int x;
-    int y;
+    RECT map_rect = {layout.map_x, layout.map_y,
+                     layout.map_x + layout.draw_w,
+                     layout.map_y + layout.draw_h};
+    RECT viewport = get_map_content_rect(client);
+    RECT visible;
+    HBRUSH brush = (HBRUSH)GetStockObject(DC_BRUSH);
+    COLORREF old_brush = GetDCBrushColor(hdc);
+    int px, py;
+    if (!IntersectRect(&visible, &map_rect, &viewport)) return;
     if (!snapshot || !snapshot->world_generated) {
-        fill_rect(hdc, client, RGB(64, 133, 178));
+        SetDCBrushColor(hdc, RGB(64, 133, 178));
+        FillRect(hdc, &visible, brush);
+        SetDCBrushColor(hdc, old_brush);
         return;
     }
-    fill_rect(hdc, client, RGB(79, 160, 215));
-    for (y = 0; y < snapshot->map_h; y++) {
-        for (x = 0; x < snapshot->map_w; x++) {
-            RECT r = {sx(layout, snapshot, x), sy(layout, snapshot, y),
-                      sx(layout, snapshot, x + 1), sy(layout, snapshot, y + 1)};
-            fill_rect(hdc, r, snapshot_tile_color(snapshot, x, y));
+    for (py = visible.top; py < visible.bottom; py++) {
+        int tile_y = clamp((int)((long long)(py - layout.map_y) *
+                         snapshot->map_h / max(1, layout.draw_h)),
+                         0, snapshot->map_h - 1);
+        for (px = visible.left; px < visible.right;) {
+            int tile_x = clamp((int)((long long)(px - layout.map_x) *
+                             snapshot->map_w / max(1, layout.draw_w)),
+                             0, snapshot->map_w - 1);
+            int right = layout.map_x + (int)(((long long)(tile_x + 1) *
+                        layout.draw_w + snapshot->map_w - 1) /
+                        snapshot->map_w);
+            RECT run = {px, py, min(visible.right, max(px + 1, right)), py + 1};
+            SetDCBrushColor(hdc,
+                            snapshot_tile_color(snapshot, tile_x, tile_y));
+            FillRect(hdc, &run, brush);
+            px = run.right;
         }
     }
+    SetDCBrushColor(hdc, old_brush);
 }
 
 static void edge_line(HDC hdc, MapLayout layout, const RenderSnapshot *snapshot,
@@ -128,7 +149,10 @@ void draw_snapshot_political_layer(HDC hdc, RECT client, MapLayout layout) {
 }
 
 void draw_snapshot_hydrology_layer(HDC hdc, RECT client, MapLayout layout) {
-    river_render_draw_layer(hdc, client, layout);
+    const RenderSnapshot *snapshot = render_context_snapshot();
+    if (map_display_policy_shows_wind(display_mode))
+        wind_render_draw_layer(hdc, client, layout, snapshot);
+    river_render_draw_layer(hdc, client, layout, snapshot);
 }
 
 static void draw_snapshot_grid_overlay(HDC hdc, MapLayout layout) {

@@ -84,9 +84,10 @@ static int next_unowned_region(void) {
     return -1;
 }
 
-static double measure_fill_ms(MapLayerCache *cache, const RenderSnapshot *snapshot, int live) {
+static double measure_fill_ms(MapLayerCache *cache,
+                              const RenderSnapshot *snapshot) {
     double start = perf_now_ms();
-    render_static_map_cache_build_fill_pixels(cache, snapshot, live);
+    render_static_map_cache_build_fill_pixels(cache, snapshot);
     return perf_now_ms() - start;
 }
 
@@ -381,7 +382,7 @@ int run_expansion_perf_probe(void) {
     render_snapshot_publish_from_live_state();
     {
         const RenderSnapshot *snapshot = render_snapshot_acquire();
-        double ms = measure_fill_ms(&cache, snapshot, 1);
+        double ms = measure_fill_ms(&cache, snapshot);
         int draws = 0;
         double static_max = 0.0;
         RuntimeProfilerSnapshot perf;
@@ -410,7 +411,7 @@ int run_expansion_perf_probe(void) {
             double static_ms = 0.0;
             memset(&perf, 0, sizeof(perf));
             if (mem) static_ms = measure_static_ms(mem, client, snapshot, &draws, &static_max, &perf);
-            ms = measure_fill_ms(&cache, snapshot, 1);
+            ms = measure_fill_ms(&cache, snapshot);
             render_snapshot_release(snapshot);
             fprintf(file, "phase=claim_static index=%d static_total_ms=%.3f static_max_draw_ms=%.3f static_draws=%d fill_peak=%d border_peak=%d compose_peak=%d reason=%s current=%d ownership_current=%d\n",
                     i + 1, static_ms, static_max, draws,

@@ -2,7 +2,6 @@
 #define WORLD_SIM_RENDER_OCEAN_DECORATION_WATER_H
 
 #include "core/render_snapshot.h"
-
 int ocean_decoration_water_tile(const RenderSnapshot *snapshot, int x, int y);
 int ocean_decoration_deep_ocean_tile(const RenderSnapshot *snapshot, int x, int y);
 int ocean_decoration_deep_clearance(const RenderSnapshot *snapshot, int x, int y,

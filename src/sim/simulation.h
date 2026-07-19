@@ -38,6 +38,9 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
                                       int military, int logistics, int governance,
                                       int cohesion, int production, int commerce,
                                       int innovation, int preferred_x, int preferred_y);
+int simulation_add_generated_civilization(
+    const char *name, char symbol, int heritage, int military, int logistics,
+    int governance, int cohesion, int production, int commerce, int innovation);
 int simulation_last_created_civ_id(void);
 void simulation_reset_state(void);
 void simulation_seed_build_default_heritage_queue(int count, int *heritage_queue);

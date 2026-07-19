@@ -3,6 +3,9 @@
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
 #include "render/map_label_alliance.h"
+#include "render/map_label_cache_key.h"
+#include "render/map_label_placement_pool.h"
+#include "render/map_label_projection.h"
 #include "render/map_label_style.h"
 #include "render/snapshot_ui.h"
 #include "ui/ui_types.h"
@@ -39,32 +42,21 @@ static MapLabelSource source_cache[MAX_LABEL_SOURCES];
 static int source_count;
 static unsigned int source_key;
 static MapLabelPlaced placed_cache[MAX_RENDER_LABELS];
-static int placed_count;
+static int placed_count, placement_valid;
 static unsigned int placement_key;
 static MapLabelMeasureEntry measure_cache[LABEL_MEASURE_CACHE_MAX];
-static int source_rebuild_count, placement_rebuild_count, preview_skip_count;
+static int source_rebuild_count, placement_rebuild_count, preview_skip_count, preview_reuse_count;
 static int source_last_reason, placement_last_reason, placement_last_ms;
 static int measure_cache_hits, measure_cache_misses;
 static const char *source_reason_names[3] = {"initial", "source", "snapshot"};
 static const char *placement_reason_names[5] = {"initial", "source", "view", "mode", "select"};
-static unsigned int mix_label_key(unsigned int key, int value) {
-    return key * 1000003u ^ (unsigned int)value;
-}
-static int rects_overlap(RECT a, RECT b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
-static int rect_visible(RECT rect, RECT viewport) { return rects_overlap(rect, viewport); }
-static int label_is_open(const RECT *used, int used_count, RECT candidate) {
-    int i;
-    for (i = 0; i < used_count; i++) if (rects_overlap(used[i], candidate)) return 0;
-    return 1;
-}
-static RECT label_rect_from_position(int x, int y, SIZE size, int pad) { RECT rect = {x - pad, y - pad, x + size.cx + pad, y + size.cy + pad}; return rect; }
 static int source_anchor_screen_x(const RenderSnapshot *snapshot, MapLayout layout,
                                   const MapLabelSource *source) {
-    return layout.map_x + source->anchor_x2 * layout.draw_w / max(1, snapshot->map_w * 2);
+    return map_label_projection_anchor_x(layout, snapshot->map_w, source->anchor_x2);
 }
 static int source_anchor_screen_y(const RenderSnapshot *snapshot, MapLayout layout,
                                   const MapLabelSource *source) {
-    return layout.map_y + source->anchor_y2 * layout.draw_h / max(1, snapshot->map_h * 2);
+    return map_label_projection_anchor_y(layout, snapshot->map_h, source->anchor_y2);
 }
 static int city_is_major(const SnapshotCity *city) {
     return city->population >= 650 || city->radius >= 4 || city->port;
@@ -82,29 +74,28 @@ static int label_visible_for_zoom(MapLabelKind kind, int tile_size, int selected
     }
 }
 static unsigned int label_source_key_for(const RenderSnapshot *snapshot) {
-    unsigned int key;
+    MapLabelSourceKeyInput input;
     if (!snapshot) return 0;
-    key = (unsigned int)dirty_revision_label();
-    key = mix_label_key(key, dirty_revision_label_country());
-    key = mix_label_key(key, dirty_revision_label_city());
-    key = mix_label_key(key, snapshot->map_w * 4099 + snapshot->map_h);
-    key = mix_label_key(key, snapshot->city_visual_revision);
-    key = mix_label_key(key, snapshot->regions_revision);
-    key = mix_label_key(key, snapshot->world_generated);
-    key = mix_label_key(key, snapshot->alliance_count);
-    if (display_mode == DISPLAY_ALLIANCE) key = mix_label_key(key, snapshot->alliance_revision);
-    key = mix_label_key(key, display_mode);
-    key = mix_label_key(key, ui_language);
-    return key;
+    input.label_revision = dirty_revision_label();
+    input.country_revision = dirty_revision_label_country();
+    input.city_revision = dirty_revision_label_city();
+    input.map_w = snapshot->map_w;
+    input.map_h = snapshot->map_h;
+    input.city_visual_revision = snapshot->city_visual_revision;
+    input.regions_revision = snapshot->regions_revision;
+    input.world_generated = snapshot->world_generated;
+    input.alliance_count = snapshot->alliance_count;
+    input.alliance_revision = snapshot->alliance_revision;
+    input.display_mode = display_mode;
+    input.language = ui_language;
+    return map_label_cache_source_key(&input);
 }
-
 static int selected_region_id(const RenderSnapshot *snapshot) {
     const SnapshotTile *tile;
     if (selected_x < 0 || selected_y < 0) return -1;
     tile = render_snapshot_tile_at(snapshot, selected_x, selected_y);
     return tile ? tile->region_id : -1;
 }
-
 static void add_source(MapLabelKind kind, int source_id, int anchor_x, int anchor_y,
                        const char *text, int large, int weight, int tile_count) {
     MapLabelSource *source;
@@ -122,7 +113,6 @@ static void add_source(MapLabelKind kind, int source_id, int anchor_x, int ancho
     source->tile_count = tile_count;
     source_count++;
 }
-
 static void collect_country_sources(const RenderSnapshot *snapshot) {
     long sx[MAX_CIVS], sy[MAX_CIVS], alliance_sx[ALLIANCE_MAX], alliance_sy[ALLIANCE_MAX];
     int weight[MAX_CIVS], alliance_weight[ALLIANCE_MAX];
@@ -183,7 +173,6 @@ static void collect_country_sources(const RenderSnapshot *snapshot) {
                    name, civ->summary.territory > 420, weight[i], 0);
     }
 }
-
 static void collect_city_sources(const RenderSnapshot *snapshot) {
     int i;
     for (i = 0; i < snapshot->city_count; i++) {
@@ -204,7 +193,6 @@ static void collect_city_sources(const RenderSnapshot *snapshot) {
                    i, display_x, display_y, display_name, major, 0, 0);
     }
 }
-
 static void collect_province_sources(const RenderSnapshot *snapshot) {
     int i;
     for (i = 0; i < snapshot->region_count; i++) {
@@ -216,7 +204,6 @@ static void collect_province_sources(const RenderSnapshot *snapshot) {
                    region->tile_count > 120, 0, region->tile_count);
     }
 }
-
 static void rebuild_source_cache(const RenderSnapshot *snapshot, unsigned int key) {
     int reason = source_key ? 1 : 0;
     source_count = 0;
@@ -225,42 +212,34 @@ static void rebuild_source_cache(const RenderSnapshot *snapshot, unsigned int ke
     collect_province_sources(snapshot);
     source_key = key;
     placement_key = 0;
+    placement_valid = 0;
+    map_label_placement_pool_invalidate();
     source_last_reason = reason;
     source_rebuild_count++;
 }
-
 static void ensure_source_cache(const RenderSnapshot *snapshot) {
     unsigned int key = label_source_key_for(snapshot);
     if (key != source_key) rebuild_source_cache(snapshot, key);
 }
-
-static int zoom_lod_bucket(void) {
-    return map_zoom_percent >= 135 ? 4 : map_zoom_percent >= 120 ? 3 :
-           map_zoom_percent >= 90 ? 2 : map_zoom_percent >= 70 ? 1 : 0;
-}
-
-static int view_bucket(RECT viewport, MapLayout layout) {
-    unsigned int key = (unsigned int)(layout.map_x / 24);
-    key = mix_label_key(key, layout.map_y / 24);
-    key = mix_label_key(key, layout.draw_w / 24);
-    key = mix_label_key(key, layout.draw_h / 24);
-    key = mix_label_key(key, viewport.right - viewport.left);
-    key = mix_label_key(key, viewport.bottom - viewport.top);
-    return (int)key;
-}
-
 static unsigned int label_placement_key(RECT viewport, MapLayout layout) {
-    unsigned int key = source_key;
-    key = mix_label_key(key, display_mode);
-    key = mix_label_key(key, zoom_lod_bucket());
-    key = mix_label_key(key, layout.tile_size);
-    key = mix_label_key(key, view_bucket(viewport, layout));
-    key = mix_label_key(key, selected_civ);
-    key = mix_label_key(key, selected_x);
-    key = mix_label_key(key, selected_y);
-    return key;
+    MapLabelPlacementKeyInput input;
+    input.source_key = source_key;
+    input.display_mode = display_mode;
+    input.zoom_percent = map_zoom_percent;
+    input.tile_size = layout.tile_size;
+    input.map_x = layout.map_x;
+    input.map_y = layout.map_y;
+    input.draw_w = layout.draw_w;
+    input.draw_h = layout.draw_h;
+    input.viewport_left = viewport.left;
+    input.viewport_top = viewport.top;
+    input.viewport_w = viewport.right - viewport.left;
+    input.viewport_h = viewport.bottom - viewport.top;
+    input.selected_civ = selected_civ;
+    input.selected_x = selected_x;
+    input.selected_y = selected_y;
+    return map_label_cache_placement_key(&input);
 }
-
 static int source_selected(const RenderSnapshot *snapshot, const MapLabelSource *source,
                            int selected_region) {
     if (source->kind == LABEL_COUNTRY) {
@@ -283,7 +262,6 @@ static int source_selected(const RenderSnapshot *snapshot, const MapLabelSource 
     }
     return 0;
 }
-
 static int measure_cached(HDC hdc, const MapLabelSource *source, const MapLabelStyle *style,
                           int tile_size, int selected, SIZE *out) {
     int i;
@@ -312,7 +290,6 @@ static int measure_cached(HDC hdc, const MapLabelSource *source, const MapLabelS
     }
     return 0;
 }
-
 static int source_to_placement(HDC hdc, const RenderSnapshot *snapshot, MapLayout layout,
                                int selected_region, int source_index,
                                MapLabelPlacementCandidate *out) {
@@ -340,30 +317,11 @@ static int source_to_placement(HDC hdc, const RenderSnapshot *snapshot, MapLayou
     measure_cached(hdc, source, &style, layout.tile_size, selected, &out->size);
     return 1;
 }
-
 static int compare_placement_candidates(const void *a, const void *b) {
     const MapLabelPlacementCandidate *la = (const MapLabelPlacementCandidate *)a;
     const MapLabelPlacementCandidate *lb = (const MapLabelPlacementCandidate *)b;
     if (la->priority != lb->priority) return lb->priority - la->priority;
     return la->sequence - lb->sequence;
-}
-
-static void slot_position(const MapLabelPlacementCandidate *candidate, int anchor_x,
-                          int anchor_y, int slot, int *x, int *y) {
-    if (candidate->centered) {
-        *x = anchor_x - candidate->size.cx / 2;
-        *y = anchor_y - candidate->size.cy / 2;
-    } else if (slot == 0) {
-        *x = anchor_x + 12; *y = anchor_y - candidate->size.cy / 2;
-    } else if (slot == 1) {
-        *x = anchor_x - candidate->size.cx - 12; *y = anchor_y - candidate->size.cy / 2;
-    } else if (slot == 2) {
-        *x = anchor_x - candidate->size.cx / 2; *y = anchor_y - candidate->size.cy - 13;
-    } else if (slot == 3) {
-        *x = anchor_x - candidate->size.cx / 2; *y = anchor_y + 13;
-    } else {
-        *x = anchor_x + 10; *y = anchor_y + 8;
-    }
 }
 
 static int try_place_candidate(const RenderSnapshot *snapshot, MapLayout layout,
@@ -378,10 +336,12 @@ static int try_place_candidate(const RenderSnapshot *snapshot, MapLayout layout,
     for (slot = 0; slot < max_slot; slot++) {
         int x, y;
         RECT rect;
-        slot_position(candidate, anchor_x, anchor_y, slot, &x, &y);
-        rect = label_rect_from_position(x, y, candidate->size, candidate->pad);
-        if (!rect_visible(rect, viewport)) continue;
-        if (!candidate->selected && !label_is_open(used, used_count, rect)) continue;
+        map_label_projection_slot_position(candidate->centered, candidate->size,
+                                           anchor_x, anchor_y, slot, &x, &y);
+        rect = map_label_projection_rect(x, y, candidate->size, candidate->pad);
+        if (!map_label_projection_rect_visible(rect, viewport)) continue;
+        if (!candidate->selected &&
+            !map_label_projection_slot_open(used, used_count, rect)) continue;
         placed->source_index = candidate->source_index;
         placed->slot = slot;
         placed->selected = candidate->selected;
@@ -397,13 +357,15 @@ static int try_place_candidate(const RenderSnapshot *snapshot, MapLayout layout,
 static void rebuild_placement_cache(HDC hdc, const RenderSnapshot *snapshot,
                                     RECT viewport, MapLayout layout, unsigned int key) {
     MapLabelPlacementCandidate candidates[MAX_LABEL_PLACEMENT];
+    MapLayout content_layout = layout;
     RECT used[MAX_RENDER_LABELS];
     int candidate_count = 0, used_count = 0, i, selected_region;
     int reason = placement_key ? 2 : (placement_rebuild_count ? 1 : 0);
     DWORD start = GetTickCount();
+    content_layout.tile_size = map_label_cache_content_tile_size(layout.tile_size);
     selected_region = selected_region_id(snapshot);
     for (i = 0; i < source_count && candidate_count < MAX_LABEL_PLACEMENT; i++) {
-        if (source_to_placement(hdc, snapshot, layout, selected_region, i,
+        if (source_to_placement(hdc, snapshot, content_layout, selected_region, i,
                                 &candidates[candidate_count])) {
             candidate_count++;
         }
@@ -418,12 +380,16 @@ static void rebuild_placement_cache(HDC hdc, const RenderSnapshot *snapshot,
             int x, y;
             const MapLabelSource *source = &source_cache[placed.source_index];
             MapLabelPlacementCandidate temp = candidates[i];
-            slot_position(&temp, source_anchor_screen_x(snapshot, layout, source),
-                          source_anchor_screen_y(snapshot, layout, source), placed.slot, &x, &y);
-            used[used_count++] = label_rect_from_position(x, y, placed.size, placed.pad);
+            map_label_projection_slot_position(
+                temp.centered, temp.size,
+                source_anchor_screen_x(snapshot, layout, source),
+                source_anchor_screen_y(snapshot, layout, source), placed.slot, &x, &y);
+            used[used_count++] = map_label_projection_rect(x, y, placed.size, placed.pad);
         }
     }
     placement_key = key;
+    placement_valid = 1;
+    map_label_placement_pool_store(key, placed_cache, sizeof(placed_cache[0]), placed_count);
     placement_last_reason = reason;
     placement_rebuild_count++;
     placement_last_ms = (int)(GetTickCount() - start);
@@ -455,8 +421,10 @@ static void draw_placed_labels(HDC hdc, const RenderSnapshot *snapshot, MapLayou
             memset(&temp, 0, sizeof(temp));
             temp.centered = placed->centered;
             temp.size = placed->size;
-            slot_position(&temp, source_anchor_screen_x(snapshot, layout, source),
-                          source_anchor_screen_y(snapshot, layout, source), placed->slot, &x, &y);
+            map_label_projection_slot_position(
+                temp.centered, temp.size,
+                source_anchor_screen_x(snapshot, layout, source),
+                source_anchor_screen_y(snapshot, layout, source), placed->slot, &x, &y);
             map_label_draw(hdc, &placed->style, x, y, source->text);
         }
     }
@@ -467,9 +435,20 @@ void map_label_cache_draw_labels(HDC hdc, RECT client, MapLayout layout, const R
     unsigned int key;
     if (!snapshot || !snapshot->world_generated) return;
     ensure_source_cache(snapshot);
-    if (map_interaction_preview) { preview_skip_count++; return; }
+    if (map_interaction_preview && placement_valid) {
+        preview_reuse_count++;
+        draw_placed_labels(hdc, snapshot, layout);
+        return;
+    }
     key = label_placement_key(viewport, layout);
-    if (key != placement_key || placed_count <= 0) rebuild_placement_cache(hdc, snapshot, viewport, layout, key);
+    if ((!placement_valid || key != placement_key) &&
+        !map_label_placement_pool_load(key, placed_cache, sizeof(placed_cache[0]),
+                                       MAX_RENDER_LABELS, &placed_count)) {
+        rebuild_placement_cache(hdc, snapshot, viewport, layout, key);
+    } else if (!placement_valid || key != placement_key) {
+        placement_key = key;
+        placement_valid = 1;
+    }
     draw_placed_labels(hdc, snapshot, layout);
 }
 
@@ -483,17 +462,19 @@ const char *map_label_cache_placement_last_reason(void) { return placement_reaso
 int map_label_cache_source_rebuild_count(void) { return source_rebuild_count; }
 int map_label_cache_placement_rebuild_count(void) { return placement_rebuild_count; }
 int map_label_cache_preview_skip_count(void) { return preview_skip_count; }
+int map_label_cache_preview_reuse_count(void) { return preview_reuse_count; }
 int map_label_cache_measure_hit_count(void) { return measure_cache_hits; }
 int map_label_cache_measure_miss_count(void) { return measure_cache_misses; }
 void map_label_cache_reset_debug(void) {
-    source_rebuild_count = placement_rebuild_count = preview_skip_count = 0;
+    source_rebuild_count = placement_rebuild_count = preview_skip_count = preview_reuse_count = 0;
     placement_last_ms = measure_cache_hits = measure_cache_misses = 0;
+    map_label_placement_pool_reset_debug();
 }
 const char *map_label_cache_reason_summary(void) {
     static char text[128];
-    snprintf(text, sizeof(text), "source %d/%s placement %d/%s measure %d/%d preview %d", source_rebuild_count,
+    snprintf(text, sizeof(text), "source %d/%s placement %d/%s measure %d/%d preview reuse/skip %d/%d", source_rebuild_count,
              source_reason_names[source_last_reason], placement_rebuild_count,
              placement_reason_names[placement_last_reason], measure_cache_hits,
-             measure_cache_misses, preview_skip_count);
+             measure_cache_misses, preview_reuse_count, preview_skip_count);
     return text;
 }

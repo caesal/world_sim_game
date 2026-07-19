@@ -7,6 +7,7 @@
 #include "render/panel_view_model_cache.h"
 #include "render/map_highlight.h"
 #include "render/map_labels.h"
+#include "render/map_label_placement_pool.h"
 #include "render/render.h"
 #include "render/render_static_map_cache.h"
 #include "render/sea_lane_render.h"
@@ -353,6 +354,14 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     perf_row(hdc, cursor, tr("Label reason", "标签原因"), text, ui_theme_color(UI_COLOR_TEXT_MUTED));
     perf_row(hdc, cursor, tr("Label cache", "Label cache"), map_label_cache_reason_summary(),
              ui_theme_color(UI_COLOR_TEXT_MUTED));
+    {
+        const MapLabelPlacementPoolStats *pool = map_label_placement_pool_stats();
+        snprintf(text, sizeof(text), "hit %d / miss %d / store %d / evict %d / ready %d / %llu B",
+                 pool->hits, pool->misses, pool->stores, pool->evictions,
+                 pool->ready_entries, (unsigned long long)pool->persistent_bytes);
+        perf_row(hdc, cursor, tr("Label pool", "标签池"), text,
+                 ui_theme_color(UI_COLOR_TEXT_MUTED));
+    }
     snprintf(text, sizeof(text), "paints %d / req %d / clear %d/%d / ms %d peak %d",
              map_highlight_overlay_call_count(), map_highlight_overlay_last_requests(),
              map_highlight_overlay_last_clears(), map_highlight_overlay_total_clears(),

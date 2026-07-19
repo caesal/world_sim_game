@@ -47,6 +47,7 @@ void worldgen_progress_record_route_stats(int candidates, int shallow_edges, int
 void worldgen_progress_finish(void);
 void worldgen_progress_get(WorldGenProgress *out);
 int worldgen_progress_active(void);
+int worldgen_progress_repaint_callback_active(void);
 const char *worldgen_stage_name_en(WorldGenStage stage);
 const char *worldgen_stage_name_zh(WorldGenStage stage);
 

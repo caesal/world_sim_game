@@ -69,7 +69,7 @@ typedef struct {
 } GameState;
 
 extern Tile world[MAX_MAP_H][MAX_MAP_W];
-extern RiverPath river_paths[MAX_RIVER_PATHS];
+extern RiverPath *river_paths;
 extern MaritimeRoute maritime_routes[MAX_MARITIME_ROUTES];
 extern Civilization civs[MAX_CIVS];
 extern City cities[MAX_CITIES];

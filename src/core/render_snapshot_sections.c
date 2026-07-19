@@ -1,4 +1,5 @@
 #include "core/render_snapshot_sections.h"
+#include "core/render_snapshot_river.h"
 
 #include <string.h>
 
@@ -32,6 +33,18 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
         dst->terrain_revision = src->terrain_revision;
         dst->coast_revision = src->coast_revision;
         dst->hydrology_revision = src->hydrology_revision;
+    }
+    if (mask & RENDER_SNAPSHOT_SECTION_WIND) {
+        dst->wind = src->wind;
+        dst->wind_revision = src->wind_revision;
+    }
+    if (mask & RENDER_SNAPSHOT_SECTION_RIVERS) {
+        if (render_snapshot_river_clone(&dst->rivers, &src->rivers)) {
+            dst->river_revision = src->river_revision;
+        } else {
+            dst->rivers.valid = 0;
+            dst->river_revision = 0;
+        }
     }
     if (mask & RENDER_SNAPSHOT_SECTION_CIVS) {
         memcpy(dst->civs, src->civs, sizeof(dst->civs));
@@ -88,8 +101,14 @@ void render_snapshot_copy_skipped_sections(RenderSnapshot *dst, const RenderSnap
 }
 
 void render_snapshot_seed_from_front(RenderSnapshot *dst, const RenderSnapshot *src) {
+    int copy_rivers;
+    int copy_wind;
     int saved_mask;
     if (!dst || !src) return;
+    copy_rivers = dst->revision == 0 || !dst->rivers.valid ||
+                  dst->river_revision != src->river_revision;
+    copy_wind = dst->revision == 0 || !dst->wind.valid ||
+                dst->wind_revision != src->wind_revision;
     dst->map_w = src->map_w;
     dst->map_h = src->map_h;
     dst->year = src->year;
@@ -111,6 +130,8 @@ void render_snapshot_seed_from_front(RenderSnapshot *dst, const RenderSnapshot *
         RENDER_SNAPSHOT_SECTION_CITIES | RENDER_SNAPSHOT_SECTION_REGIONS |
         RENDER_SNAPSHOT_SECTION_DIPLOMACY | RENDER_SNAPSHOT_SECTION_LANES |
         RENDER_SNAPSHOT_SECTION_PLAGUE | RENDER_SNAPSHOT_SECTION_EVENTS;
+    if (copy_wind) dst->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_WIND;
+    if (copy_rivers) dst->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_RIVERS;
     render_snapshot_copy_skipped_sections(dst, src);
     dst->sections_skipped_mask = saved_mask;
 }

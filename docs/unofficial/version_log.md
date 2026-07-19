@@ -1,5 +1,76 @@
 # Version Log
 
+## Ver0.3.6.a
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.6.a.
+2. Rebuilt physical-world generation around an immutable, atomically published
+   elevation, mountain, wind, climate, moisture, terrain, hydrology, lake,
+   river, mouth, delta, fertility, and hydroclimate state.
+3. Added broad mountain shoulders, cores, branches, saddles, and elevation
+   transitions instead of isolated narrow mountain traces.
+4. Added deterministic 16-direction annual wind with speed, generation-only
+   moisture transport, orographic precipitation, lee drying, and fixed wind
+   arrows in Geography and Climate views.
+5. Added connected drainage, priority-flood basins, qualified standing-water
+   lakes, flow accumulation, Strahler order, confluences, mouths, deltas, and
+   climate/fertility effects without post-generation geography recomputation.
+6. Removed false mesh-like lakes and periodic diagonal coast artifacts at their
+   semantic source. Rejected lake candidates recover their proper underlying
+   land geography instead of being hidden by presentation masks.
+7. Made every Ocean Amount use a full-precision land target while preserving
+   the established slider meaning. Extreme low-ocean worlds now use exact-sized
+   bounded river-path ownership instead of failing at a small fixed capacity.
+8. Added localized, stage-specific world-generation failure reporting while
+   preserving the previous valid map on genuine precommit failure.
+9. Added downstream-connected river LODs at 100/150/225/300 percent zoom. The
+   final tier contains every generated path, with confluences, lake outlets,
+   mouths, and deltas preserved.
+10. Prebuilt immutable physical, coast, ocean, lake, river, and wind assets so
+    settled pan, zoom, and Geography/Climate switching only select, crop, scale,
+    and compose existing data. Realtime political layers remain independent.
+11. Added a consistent blue-white inland-lake water texture and matching map
+    legend while preserving shallow/deep sea semantics and ocean decoration.
+12. Increased `MAP_SAVE_VERSION` from 19 to 20 for the immutable physical-world
+    payload. Older map versions are rejected cleanly without migration.
+13. Added deterministic worldgen, coast, lake, river, LOD, cache, failure,
+    presentation, save, matrix, and live-validation coverage; kept every C/H
+    file at or below 500 lines and both build lists synchronized.
+
+Validation notes:
+
+- Canonical `make -B world_sim.exe` and `cmd /c build.bat` passed from the same
+  frozen source, together with static, text, encoding, source-parity, and line
+  limits.
+- Extreme Ocean Amount cases `0/10/20/30/40/44/45/46/47/50` all hit their exact
+  targets without retries or river truncation. Twenty additional randomized
+  Large/Extreme cases passed.
+- River LOD fixtures produced 18/40/75/100 percent progressive networks with
+  downstream closure; every generated path was present at 300 percent.
+- Matched camera/resource checks recorded zero immutable rebuilds, static
+  tile/path/wind scans, new full-client immutable allocations, or retained
+  memory growth after prewarm.
+- Final Rule39 used an Extreme 1152x800 world with 26 initial civilizations and
+  1,211 natural regions at max/5x, ending at Year 715 Month 9. The first five
+  stage-5 civilizations were `0 Hagi`, `1 Takunmara`, `2 Gunthertor`,
+  `3 Ottoland`, and `4 Kalemba`; routes moved from `0/0/0` before unlock to
+  `16/14/2` afterward.
+- The final run retained stable physical/wind/river identities, current
+  province fill, borders, cities, labels, routes, and selection extents, with
+  zero dropped presentation months, zero order skips, and no 60-frame flicker
+  anomalies.
+
+Compatibility and scope notes:
+
+- `WORLD_SIM_VERSION` is `0.3.6.a`; `MAP_SAVE_VERSION` is `20`.
+- Save versions 19 and earlier are intentionally rejected; no migration is
+  provided.
+- The named plague, diplomacy, war, technology, route unlock, population,
+  economy, and simulation-speed rules are not retuned by this release.
+- `docs/official` remains unchanged because no official documentation freeze
+  was requested.
+
 ## Ver0.3.6
 
 Implemented changes:

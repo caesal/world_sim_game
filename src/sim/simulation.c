@@ -2,6 +2,7 @@
 
 #include "core/dirty_flags.h"
 #include "core/render_snapshot_cache.h"
+#include "core/worldgen_progress.h"
 #include "sim/alliance.h"
 #include "sim/decision_snapshot.h"
 #include "sim/diplomacy.h"
@@ -332,10 +333,10 @@ int summarize_country_cached(int civ_id, CountrySummary *out) {
     return 1;
 }
 
-int add_civilization_at_with_heritage(const char *name, char symbol, int heritage,
-                                      int military, int logistics, int governance,
-                                      int cohesion, int production, int commerce,
-                                      int innovation, int preferred_x, int preferred_y) {
+static int add_civilization_at_with_heritage_internal(
+    const char *name, char symbol, int heritage, int military, int logistics,
+    int governance, int cohesion, int production, int commerce, int innovation,
+    int preferred_x, int preferred_y, int allow_generation_pending) {
     int x = preferred_x;
     int y = preferred_y;
     int city_id;
@@ -343,7 +344,7 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
     int civ_id;
     Civilization *civ;
 
-    if (!world_generated) return 0;
+    if (!world_generated && !allow_generation_pending) return 0;
     last_created_civ_id = -1;
     if (!spawn_select_civilization_cradle(x, y, &x, &y)) return 0;
     region_id = x >= 0 && x < MAP_W && y >= 0 && y < MAP_H ? world[y][x].region_id : -1;
@@ -389,6 +390,24 @@ int add_civilization_at_with_heritage(const char *name, char symbol, int heritag
     last_created_civ_id = civ_id;
     decision_snapshot_cache_mark_all_dirty();
     return 1;
+}
+
+int add_civilization_at_with_heritage(const char *name, char symbol, int heritage,
+                                      int military, int logistics, int governance,
+                                      int cohesion, int production, int commerce,
+                                      int innovation, int preferred_x, int preferred_y) {
+    return add_civilization_at_with_heritage_internal(
+        name, symbol, heritage, military, logistics, governance, cohesion, production,
+        commerce, innovation, preferred_x, preferred_y, 0);
+}
+
+int simulation_add_generated_civilization(
+    const char *name, char symbol, int heritage, int military, int logistics,
+    int governance, int cohesion, int production, int commerce, int innovation) {
+    if (!world_generated && !worldgen_progress_active()) return 0;
+    return add_civilization_at_with_heritage_internal(
+        name, symbol, heritage, military, logistics, governance, cohesion, production,
+        commerce, innovation, -1, -1, 1);
 }
 
 int add_civilization_at(const char *name, char symbol, int military, int logistics,

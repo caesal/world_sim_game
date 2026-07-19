@@ -7,14 +7,27 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.6 is a Windows graphical sandbox prototype written in C.
+Ver0.3.6.a is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.6 replaces the former city-roll plague mechanics with one scheduled,
-named global plague episode at a time. The model uses bounded spore budgets,
-batched route-aware spread, fixed episode severity, exact monthly-equivalent
-mortality, duration-based immunity, plague disorder, bilingual structured
-announcements, persistent history, and save-version-19 state. Old save versions
-are rejected cleanly; no migration is provided.
+Ver0.3.6.a rebuilds the static physical world pipeline around coherent
+elevation, broad mountain systems, a fixed annual wind field, orographic
+moisture transport, climate-aware terrain, connected drainage, lakes, river
+confluences, mouths, deltas, and hydroclimate. Physical geography is generated
+once, published atomically, persisted as save-version-20 state, and remains
+immutable while the later civilization simulation runs.
+
+The release removes threshold-generated diagonal coast meshes at their source,
+supports low-ocean Extreme worlds with exact-sized river-path ownership, and
+prebuilds immutable map assets so panning, zooming, and Geography/Climate
+switching do not rerasterize static terrain, coasts, water, rivers, or wind.
+Rivers progressively reveal complete downstream-connected systems at
+100/150/225/300 percent zoom, with the full generated network at 300 percent.
+
+The named global plague model from Ver0.3.6 remains intact: bounded spore
+budgets, batched route-aware spread, fixed episode severity, exact
+monthly-equivalent mortality, duration-based immunity, plague disorder,
+bilingual structured announcements, persistent history, and linked outbreak
+probability controls all remain supported.
 
 The Plague panel now keeps fog and linked outbreak-probability controls above
 Live, Impact, and History views. Live shows the active episode or most recently
@@ -33,16 +46,17 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.6 passed deterministic plague-model and presentation
-probes, a 1,000-city bounded-spread stress fixture, matched performance checks,
-targeted non-activating GUI validation, 60-frame flicker checks, and a fresh
-AGENTS Rule39 run. That run reached Year 742 Month 2 on an Extreme 1152x800
-world with 26 initial civilizations and 1,082 natural regions; 31 civilizations
-reached technology stage 5 or higher, and routes changed from `0/0/0`
-total/shallow/deep before unlock to `68/66/2` afterward. Matched task
-performance passed. The late natural-world stop recorded 213ms/month, 68ms
-render average, and a 693ms sampled render peak, so this release does not claim
-a universal performance ceiling for every generated world or machine.
+Validation note: Ver0.3.6.a passed deterministic world-generation,
+presentation, save, plague-model, plague-baseline, and 1,000-city stress probes;
+an Ocean Amount boundary/random matrix; matched camera, memory, and cache
+checks; targeted non-activating GUI validation; and a final AGENTS Rule39 run.
+That run reached Year 715 Month 9 on an Extreme 1152x800 world with 26 initial
+civilizations and 1,211 natural regions. The first five qualifying
+civilizations were `0 Hagi`, `1 Takunmara`, `2 Gunthertor`, `3 Ottoland`, and
+`4 Kalemba`; routes changed from `0/0/0` total/shallow/deep before unlock to
+`16/14/2` afterward. Physical, wind, and river identities remained unchanged,
+while political fill, borders, cities, labels, routes, and selected extents
+continued updating in real time.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

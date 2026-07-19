@@ -4,9 +4,23 @@
 #include "core/game_types.h"
 #include "sim/maritime.h"
 #include "sim/regions.h"
+#include "world/world_physical_state.h"
+#include "world/river_presentation_state.h"
+
+#include <stdint.h>
+#include <string.h>
+
+static int key_from_u32(uint32_t value) {
+    int result;
+    _Static_assert(sizeof(result) == sizeof(value),
+                   "snapshot revision key width changed");
+    memcpy(&result, &value, sizeof(result));
+    return result;
+}
 
 static int combined_key(int a, int b) {
-    return (a * 1000003) ^ b;
+    uint32_t mixed = (uint32_t)a * UINT32_C(1000003) ^ (uint32_t)b;
+    return key_from_u32(mixed);
 }
 
 int render_snapshot_tile_revision_key(void) {
@@ -42,6 +56,21 @@ int render_snapshot_civs_revision_key(void) {
     key = combined_key(key, dirty_revision_diplomacy());
     key = combined_key(key, dirty_revision_alliance());
     key = combined_key(key, civ_count * 31 + city_count);
+    return combined_key(key, world_generated);
+}
+
+int render_snapshot_river_revision_key(void) {
+    /* The immutable presentation payload revision is authoritative and bumps
+       on every adopt/clear. Preserve all 32 bits so equal-sized replacements
+       cannot alias through a lossy composite hash. */
+    return key_from_u32(river_presentation_state_revision());
+}
+
+int render_snapshot_wind_revision_key(void) {
+    int key = combined_key(world_physical_state_revision(),
+                           world_physical_state_width() * 4099 +
+                           world_physical_state_height());
+    key = combined_key(key, world_physical_state_valid());
     return combined_key(key, world_generated);
 }
 

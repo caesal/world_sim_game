@@ -80,6 +80,18 @@ be treated as a permission boundary, not just a title.
 44. Performance, stutter, scheduler, rendering, and map-cache optimizations must not change simulation rules, gameplay outcomes, or the established map drawing order. They also must not suppress real-time map updates for political ownership, province fill, borders, city icons, city labels, routes, selection/highlight overlays, or other visible simulation-driven map changes. It is not acceptable for a selected/highlighted civilization to show a larger current territory while the political map fill or city icons still show an older one-province state.
 45. Map-display performance fixes must preserve correctness by using snapshot deltas, dirty regions, tile/province/city invalidation, small overlay refreshes, or budgeted cache work. Do not make province/city/political layers update only on view switches, map-mode switches, full redraws, or user interactions. If a stale static cache is reused for responsiveness, the current changed provinces, borders, cities, and highlights must still be drawn over it or the affected dirty rectangles must be refreshed before validation can pass.
 46. Rule 39 performance and stutter validation must explicitly check real-time province/city rendering throughout the long run. The validation evidence must include generated-map and late-run captures showing that political province fill, borders, city icons, city labels, and selected/highlighted country extents agree with the current simulation state after substantial expansion. If a long run reaches dozens or hundreds of years while countries visually remain at one displayed province, if city icons are missing for expanded provinces, if switching views is required to refresh the map, or if the top bar/map/toolbars flicker rapidly, validation fails. Empty-map screenshots, blank performance logs, missing generated-world setup, or reruns that only replace missed logs without reproducing the full generated simulation state are not acceptable evidence.
+47. Rule 39 is the final acceptance gate only. Do not run Rule 39 during discovery, implementation, debugging, incremental compilation, focused-probe development, performance tuning, or targeted GUI iteration. Complete the following sequence in order before claiming acceptance:
+    1. Finish the approved implementation and freeze the intended source scope.
+    2. Pass incremental compilation and all relevant focused deterministic probes.
+    3. Pass all task-specific boundary matrices and subsystem regression probes.
+    4. Pass the canonical `make -B world_sim.exe` build.
+    5. Pass `cmd /c build.bat` from the same final source.
+    6. Pass required static, text/mojibake, line-count, `.c`-include, build-list-parity, staged-file, and root-executable-inventory gates.
+    7. Pass matched performance, resource, memory, and cache checks when applicable.
+    8. Pass final targeted generated-world GUI validation for every affected state, language, viewport, interaction, and flicker condition required by the task.
+    9. Review the final diff and confirm that no known actionable defect, missing requirement, or unexplained regression remains.
+    10. Only then run one fresh full final-source Rule 39 as the last acceptance gate.
+    If Rule 39 fails, the task returns to implementation status: preserve the failed attempt separately, diagnose and fix the defect, rerun the affected focused gates plus the required final builds, static checks, performance/resource checks, targeted GUI validation, and final diff review, then perform a completely fresh Rule 39. Never use Rule 39 as an exploratory probe or describe a failed attempt as the final run.
 
 ## UI/UX Presentation and Claymorphism Rules
 

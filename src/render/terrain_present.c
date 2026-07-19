@@ -4,6 +4,7 @@
 #include "core/profiler.h"
 #include "render/map_display_policy.h"
 #include "render/map_ownership_surface.h"
+#include "render/render_static_map_surface.h"
 
 typedef struct {
     HDC dc;
@@ -128,17 +129,21 @@ static void rebuild_base_surface_cache(void) {
 void draw_crisp_map_surface(HDC hdc, MapLayout layout) {
     int width = MAP_W * BASE_VISUAL_SCALE;
     int height = MAP_H * BASE_VISUAL_SCALE;
+    int stretch_mode =
+        display_mode == DISPLAY_GEOGRAPHY || display_mode == DISPLAY_CLIMATE ?
+        render_static_map_surface_categorical_stretch_mode() :
+        (layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);
     if (!ensure_surface_cache(hdc, &base_surface_cache, width, height)) return;
     if (!base_surface_cache.valid || base_surface_cache.display != display_mode ||
         base_surface_cache.revision != map_ownership_surface_live_revision()) {
         rebuild_base_surface_cache();
     }
-    SetStretchBltMode(hdc, layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);
+    SetStretchBltMode(hdc, stretch_mode);
     SetBrushOrgEx(hdc, 0, 0, NULL);
     StretchBlt(hdc, layout.map_x, layout.map_y, layout.draw_w, layout.draw_h,
                base_surface_cache.dc, 0, 0, base_surface_cache.width, base_surface_cache.height, SRCCOPY);
     profiler_record_terrain_present("cache-2x", base_surface_cache.width, base_surface_cache.height,
-                                    layout.tile_size <= 2 ? HALFTONE : COLORONCOLOR);
+                                    stretch_mode);
 }
 
 static RECT visible_map_rect(RECT client, MapLayout layout) {

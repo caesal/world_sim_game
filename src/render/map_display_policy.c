@@ -1,5 +1,7 @@
 #include "render/map_display_policy.h"
 
+#include "render/map_shore_color_cache.h"
+
 #include "core/game_types.h"
 #include "render/map_ownership_surface.h"
 #include "render/render_common.h"
@@ -9,6 +11,7 @@
 
 #include <string.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #define DISPLAY_ALL_FILL_ALPHA 112
 #define REGION_FILL_ALPHA 96
@@ -23,11 +26,16 @@ static COLORREF snapshot_water_color(const SnapshotTile *tile) {
                        clamp(tile->water_deep_percent, 0, 100));
 }
 
+static COLORREF snapshot_lake_color(void) {
+    return RGB(78, 151, 188);
+}
+
 static COLORREF snapshot_overview_color(const SnapshotTile *tile) {
     COLORREF base;
     COLORREF climate;
     int blend;
     if (!tile) return RGB(38, 92, 154);
+    if (tile->geography == GEO_LAKE) return snapshot_lake_color();
     base = snap_land(tile) ? geography_color((Geography)tile->geography) : snapshot_water_color(tile);
     climate = climate_color((Climate)tile->climate);
     blend = snap_land(tile) ? 48 : 18;
@@ -79,13 +87,154 @@ int map_display_policy_requires_fill_layer(int mode) {
            mode == DISPLAY_ALL || mode == DISPLAY_REGIONS;
 }
 
-COLORREF map_display_policy_snapshot_base_color(const SnapshotTile *tile, int mode) {
+int map_display_policy_shows_wind(int mode) {
+    return mode == DISPLAY_GEOGRAPHY || mode == DISPLAY_CLIMATE;
+}
+
+MapPhysicalBaseFamily map_display_policy_physical_family(int mode) {
+    if (mode == DISPLAY_GEOGRAPHY) return MAP_PHYSICAL_BASE_GEOGRAPHY;
+    if (mode == DISPLAY_CLIMATE) return MAP_PHYSICAL_BASE_CLIMATE;
+    return MAP_PHYSICAL_BASE_OVERVIEW;
+}
+
+MapLabelFamily map_display_policy_label_family(int mode) {
+    if (mode == DISPLAY_ALLIANCE) return MAP_LABEL_FAMILY_ALLIANCE;
+    if (mode == DISPLAY_REGIONS) return MAP_LABEL_FAMILY_REGIONS;
+    return MAP_LABEL_FAMILY_ORDINARY;
+}
+
+COLORREF map_display_policy_snapshot_physical_color(const SnapshotTile *tile,
+                                                     MapPhysicalBaseFamily family) {
     if (!tile) return RGB(38, 92, 154);
-    if (mode == DISPLAY_CLIMATE) return climate_color((Climate)tile->climate);
-    if (mode == DISPLAY_GEOGRAPHY) {
+    if (tile->geography == GEO_LAKE) return snapshot_lake_color();
+    if (family == MAP_PHYSICAL_BASE_CLIMATE) return climate_color((Climate)tile->climate);
+    if (family == MAP_PHYSICAL_BASE_GEOGRAPHY) {
         return snap_land(tile) ? geography_color((Geography)tile->geography) : snapshot_water_color(tile);
     }
     return snapshot_overview_color(tile);
+}
+
+static int shore_color_donor_excluded(const SnapshotTile *tile,
+                                      int preserve_semantic_shore) {
+    return !tile || tile->geography == GEO_COAST ||
+           tile->geography == GEO_ISLAND ||
+           (!preserve_semantic_shore &&
+            (tile->geography == GEO_WETLAND ||
+             tile->geography == GEO_DELTA ||
+             tile->geography == GEO_OASIS));
+}
+
+static COLORREF snapshot_nearby_land_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family, int preserve_semantic_shore, int *found) {
+    ptrdiff_t index = tile - snapshot->tiles;
+    int x = (int)(index % snapshot->map_w);
+    int y = (int)(index / snapshot->map_w);
+    int radius;
+    for (radius = 1; radius <= 3; radius++) {
+        int r = 0, g = 0, b = 0, count = 0;
+        int dx, dy;
+        for (dy = -radius; dy <= radius; dy++) {
+            for (dx = -radius; dx <= radius; dx++) {
+                const SnapshotTile *neighbor;
+                COLORREF color;
+                int nx = x + dx, ny = y + dy;
+                if (max(abs(dx), abs(dy)) != radius || nx < 0 || ny < 0 ||
+                    nx >= snapshot->map_w || ny >= snapshot->map_h) continue;
+                neighbor = &snapshot->tiles[ny * snapshot->map_w + nx];
+                if (!snap_land(neighbor) ||
+                    shore_color_donor_excluded(
+                        neighbor, preserve_semantic_shore))
+                    continue;
+                color = map_display_policy_snapshot_physical_color(neighbor,
+                                                                    family);
+                r += GetRValue(color);
+                g += GetGValue(color);
+                b += GetBValue(color);
+                count++;
+            }
+        }
+        if (count) {
+            if (found) *found = 1;
+            return RGB(r / count, g / count, b / count);
+        }
+    }
+    if (found) *found = 0;
+    return geography_color(GEO_PLAIN);
+}
+
+COLORREF map_display_policy_snapshot_nearby_land_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family) {
+    return snapshot_nearby_land_color(snapshot, tile, family, 1, NULL);
+}
+
+COLORREF map_display_policy_snapshot_nearby_ocean_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family) {
+    ptrdiff_t index = tile - snapshot->tiles;
+    int x = (int)(index % snapshot->map_w);
+    int y = (int)(index / snapshot->map_w);
+    int radius;
+    for (radius = 1; radius <= 3; radius++) {
+        int r = 0, g = 0, b = 0, count = 0;
+        int dx, dy;
+        for (dy = -radius; dy <= radius; dy++) {
+            for (dx = -radius; dx <= radius; dx++) {
+                const SnapshotTile *neighbor;
+                COLORREF color;
+                int nx = x + dx, ny = y + dy;
+                if (max(abs(dx), abs(dy)) != radius || nx < 0 || ny < 0 ||
+                    nx >= snapshot->map_w || ny >= snapshot->map_h) continue;
+                neighbor = &snapshot->tiles[ny * snapshot->map_w + nx];
+                if (neighbor->geography != GEO_OCEAN &&
+                    neighbor->geography != GEO_BAY) continue;
+                color = map_display_policy_snapshot_physical_color(neighbor,
+                                                                    family);
+                r += GetRValue(color);
+                g += GetGValue(color);
+                b += GetBValue(color);
+                count++;
+            }
+        }
+        if (count) return RGB(r / count, g / count, b / count);
+    }
+    return map_display_policy_snapshot_physical_color(tile, family);
+}
+
+COLORREF map_display_policy_snapshot_smoothed_physical_color(
+    const RenderSnapshot *snapshot, const SnapshotTile *tile,
+    MapPhysicalBaseFamily family) {
+    COLORREF base = map_display_policy_snapshot_physical_color(tile, family);
+    ptrdiff_t index;
+    if (!snapshot || !tile) return base;
+    index = tile - snapshot->tiles;
+    if (index < 0 || index >= (ptrdiff_t)(snapshot->map_w * snapshot->map_h))
+        return base;
+    /* The immutable base is authoritative. Decorative water surfaces may
+       fail or omit edge texture, so semantic water must remain water here. */
+    if (!snap_land(tile)) return base;
+    if (tile->geography == GEO_COAST)
+        return snapshot_nearby_land_color(
+            snapshot, tile, family, 0, NULL);
+    if (tile->geography == GEO_ISLAND) {
+        const SnapshotTile *donor =
+            map_shore_color_cache_island_donor(snapshot, tile);
+        int attached = 0;
+        if (donor)
+            return map_display_policy_snapshot_physical_color(donor, family);
+        {
+            COLORREF inland = snapshot_nearby_land_color(
+                snapshot, tile, family, 0, &attached);
+            if (attached) return inland;
+        }
+    }
+    return base;
+}
+
+COLORREF map_display_policy_snapshot_base_color(const SnapshotTile *tile, int mode) {
+    return map_display_policy_snapshot_physical_color(
+        tile, map_display_policy_physical_family(mode));
 }
 
 int map_display_policy_snapshot_effective_owner(const RenderSnapshot *snapshot,
@@ -142,7 +291,8 @@ int map_display_policy_snapshot_owner_fill(const RenderSnapshot *snapshot, int o
 
 COLORREF map_display_policy_snapshot_tile_color(const RenderSnapshot *snapshot,
                                                 const SnapshotTile *tile, int mode) {
-    COLORREF base = map_display_policy_snapshot_base_color(tile, mode);
+    COLORREF base = map_display_policy_snapshot_smoothed_physical_color(
+        snapshot, tile, map_display_policy_physical_family(mode));
     MapDisplayFillPolicy fill;
     if (map_display_policy_snapshot_fill(snapshot, tile, mode, &fill)) return compose_fill(base, fill);
     return base;
@@ -224,6 +374,7 @@ COLORREF map_display_policy_live_tile_color(int x, int y, int mode) {
     COLORREF base;
     MapDisplayFillPolicy fill;
     if (x < 0 || y < 0 || x >= MAP_W || y >= MAP_H) return RGB(38, 92, 154);
+    if (world[y][x].geography == GEO_LAKE) return snapshot_lake_color();
     if (mode == DISPLAY_CLIMATE) return climate_color(world[y][x].climate);
     if (mode == DISPLAY_GEOGRAPHY) {
         if (world_water_depth_at(x, y) != WATER_DEPTH_NONE) {

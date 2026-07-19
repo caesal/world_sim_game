@@ -8,7 +8,9 @@
 #include "core/render_snapshot_keys.h"
 #include "core/render_snapshot_profile.h"
 #include "core/render_snapshot_plague.h"
+#include "core/render_snapshot_river.h"
 #include "core/render_snapshot_sections.h"
+#include "core/render_snapshot_wind.h"
 #include "core/state_lock.h"
 #include "data/province_names.h"
 #include "sim/collapse.h"
@@ -41,7 +43,7 @@ static volatile LONG skipped_publish_count;
 static volatile LONG throttled_publish_count;
 static volatile LONG last_skip_reason;
 static int initialized;
-enum { SNAPSHOT_SKIP_NONE = 0, SNAPSHOT_SKIP_THROTTLED = 1, SNAPSHOT_SKIP_NO_BACK_BUFFER = 2, SNAPSHOT_SKIP_LOCK_BUSY = 3 };
+enum { SNAPSHOT_SKIP_NONE = 0, SNAPSHOT_SKIP_THROTTLED = 1, SNAPSHOT_SKIP_NO_BACK_BUFFER = 2, SNAPSHOT_SKIP_LOCK_BUSY = 3, SNAPSHOT_SKIP_RIVER_COPY = 4 };
 #define SNAPSHOT_BASE_MIN_INTERVAL_MS 125
 #define PROFILE_SECTION(section, code) do { DWORD _s = GetTickCount(); code; \
     render_snapshot_profile_record_section(section, (int)(GetTickCount() - _s), 1); } while (0)
@@ -189,6 +191,8 @@ static int copy_lanes(RenderSnapshot *snapshot, int key) {
 }
 
 void render_snapshot_init(void) {
+    int i;
+    for (i = 0; i < 3; i++) render_snapshot_river_release(&buffers[i].rivers);
     memset(buffers, 0, sizeof(buffers)); memset((void *)refs, 0, sizeof(refs));
     front_index = 0; published_revision = 0; last_publish_tick = 0; last_publish_ms = 0;
     skipped_publish_count = 0; throttled_publish_count = 0; last_skip_reason = SNAPSHOT_SKIP_NONE; initialized = 1;
@@ -196,13 +200,29 @@ void render_snapshot_init(void) {
 }
 
 void render_snapshot_shutdown(void) {
+    int i;
+    for (i = 0; i < 3; i++) render_snapshot_river_release(&buffers[i].rivers);
     initialized = 0;
+}
+
+size_t render_snapshot_river_buffers_retained_bytes(void) {
+    return render_snapshot_river_field_retained_bytes(&buffers[0].rivers) + render_snapshot_river_field_retained_bytes(&buffers[1].rivers) +
+           render_snapshot_river_field_retained_bytes(&buffers[2].rivers); }
+
+static int abort_publish_locked(const RenderSnapshot *base_snapshot, int reason) {
+    state_read_unlock();
+    if (base_snapshot) render_snapshot_release(base_snapshot);
+    InterlockedIncrement(&skipped_publish_count);
+    last_skip_reason = reason;
+    return 0;
 }
 
 int render_snapshot_publish_from_live_state_throttled(int force) {
     RenderSnapshot *snapshot;
     int back;
     int tile_key;
+    int river_key;
+    int wind_key;
     int civ_key;
     int civ_visual_key;
     int alliance_key;
@@ -264,6 +284,8 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
     snapshot->coast_revision = dirty_revision_coast();
     snapshot->hydrology_revision = dirty_revision_hydrology();
     tile_key = render_snapshot_tile_revision_key();
+    river_key = render_snapshot_river_revision_key();
+    wind_key = render_snapshot_wind_revision_key();
     civ_key = render_snapshot_civs_revision_key();
     civ_visual_key = render_snapshot_civ_visual_revision_key();
     alliance_key = dirty_revision_alliance();
@@ -287,6 +309,36 @@ int render_snapshot_publish_from_live_state_throttled(int force) {
         snapshot->tiles_revision = tile_key;
         snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_TILES;
     } else { PROFILE_SKIP(SNAPSHOT_PROFILE_TILES); snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_TILES; }
+    if (snapshot->revision == 0 || snapshot->wind_revision != wind_key) {
+        if (render_snapshot_wind_copy(&snapshot->wind, wind_key)) {
+            snapshot->wind_revision = wind_key;
+            snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_WIND;
+        } else if (base_snapshot) {
+            snapshot->wind = base_snapshot->wind;
+            snapshot->wind_revision = base_snapshot->wind_revision;
+            snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_WIND;
+        }
+    } else {
+        snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_WIND;
+    }
+    if (snapshot->revision == 0 || snapshot->river_revision != river_key) {
+        if (render_snapshot_river_copy(&snapshot->rivers, river_key,
+                                       snapshot->map_w, snapshot->map_h)) {
+            snapshot->river_revision = river_key;
+            snapshot->sections_copied_mask |= RENDER_SNAPSHOT_SECTION_RIVERS;
+        } else if (base_snapshot && base_snapshot->river_revision == river_key &&
+                   base_snapshot->map_w == snapshot->map_w &&
+                   base_snapshot->map_h == snapshot->map_h &&
+                   base_snapshot->rivers.valid &&
+                   base_snapshot->rivers.revision == river_key &&
+                   render_snapshot_river_clone(&snapshot->rivers,
+                                               &base_snapshot->rivers)) {
+            snapshot->river_revision = base_snapshot->river_revision;
+            snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_RIVERS;
+        } else {
+            return abort_publish_locked(base_snapshot, SNAPSHOT_SKIP_RIVER_COPY);
+        }
+    } else snapshot->sections_skipped_mask |= RENDER_SNAPSHOT_SECTION_RIVERS;
     if (snapshot->revision == 0 || snapshot->civs_revision != civ_key) {
         PROFILE_SECTION(SNAPSHOT_PROFILE_CIVS, render_snapshot_copy_civs_locked(snapshot));
         snapshot->civs_revision = civ_key;
@@ -407,6 +459,7 @@ const char *render_snapshot_last_skip_reason(void) {
         case SNAPSHOT_SKIP_THROTTLED: return "throttled";
         case SNAPSHOT_SKIP_NO_BACK_BUFFER: return "no free back buffer";
         case SNAPSHOT_SKIP_LOCK_BUSY: return "lock busy";
+        case SNAPSHOT_SKIP_RIVER_COPY: return "river copy failed";
         default: return "none";
     }
 }

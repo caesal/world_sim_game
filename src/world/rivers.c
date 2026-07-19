@@ -1,288 +1,419 @@
-#include "rivers.h"
+#include "world/rivers.h"
 
-#include "terrain_query.h"
+#include "core/game_types.h"
+#include "world/river_drainage.h"
+#include "world/river_flow.h"
+#include "world/river_hydroclimate.h"
+#include "world/river_mouths.h"
+#include "world/river_path_validation.h"
+#include "world/river_presentation_state.h"
+#include "world/river_state.h"
+#include "world/world_physical_state.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-static const int RIVER_DIRS[8][2] = {
-    {1, 0}, {1, 1}, {0, 1}, {-1, 1},
-    {-1, 0}, {-1, -1}, {0, -1}, {1, -1}
-};
+static RiverGenerationDiagnostics persisted_diagnostics;
+static RiverGenerationDiagnostics committed_diagnostics;
+static int committed_diagnostics_valid;
+static int committed_physical_revision;
+static uint32_t committed_presentation_revision;
 
-static signed short down_x[MAX_MAP_H][MAX_MAP_W];
-static signed short down_y[MAX_MAP_H][MAX_MAP_W];
-static int flow_accum[MAX_MAP_H][MAX_MAP_W];
-static int sorted_tiles[MAX_MAP_W * MAX_MAP_H];
-static int river_candidates[MAX_MAP_W * MAX_MAP_H];
-
-static int water_mouth_tile(int x, int y) {
-    if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) return 0;
-    return world[y][x].geography == GEO_OCEAN || world[y][x].geography == GEO_BAY ||
-           world[y][x].geography == GEO_LAKE;
-}
-
-static int nearby_water_count(int x, int y, int radius) {
-    int count = 0;
-    int dy;
-    int dx;
-
-    for (dy = -radius; dy <= radius; dy++) {
-        for (dx = -radius; dx <= radius; dx++) {
-            if (water_mouth_tile(x + dx, y + dy)) count++;
-        }
+static uint64_t token_mix(uint64_t hash, uint64_t value) {
+    int byte_index;
+    for (byte_index = 0; byte_index < 8; byte_index++) {
+        hash ^= (uint8_t)(value >> (byte_index * 8));
+        hash *= UINT64_C(1099511628211);
     }
-    return count;
+    return hash;
 }
 
-static int nearby_river_count(int x, int y, int radius) {
-    int count = 0;
-    int dy;
-    int dx;
-
-    for (dy = -radius; dy <= radius; dy++) {
-        for (dx = -radius; dx <= radius; dx++) {
-            int nx = x + dx;
-            int ny = y + dy;
-            if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-            if (world[ny][nx].river) count++;
-        }
+static uint64_t hydrology_token_for_context(const WorldGenContext *context) {
+    uint64_t hash = UINT64_C(1469598103934665603);
+    int i;
+    if (!context) return 0;
+    hash = token_mix(hash, (uint32_t)context->width);
+    hash = token_mix(hash, (uint32_t)context->height);
+    hash = token_mix(hash, context->master_seed);
+    hash = token_mix(hash, (uint32_t)context->sea_level);
+    hash = token_mix(hash, (uint32_t)context->config.ocean);
+    hash = token_mix(hash, (uint32_t)context->config.continent);
+    hash = token_mix(hash, (uint32_t)context->config.relief);
+    hash = token_mix(hash, (uint32_t)context->config.moisture);
+    hash = token_mix(hash, (uint32_t)context->config.drought);
+    hash = token_mix(hash, (uint32_t)context->config.vegetation);
+    hash = token_mix(hash, (uint32_t)context->config.bias_forest);
+    hash = token_mix(hash, (uint32_t)context->config.bias_desert);
+    hash = token_mix(hash, (uint32_t)context->config.bias_mountain);
+    hash = token_mix(hash, (uint32_t)context->config.bias_wetland);
+    for (i = 0; i < context->tile_count; i++) {
+        uint64_t terrain = context->land_mask[i] |
+                           ((uint64_t)(uint16_t)context->elevation[i] << 8) |
+                           ((uint64_t)(uint16_t)context->relative_altitude[i] << 24) |
+                           ((uint64_t)(uint16_t)context->slope[i] << 40);
+        uint64_t climate = (uint16_t)context->moisture[i] |
+                           ((uint64_t)(uint16_t)context->temperature[i] << 16) |
+                           ((uint64_t)(uint16_t)context->precipitation[i] << 32) |
+                           ((uint64_t)context->climate[i] << 48) |
+                           ((uint64_t)context->wind_direction16[i] << 56);
+        uint64_t landform = (uint16_t)context->base_elevation[i] |
+                            ((uint64_t)(uint16_t)context->curvature[i] << 16) |
+                            ((uint64_t)(uint16_t)context->mountain_uplift[i] << 32) |
+                            ((uint64_t)(uint16_t)context->ocean_distance[i] << 48);
+        hash = token_mix(hash, terrain);
+        hash = token_mix(hash, climate);
+        hash = token_mix(hash, landform);
+        hash = token_mix(hash, context->wind_speed[i]);
     }
-    return count;
+    return hash != 0 ? hash : UINT64_C(0xcbf29ce484222325);
 }
 
-static int flow_rank(int x, int y) {
-    return world[y][x].elevation * MAX_MAP_W * MAX_MAP_H + y * MAX_MAP_W + x;
+static int geography_is_land(Geography geography) {
+    return geography != GEO_OCEAN && geography != GEO_LAKE && geography != GEO_BAY;
 }
 
-static int receiver_score(int x, int y, int nx, int ny) {
-    int diagonal = x != nx && y != ny;
-    return world[ny][nx].elevation * 32 + world_tile_cost(nx, ny) * 5 -
-           world[ny][nx].moisture / 3 + (diagonal ? 5 : 0);
+static uint16_t context_flags(uint16_t flags) {
+    uint16_t mapped = 0;
+    if (flags & RIVER_CELL_CHANNEL) mapped |= WORLD_GEN_RIVER_CHANNEL;
+    if (flags & RIVER_CELL_LAKE) mapped |= WORLD_GEN_RIVER_LAKE;
+    if (flags & RIVER_CELL_MOUTH) mapped |= WORLD_GEN_RIVER_MOUTH;
+    if (flags & RIVER_CELL_DELTA) mapped |= WORLD_GEN_RIVER_DELTA;
+    if (flags & RIVER_CELL_CONFLUENCE) mapped |= WORLD_GEN_RIVER_CONFLUENCE;
+    if (flags & RIVER_CELL_CLOSED_BASIN) mapped |= WORLD_GEN_RIVER_CLOSED_BASIN;
+    if (flags & RIVER_CELL_SOURCE) mapped |= WORLD_GEN_RIVER_SOURCE;
+    if (flags & RIVER_CELL_DISTRIBUTARY) mapped |= WORLD_GEN_RIVER_DISTRIBUTARY;
+    if (flags & RIVER_CELL_SALT_LAKE) mapped |= WORLD_GEN_RIVER_SALT_LAKE;
+    return mapped;
 }
 
-static void choose_downhill_receiver(int x, int y) {
-    int best_score = 1000000;
-    int best_x = -1;
-    int best_y = -1;
+static int validate_unique_ordinary_edges(RiverGenerationState *state) {
     int i;
 
-    down_x[y][x] = -1;
-    down_y[y][x] = -1;
-    if (!is_land(world[y][x].geography)) return;
-    for (i = 0; i < 8; i++) {
-        int nx = x + RIVER_DIRS[i][0];
-        int ny = y + RIVER_DIRS[i][1];
-        int score;
-        if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
-        if (water_mouth_tile(nx, ny)) {
-            down_x[y][x] = (signed short)nx;
-            down_y[y][x] = (signed short)ny;
-            return;
+    memset(state->visited, 0, (size_t)state->input.tile_count * sizeof(*state->visited));
+    for (i = 0; i < state->segment_count; i++) {
+        const RiverNetworkSegment *segment = &state->segments[i];
+        if (segment->kind != RIVER_SEGMENT_ORDINARY) continue;
+        if (segment->from < 0 || segment->from >= state->input.tile_count) {
+            state->diagnostics.invalid_receivers++;
+            continue;
         }
-        if (!is_land(world[ny][nx].geography)) continue;
-        if (flow_rank(nx, ny) >= flow_rank(x, y)) continue;
-        score = receiver_score(x, y, nx, ny);
-        if (score < best_score) {
-            best_score = score;
-            best_x = nx;
-            best_y = ny;
-        }
+        if (state->visited[segment->from]) state->diagnostics.duplicate_edges++;
+        state->visited[segment->from] = 1;
     }
-    down_x[y][x] = (signed short)best_x;
-    down_y[y][x] = (signed short)best_y;
+    memset(state->visited, 0, (size_t)state->input.tile_count * sizeof(*state->visited));
+    for (i = 0; i < state->segment_count; i++) {
+        const RiverNetworkSegment *segment = &state->segments[i];
+        int from_x = segment->from % state->input.width;
+        int from_y = segment->from / state->input.width;
+        int to_x = segment->to % state->input.width;
+        int to_y = segment->to / state->input.width;
+        int square;
+        uint8_t orientation;
+        if (segment->to < 0 || segment->to >= state->input.tile_count) continue;
+        if (abs(from_x - to_x) != 1 || abs(from_y - to_y) != 1) continue;
+        square = (from_y < to_y ? from_y : to_y) * state->input.width +
+                 (from_x < to_x ? from_x : to_x);
+        orientation = (from_x - to_x) * (from_y - to_y) > 0 ? 1u : 2u;
+        if (state->visited[square] & (orientation == 1u ? 2u : 1u)) {
+            state->diagnostics.crossing_errors++;
+        }
+        state->visited[square] |= orientation;
+    }
+    return state->diagnostics.duplicate_edges == 0 &&
+           state->diagnostics.invalid_receivers == 0 && state->diagnostics.crossing_errors == 0;
 }
 
-static int compare_tile_flow_desc(const void *a, const void *b) {
-    int ia = *(const int *)a;
-    int ib = *(const int *)b;
-    int ax = ia % MAX_MAP_W;
-    int ay = ia / MAX_MAP_W;
-    int bx = ib % MAX_MAP_W;
-    int by = ib / MAX_MAP_W;
-    return flow_accum[by][bx] - flow_accum[ay][ax];
-}
-
-static int collect_sorted_land_tiles(void) {
-    int counts[101] = {0};
-    int offsets[101];
-    int next[101];
-    int x;
-    int y;
-    int e;
-    int total = 0;
-
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            if (!is_land(world[y][x].geography)) continue;
-            counts[clamp(world[y][x].elevation, 0, 100)]++;
-            total++;
-        }
-    }
-    offsets[100] = 0;
-    for (e = 99; e >= 0; e--) offsets[e] = offsets[e + 1] + counts[e + 1];
-    memcpy(next, offsets, sizeof(next));
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            int elev;
-            if (!is_land(world[y][x].geography)) continue;
-            elev = clamp(world[y][x].elevation, 0, 100);
-            sorted_tiles[next[elev]++] = y * MAX_MAP_W + x;
-        }
-    }
-    return total;
-}
-
-static void compute_flow_field(void) {
-    int land_count = collect_sorted_land_tiles();
+int world_gen_hydrology_build(WorldGenContext *context) {
+    RiverGenerationInput input;
+    RiverGenerationState *state;
     int i;
-    int x;
-    int y;
+    int ok;
 
-    memset(flow_accum, 0, sizeof(flow_accum));
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) {
-            choose_downhill_receiver(x, y);
-            if (is_land(world[y][x].geography)) {
-                flow_accum[y][x] = 1 + world[y][x].moisture / 18 +
-                                   (world[y][x].geography == GEO_MOUNTAIN ? 1 : 0);
+    memset(&persisted_diagnostics, 0, sizeof(persisted_diagnostics));
+    if (!context || context->tile_count <= 0) return 0;
+    context->hydrology_token = hydrology_token_for_context(context);
+    memset(&input, 0, sizeof(input));
+    input.width = context->width;
+    input.height = context->height;
+    input.tile_count = context->tile_count;
+    input.land_mask = context->land_mask;
+    input.elevation = context->elevation;
+    input.relative_altitude = context->relative_altitude;
+    input.slope = context->slope;
+    input.moisture = context->moisture;
+    input.temperature = context->temperature;
+    input.precipitation = context->precipitation;
+    input.seed = context->phase_seed[WORLD_GEN_PHASE_HYDROLOGY];
+    input.generation_token = context->hydrology_token;
+    input.moisture_bias = context->config.moisture;
+    input.wetland_bias = context->config.bias_wetland;
+    input.receiver = context->drainage_receiver;
+    input.basin = context->drainage_basin;
+    input.topological_order = context->topological_order;
+    input.runoff = context->runoff;
+    input.flow = context->river_flow;
+    input.upstream_count = context->upstream_count;
+    input.order = context->river_order;
+    input.width_field = context->river_width;
+    input.soil_fertility = context->soil_fertility;
+    state = river_state_prepare(&input);
+    if (!state) {
+        RiverGenerationDiagnostics allocation_diagnostics = {0};
+        river_state_last_diagnostics(&allocation_diagnostics);
+        if (allocation_diagnostics.workspace_allocation_errors > 0) {
+            persisted_diagnostics = allocation_diagnostics;
+        }
+        return 0;
+    }
+    ok = river_drainage_build(state);
+    if (ok) ok = river_flow_build(state);
+    if (ok) ok = river_mouths_build(state);
+    if (ok) ok = river_hydroclimate_apply(state);
+    if (ok) ok = river_flow_build_segments(state);
+    if (ok) ok = validate_unique_ordinary_edges(state);
+    for (i = 0; i < context->tile_count; i++) {
+        context->river_flags[i] = context_flags(state->cell_flags[i]);
+    }
+    context->topological_count = state->topological_count;
+    river_state_publish_view(state);
+    persisted_diagnostics = state->diagnostics;
+    return ok;
+}
+
+const RiverNetworkView *river_network_latest_view(void) {
+    return river_state_latest_view();
+}
+
+int river_network_view_matches_context(const WorldGenContext *context) {
+    const RiverNetworkView *view = river_state_latest_view();
+    return context && view && context->hydrology_token != 0 &&
+           view->width == context->width && view->height == context->height &&
+           view->tile_count == context->tile_count &&
+           river_state_view_matches(context->hydrology_token);
+}
+
+void river_generation_last_diagnostics(RiverGenerationDiagnostics *out) {
+    if (out) *out = persisted_diagnostics;
+}
+
+int river_generation_committed_diagnostics(RiverGenerationDiagnostics *out) {
+    if (!out || !committed_diagnostics_valid || !world_physical_state_valid() ||
+        committed_physical_revision != world_physical_state_revision() ||
+        committed_presentation_revision != river_presentation_state_revision() ||
+        committed_diagnostics.legacy_paths_required != river_path_count ||
+        committed_diagnostics.legacy_paths_truncated != 0) return 0;
+    *out = committed_diagnostics;
+    return 1;
+}
+
+void river_generation_note_commit(const RiverGenerationDiagnostics *diagnostics) {
+    if (!diagnostics) return;
+    committed_diagnostics = *diagnostics;
+    committed_physical_revision = world_physical_state_revision();
+    committed_presentation_revision = river_presentation_state_revision();
+    committed_diagnostics_valid = 1;
+}
+
+static void clear_path(RiverPath *path) {
+    memset(path, 0, sizeof(*path));
+    path->active = 1;
+}
+
+static void add_point(RiverPath *path, int index, int width) {
+    if (path->point_count >= MAX_RIVER_POINTS || index < 0) return;
+    path->points[path->point_count].x = index % width;
+    path->points[path->point_count].y = index / width;
+    path->point_count++;
+}
+
+static int append_path(RiverPath *paths, int capacity, int required,
+                       const RiverPath *path) {
+    if (path->point_count < 2) return required;
+    if (required < capacity && paths) paths[required] = *path;
+    return required + 1;
+}
+
+static int trace_ordinary_paths(const RiverNetworkView *view, uint8_t *starts,
+                                RiverPath *paths, int capacity) {
+    int required = 0;
+    int i;
+
+    for (i = 0; i < view->tile_count; i++) {
+        uint16_t flags = view->cell_flags[i];
+        int receiver = view->receiver[i];
+        if (!(flags & RIVER_CELL_CHANNEL)) continue;
+        if (!(flags & RIVER_CELL_LAKE) && (flags & (RIVER_CELL_SOURCE | RIVER_CELL_CONFLUENCE))) {
+            starts[i] = 1;
+        }
+        if ((flags & RIVER_CELL_LAKE) && receiver >= 0 && receiver < view->tile_count &&
+            !(view->cell_flags[receiver] & RIVER_CELL_LAKE)) starts[i] = 1;
+    }
+    for (i = 0; i < view->segment_count; i++) {
+        const RiverNetworkSegment *segment = &view->segments[i];
+        int to = segment->to;
+        if (segment->kind != RIVER_SEGMENT_ORDINARY || to < 0 || to >= view->tile_count) continue;
+        if (!(view->cell_flags[to] & RIVER_CELL_CHANNEL)) continue;
+        if (view->cell_flags[to] & RIVER_CELL_LAKE) continue;
+        if (view->width_field[to] != view->width_field[segment->from] ||
+            (view->cell_flags[to] & (RIVER_CELL_CONFLUENCE | RIVER_CELL_MOUTH |
+             RIVER_CELL_DELTA | RIVER_CELL_CLOSED_BASIN))) starts[to] = 1;
+    }
+    for (i = 0; i < view->tile_count; i++) {
+        int current;
+        if (!starts[i] || !(view->cell_flags[i] & RIVER_CELL_CHANNEL)) continue;
+        if (view->cell_flags[i] & RIVER_CELL_DELTA) continue;
+        current = i;
+        while (current >= 0) {
+            RiverPath path;
+            int chunk_continues = 0;
+            int first = current;
+            clear_path(&path);
+            path.width = view->width_field[current];
+            path.flow = view->flow[current];
+            path.order = view->order[current];
+            add_point(&path, current, view->width);
+            while (path.point_count < MAX_RIVER_POINTS) {
+                int receiver = view->receiver[current];
+                if (receiver < 0 || receiver >= view->tile_count) break;
+                add_point(&path, receiver, view->width);
+                if (view->flow[receiver] > (uint32_t)path.flow) path.flow = view->flow[receiver];
+                if (!(view->cell_flags[current] & RIVER_CELL_LAKE) &&
+                    (view->cell_flags[receiver] & RIVER_CELL_LAKE)) break;
+                if (!(view->cell_flags[receiver] & RIVER_CELL_CHANNEL)) break;
+                if (!view->cell_flags[receiver] || !(view->cell_flags[receiver] & RIVER_CELL_LAND)) break;
+                if (starts[receiver] && receiver != first) break;
+                current = receiver;
+                if (path.point_count == MAX_RIVER_POINTS && view->receiver[current] >= 0) {
+                    chunk_continues = 1;
+                }
             }
+            required = append_path(paths, capacity, required, &path);
+            if (!chunk_continues) break;
         }
     }
-    for (i = 0; i < land_count; i++) {
-        int idx = sorted_tiles[i];
-        int cx = idx % MAX_MAP_W;
-        int cy = idx / MAX_MAP_W;
-        int nx = down_x[cy][cx];
-        int ny = down_y[cy][cx];
-        if (nx >= 0 && ny >= 0 && is_land(world[ny][nx].geography)) {
-            flow_accum[ny][nx] += flow_accum[cy][cx];
-        }
+    return required;
+}
+
+static int append_distributary_paths(const RiverNetworkView *view, RiverPath *paths,
+                                     int capacity, int required) {
+    int i;
+
+    for (i = 0; i < view->distributary_count; i++) {
+        const RiverDistributary *branch = &view->distributaries[i];
+        RiverPath path;
+        clear_path(&path);
+        path.width = branch->width;
+        path.flow = branch->flow;
+        path.order = branch->order;
+        add_point(&path, branch->from, view->width);
+        add_point(&path, branch->to, view->width);
+        required = append_path(paths, capacity, required, &path);
     }
+    return required;
 }
 
-static void reset_rivers(void) {
-    int x;
-    int y;
+static int build_legacy_paths(RiverGenerationState *state, const RiverNetworkView *view,
+                              RiverPath *paths, int capacity) {
+    uint8_t *starts = state->visited;
+    int required;
 
-    river_path_count = 0;
-    memset(river_paths, 0, sizeof(river_paths));
-    for (y = 0; y < MAP_H; y++) {
-        for (x = 0; x < MAP_W; x++) world[y][x].river = 0;
-    }
+    memset(starts, 0, (size_t)view->tile_count * sizeof(*starts));
+    if (paths && capacity > 0) memset(paths, 0, (size_t)capacity * sizeof(*paths));
+    required = trace_ordinary_paths(view, starts, paths, capacity);
+    return append_distributary_paths(view, paths, capacity, required);
 }
 
-static int source_candidate_ok(int x, int y, int threshold, int tributary) {
-    if (!is_land(world[y][x].geography)) return 0;
-    if (flow_accum[y][x] < threshold) return 0;
-    if (world[y][x].elevation < (tributary ? 42 : 48)) return 0;
-    if (nearby_water_count(x, y, 4) > 0) return 0;
-    if (nearby_river_count(x, y, tributary ? 5 : 9) > 0) return 0;
-    return world[y][x].moisture >= 24 || flow_accum[y][x] >= threshold + 60;
+int river_network_count_legacy_paths(const WorldGenContext *context) {
+    RiverGenerationState *state = river_state_current();
+    const RiverNetworkView *view = river_state_latest_view();
+
+    if (!view || !state || !river_network_view_matches_context(context)) return -1;
+    return build_legacy_paths(state, view, NULL, 0);
 }
 
-static int collect_river_candidates(int threshold, int tributary) {
-    int count = 0;
+int river_network_copy_legacy_paths(RiverPath *paths, int capacity) {
+    RiverGenerationState *state = river_state_current();
+    const RiverNetworkView *view = river_state_latest_view();
+    int required;
+
+    if (!view || !state || capacity < 0 || (capacity > 0 && !paths)) return 0;
+    required = build_legacy_paths(state, view, paths, capacity);
+    state->diagnostics.legacy_paths_required = required;
+    state->diagnostics.legacy_paths_truncated = required > capacity ? required - capacity : 0;
+    river_state_refresh_view_diagnostics(state);
+    persisted_diagnostics = state->diagnostics;
+    return required <= capacity ? required : -1;
+}
+
+int river_network_legacy_path_count_required(void) {
+    return persisted_diagnostics.legacy_paths_required;
+}
+
+void river_network_release_transient(void) {
+    RiverGenerationDiagnostics diagnostics = persisted_diagnostics;
+    river_state_release();
+    persisted_diagnostics = diagnostics;
+}
+
+static void fill_compatibility_context(WorldGenContext *context) {
     int x;
     int y;
 
     for (y = 0; y < MAP_H; y++) {
         for (x = 0; x < MAP_W; x++) {
-            if (!source_candidate_ok(x, y, threshold, tributary)) continue;
-            river_candidates[count++] = y * MAX_MAP_W + x;
+            int index = y * MAP_W + x;
+            int min_elevation = world[y][x].elevation;
+            int max_elevation = min_elevation;
+            int dx;
+            int dy;
+            context->land_mask[index] = (uint8_t)geography_is_land(world[y][x].geography);
+            context->elevation[index] = (int16_t)world[y][x].elevation;
+            context->relative_altitude[index] = (int16_t)world[y][x].elevation;
+            context->moisture[index] = (int16_t)world[y][x].moisture;
+            context->temperature[index] = (int16_t)world[y][x].temperature;
+            context->precipitation[index] = (int16_t)world[y][x].moisture;
+            for (dy = -1; dy <= 1; dy++) {
+                for (dx = -1; dx <= 1; dx++) {
+                    int nx = x + dx;
+                    int ny = y + dy;
+                    if (nx < 0 || nx >= MAP_W || ny < 0 || ny >= MAP_H) continue;
+                    if (world[ny][nx].elevation < min_elevation) min_elevation = world[ny][nx].elevation;
+                    if (world[ny][nx].elevation > max_elevation) max_elevation = world[ny][nx].elevation;
+                }
+            }
+            context->slope[index] = (int16_t)(max_elevation - min_elevation);
         }
-    }
-    qsort(river_candidates, (size_t)count, sizeof(river_candidates[0]), compare_tile_flow_desc);
-    return count;
-}
-
-static void mark_river_tiles(const RiverPath *river) {
-    int i;
-
-    for (i = 0; i < river->point_count; i++) {
-        int x = river->points[i].x;
-        int y = river->points[i].y;
-        if (x < 0 || x >= MAP_W || y < 0 || y >= MAP_H) continue;
-        if (is_land(world[y][x].geography)) world[y][x].river = 1;
-    }
-}
-
-static void accept_river_path(RiverPoint *points, int count, int max_flow,
-                              int reached_mouth, int joined_river) {
-    RiverPath *river;
-    int i;
-
-    if (river_path_count >= MAX_RIVER_PATHS || count < 14) return;
-    if (!reached_mouth && !joined_river) return;
-    river = &river_paths[river_path_count];
-    memset(river, 0, sizeof(*river));
-    river->active = 1;
-    river->point_count = clamp(count, 0, MAX_RIVER_POINTS);
-    river->flow = max_flow;
-    river->order = clamp(1 + max_flow / 180, 1, 5);
-    river->width = clamp(1 + max_flow / 360, 1, 4);
-    for (i = 0; i < river->point_count; i++) river->points[i] = points[i];
-    mark_river_tiles(river);
-    river_path_count++;
-}
-
-static void trace_flow_path(int start_x, int start_y, int tributary) {
-    RiverPoint points[MAX_RIVER_POINTS];
-    int count = 1;
-    int x = start_x;
-    int y = start_y;
-    int max_flow = flow_accum[y][x];
-    int reached_mouth = 0;
-    int joined_river = 0;
-
-    points[0].x = x;
-    points[0].y = y;
-    while (count < MAX_RIVER_POINTS) {
-        int nx = down_x[y][x];
-        int ny = down_y[y][x];
-        if (nx < 0 || ny < 0) break;
-        points[count].x = nx;
-        points[count].y = ny;
-        count++;
-        if (water_mouth_tile(nx, ny)) {
-            reached_mouth = 1;
-            break;
-        }
-        if (!is_land(world[ny][nx].geography)) break;
-        if (world[ny][nx].river && count >= (tributary ? 7 : 12)) {
-            joined_river = 1;
-            break;
-        }
-        max_flow = max(max_flow, flow_accum[ny][nx]);
-        x = nx;
-        y = ny;
-    }
-    if (!tributary && !reached_mouth) return;
-    if (tributary && !reached_mouth && !joined_river) return;
-    accept_river_path(points, count, max_flow, reached_mouth, joined_river);
-}
-
-static void trace_candidate_pass(int threshold, int target, int tributary) {
-    int count = collect_river_candidates(threshold, tributary);
-    int i;
-
-    for (i = 0; i < count && river_path_count < target; i++) {
-        int idx = river_candidates[i];
-        int x = idx % MAX_MAP_W;
-        int y = idx / MAX_MAP_W;
-        if (!source_candidate_ok(x, y, threshold, tributary)) continue;
-        trace_flow_path(x, y, tributary);
     }
 }
 
 void generate_rivers(int moisture, int bias_wetland) {
-    int target = clamp(14 + (moisture + bias_wetland) / 7, 12, MAX_RIVER_PATHS);
-    int main_target = clamp(target * 2 / 3, 8, target);
-    int threshold = clamp(180 - moisture - bias_wetland / 2, 55, 170);
+    WorldGenConfig config = DEFAULT_WORLD_GEN_CONFIG;
+    WorldGenContext context;
+    int x;
+    int y;
+    RiverPath *paths = NULL;
+    int required = 0;
 
-    reset_rivers();
-    compute_flow_field();
-    trace_candidate_pass(threshold, main_target, 0);
-    if (river_path_count < main_target) trace_candidate_pass(threshold * 3 / 4, main_target, 0);
-    trace_candidate_pass(max(35, threshold / 2), target, 1);
+    config.moisture = moisture;
+    config.bias_wetland = bias_wetland;
+    if (!world_gen_context_create(&context, &config, MAP_W, MAP_H, 0x52495652u)) return;
+    fill_compatibility_context(&context);
+    if (world_gen_hydrology_build(&context)) {
+        for (y = 0; y < MAP_H; y++) {
+            for (x = 0; x < MAP_W; x++) {
+                int index = y * MAP_W + x;
+                world[y][x].river = (context.river_flags[index] & WORLD_GEN_RIVER_CHANNEL) != 0;
+            }
+        }
+        required = river_network_count_legacy_paths(&context);
+        if (river_path_count_valid(required, MAP_W, MAP_H) && required > 0)
+            paths = (RiverPath *)calloc((size_t)required, sizeof(*paths));
+        if ((required == 0 || paths) &&
+            river_network_copy_legacy_paths(paths, required) == required &&
+            river_paths_validate(paths, required, MAP_W, MAP_H)) {
+            river_presentation_state_adopt(&paths, required, MAP_W, MAP_H);
+        }
+    }
+    free(paths);
+    world_gen_context_destroy(&context);
 }

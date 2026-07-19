@@ -5,6 +5,19 @@
 #include "data/country_names.h"
 #include "data/province_names.h"
 #include "game/game_worldgen.h"
+#include "game/game_worldgen_commit_probe.h"
+#include "game/game_worldgen_diagnostics_probe.h"
+#include "game/game_worldgen_failure_probe.h"
+#include "game/game_worldgen_hydrology_probe.h"
+#include "game/game_worldgen_lake_lifecycle_probe.h"
+#include "game/game_worldgen_landform_semantics_probe.h"
+#include "game/game_worldgen_live_validation_probe.h"
+#include "game/game_worldgen_mountain_shape_probe.h"
+#include "game/game_worldgen_physical_probe.h"
+#include "game/game_worldgen_region_water_probe.h"
+#include "game/game_worldgen_river_payload_probe.h"
+#include "game/game_worldgen_snapshot_recovery_probe.h"
+#include "game/game_worldgen_terrain_probe.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/ports.h"
@@ -13,6 +26,7 @@
 #include "sim/simulation.h"
 #include "sim/war.h"
 #include "world/ports.h"
+#include "world/river_path_validation.h"
 #include "world/terrain_query.h"
 #include "world/world_gen.h"
 
@@ -109,6 +123,7 @@ static int check_heritage_setup(FILE *file) {
 
 int run_worldgen_probe(void) {
     WorldGenConfig config = probe_config();
+    WorldGenContext *prepared_world;
     RoutePotentialStats route_stats;
     WorldGenProgress progress;
     unsigned long start_ms;
@@ -120,16 +135,58 @@ int run_worldgen_probe(void) {
     file = fopen("logs/worldgen_probe.txt", "w");
     if (!file) return 1;
     ok = check_heritage_setup(file);
+    game_worldgen_hydrology_probe_reset();
+    ok &= game_worldgen_landform_semantics_probe_run(file, &config);
+    ok &= game_worldgen_lake_lifecycle_probe_run(file);
+    ok &= game_worldgen_terrain_probe_run(file, &config);
+    ok &= game_worldgen_mountain_shape_probe_run(file, &config);
+    ok &= game_worldgen_physical_probe_run_matrix(file, &config);
+    ok &= game_worldgen_commit_probe_run(file);
+    ok &= game_worldgen_failure_probe_run(file);
+    ok &= game_worldgen_snapshot_recovery_probe_run(file);
+    ok &= game_worldgen_diagnostics_probe_run(file);
+    ok &= game_worldgen_river_payload_probe_run(file);
+    reset_probe_world();
+    ok &= game_worldgen_region_water_probe_run_real_lake_fixture(file);
+    /* Clear derived caches touched by the isolated city activation fixture. */
     reset_probe_world();
     worldgen_progress_begin();
     start_ms = GetTickCount();
-    generate_world_with_config(&config);
+    prepared_world = world_gen_prepare_with_config(&config);
+    if (!prepared_world) {
+        const WorldGenDiagnostics *diagnostics = world_gen_last_diagnostics();
+        int truncated = diagnostics->river_segments_required -
+                        diagnostics->river_segments_copied;
+        fprintf(file, "case=physical_prepare label=map_size_extreme required_paths=%d "
+                      "copied_paths=%d truncated=%d count_valid=%d ok=0\noverall_ok=0\n",
+                diagnostics->river_segments_required, diagnostics->river_segments_copied,
+                truncated, river_path_count_valid(diagnostics->river_segments_required,
+                                                  MAP_W, MAP_H));
+        fclose(file);
+        return 1;
+    }
+    ok &= game_worldgen_physical_probe_check_context(file, "map_size_extreme",
+                                                     prepared_world, 1, 0);
+    ok &= game_worldgen_hydrology_probe_check_context(file, "map_size_extreme",
+                                                      prepared_world, 0);
+    {
+        int commit_ok = world_gen_commit_prepared(prepared_world);
+        world_gen_release_prepared(prepared_world);
+        fprintf(file, "case=physical_matrix extreme=1 commit=%d ok=%d\n", commit_ok, commit_ok);
+        if (!commit_ok) {
+            fprintf(file, "overall_ok=0\n");
+            fclose(file);
+            return 1;
+        }
+    }
+    ok &= game_worldgen_hydrology_probe_finish(file);
     world_generated = 1;
     ports_reset_regions();
     regions_generate(region_size_slider);
     ports_ensure_island_ports();
     world_invalidate_region_cache();
     simulation_seed_default_civilizations();
+    ok &= game_worldgen_region_water_probe_run(file);
     world_recalculate_territory();
     ports_ensure_island_ports();
     ports_refresh_city_regions();
@@ -142,6 +199,7 @@ int run_worldgen_probe(void) {
     worldgen_progress_record_stage_ms(WORLDGEN_ROUTE_POTENTIAL_DEEP, route_stats.deep_ms);
     maritime_rebuild_routes();
     diplomacy_update_contacts();
+    ok &= game_worldgen_live_validation_probe_run(file, &config);
     worldgen_progress_record_total_ms((int)(GetTickCount() - start_ms));
     worldgen_progress_get(&progress);
     fprintf(file, "probe=worldgen seed=%u map=%dx%d civs=%d regions=%d route_wall_ms=%lu total_ms=%d\n",

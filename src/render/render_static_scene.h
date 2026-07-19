@@ -3,6 +3,7 @@
 
 #include "core/render_snapshot.h"
 #include "render/render_common.h"
+#include "render/render_layer_cache.h"
 
 void render_static_scene_draw(HDC hdc, RECT client, MapLayout layout,
                               const RenderSnapshot *snapshot);
@@ -21,6 +22,7 @@ int render_scene_cache_last_reason_code(void);
 const char *render_scene_cache_last_reason(void);
 int render_scene_cache_deferred_reuses(void);
 int render_scene_cache_viewport_rebuilds(void);
+RenderLayerCacheMemory render_static_scene_memory(void);
 void render_static_scene_debug_times(int *background_ms, int *static_map_ms,
                                      int *overlay_ms, int *publish_ms,
                                      int *blit_ms);
