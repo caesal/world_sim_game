@@ -7,9 +7,23 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.6.a is a Windows graphical sandbox prototype written in C.
+Ver0.3.6.b is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.6.a rebuilds the static physical world pipeline around coherent
+Ver0.3.6.b replaces the former single-column world setup form with a
+presentation-only four-tab control surface: Physical Terrain, Climate &
+Vegetation, Hydrology & Regions, and Legacy Modules. The new visual controls
+and the complete legacy form are bidirectionally synchronized through the
+existing integer configuration fields, so this release does not change world
+generation algorithms, phase order, save compatibility, or simulation rules.
+It adds a seven-axis read-only world fingerprint, direct and crossed relief
+handles, a four-corner climate tendency envelope, river and natural-region
+visual selectors, and a second synchronized Initial Civilizations entry.
+
+The climate background is explicitly an explanatory tendency map, not a
+prediction of generated biome coverage. Statistical calibration of that
+background is a separate later task and is not part of this release.
+
+Ver0.3.6.a rebuilt the static physical world pipeline around coherent
 elevation, broad mountain systems, a fixed annual wind field, orographic
 moisture transport, climate-aware terrain, connected drainage, lakes, river
 confluences, mouths, deltas, and hydroclimate. Physical geography is generated
@@ -46,17 +60,12 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.6.a passed deterministic world-generation,
-presentation, save, plague-model, plague-baseline, and 1,000-city stress probes;
-an Ocean Amount boundary/random matrix; matched camera, memory, and cache
-checks; targeted non-activating GUI validation; and a final AGENTS Rule39 run.
-That run reached Year 715 Month 9 on an Extreme 1152x800 world with 26 initial
-civilizations and 1,211 natural regions. The first five qualifying
-civilizations were `0 Hagi`, `1 Takunmara`, `2 Gunthertor`, `3 Ottoland`, and
-`4 Kalemba`; routes changed from `0/0/0` total/shallow/deep before unlock to
-`16/14/2` afterward. Physical, wind, and river identities remained unchanged,
-while political fill, borders, cities, labels, routes, and selected extents
-continued updating in real time.
+Validation note: Ver0.3.6.b includes deterministic adapter, interaction,
+layout, asset-cache, bilingual artifact, legacy-preservation, and
+two-way-synchronization coverage. Release acceptance also requires both build
+paths, static/text gates, generated-world GUI validation, performance/resource
+checks, and a fresh final-source AGENTS Rule39 run after the source scope is
+frozen.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

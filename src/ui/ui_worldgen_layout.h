@@ -75,6 +75,10 @@ typedef struct {
 
 void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, WorldgenLayout *layout);
 int worldgen_layout_clamp_scroll(RECT client, int panel_width, int scroll_offset);
+void worldgen_layout_build_in_viewport(RECT viewport, int scroll_offset,
+                                       WorldgenLayout *layout);
+int worldgen_layout_content_height(RECT viewport);
+int worldgen_layout_clamp_scroll_in_viewport(RECT viewport, int scroll_offset);
 int worldgen_rect_visible(RECT viewport, RECT rect);
 
 #endif

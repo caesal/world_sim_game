@@ -69,27 +69,22 @@ static void place_metric(WorldgenLayout *layout, int idx, int x, int y, int col_
     layout->metric_help[idx] = offset_rect_y(help, -scroll);
 }
 
-static int raw_content_height(RECT client, int panel_width) {
-    WorldgenLayout layout;
-    worldgen_layout_build(client, panel_width, 0, &layout);
-    return layout.content_height;
-}
-
-void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, WorldgenLayout *layout) {
-    int panel_x = client.right - panel_width + FORM_X_PAD;
-    int width = panel_width - FORM_X_PAD * 2;
-    int y = TOP_BAR_H + 62;
+void worldgen_layout_build_in_viewport(RECT viewport, int scroll_offset,
+                                       WorldgenLayout *layout) {
+    int panel_x = viewport.left;
+    int width = viewport.right - viewport.left;
+    int content_top = viewport.top + 10;
+    int y = content_top;
     int gap = 8;
     int button_w = (width - gap * (MAP_SIZE_COUNT - 1)) / MAP_SIZE_COUNT;
     int command_gap = 12;
     int command_w = (width - command_gap) / 2;
     int metric_gap = 12;
     int metric_col_w = (width - metric_gap) / 2;
-    int bottom_margin = 18;
     int i;
 
     memset(layout, 0, sizeof(*layout));
-    layout->viewport = make_rect(panel_x, TOP_BAR_H + 52, client.right - FORM_X_PAD, client.bottom - bottom_margin);
+    layout->viewport = viewport;
     layout->scroll_offset = scroll_offset;
 
     layout->title = offset_rect_y(make_rect(panel_x, y, panel_x + width, y + 28), -scroll_offset);
@@ -178,15 +173,38 @@ void worldgen_layout_build(RECT client, int panel_width, int scroll_offset, Worl
     layout->apply_button = offset_rect_y(make_rect(panel_x + command_w + command_gap, y, panel_x + width, y + 30), -scroll_offset);
     y += 42;
 
-    layout->content_height = y - (TOP_BAR_H + 62);
+    layout->content_height = y - content_top;
     layout->max_scroll = max_int(0, layout->content_height - (layout->viewport.bottom - layout->viewport.top));
 }
 
-int worldgen_layout_clamp_scroll(RECT client, int panel_width, int scroll_offset) {
-    int content_height = raw_content_height(client, panel_width);
-    int viewport_height = client.bottom - 18 - (TOP_BAR_H + 52);
+void worldgen_layout_build(RECT client, int panel_width, int scroll_offset,
+                           WorldgenLayout *layout) {
+    RECT viewport = make_rect(client.right - panel_width + FORM_X_PAD,
+                              TOP_BAR_H + 52,
+                              client.right - FORM_X_PAD,
+                              client.bottom - 18);
+    worldgen_layout_build_in_viewport(viewport, scroll_offset, layout);
+}
+
+int worldgen_layout_content_height(RECT viewport) {
+    WorldgenLayout layout;
+    worldgen_layout_build_in_viewport(viewport, 0, &layout);
+    return layout.content_height;
+}
+
+int worldgen_layout_clamp_scroll_in_viewport(RECT viewport, int scroll_offset) {
+    int content_height = worldgen_layout_content_height(viewport);
+    int viewport_height = viewport.bottom - viewport.top;
     int max_scroll = max_int(0, content_height - viewport_height);
     return clamp_int(scroll_offset, 0, max_scroll);
+}
+
+int worldgen_layout_clamp_scroll(RECT client, int panel_width, int scroll_offset) {
+    RECT viewport = make_rect(client.right - panel_width + FORM_X_PAD,
+                              TOP_BAR_H + 52,
+                              client.right - FORM_X_PAD,
+                              client.bottom - 18);
+    return worldgen_layout_clamp_scroll_in_viewport(viewport, scroll_offset);
 }
 
 int worldgen_rect_visible(RECT viewport, RECT rect) {

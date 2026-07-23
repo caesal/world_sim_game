@@ -15,7 +15,7 @@
 #include "ui/ui_plague_panel.h"
 #include "ui/ui_plague_panel_layout.h"
 #include "ui/ui_types.h"
-#include "ui/ui_worldgen_layout.h"
+#include "ui/ui_worldgen_input.h"
 
 #include <windowsx.h>
 
@@ -48,13 +48,8 @@ static int ui_wheel_handle_side_panel(HWND hwnd, RECT client, POINT point, int s
         return 1;
     }
     if (panel_tab == PANEL_WORLD && point.y >= TOP_BAR_H && point.y <= client.bottom) {
-        int old_scroll = worldgen_scroll_offset;
-        worldgen_scroll_offset = worldgen_layout_clamp_scroll(
-            client, side_panel_w, worldgen_scroll_offset - steps * 72);
-        if (worldgen_scroll_offset != old_scroll) {
-            ui_forms_layout(hwnd);
-            ui_invalidate_side_panel(hwnd);
-        }
+        ui_worldgen_input_wheel(hwnd, client, side_panel_w,
+                                point.x, point.y, steps);
         return 1;
     }
     if (panel_tab == PANEL_PLAGUE && point.y >= TOP_BAR_H && point.y <= client.bottom) {
@@ -135,4 +130,5 @@ void ui_wheel_process_pending(HWND hwnd) {
     KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
     SetTimer(hwnd, MAP_PREVIEW_TIMER_ID, 220, NULL);
     ui_wheel_invalidate_map_viewport(hwnd);
+    if (panel_tab == PANEL_WORLD) ui_invalidate_side_panel(hwnd);
 }

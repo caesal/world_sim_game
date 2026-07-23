@@ -1,5 +1,50 @@
 # Version Log
 
+## Ver0.3.6.b
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.6.b.
+2. Replaced the former single-column World Setup presentation with four
+   synchronized tabs: Physical Terrain, Climate & Vegetation, Hydrology &
+   Regions, and Legacy Modules.
+3. Kept the existing world-generation integer configuration as the sole
+   effective input contract. Changes made in the new controls immediately
+   update Legacy Modules, and legacy edits immediately update the new views.
+4. Added a read-only seven-axis world fingerprint for ocean, landmass, relief,
+   temperature tendency, humidity tendency, river density, and region scale.
+5. Added a Physical Terrain page with map-size selection, an ocean/landmass XY
+   plane, and two independent relief handles mapped to the existing relief and
+   mountain-preference values. The handles may cross or coincide.
+6. Added a Climate & Vegetation page with four independently draggable
+   quadrant-constrained corners over a `-50..+50` tendency plane. The corners
+   decompose exactly into the existing forest, desert, moisture, and drought
+   fields.
+7. Added a Hydrology & Regions page with the existing wetland preference shown
+   as river-network density, map-size-aware region presets, a synchronized
+   custom `0..100` entry, and a second Initial Civilizations entry.
+8. Preserved the complete legacy parameter, map-display, natural-region, and
+   manual civilization controls as the fourth tab, including bidirectional
+   numeric editing and independent tab scroll positions.
+9. Added five bounded presentation assets, decode/surface caching, neutral
+   missing-asset fallback, bilingual 340/460 layout artifacts, and deterministic
+   adapter, interaction, synchronization, resource, and presentation probes.
+10. Split repository instructions into a mandatory root router plus
+    role-specific Architect, Software Engineer, Validation, UI/UX, Release,
+    Documentation Maintainer, and Code Reviewer policies.
+
+Compatibility and scope notes:
+
+- `WORLD_SIM_VERSION` is `0.3.6.b`; `MAP_SAVE_VERSION` remains `20`.
+- The climate image is an explanatory tendency background only. It is not a
+  generator lookup table and has not yet been statistically calibrated against
+  generated biome distributions.
+- World-generation algorithms, phase order, random streams, geography, climate,
+  hydrology, terrain classification, region generation, save payloads,
+  simulation rules, and map drawing order are unchanged.
+- `docs/official` remains unchanged because no official documentation freeze
+  was requested.
+
 ## Ver0.3.6.a
 
 Implemented changes:

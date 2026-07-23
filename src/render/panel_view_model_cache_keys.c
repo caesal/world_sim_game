@@ -6,6 +6,7 @@
 #include "ui/ui_plague_panel.h"
 #include "ui/ui_plague_probability.h"
 #include "ui/ui_types.h"
+#include "ui/ui_worldgen_control_state.h"
 
 static const char *kind_names[PANEL_CACHE_COUNT] = {
     "collapsed", "country-list", "country-detail", "population",
@@ -241,26 +242,23 @@ unsigned int panel_view_model_cache_ui_key(RECT client,
             return mix_key(key,
                 ui_plague_panel_selected_history_episode_id());
         }
-        case PANEL_CACHE_WORLDGEN:
-            key = mix_key(key, worldgen_scroll_offset);
-            key = mix_key(key, pending_map_size);
-            key = mix_key(key, ocean_slider);
-            key = mix_key(key, continent_slider);
-            key = mix_key(key, relief_slider);
-            key = mix_key(key, moisture_slider);
-            key = mix_key(key, drought_slider);
-            key = mix_key(key, vegetation_slider);
-            key = mix_key(key, bias_forest_slider);
-            key = mix_key(key, bias_desert_slider);
-            key = mix_key(key, bias_mountain_slider);
-            key = mix_key(key, bias_wetland_slider);
-            key = mix_key(key, region_size_slider);
-            key = mix_key(key, initial_civ_count);
+        case PANEL_CACHE_WORLDGEN: {
+            const UiWorldgenControlState *state =
+                ui_worldgen_control_state_get();
+            int tab = state->initialized ? state->tab :
+                                           UI_WORLDGEN_TAB_PHYSICAL;
+            key = mix_key(key, tab);
+            key = mix_key(key, state->initialized ?
+                          state->scroll_offsets[tab] : 0);
+            key = mix_key(key, (int)state->revision);
+            key = mix_key(key, state->dirty);
+            key = mix_key(key, state->generation_failed);
             key = mix_key(key, (int)selected_civ_color);
             key = mix_key(key, selected_civ_color_index);
+            key = mix_key(key, selected_civ);
             key = mix_key(key, display_mode);
-            key = mix_key(key, map_zoom_percent);
             return mix_key(key, map_legend_collapsed);
+        }
         case PANEL_CACHE_DEBUG_MAP:
             key = mix_key(key, debug_event_filter);
             key = mix_key(key, debug_event_log_scroll_offset);

@@ -15,6 +15,8 @@
 #define ID_ADD_BUTTON 110
 #define ID_APPLY_BUTTON 111
 #define ID_INITIAL_CIVS_EDIT 112
+#define ID_REGION_CUSTOM_EDIT 113
+#define ID_HYDROLOGY_INITIAL_CIVS_EDIT 114
 #define LOG_SCROLL_ITEMS_PER_WHEEL_NOTCH 1
 
 typedef enum {
@@ -150,6 +152,8 @@ typedef struct {
     HWND commerce_edit;
     HWND innovation_edit;
     HWND initial_civs_edit;
+    HWND hydrology_initial_civs_edit;
+    HWND region_custom_edit;
     HWND add_button;
     HWND apply_button;
 } FormControls;

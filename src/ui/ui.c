@@ -1,13 +1,13 @@
 ﻿#include "ui.h"
 #include "game/game.h"
 #include "game/game_loop.h"
-#include "game/game_worldgen.h"
 #include "core/game_types.h"
 #include "render/panel_country.h"
 #include "render/panel_country_events.h"
 #include "render/panel_debug.h"
 #include "render/panel_country_diplomacy_hits.h"
 #include "render/render.h"
+#include "render/worldgen_ui_assets.h"
 #include "ui/color_picker.h"
 #include "ui/pause_menu.h"
 #include "ui/ui_actions.h"
@@ -29,6 +29,10 @@
 #include "ui/ui_types.h"
 #include "ui/ui_wheel.h"
 #include "ui/ui_worldgen_layout.h"
+#include "ui/ui_worldgen_command.h"
+#include "ui/ui_worldgen_control_state.h"
+#include "ui/ui_worldgen_input.h"
+#include "ui/ui_worldgen_view.h"
 #include "ui/ui_world_announcement.h"
 #include <string.h>
 #include <windowsx.h>
@@ -49,6 +53,7 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (!IsRectEmpty(&legend_toggle) && point_in_rect(legend_toggle, mouse_x, mouse_y)) {
         map_legend_collapsed = !map_legend_collapsed;
         ui_invalidate_map_viewport(hwnd);
+        if (panel_tab == PANEL_WORLD) ui_invalidate_side_panel(hwnd);
         return;
     }
     if (ui_world_announcement_handle_click(hwnd, client, mouse_x, mouse_y)) return;
@@ -58,11 +63,12 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
         ui_invalidate_full(hwnd);
         return;
     }
-    if (point_in_rect(get_reset_view_button_rect(client), mouse_x, mouse_y)) { ui_map_view_reset(); ui_map_view_clamp(client); ui_invalidate_map_viewport(hwnd); return; }
+    if (point_in_rect(get_reset_view_button_rect(client), mouse_x, mouse_y)) { ui_map_view_reset(); ui_map_view_clamp(client); ui_invalidate_map_viewport(hwnd); if (panel_tab == PANEL_WORLD) ui_invalidate_side_panel(hwnd); return; }
     if (ui_handle_top_map_display_click(hwnd, client, mouse_x, mouse_y)) return;
     if (point_in_rect(get_play_button_rect(client), mouse_x, mouse_y)) {
         ui_pressed_control_set(hwnd, UI_PRESSED_PLAY, 0); game_toggle_auto_run();
-        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR);
+        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
+                                  (panel_tab == PANEL_WORLD ? GAME_REDRAW_SIDE_PANEL : 0));
         return;
     }
     for (i = 0; i < SPEED_COUNT; i++) {
@@ -219,19 +225,35 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
             return;
         }
     }
+    if (divider_hit_test(hwnd, mouse_x, mouse_y)) {
+        dragging_panel = 1;
+        SetCapture(hwnd);
+        return;
+    }
     if (panel_tab == PANEL_WORLD) {
+        UiWorldgenPanelLayout panel_layout;
         WorldgenLayout layout;
-        worldgen_layout_build(client, side_panel_w, worldgen_scroll_offset, &layout);
+        if (ui_worldgen_input_mouse_down(hwnd, client, side_panel_w,
+                                         mouse_x, mouse_y)) return;
+        ui_worldgen_view_build(client, side_panel_w, &panel_layout);
+        if (panel_layout.tab != UI_WORLDGEN_TAB_LEGACY &&
+            ui_worldgen_input_owns_panel_point(
+                client, side_panel_w, mouse_x, mouse_y)) return;
+        ui_worldgen_view_build_legacy_layout(&panel_layout.legacy, &layout);
         if (ui_forms_handle_worldgen_random_click(hwnd, client, mouse_x, mouse_y)) return;
         for (i = 0; i < MAP_SIZE_COUNT; i++) {
-            if (point_in_rect(layout.map_size_buttons[i], mouse_x, mouse_y)) {
-                pending_map_size = i;
+            if (ui_worldgen_panel_hit_test(layout.viewport,
+                    layout.map_size_buttons[i], mouse_x, mouse_y)) {
+                ui_worldgen_control_state_set_field(
+                    UI_WORLDGEN_FIELD_PENDING_MAP_SIZE, i);
+                ui_forms_write_world_setup_controls();
+                ui_forms_layout(hwnd);
                 ui_invalidate_side_panel(hwnd);
                 return;
             }
         }
-        if (worldgen_rect_visible(layout.viewport, layout.civ_color_preview) &&
-            point_in_rect(layout.civ_color_preview, mouse_x, mouse_y)) {
+        if (ui_worldgen_panel_hit_test(layout.viewport,
+                layout.civ_color_preview, mouse_x, mouse_y)) {
             color_picker_open_setup(selected_civ_color);
             ui_invalidate_full(hwnd);
             return;
@@ -241,11 +263,6 @@ static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     if (slider >= 0) {
         dragging_slider = slider;
         update_setup_slider(hwnd, slider, mouse_x);
-        SetCapture(hwnd);
-        return;
-    }
-    if (divider_hit_test(hwnd, mouse_x, mouse_y)) {
-        dragging_panel = 1;
         SetCapture(hwnd);
         return;
     }
@@ -273,6 +290,9 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
     ui_world_announcement_update_hover(hwnd, client, mouse_x, mouse_y);
     ui_panel_hover_update(hwnd, client, old_hover_x, old_hover_y,
                           mouse_x, mouse_y);
+    if (panel_tab == PANEL_WORLD &&
+        ui_worldgen_input_mouse_move(hwnd, client, side_panel_w,
+                                     mouse_x, mouse_y)) return;
     if (panel_tab == PANEL_PLAGUE &&
         ui_plague_input_mouse_move(hwnd, client, side_panel_w,
                                    mouse_x, mouse_y)) return;
@@ -304,6 +324,7 @@ static void handle_mouse_move(HWND hwnd, int mouse_x, int mouse_y) {
 }
 static void handle_mouse_leave(HWND hwnd) {
     tracking_mouse_leave = 0;
+    if (panel_tab == PANEL_WORLD) ui_worldgen_input_mouse_leave(hwnd);
     if (hover_x >= 0 || hover_y >= 0) {
         RECT client;
         hover_x = -1;
@@ -317,6 +338,9 @@ static void handle_mouse_up(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     int was_dragging_map = dragging_map;
     GetClientRect(hwnd, &client);
+    if (panel_tab == PANEL_WORLD &&
+        ui_worldgen_input_mouse_up(hwnd, client, side_panel_w,
+                                   mouse_x, mouse_y)) return;
     if (ui_plague_input_mouse_up(hwnd, client, side_panel_w,
                                  mouse_x, mouse_y)) {
         ui_pressed_control_clear(hwnd);
@@ -332,7 +356,11 @@ static void handle_mouse_up(HWND hwnd, int mouse_x, int mouse_y) {
         if (was_dragging_map) map_interaction_preview = 0;
         ReleaseCapture();
         if (was_dragging_map) ui_invalidate_map_viewport(hwnd);
-        else ui_invalidate_full(hwnd);
+        else if (panel_tab == PANEL_WORLD) {
+            ui_forms_write_world_setup_controls();
+            ui_forms_layout(hwnd);
+            ui_invalidate_side_panel(hwnd);
+        } else ui_invalidate_full(hwnd);
     }
 }
 static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
@@ -351,60 +379,10 @@ static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     last_mouse_y = mouse_y;
     SetCapture(hwnd);
 }
-int handle_shortcut(HWND hwnd, WPARAM key) {
-    if (ui_country_target_active()) {
-        if (key == VK_ESCAPE) return ui_country_target_cancel(hwnd);
-        return 1;
-    }
-    if (key == VK_ESCAPE) {
-        game_pause_for_modal_or_action();
-        if (color_picker_active()) {
-            color_picker_close();
-            ui_invalidate_full(hwnd);
-            return 1;
-        }
-        pause_menu_open = !pause_menu_open;
-        ui_forms_layout(hwnd);
-        ui_invalidate_full(hwnd);
-        return 1;
-    }
-    if (color_picker_active()) return 1;
-    if (pause_menu_open) return 1;
-    if (key == VK_SPACE) {
-        game_toggle_auto_run();
-        ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR);
-        return 1;
-    }
-    if (key == VK_F1) {
-        ui_forms_add_civ(hwnd);
-        return 1;
-    }
-    if (key == VK_F2) {
-        ui_forms_apply_selected(hwnd);
-        return 1;
-    }
-    if (key == VK_F5 || key == 'R') {
-        ui_forms_read_world_setup_controls();
-        game_request_new_world_with_progress(hwnd);
-        ui_invalidate_full(hwnd);
-        return 1;
-    }
-    return 0;
-}
-int is_game_shortcut(WPARAM key) {
-    return key == VK_SPACE || key == VK_F1 || key == VK_F2 || key == VK_F5 || key == VK_ESCAPE;
-}
-int is_game_char_shortcut(WPARAM key) { return key == ' '; }
-int handle_char_shortcut(HWND hwnd, WPARAM key) {
-    if (ui_country_target_active()) return 1;
-    if (color_picker_active()) return 1;
-    if (pause_menu_open) return 1;
-    if (key == ' ') return handle_shortcut(hwnd, VK_SPACE);
-    return 0;
-}
 LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     switch (msg) {
         case WM_CREATE:
+            ui_worldgen_command_initialize();
             ui_forms_create(hwnd);
             SetTimer(hwnd, TIMER_ID, FRAME_TIMER_MS, NULL);
             return 0;
@@ -415,8 +393,13 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             return 0;
         case WM_COMMAND:
             if (pause_menu_open) return 0;
-            if (HIWORD(wparam) == EN_CHANGE && ui_forms_handle_metric_change(LOWORD(wparam))) return 0;
-            if (HIWORD(wparam) == EN_KILLFOCUS && ui_forms_normalize_metric_edit(LOWORD(wparam))) return 0;
+            if (HIWORD(wparam) == EN_CHANGE && ui_forms_handle_metric_change(LOWORD(wparam))) {
+                ui_invalidate_side_panel(hwnd); return 0;
+            }
+            if (HIWORD(wparam) == EN_KILLFOCUS && ui_forms_normalize_metric_edit(LOWORD(wparam))) {
+                ui_forms_write_world_setup_controls(); ui_forms_layout(hwnd);
+                ui_invalidate_side_panel(hwnd); return 0;
+            }
             if (ui_forms_handle_command(hwnd, LOWORD(wparam))) return 0;
             return 0;
         case WM_CTLCOLOREDIT:
@@ -472,6 +455,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             KillTimer(hwnd, TIMER_ID);
             KillTimer(hwnd, MAP_PREVIEW_TIMER_ID);
             KillTimer(hwnd, WHEEL_INPUT_TIMER_ID);
+            worldgen_ui_assets_release();
             PostQuitMessage(0);
             return 0;
         default:

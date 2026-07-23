@@ -72,6 +72,15 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_presentation_plague_fog_probe.c ^
   src\game\game_presentation_worldgen_contract_probe.c ^
   src\game\game_presentation_worldgen_probe.c ^
+  src\game\game_presentation_worldgen_controls_probe.c ^
+  src\game\game_presentation_worldgen_controls_adapter_probe.c ^
+  src\game\game_presentation_worldgen_controls_region_probe.c ^
+  src\game\game_presentation_worldgen_controls_interaction_probe.c ^
+  src\game\game_presentation_worldgen_controls_artifact_probe.c ^
+  src\game\game_presentation_worldgen_controls_artifact_render.c ^
+  src\game\game_presentation_worldgen_controls_artifact_matrix.c ^
+  src\game\game_presentation_worldgen_controls_artifact_assets.c ^
+  src\game\game_presentation_worldgen_controls_resource_probe.c ^
   src\game\game_presentation_static_physical_probe.c ^
   src\game\game_presentation_static_camera_probe.c ^
   src\game\game_presentation_static_physical_artifacts.c ^
@@ -304,6 +313,9 @@ src\sim\diplomacy_year.c ^
   src\render\render_world_physical_prewarm.c ^
   src\render\render_world_static_prewarm.c ^
   src\render\render_ocean_assets.c ^
+  src\render\worldgen_ui_assets.c ^
+  src\render\worldgen_ui_surface_cache.c ^
+  src\render\panel_worldgen_controls.c ^
   src\render\render_ocean_decoration_rules.c ^
   src\render\render_ocean_decoration_cache.c ^
   src\render\render_ocean_decoration_items.c ^
@@ -398,6 +410,12 @@ src\sim\diplomacy_year.c ^
   src\render\panel_plague_chart.c ^
   src\render\panel_debug_plague.c ^
   src\render\panel_worldgen.c ^
+  src\render\panel_worldgen_shell.c ^
+  src\render\panel_worldgen_fingerprint.c ^
+  src\render\panel_worldgen_physical.c ^
+  src\render\panel_worldgen_climate.c ^
+  src\render\panel_worldgen_hydrology.c ^
+  src\render\panel_worldgen_legacy.c ^
   src\render\panel_debug_worldgen.c ^
   src\render\panel_debug_controls.c ^
   src\render\panel_debug_spikes.c ^
@@ -433,6 +451,13 @@ src\sim\diplomacy_year.c ^
   src\ui\world_announcement_queue.c ^
   src\ui\ui_pressed_state.c ^
   src\ui\ui_wheel.c ^
+  src\ui\ui_worldgen_config_adapter.c ^
+  src\ui\ui_worldgen_command.c ^
+  src\ui\ui_worldgen_control_state.c ^
+  src\ui\ui_worldgen_input.c ^
+  src\ui\ui_worldgen_panel_layout.c ^
+  src\ui\ui_worldgen_random.c ^
+  src\ui\ui_worldgen_view.c ^
   src\ui\ui_worldgen_layout.c ^
   src\ui\ui_plague_fog.c ^
   src\ui\ui_plague_input.c ^
@@ -444,7 +469,9 @@ src\sim\diplomacy_year.c ^
   src\ui\ui_map_legend_layout.c ^
   src\ui\ui_map_input.c ^
   src\ui\ui_sliders.c ^
+  src\ui\ui_shortcuts.c ^
   src\ui\ui_forms.c ^
+  src\ui\ui_worldgen_legacy_forms.c ^
   src\ui\ui_selection.c ^
   src\ui\ui_snapshot_read.c ^
   src\ui\ui.c ^
