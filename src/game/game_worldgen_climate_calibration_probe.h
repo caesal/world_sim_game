@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_WORLDGEN_CLIMATE_CALIBRATION_PROBE_H
+#define WORLD_SIM_GAME_WORLDGEN_CLIMATE_CALIBRATION_PROBE_H
+
+int run_worldgen_climate_calibration_probe(void);
+
+#endif

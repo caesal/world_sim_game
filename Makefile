@@ -47,6 +47,10 @@ SOURCES := \
 	src/game/game_worldgen_hydrology_direction_probe.c \
 	src/game/game_worldgen_hydrology_invariant_probe.c \
 	src/game/game_worldgen_climate_probe.c \
+	src/game/game_worldgen_climate_calibration_worker.c \
+	src/game/game_worldgen_climate_calibration_metrics.c \
+	src/game/game_worldgen_climate_calibration_csv.c \
+	src/game/game_worldgen_climate_calibration_probe.c \
 	src/game/game_worldgen_mountain_shape_probe.c \
 	src/game/game_worldgen_terrain_probe.c \
 	src/game/game_crisis_probe.c \

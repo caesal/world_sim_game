@@ -172,6 +172,61 @@ static int render_relief_climate_river(
     return ok;
 }
 
+static void set_climate_points(const int points[][2]) {
+    int index;
+    for (index = 0; index < UI_WORLDGEN_CLIMATE_CORNER_COUNT; index++) {
+        ui_worldgen_control_state_set_climate_corner(
+            (UiWorldgenClimateCornerId)index,
+            points[index][0], points[index][1]);
+    }
+}
+
+static int render_climate_review_states(
+    WorldgenControlsArtifactWriter *writer) {
+    static const int irregular[UI_WORLDGEN_CLIMATE_CORNER_COUNT][2] = {
+        {-41, 37}, {12, 48}, {45, -7}, {-8, -33}
+    };
+    static const int crossed[UI_WORLDGEN_CLIMATE_CORNER_COUNT][2] = {
+        {0, 50}, {50, 0}, {0, -50}, {-50, 0}
+    };
+    static const int overlapped[UI_WORLDGEN_CLIMATE_CORNER_COUNT][2] = {
+        {0, 0}, {0, 0}, {0, 0}, {0, 0}
+    };
+    int ok = 1;
+    reset_presentation_state(UI_WORLDGEN_TAB_CLIMATE);
+    set_climate_points(irregular);
+    ok &= worldgen_controls_artifact_render(
+        writer, "worldgen_climate_en_340_irregular.bmp", 340, UI_LANG_EN);
+    reset_presentation_state(UI_WORLDGEN_TAB_CLIMATE);
+    set_climate_points(crossed);
+    ok &= worldgen_controls_artifact_render(
+        writer, "worldgen_climate_zh_340_boundary_crossed.bmp", 340,
+        UI_LANG_ZH);
+    reset_presentation_state(UI_WORLDGEN_TAB_CLIMATE);
+    ui_worldgen_control_state_set_hovered(target(
+        UI_WORLDGEN_CONTROL_CLIMATE_CORNER, UI_WORLDGEN_CLIMATE_TOP_LEFT));
+    ok &= worldgen_controls_artifact_render(
+        writer, "worldgen_climate_en_460_hover_top_left.bmp", 460,
+        UI_LANG_EN);
+    reset_presentation_state(UI_WORLDGEN_TAB_CLIMATE);
+    ui_worldgen_control_state_begin_drag(target(
+        UI_WORLDGEN_CONTROL_CLIMATE_CORNER, UI_WORLDGEN_CLIMATE_TOP_RIGHT));
+    ok &= worldgen_controls_artifact_render(
+        writer, "worldgen_climate_en_460_drag_top_right.bmp", 460,
+        UI_LANG_EN);
+    reset_presentation_state(UI_WORLDGEN_TAB_CLIMATE);
+    set_climate_points(overlapped);
+    ok &= worldgen_controls_artifact_render(
+        writer, "worldgen_climate_en_460_overlap_identity.bmp", 460,
+        UI_LANG_EN);
+    reset_presentation_state(UI_WORLDGEN_TAB_CLIMATE);
+    ui_worldgen_control_state_set_field(UI_WORLDGEN_FIELD_VEGETATION, 76);
+    ok &= worldgen_controls_artifact_render(
+        writer, "worldgen_climate_en_460_vegetation_full.bmp", 460,
+        UI_LANG_EN);
+    return ok;
+}
+
 static int render_region_matrix(WorldgenControlsArtifactWriter *writer) {
     static const char *names[UI_WORLDGEN_REGION_PRESET_COUNT] = {
         "very_small", "small", "medium", "large", "very_large"
@@ -346,6 +401,7 @@ int worldgen_controls_artifact_matrix(
     int ok = 1;
     ok &= render_base_matrix(writer);
     ok &= render_relief_climate_river(writer);
+    ok &= render_climate_review_states(writer);
     ok &= render_region_matrix(writer);
     ok &= render_legacy_positions(writer);
     ok &= render_interaction_states(writer);

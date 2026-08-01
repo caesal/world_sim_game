@@ -222,11 +222,24 @@ int worldgen_controls_artifact_render(
     const UiWorldgenControlState *state;
     UiWorldgenEffectiveConfig config;
     RECT client = {0, 0, width, WORLDGEN_CONTROLS_ARTIFACT_HEIGHT};
+    RECT owner_client;
+    POINT cursor_before = {0}, cursor_after = {0};
+    HWND foreground_before = GetForegroundWindow();
+    HWND foreground_after;
+    DWORD_PTR message_result = 0;
     uint64_t hash = 0;
     unsigned int non_background = 0;
     int opened;
     int wrote = 0;
     int native_ok = 0;
+    int cursor_before_ok = GetCursorPos(&cursor_before);
+    int resized;
+    int geometry_ok;
+    int delivered = 0;
+    int character_extra_before = 0;
+    int character_extra_after = 0;
+    int character_extra_restored = 0;
+    int capture_ok;
     int ok;
     if (!writer || !writer->manifest || !writer->directory ||
         !writer->owner || !IsWindow(writer->owner) ||
@@ -240,12 +253,26 @@ int worldgen_controls_artifact_render(
     side_panel_collapsed = 0;
     panel_tab = PANEL_WORLD;
     ui_language = language;
+    resized = SetWindowPos(writer->owner, NULL, 0, 0, width,
+                           WORLDGEN_CONTROLS_ARTIFACT_HEIGHT,
+                           SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE) != 0;
+    geometry_ok = GetClientRect(writer->owner, &owner_client) &&
+                  owner_client.right - owner_client.left == width &&
+                  owner_client.bottom - owner_client.top ==
+                      WORLDGEN_CONTROLS_ARTIFACT_HEIGHT;
     layout_native_children(client, width);
     opened = static_physical_probe_canvas_open(
         &canvas, width, WORLDGEN_CONTROLS_ARTIFACT_HEIGHT);
     if (opened) {
         static_physical_probe_canvas_clear(&canvas);
-        draw_side_panel(canvas.dc, client);
+        character_extra_before = GetTextCharacterExtra(canvas.dc);
+        delivered = SendMessageTimeoutA(
+            writer->owner, WM_PRINTCLIENT, (WPARAM)canvas.dc,
+            PRF_CLIENT | PRF_ERASEBKGND,
+            SMTO_ABORTIFHUNG | SMTO_BLOCK, 1000, &message_result) != 0;
+        character_extra_after = GetTextCharacterExtra(canvas.dc);
+        character_extra_restored =
+            character_extra_before == character_extra_after;
         native_ok = composite_native_children(writer, &canvas);
         GdiFlush();
         non_background = non_background_pixels(&canvas);
@@ -255,7 +282,15 @@ int worldgen_controls_artifact_render(
     }
     state = ui_worldgen_control_state_get();
     ui_worldgen_config_read(&config);
-    ok = opened && wrote && native_ok &&
+    foreground_after = GetForegroundWindow();
+    capture_ok = cursor_before_ok && GetCursorPos(&cursor_after) && resized &&
+                 geometry_ok && delivered && message_result == 1 &&
+                 character_extra_restored &&
+                 foreground_before == foreground_after &&
+                 foreground_after != writer->owner &&
+                 cursor_before.x == cursor_after.x &&
+                 cursor_before.y == cursor_after.y;
+    ok = opened && wrote && native_ok && capture_ok &&
          non_background > (unsigned int)(width *
              WORLDGEN_CONTROLS_ARTIFACT_HEIGHT / 2);
     writer->last_hash = hash;
@@ -263,7 +298,7 @@ int worldgen_controls_artifact_render(
     if (!ok) writer->failure_count++;
     fprintf(
         writer->manifest,
-        "artifact=%s ok=%d renderer=draw_side_panel width=%d height=%d language=%s tab=%s preset=%s scroll=%d signature=%llu hash=%016llx non_background=%u native_visible=%u native_composited=%u native_mask=%08x native_edit_text=%u/%u native_edit_text_pixels=%u native_ok=%d opened=%d wrote=%d\n",
+        "artifact=%s ok=%d renderer=hwnd_wm_printclient width=%d height=%d language=%s tab=%s preset=%s scroll=%d signature=%llu hash=%016llx non_background=%u native_visible=%u native_composited=%u native_mask=%08x native_edit_text=%u/%u native_edit_text_pixels=%u native_ok=%d hwnd_capture=%d hdc_character_extra_restored=%d character_extra_before=%d character_extra_after=%d resized=%d geometry=%d delivered=%d result=%llu foreground_unchanged=%d cursor_unchanged=%d opened=%d wrote=%d\n",
         filename, ok, width, WORLDGEN_CONTROLS_ARTIFACT_HEIGHT,
         language_name(language), tab_name(state->tab),
         state->preset == UI_WORLDGEN_PRESET_BALANCED ? "balanced" : "custom",
@@ -274,7 +309,13 @@ int worldgen_controls_artifact_render(
         (unsigned int)writer->last_native_mask,
         writer->last_native_edit_text_rendered,
         writer->last_native_edit_text_expected,
-        writer->last_native_edit_text_pixels, native_ok, opened, wrote);
+        writer->last_native_edit_text_pixels, native_ok, capture_ok,
+        character_extra_restored, character_extra_before,
+        character_extra_after, resized, geometry_ok, delivered,
+        (unsigned long long)message_result,
+        foreground_before == foreground_after,
+        cursor_before.x == cursor_after.x && cursor_before.y == cursor_after.y,
+        opened, wrote);
     static_physical_probe_canvas_close(&canvas);
     return ok;
 }

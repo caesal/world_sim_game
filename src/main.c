@@ -15,6 +15,14 @@ static int probe_flag_present(void) {
 int main(int argc, char **argv) {
     int no_activate = argc > 1 && argv[1] && strcmp(argv[1], "--no-activate") == 0;
 
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--worldgen-climate-calibration-worker") == 0) {
+        return run_worldgen_climate_calibration_worker(argc, argv);
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--probe-worldgen-climate-calibration") == 0) {
+        return run_worldgen_climate_calibration_probe();
+    }
     if ((argc > 1 && argv[1] && strcmp(argv[1], "--probe-expansion") == 0) ||
         getenv("WORLD_SIM_PROBE_EXPANSION") || probe_flag_present()) {
         return run_expansion_probe();

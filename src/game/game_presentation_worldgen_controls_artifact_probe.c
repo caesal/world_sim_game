@@ -3,6 +3,7 @@
 #include "core/constants.h"
 #include "core/game_types.h"
 #include "game/game_presentation_static_physical_artifacts.h"
+#include "render/render_panel_internal.h"
 #include "render/worldgen_ui_assets.h"
 #include "ui/ui_forms.h"
 #include "ui/ui_worldgen_command.h"
@@ -30,6 +31,12 @@ typedef struct {
 
 static LRESULT CALLBACK artifact_form_owner_proc(
     HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+    if (message == WM_PRINTCLIENT) {
+        RECT client;
+        GetClientRect(hwnd, &client);
+        draw_side_panel((HDC)wparam, client);
+        return 1;
+    }
     if (message == WM_CTLCOLOREDIT) {
         HBRUSH brush = ui_forms_control_color(wparam, lparam);
         if (brush) return (LRESULT)brush;
@@ -470,7 +477,7 @@ int worldgen_controls_probe_artifacts(
     fclose(writer.manifest);
     worldgen_controls_probe_record(
         report, "worldgen_controls_artifact_matrix", ok,
-        "artifacts=%d expected=%d failures=%d sync_ok=%d renderer=draw_side_panel adapter_restored=%d state_restored=%d globals_restored=%d revision_advanced=%d manifest=%s",
+        "artifacts=%d expected=%d failures=%d sync_ok=%d renderer=hwnd_wm_printclient adapter_restored=%d state_restored=%d globals_restored=%d revision_advanced=%d manifest=%s",
         writer.artifact_count, WORLDGEN_CONTROLS_ARTIFACT_EXPECTED_COUNT,
         writer.failure_count, sync_ok, adapter_ok, state_ok, globals_ok,
         revision_advanced, manifest_path);

@@ -55,29 +55,103 @@ static void draw_envelope(HDC hdc,
 
 static void draw_axis_labels(HDC hdc,
                              const UiWorldgenClimateLayout *climate) {
-    RECT humid = {climate->plot.left + 5, climate->plot.top + 3,
-                  climate->plot.right - 5, climate->plot.top + 22};
-    RECT dry = {climate->plot.left + 5, climate->plot.bottom - 22,
-                climate->plot.right - 5, climate->plot.bottom - 3};
-
+    int old_extra = SetTextCharacterExtra(hdc, 0);
+    draw_text_rect(hdc, climate->y_high_label,
+                   tr("Moisture Input", "湿润输入"),
+                   ui_clay_muted_text_color(),
+                   DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+    draw_text_rect(hdc, climate->y_low_label,
+                   tr("Drought Input", "干旱输入"),
+                   ui_clay_muted_text_color(),
+                   DT_SINGLELINE | DT_VCENTER | DT_CENTER);
     draw_text_rect(hdc, climate->x_low_label,
-                   tr("Cold -50", "寒冷 -50"),
+                   tr("Forest\nBias", "森林\n偏好"),
                    ui_clay_muted_text_color(),
-                   DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+                   DT_CENTER | DT_WORDBREAK);
     draw_text_rect(hdc, climate->x_high_label,
-                   tr("Hot +50", "炎热 +50"),
+                   tr("Desert\nBias", "沙漠\n偏好"),
                    ui_clay_muted_text_color(),
-                   DT_SINGLELINE | DT_VCENTER | DT_RIGHT);
-    draw_text_rect(hdc, humid, tr("Humid +50", "湿润 +50"),
-                   ui_clay_muted_text_color(),
-                   DT_SINGLELINE | DT_VCENTER | DT_CENTER);
-    draw_text_rect(hdc, dry, tr("Dry -50", "干燥 -50"),
-                   ui_clay_muted_text_color(),
-                   DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+                   DT_CENTER | DT_WORDBREAK);
+    SetTextCharacterExtra(hdc, old_extra);
+}
+
+static int label_hits_handle(const UiWorldgenClimateLayout *climate,
+                             RECT label) {
+    int index;
+    for (index = 0; index < UI_WORLDGEN_CLIMATE_CORNER_COUNT; index++) {
+        RECT handle = climate->corner_handle[index];
+        if (label.left < handle.right && label.right > handle.left &&
+            label.top < handle.bottom && label.bottom > handle.top) return 1;
+    }
+    return 0;
+}
+
+static int label_hits_prior(const RECT *placed, int placed_count,
+                            RECT label) {
+    int index;
+    for (index = 0; index < placed_count; index++) {
+        RECT spaced = placed[index];
+        InflateRect(&spaced, 2, 2);
+        if (label.left < spaced.right && label.right > spaced.left &&
+            label.top < spaced.bottom && label.bottom > spaced.top) return 1;
+    }
+    return 0;
+}
+
+static int label_is_clear(const UiWorldgenClimateLayout *climate,
+                          const RECT *placed, int placed_count, RECT label) {
+    return label.left >= climate->plot.left &&
+           label.right <= climate->plot.right &&
+           label.top >= climate->plot.top &&
+           label.bottom <= climate->plot.bottom &&
+           !label_hits_handle(climate, label) &&
+           !label_hits_prior(placed, placed_count, label);
+}
+
+static int try_label_offset(const UiWorldgenClimateLayout *climate,
+                            const RECT *placed, int placed_count, RECT label,
+                            int dx, int dy, RECT *resolved) {
+    OffsetRect(&label, dx, dy);
+    if (!label_is_clear(climate, placed, placed_count, label)) return 0;
+    *resolved = label;
+    return 1;
+}
+
+static RECT place_label(const UiWorldgenClimateLayout *climate,
+                        const RECT *placed, int placed_count, RECT label) {
+    int direction = (label.top + label.bottom) <
+                    (climate->plot.top + climate->plot.bottom) ? -1 : 1;
+    int distance;
+    if (label_is_clear(climate, placed, placed_count, label)) return label;
+    for (distance = 4; distance <= 160; distance += 4) {
+        int horizontal;
+        RECT resolved;
+        if (try_label_offset(climate, placed, placed_count, label,
+                             -distance, 0, &resolved) ||
+            try_label_offset(climate, placed, placed_count, label,
+                             distance, 0, &resolved) ||
+            try_label_offset(climate, placed, placed_count, label,
+                             0, direction * distance, &resolved) ||
+            try_label_offset(climate, placed, placed_count, label,
+                             0, -direction * distance, &resolved)) return resolved;
+        for (horizontal = 4; horizontal < distance; horizontal += 4) {
+            int vertical = distance - horizontal;
+            if (try_label_offset(climate, placed, placed_count, label,
+                                 horizontal, direction * vertical, &resolved) ||
+                try_label_offset(climate, placed, placed_count, label,
+                                 -horizontal, direction * vertical, &resolved) ||
+                try_label_offset(climate, placed, placed_count, label,
+                                 horizontal, -direction * vertical, &resolved) ||
+                try_label_offset(climate, placed, placed_count, label,
+                                 -horizontal, -direction * vertical,
+                                 &resolved)) return resolved;
+        }
+    }
+    return label;
 }
 
 static void draw_biome_labels(HDC hdc,
-                              const UiWorldgenClimateLayout *climate) {
+                               const UiWorldgenClimateLayout *climate) {
     static const char *labels_en[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT] = {
         "Icefield", "Tundra", "Temperate Grassland", "Desert",
         "Forest", "Monsoon", "Tropical Rainforest"
@@ -85,13 +159,17 @@ static void draw_biome_labels(HDC hdc,
     static const char *labels_zh[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT] = {
         "冰原", "苔原", "温带草原", "沙漠", "森林", "季风区", "热带雨林"
     };
-    int old_extra = SetTextCharacterExtra(hdc, -1);
+    int old_extra = SetTextCharacterExtra(hdc, 0);
+    RECT placed[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT];
+    int placed_count = 0;
     int i;
 
     for (i = 0; i < UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT; i++) {
         RECT label = climate->biome_label[i];
-        label.top -= 8;
-        label.bottom += 8;
+        label.top -= 6;
+        label.bottom += 6;
+        label = place_label(climate, placed, placed_count, label);
+        placed[placed_count++] = label;
         draw_text_rect(hdc, label,
                        tr(labels_en[i], labels_zh[i]),
                        RGB(213, 222, 214),
@@ -209,7 +287,7 @@ void panel_worldgen_climate_draw(
     SelectObject(hdc, body_font);
     ui_clay_draw_card(hdc, climate->section, UI_CLAY_STATE_NORMAL);
     draw_text_rect(hdc, climate->title,
-                   tr("Temperature & Humidity", "温度与湿度"),
+                   tr("Climate Response", "气候响应"),
                    ui_theme_color(UI_COLOR_TEXT),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     worldgen_ui_assets_draw_fit(

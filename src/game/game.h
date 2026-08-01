@@ -50,6 +50,8 @@ int run_population_probe(void);
 int run_presentation_probe(void);
 int run_worldgen_probe(void);
 int run_worldgen_coast_threshold_probe(void);
+int run_worldgen_climate_calibration_worker(int argc, char **argv);
+int run_worldgen_climate_calibration_probe(void);
 int run_expansion_perf_probe(void);
 int run_military_alliance_probe(void);
 

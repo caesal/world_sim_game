@@ -1,5 +1,43 @@
 # Version Log
 
+## Ver0.3.6.c
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.6.c.
+2. Replaced the original illustrative Climate & Vegetation background with the
+   C2 continuous tendency field while preserving the existing four-corner
+   control geometry and exact legacy-parameter adapter.
+3. Added an automated climate-calibration worker, CSV writer, metrics collector,
+   deterministic probe, resumable runner, evidence processor, and shared
+   contract tooling.
+4. Measured 28,561 effective climate-envelope configurations at Small, Medium,
+   Large, and Extreme map sizes with four calibration seeds and two independent
+   holdout seeds: 456,976 calibration worlds, 228,488 holdout worlds, and
+   685,464 formal worlds in total.
+5. Retained icefield, tundra, temperate grassland, desert, forest, monsoon, and
+   tropical-rainforest labels as broad tendencies. The background uses blended
+   transitions and does not claim exact biome coverage.
+6. Recorded 79 of 81 measured coordinates as cross-stable across all six seeds
+   and four size-specific surfaces. The two mixed coordinates remain visually
+   uncertain rather than receiving a false categorical boundary.
+7. Verified 100% calibration-versus-holdout top-tendency agreement, coordinate
+   rank agreement `0.993533`, and global lift rank agreement `0.997756`.
+8. Updated the climate-panel layout and deterministic bilingual artifact matrix
+   for the C2 field without changing the surrounding world fingerprint, tabs,
+   controls, or legacy synchronization.
+
+Compatibility and scope notes:
+
+- `WORLD_SIM_VERSION` is `0.3.6.c`; `MAP_SAVE_VERSION` remains `20`.
+- The climate field is explanatory presentation, not a generator lookup table
+  or an exact climate forecast.
+- World-generation parameters, algorithms, phase order, random streams,
+  terrain classification, save payloads, simulation rules, and map drawing
+  order are unchanged.
+- `docs/official` remains unchanged because no official documentation freeze
+  was requested.
+
 ## Ver0.3.6.b
 
 Implemented changes:

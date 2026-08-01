@@ -7,9 +7,19 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.6.b is a Windows graphical sandbox prototype written in C.
+Ver0.3.6.c is a Windows graphical sandbox prototype written in C.
 
-Ver0.3.6.b replaces the former single-column world setup form with a
+Ver0.3.6.c replaces the original illustrative climate-envelope background with
+the C2 statistically informed continuous tendency field. The calibration
+pipeline measured 28,561 effective climate-envelope configurations at all four
+map sizes with four calibration seeds and two independent holdout seeds:
+685,464 formal generated worlds in total. The background retains all seven
+climate tendency labels, blends uncertain transitions instead of presenting
+hard categorical predictions, and remains presentation-only. It does not alter
+the existing world-generation parameters, algorithms, phase order, or random
+streams.
+
+Ver0.3.6.b replaced the former single-column world setup form with a
 presentation-only four-tab control surface: Physical Terrain, Climate &
 Vegetation, Hydrology & Regions, and Legacy Modules. The new visual controls
 and the complete legacy form are bidirectionally synchronized through the
@@ -19,9 +29,10 @@ It adds a seven-axis read-only world fingerprint, direct and crossed relief
 handles, a four-corner climate tendency envelope, river and natural-region
 visual selectors, and a second synchronized Initial Civilizations entry.
 
-The climate background is explicitly an explanatory tendency map, not a
-prediction of generated biome coverage. Statistical calibration of that
-background is a separate later task and is not part of this release.
+The climate background remains an explanatory tendency map rather than a
+prediction of generated biome coverage. The measured result found 79 of 81
+coordinates cross-stable across all six seeds and four map sizes; the two mixed
+coordinates remain blended instead of being assigned a false hard category.
 
 Ver0.3.6.a rebuilt the static physical world pipeline around coherent
 elevation, broad mountain systems, a fixed annual wind field, orographic
@@ -60,12 +71,13 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.6.b includes deterministic adapter, interaction,
-layout, asset-cache, bilingual artifact, legacy-preservation, and
-two-way-synchronization coverage. Release acceptance also requires both build
-paths, static/text gates, generated-world GUI validation, performance/resource
-checks, and a fresh final-source AGENTS Rule39 run after the source scope is
-frozen.
+Validation note: Ver0.3.6.c retains the Ver0.3.6.b deterministic adapter,
+interaction, layout, asset-cache, bilingual artifact, legacy-preservation, and
+two-way-synchronization coverage. It adds automated qualification, calibration,
+holdout, processing, lineage, and C2 presentation checks. Release acceptance
+still requires both build paths, static/text gates, generated-world GUI
+validation, performance/resource checks, and a fresh final-source AGENTS
+Rule39 run after the source scope is frozen.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

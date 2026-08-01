@@ -115,13 +115,12 @@ void ui_worldgen_panel_point_to_values(RECT plot, POINT point, int x_min,
         point.y, max_int(plot.top, plot.bottom - 1), plot.top, y_min, y_max);
 }
 static RECT label_at(RECT plot, int x_percent, int y_percent, int width) {
-    POINT center = {
-        plot.left + (plot.right - plot.left) * x_percent / 100,
-        plot.top + (plot.bottom - plot.top) * y_percent / 100
-    };
-    RECT label = make_rect(center.x - width / 2, center.y - 9,
-                           center.x - width / 2 + width, center.y + 9);
-    return ui_worldgen_panel_clip_rect(plot, label);
+    POINT center = {plot.left + (plot.right - plot.left) * x_percent / 100,
+                    plot.top + (plot.bottom - plot.top) * y_percent / 100};
+    int half_limit = min_int(center.x - plot.left, plot.right - center.x);
+    width = min_int(width, max_int(2, half_limit * 2));
+    return make_rect(center.x - width / 2, center.y - 9,
+                     center.x - width / 2 + width, center.y + 9);
 }
 static void split_slots(RECT bounds, RECT *slots, int count) {
     int i;
@@ -330,19 +329,20 @@ static int build_physical(const UiWorldgenPanelLayoutInput *input, RECT viewport
 static int build_climate(const UiWorldgenPanelLayoutInput *input, RECT viewport,
                          int scroll, UiWorldgenClimateLayout *layout) {
     static const int label_positions[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT][2] = {
-        {13, 72}, {18, 24}, {48, 52}, {80, 76},
-        {48, 23}, {76, 46}, {80, 18}
-    };
+        {24, 82}, {40, 10}, {47, 29}, {76, 82}, {12, 48}, {72, 60}, {83, 30}};
+    static const int label_widths[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT] = {
+        56, 56, 80, 56, 56, 60, 84};
     int x = viewport.left;
     int width = viewport.right - viewport.left;
     int y = viewport.top + FINGERPRINT_HEIGHT + SHELL_GAP;
-    int i;
-    RECT raw = ui_worldgen_panel_aspect_fit(
-        make_rect(x + 24, y + 30, x + width - 12, y + 290), 1536, 1024);
-    layout->section = offset_rect_y(make_rect(x, y, x + width, raw.bottom + 28), -scroll);
+    int gutter = clamp_int(width / 10, 36, 48), i;
+    int plot_width = width - gutter * 2;
+    RECT raw = make_rect(x + gutter, y + 50, x + width - gutter,
+                         y + 50 + (plot_width * 2 + 1) / 3);
+    layout->section = offset_rect_y(make_rect(x, y, x + width, raw.bottom + 30), -scroll);
     layout->title = offset_rect_y(make_rect(x + 6, y + 4, x + width - 6, y + 24), -scroll);
     layout->asset = offset_rect_y(raw, -scroll);
-    layout->plot = inset_rect(layout->asset, 12, 12);
+    layout->plot = layout->asset;
     layout->x_axis = make_rect(layout->plot.left,
                                (layout->plot.top + layout->plot.bottom) / 2,
                                layout->plot.right,
@@ -351,18 +351,18 @@ static int build_climate(const UiWorldgenPanelLayoutInput *input, RECT viewport,
                                layout->plot.top,
                                (layout->plot.left + layout->plot.right) / 2 + 1,
                                layout->plot.bottom);
-    layout->x_low_label = make_rect(layout->plot.left, layout->asset.bottom + 2,
-                                    layout->plot.left + 80, layout->asset.bottom + 22);
-    layout->x_high_label = make_rect(layout->plot.right - 80, layout->asset.bottom + 2,
-                                     layout->plot.right, layout->asset.bottom + 22);
-    layout->y_high_label = make_rect(x, layout->plot.top, layout->asset.left - 4,
-                                     layout->plot.top + 34);
-    layout->y_low_label = make_rect(x, layout->plot.bottom - 34,
-                                    layout->asset.left - 4, layout->plot.bottom);
+    layout->y_high_label = make_rect(layout->plot.left, layout->asset.top - 23,
+                                     layout->plot.right, layout->asset.top - 3);
+    layout->y_low_label = make_rect(layout->plot.left, layout->asset.bottom + 3,
+                                    layout->plot.right, layout->asset.bottom + 25);
+    layout->x_low_label = make_rect(x, (layout->plot.top + layout->plot.bottom) / 2 - 18 + (gutter == 36 ? 28 : 0),
+                                    layout->plot.left, (layout->plot.top + layout->plot.bottom) / 2 + 18 + (gutter == 36 ? 28 : 0));
+    layout->x_high_label = make_rect(layout->plot.right, (layout->plot.top + layout->plot.bottom) / 2 - 18 + (gutter == 36 ? 28 : 0),
+                                     x + width, (layout->plot.top + layout->plot.bottom) / 2 + 18 + (gutter == 36 ? 28 : 0));
     for (i = 0; i < UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT; i++)
         layout->biome_label[i] = label_at(layout->plot, label_positions[i][0],
                                           label_positions[i][1],
-                                          max_int(48, (layout->plot.right - layout->plot.left) / 3));
+                                          max_int(label_widths[i], (layout->plot.right - layout->plot.left) / 5));
     for (i = 0; i < UI_WORLDGEN_CLIMATE_CORNER_COUNT; i++) {
         UiWorldgenPoint value = climate_corner(input, i);
         POINT center = ui_worldgen_panel_values_to_point(layout->plot, value.x, -50, 50,
@@ -370,7 +370,7 @@ static int build_climate(const UiWorldgenPanelLayoutInput *input, RECT viewport,
         layout->corner_handle[i] = centered_rect(center, HANDLE_SIZE);
         layout->corner_handle_hit[i] = centered_rect(center, HANDLE_HIT_SIZE);
     }
-    y = raw.bottom + 40;
+    y = raw.bottom + 42;
     layout->vegetation_section = offset_rect_y(make_rect(x, y, x + width, y + 74), -scroll);
     layout->vegetation_label = offset_rect_y(make_rect(x + 6, y + 5,
                                                         x + width - 72, y + 25), -scroll);

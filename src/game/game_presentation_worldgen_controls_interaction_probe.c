@@ -116,19 +116,30 @@ static int case_layout_widths_fixed_shell(
 
 static int case_checkpoint_geometry(WorldgenControlsProbeReport *report) {
     static const int widths[] = {340, 460};
+    static const int biome_positions[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT][2] = {
+        {24, 82}, {40, 10}, {47, 29}, {76, 82},
+        {12, 48}, {72, 60}, {83, 30}
+    };
+    static const int biome_widths[UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT] = {
+        56, 56, 80, 56, 56, 60, 84
+    };
     int tabs_ok = 1;
     int fingerprint_ok = 1;
     int hydrology_ok = 1;
+    int climate_ok = 1;
     int width_index;
     for (width_index = 0;
          width_index < (int)(sizeof(widths) / sizeof(widths[0]));
          width_index++) {
         UiWorldgenPanelLayout layout;
+        UiWorldgenPanelLayout climate_layout;
         const UiWorldgenFingerprintLayout *fingerprint;
         const UiWorldgenHydrologyLayout *hydrology;
+        const UiWorldgenClimateLayout *climate;
         int tab_width;
         int diameter;
         int axis;
+        int biome;
         int tab;
         build_layout_direct(
             widths[width_index], UI_WORLDGEN_TAB_HYDROLOGY_REGIONS,
@@ -203,13 +214,58 @@ static int case_checkpoint_geometry(WorldgenControlsProbeReport *report) {
                 hydrology->initial_civs_input_frame.bottom - 3 &&
             layout.content_bounds.bottom ==
                 hydrology->initial_civs_section.bottom + 12;
+        build_layout_direct(widths[width_index], UI_WORLDGEN_TAB_CLIMATE,
+                            0, &climate_layout);
+        climate = &climate_layout.climate;
+        {
+            int content_width = climate_layout.content_viewport.right -
+                                climate_layout.content_viewport.left;
+            int gutter = content_width / 10;
+            int plot_width = climate->plot.right - climate->plot.left;
+            int plot_height = climate->plot.bottom - climate->plot.top;
+            if (gutter < 36) gutter = 36;
+            if (gutter > 48) gutter = 48;
+            climate_ok &= rect_equal(climate->asset, climate->plot) &&
+                climate->plot.left - climate_layout.content_viewport.left == gutter &&
+                climate_layout.content_viewport.right - climate->plot.right == gutter &&
+                plot_width * 2 >= plot_height * 3 - 1 &&
+                plot_width * 2 <= plot_height * 3 + 1;
+            climate_ok &= climate->title.bottom <= climate->y_high_label.top &&
+                climate->y_high_label.bottom <= climate->plot.top &&
+                climate->plot.bottom <= climate->y_low_label.top &&
+                climate->y_low_label.bottom <= climate->section.bottom &&
+                climate->section.bottom < climate->vegetation_section.top;
+            climate_ok &= climate->x_low_label.right == climate->plot.left &&
+                climate->x_high_label.left == climate->plot.right &&
+                rect_center(climate->x_low_label).y == rect_center(climate->plot).y +
+                    (gutter == 36 ? 28 : 0) &&
+                rect_center(climate->x_high_label).y == rect_center(climate->plot).y +
+                    (gutter == 36 ? 28 : 0) &&
+                rect_center(climate->y_high_label).x == rect_center(climate->plot).x &&
+                rect_center(climate->y_low_label).x == rect_center(climate->plot).x;
+            for (biome = 0; biome < UI_WORLDGEN_PANEL_BIOME_LABEL_COUNT; biome++) {
+                POINT center = rect_center(climate->biome_label[biome]);
+                int expected_width = biome_widths[biome] > plot_width / 5 ?
+                    biome_widths[biome] : plot_width / 5;
+                climate_ok &= center.x == climate->plot.left +
+                    plot_width * biome_positions[biome][0] / 100 &&
+                    center.y == climate->plot.top +
+                    plot_height * biome_positions[biome][1] / 100 &&
+                    climate->biome_label[biome].right -
+                    climate->biome_label[biome].left == expected_width &&
+                    climate->biome_label[biome].left >= climate->plot.left &&
+                    climate->biome_label[biome].right <= climate->plot.right &&
+                    climate->biome_label[biome].top >= climate->plot.top &&
+                    climate->biome_label[biome].bottom <= climate->plot.bottom;
+            }
+        }
     }
     worldgen_controls_probe_record(
         report, "worldgen_controls_checkpoint_geometry",
-        tabs_ok && fingerprint_ok && hydrology_ok,
-        "widths=340,460 equal_tabs=%d fingerprint_exact=%d hydrology_row=%d",
-        tabs_ok, fingerprint_ok, hydrology_ok);
-    return tabs_ok && fingerprint_ok && hydrology_ok;
+        tabs_ok && fingerprint_ok && hydrology_ok && climate_ok,
+        "widths=340,460 equal_tabs=%d fingerprint_exact=%d hydrology_row=%d climate_geometry=%d",
+        tabs_ok, fingerprint_ok, hydrology_ok, climate_ok);
+    return tabs_ok && fingerprint_ok && hydrology_ok && climate_ok;
 }
 
 static int case_axis_boundaries(WorldgenControlsProbeReport *report) {
