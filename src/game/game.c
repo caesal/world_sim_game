@@ -10,7 +10,7 @@
 #include "game/game_loop.h"
 #include "game/game_worldgen.h"
 #include "sim/collapse.h"
-#include "sim/decision_snapshot.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/civ_colors.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
@@ -101,6 +101,7 @@ static int game_request_add_civilization_from_selection_internal(const char *nam
     dirty_mark_civ();
     country_focus_invalidate();
     world_visual_revision++;
+    decision_snapshot_cache_seed_complete();
     render_snapshot_cache_update_all();
     state_write_unlock();
     render_snapshot_publish_from_live_state();
@@ -214,8 +215,7 @@ void game_request_after_load_map(HWND hwnd, int restored_dynamic_state) {
     civilization_colors_debug_check();
     world_announcement_state_baseline_from_world();
     dirty_mark_world();
-    decision_snapshot_cache_mark_all_dirty();
-    decision_snapshot_cache_update_budgeted(MAX_CIVS);
+    decision_snapshot_cache_seed_complete();
     world_visual_revision++;
     render_snapshot_cache_update_all();
     game_worldgen_publish_and_prewarm(hwnd);

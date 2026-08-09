@@ -21,6 +21,7 @@ RECT get_side_panel_body_rect(RECT client);
 RECT get_side_panel_draw_rect(RECT client);
 RECT get_side_panel_handle_rect(RECT client);
 RECT get_side_panel_handle_dirty_rect(RECT client);
+RECT get_side_panel_handle_hit_rect(RECT client);
 int side_panel_handle_hit_test(RECT client, int x, int y);
 void ui_map_view_reset(void);
 void ui_map_view_clamp(RECT client);

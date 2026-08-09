@@ -20,6 +20,9 @@ typedef struct {
 void territory_integrity_reset(void);
 void territory_integrity_repair_capitals(void);
 void territory_integrity_update_year(void);
+/* Caller must serialize live state and end the batch before releasing it. */
+void territory_integrity_read_batch_begin(void);
+void territory_integrity_read_batch_end(void);
 void territory_integrity_get_stats(int civ_id, TerritoryIntegrityStats *out);
 int territory_integrity_region_is_capital_connected(int civ_id, int region_id);
 int territory_integrity_region_score(int civ_id, int region_id);

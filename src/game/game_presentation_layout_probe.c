@@ -46,6 +46,78 @@ static int rect_inside(RECT outer, RECT inner) {
            inner.right > inner.left && inner.bottom > inner.top;
 }
 
+static int hit_test_matches_rect(RECT client, RECT hit) {
+    int mid_x = (hit.left + hit.right) / 2;
+    int mid_y = (hit.top + hit.bottom) / 2;
+    return side_panel_handle_hit_test(client, hit.left, hit.top) &&
+           side_panel_handle_hit_test(client, hit.right, hit.bottom) &&
+           side_panel_handle_hit_test(client, mid_x, mid_y) &&
+           !side_panel_handle_hit_test(client, hit.left - 1, mid_y) &&
+           !side_panel_handle_hit_test(client, hit.right + 1, mid_y) &&
+           !side_panel_handle_hit_test(client, mid_x, hit.top - 1) &&
+           !side_panel_handle_hit_test(client, mid_x, hit.bottom + 1);
+}
+
+static int side_panel_handle_case_ok(RECT client, int panel_width, int collapsed) {
+    int old_collapsed = side_panel_collapsed;
+    int old_side = side_panel_w;
+    int old_mode = display_mode;
+    int old_legend = map_legend_collapsed;
+    RECT handle, hit, body, overlap, dirty, legend, toggle, legend_hit;
+    int area_top = TOP_BAR_H;
+    int area_bottom = client.bottom - BOTTOM_BAR_H;
+    int expected_top = area_top + ((area_bottom - area_top) - 28) / 2;
+    int ok;
+    side_panel_collapsed = collapsed;
+    side_panel_w = panel_width;
+    display_mode = DISPLAY_POLITICAL;
+    map_legend_collapsed = 0;
+    handle = get_side_panel_handle_rect(client);
+    hit = get_side_panel_handle_hit_rect(client);
+    body = get_side_panel_body_rect(client);
+    dirty = get_side_panel_handle_dirty_rect(client);
+    legend = get_map_legend_box_rect(client);
+    toggle = get_map_legend_toggle_rect(client);
+    legend_hit = get_map_legend_hit_rect(client);
+    ok = handle.right - handle.left == 28 && handle.bottom - handle.top == 28 &&
+         handle.top == expected_top && handle.bottom == expected_top + 28 &&
+         hit.left == handle.left - 8 && hit.top == handle.top - 8 &&
+         hit.right == handle.right + 8 && hit.bottom == handle.bottom + 8 &&
+         hit_test_matches_rect(client, hit) && !IsRectEmpty(&legend) &&
+         !rect_intersects(legend, dirty) && !rect_intersects(toggle, dirty) &&
+         !rect_intersects(legend_hit, dirty);
+    if (collapsed) {
+        ok &= handle.left == client.right - 36 && handle.right == client.right - 8 &&
+              IsRectEmpty(&body);
+    } else {
+        ok &= body.left == client.right - panel_width &&
+              handle.right <= body.left && !IntersectRect(&overlap, &handle, &body);
+    }
+    side_panel_collapsed = old_collapsed;
+    side_panel_w = old_side;
+    display_mode = old_mode;
+    map_legend_collapsed = old_legend;
+    return ok;
+}
+
+static int side_panel_handle_matrix_ok(int *passed, int *total) {
+    const RECT clients[] = {{0, 0, 1280, 800}, {0, 0, 2560, 1400}};
+    const int widths[] = {500, 720};
+    int i, j, collapsed;
+    *passed = 0;
+    *total = 0;
+    for (i = 0; i < (int)(sizeof(clients) / sizeof(clients[0])); i++) {
+        for (j = 0; j < (int)(sizeof(widths) / sizeof(widths[0])); j++) {
+            for (collapsed = 0; collapsed <= 1; collapsed++) {
+                (*total)++;
+                if (side_panel_handle_case_ok(clients[i], widths[j], collapsed))
+                    (*passed)++;
+            }
+        }
+    }
+    return *passed == *total;
+}
+
 static int color_delta(unsigned int a, unsigned int b) {
     int db = abs((int)(a & 255) - (int)(b & 255));
     int dg = abs((int)((a >> 8) & 255) - (int)((b >> 8) & 255));
@@ -146,11 +218,9 @@ static int legend_case_ok(RECT client, int collapsed, int mode) {
     dirty = get_side_panel_handle_dirty_rect(client);
     ok = !IsRectEmpty(&box) && rect_inside(viewport, box) &&
          !IsRectEmpty(&toggle) && !IsRectEmpty(&hit);
-    if (collapsed) {
-        ok &= viewport.right == client.right;
-        ok &= !rect_intersects(box, dirty) && !rect_intersects(toggle, dirty) &&
-              !rect_intersects(hit, dirty);
-    }
+    if (collapsed) ok &= viewport.right == client.right;
+    ok &= !rect_intersects(box, dirty) && !rect_intersects(toggle, dirty) &&
+          !rect_intersects(hit, dirty);
     side_panel_collapsed = old_collapsed;
     side_panel_w = old_side;
     display_mode = old_mode;
@@ -235,7 +305,9 @@ static int render_layout_bmp(const char *path, int collapsed, int mode, int *out
 int game_presentation_layout_probe(FILE *summary) {
     RECT expanded = {0, 0, 1040, 720}, collapsed = {0, 0, 1040, 720};
     int seam_ep = 999, seam_cp = 999, seam_er = 999, seam_cr = 999, alliance_no = 0, alliance_many = 0, artifact_ok, seam_ok;
+    int handle_passed = 0, handle_total = 0;
     RenderSnapshot *legend_snapshot = (RenderSnapshot *)calloc(1, sizeof(*legend_snapshot));
+    int handle_ok = side_panel_handle_matrix_ok(&handle_passed, &handle_total);
     int layout_ok = legend_case_ok(expanded, 0, DISPLAY_POLITICAL) && legend_case_ok(collapsed, 1, DISPLAY_POLITICAL) && legend_case_ok(expanded, 0, DISPLAY_ROUTE_POTENTIAL) && legend_case_ok(collapsed, 1, DISPLAY_ROUTE_POTENTIAL) && legend_case_ok(expanded, 0, DISPLAY_ALLIANCE) && legend_case_ok(collapsed, 1, DISPLAY_ALLIANCE);
     if (legend_snapshot) {
         int i;
@@ -250,7 +322,10 @@ int game_presentation_layout_probe(FILE *summary) {
     fprintf(summary, "case=alliance_legend_toggle_hit_rect ok=%d no_alliance=%d many_alliances=%d\n", alliance_no && alliance_many, alliance_no, alliance_many);
     fprintf(summary, "case=alliance_legend_toggle_no_alliance ok=%d\n", alliance_no);
     fprintf(summary, "case=alliance_legend_toggle_many_alliances ok=%d\n", alliance_many);
+    fprintf(summary,
+            "case=side_panel_handle_geometry ok=%d passed=%d/%d clients=1280x800/2560x1400 widths=500/720 states=expanded/collapsed hit_target=preserved_44x44_rect_with_inclusive_edges\n",
+            handle_ok, handle_passed, handle_total);
     fprintf(summary, "case=map_layout_legend_edge ok=%d layout=%d seam=%d artifacts=%d seam_scores=%d/%d/%d/%d files=ocean_texture_seam_political_expanded.bmp/ocean_texture_seam_political_collapsed.bmp/ocean_texture_seam_routes_expanded.bmp/ocean_texture_seam_routes_collapsed.bmp\n", layout_ok && seam_ok && artifact_ok, layout_ok, seam_ok, artifact_ok, seam_ep, seam_cp, seam_er, seam_cr);
-    return layout_ok && alliance_no && alliance_many && seam_ok && artifact_ok &&
+    return handle_ok && layout_ok && alliance_no && alliance_many && seam_ok && artifact_ok &&
            game_presentation_live_map_probe(summary);
 }

@@ -57,12 +57,7 @@ static void draw_snapshot_tiles(HDC hdc, RECT client, MapLayout layout) {
     COLORREF old_brush = GetDCBrushColor(hdc);
     int px, py;
     if (!IntersectRect(&visible, &map_rect, &viewport)) return;
-    if (!snapshot || !snapshot->world_generated) {
-        SetDCBrushColor(hdc, RGB(64, 133, 178));
-        FillRect(hdc, &visible, brush);
-        SetDCBrushColor(hdc, old_brush);
-        return;
-    }
+    if (!snapshot || !snapshot->world_generated) return;
     for (py = visible.top; py < visible.bottom; py++) {
         int tile_y = clamp((int)((long long)(py - layout.map_y) *
                          snapshot->map_h / max(1, layout.draw_h)),
@@ -74,10 +69,16 @@ static void draw_snapshot_tiles(HDC hdc, RECT client, MapLayout layout) {
             int right = layout.map_x + (int)(((long long)(tile_x + 1) *
                         layout.draw_w + snapshot->map_w - 1) /
                         snapshot->map_w);
-            RECT run = {px, py, min(visible.right, max(px + 1, right)), py + 1};
-            SetDCBrushColor(hdc,
-                            snapshot_tile_color(snapshot, tile_x, tile_y));
-            FillRect(hdc, &run, brush);
+            const SnapshotTile *tile = snap_tile(snapshot, tile_x, tile_y);
+            RECT run = {
+                px, py, min(visible.right, max(px + 1, right)), py + 1
+            };
+            if (tile->geography != GEO_OCEAN &&
+                tile->geography != GEO_BAY) {
+                SetDCBrushColor(
+                    hdc, snapshot_tile_color(snapshot, tile_x, tile_y));
+                FillRect(hdc, &run, brush);
+            }
             px = run.right;
         }
     }

@@ -192,24 +192,90 @@ static __attribute__((unused)) void draw_city_list(HDC hdc, UiCursor *cursor, in
     }
 }
 
-static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
-    static char buffers[4][96];
+const char *country_overview_next_action_text(
+    const DecisionSnapshot *decision, int language) {
+    static char buffers[4][256];
     static int index;
     char *buffer = buffers[index++ % 4];
-    const char *reason = decision->expansion_reason && decision->expansion_reason[0] ?
-                         decision->expansion_reason : decision->main_intent;
+    const char *reason;
+    int a, b, c, d, e;
+    if (!decision) return "";
+    reason = decision->expansion_reason && decision->expansion_reason[0] ?
+             decision->expansion_reason : decision->main_intent;
     if (!reason) return "";
-    if (ui_language != 1) return reason;
+    if (language != UI_LANG_ZH) return reason;
+
+    if (strcmp(reason, "No expansion decision yet.") == 0)
+        return "尚无扩张决策";
+    if (strcmp(reason, "No adjacent unowned natural region found; land blocked or unreachable.") == 0)
+        return "无相邻可占领自然区域；陆路受阻或不可达";
+    if (sscanf(reason,
+               "Frontier found, but population/resource/admin drive %d <= %d.",
+               &a, &b) == 2) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "已发现边疆；人口/资源/行政驱动力 %d <= %d", a, b);
+        return buffer;
+    }
+    if (strcmp(reason, "Region claim failed: city cap or no admin city available.") == 0)
+        return "区域占领失败：城市上限或无可用行政城市";
+    if (strcmp(reason, "Region claim failed: ownership or admin-city constraints blocked it.") == 0)
+        return "区域占领失败：所有权或行政城市条件阻止占领";
+    if (sscanf(reason,
+               "Claimed adjacent region %d; cooldown %d months; tech expansion x%d%%.",
+               &a, &b, &c) == 3) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "已占领相邻区域 %d；冷却 %d 个月；科技扩张 x%d%%", a, b, c);
+        return buffer;
+    }
+    if (sscanf(reason, "Expansion cooldown: next claim window in %d months.", &a) == 1) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "扩张冷却：距下次占领窗口 %d 个月", a);
+        return buffer;
+    }
+    if (sscanf(reason,
+               "Claim skipped: desire %d vs threshold %d; land %d, shallow %d, maritime %d.",
+               &a, &b, &c, &d, &e) == 5) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "跳过占领：意愿 %d/阈值 %d；陆地 %d，浅海 %d，航路 %d",
+                 a, b, c, d, e);
+        return buffer;
+    }
+    if (strcmp(reason, "Stability gate blocks overseas expansion.") == 0)
+        return "稳定闸门阻止海外扩张";
+    if (sscanf(reason,
+               "Claimed sea-reachable region; shallow %d, maritime %d, deep %d; cooldown %d months.",
+               &a, &b, &c, &d) == 4) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "已通过航道占领新区域；浅海 %d，航路 %d，深海 %d；冷却 %d 个月",
+                 a, b, c, d);
+        return buffer;
+    }
+    if (sscanf(reason,
+               "Sea reachable S%d/R%d/D%d; skipped by chance, score, or city cap.",
+               &a, &b, &c) == 3) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "海路可达：浅海 %d/航路 %d/深海 %d；机会、评分或城市上限未通过",
+                 a, b, c);
+        return buffer;
+    }
+    if (sscanf(reason,
+               "Land: no adjacent target. Shallow sea: 0 reachable. Maritime: 0 reachable. Port candidates: %d.",
+               &a) == 1) {
+        snprintf(buffer, sizeof(buffers[0]),
+                 "无陆地、浅海或航路目标；港口候选 %d", a);
+        return buffer;
+    }
+    if (strcmp(reason, "Nearby land remains; shallow islands are visible but homeland expansion is preferred.") == 0)
+        return "附近仍有陆地；优先扩张本土而非浅海岛屿";
+
     if (strstr(reason, "Claimed adjacent region")) return "已占领相邻区域，进入冷却";
+    if (strstr(reason, "Claimed nearby region")) return "已占领附近区域";
     if (strstr(reason, "Claimed shallow")) return "已占领浅海可达区域，进入冷却";
     if (strstr(reason, "Claimed maritime") || strstr(reason, "Claimed overseas")) return "已通过航道占领新区域";
     if (strstr(reason, "cooldown") || strstr(reason, "Cooldown")) {
         if (decision->next_expansion_months > 0) {
-            {
-                char span[48];
-                ui_format_months(span, sizeof(span), decision->next_expansion_months, UI_MONTH_ZERO_NOW);
-                snprintf(buffer, sizeof(buffers[0]), "%s %s", tr("Expansion cooldown", "扩张冷却"), span);
-            }
+            snprintf(buffer, sizeof(buffers[0]), "扩张冷却：%d 个月",
+                     decision->next_expansion_months);
             return buffer;
         }
         return "扩张冷却中";
@@ -219,11 +285,11 @@ static const char *overview_next_action_ui(const DecisionSnapshot *decision) {
     if (strstr(reason, "budget") || strstr(reason, "Budget")) return "等待扩张预算";
     if (strstr(reason, "city cap") || strstr(reason, "City cap")) return "城市数量达到上限";
     if (strstr(reason, "random") || strstr(reason, "chance") || strstr(reason, "Probability")) return "本次扩张机会未触发";
-    if (strcmp(reason, "Waiting") == 0) return tr("Waiting", "等待");
+    if (strcmp(reason, "Waiting") == 0) return "等待";
     if (strcmp(reason, "Expansion") == 0) return "倾向扩张";
     if (strcmp(reason, "War") == 0) return "战争倾向上升";
     if (strcmp(reason, "Stability") == 0) return "优先维持稳定";
-    return reason;
+    return "扩张决策详情暂不可用";
 }
 
 static const char *overview_dominant_intent(const DecisionSnapshot *decision) {
@@ -234,6 +300,16 @@ static const char *overview_dominant_intent(const DecisionSnapshot *decision) {
     if (decision->war_weight >= decision->expansion_weight &&
         decision->war_weight >= decision->stability_weight) return tr("War", "战争");
     return tr("Stability", "稳定");
+}
+
+static void draw_overview_next_action_row(HDC hdc, UiCursor *cursor,
+                                          const char *value) {
+    COLORREF color = ui_theme_color(UI_COLOR_TEXT_MUTED);
+    if (cursor->y > cursor->bottom - 40) return;
+    draw_text_line(hdc, cursor->x, cursor->y,
+                   tr("Next Action:", "下一步:"), color);
+    draw_text_line(hdc, cursor->x, cursor->y + 20, value, color);
+    cursor->y += 42;
 }
 
 static void draw_decision_meter_row(HDC hdc, UiCursor *cursor, const char *label,
@@ -285,7 +361,8 @@ static void draw_overview_mini_blocks(HDC hdc, UiCursor *cursor, int civ_id) {
     draw_decision_meter_row(hdc, cursor, tr("War", "战争"), decision.war_weight, RGB(180, 84, 74));
     draw_decision_meter_row(hdc, cursor, tr("Stability", "稳定"), decision.stability_weight, RGB(92, 130, 162));
     ui_row_text(hdc, cursor, tr("Dominant Intent", "主导方向"), overview_dominant_intent(&decision));
-    ui_row_text(hdc, cursor, tr("Next Action", "下一步"), overview_next_action_ui(&decision));
+    draw_overview_next_action_row(
+        hdc, cursor, country_overview_next_action_text(&decision, ui_language));
     if ((civ ? civ->plague_active_count : 0) > 0) {
         ui_section(hdc, cursor, tr("Plague", "瘟疫"));
         draw_metric_row(hdc, cursor, civ ? civ->plague_active_count : 0, civ ? civ->plague_peak_severity : 0,

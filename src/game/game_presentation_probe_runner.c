@@ -2,6 +2,12 @@
 #include "game/game_presentation_plague_fog_probe.h"
 #include "game/game_presentation_plague_probability_probe.h"
 #include "game/game_presentation_ocean_surface_probe.h"
+#include "game/game_presentation_decision_artifact_probe.h"
+#include "game/game_presentation_decision_stability_probe.h"
+#include "game/game_presentation_decision_stability_visual_contract_probe.h"
+#include "game/game_presentation_war_history_probe.h"
+#include "game/game_presentation_war_history_visual_contract_probe.h"
+#include "game/game_presentation_visual_blocker_probe.h"
 #include "game/game_presentation_coast_smoothing_probe.h"
 #include "game/game_presentation_static_physical_artifacts.h"
 #include "game/game_presentation_static_physical_probe.h"
@@ -65,6 +71,16 @@ int run_presentation_probe(void) {
     ok &= game_presentation_map_ocean_probe(summary);
     ok &= game_presentation_coast_smoothing_probe(summary);
     ok &= game_presentation_map_decision_probe(summary);
+    ok &= game_presentation_decision_artifact_probe(
+        static_physical_probe_artifact_dir(), summary);
+    ok &= game_presentation_decision_stability_probe(
+        static_physical_probe_artifact_dir(), summary);
+    ok &= game_presentation_decision_stability_visual_contract_probe(summary);
+    ok &= game_presentation_war_history_probe(
+        static_physical_probe_artifact_dir(), summary);
+    ok &= game_presentation_war_history_visual_contract_probe(summary);
+    ok &= game_presentation_visual_blocker_probe(
+        static_physical_probe_artifact_dir(), summary);
     ok &= game_presentation_world_policy_probe(summary);
     ok &= game_presentation_world_announcement_probe(summary);
     ok &= game_presentation_plague_probe(summary);

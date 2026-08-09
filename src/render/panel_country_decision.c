@@ -125,7 +125,7 @@ static void countdown_chip(HDC hdc, UiCursor *cursor, const char *label,
                            int months_value, int max_months) {
     RECT row = ui_take_rect(cursor, 27);
     int row_w = row.right - row.left;
-    int label_w = row_w >= 330 ? 116 : 96;
+    int label_w = 116;
     int time_w = row_w >= 330 ? 86 : 74;
     RECT label_rect = {row.left, row.top, row.left + label_w, row.bottom};
     RECT time_rect = {row.right - time_w, row.top, row.right, row.bottom};
@@ -162,7 +162,7 @@ static const char *current_state_text(const DecisionSnapshot *snap, int reachabl
     if (!desire_ready) return tr("Waiting", "等待");
     if (!cooldown_ready) return tr("Cooldown", "冷却中");
     if (!budget_ready) return tr("No budget", "预算不足");
-    if (snapshot_ui_city_count() >= MAX_CITIES) return tr("No capacity", "容量不足");
+    if (!snap->city_capacity_ready) return tr("No capacity", "容量不足");
     if (strcmp(intent, "War") == 0) return tr("At war", "战争中");
     if (strcmp(intent, "Stability") == 0) return tr("Stability", "稳定");
     return tr("Ready", "可执行");
@@ -434,7 +434,7 @@ void draw_country_decision_tab(HDC hdc, UiCursor *cursor, int civ_id) {
     desire_ready = snap.expansion.expansion_desire >= snap.expansion.expansion_threshold;
     cooldown_ready = snap.expansion.months_until_next_claim <= 0;
     budget_ready = snap.expansion.claim_budget > 0;
-    capacity_ready = snapshot_ui_city_count() < MAX_CITIES;
+    capacity_ready = snap.city_capacity_ready;
     draw_country_decision_subtabs(hdc, cursor);
     if (country_decision_subtab == COUNTRY_DECISION_STABILITY) {
         draw_country_decision_stability_tab(hdc, cursor, &snap);
@@ -457,11 +457,15 @@ void draw_country_decision_tab(HDC hdc, UiCursor *cursor, int civ_id) {
     if (country_decision_subtab == COUNTRY_DECISION_EXPANSION) {
         ui_section(hdc, cursor, tr("Reachability", "可达性"));
         draw_reachability_grid(hdc, cursor, &snap);
-        snprintf(text, sizeof(text), tr("ports %d / candidates %d / shallow path %d / fail %d",
-                                        "港口 %d / 候选 %d / 浅海路径 %d / 失败 %d"),
+        snprintf(text, sizeof(text), cursor->width < 400 ?
+                 tr("ports %d / targets %d / shallow %d / fail %d",
+                    "港口 %d / 目标 %d / 浅海 %d / 失败 %d") :
+                 tr("ports %d / candidates %d / shallow path %d / fail %d",
+                    "港口 %d / 候选 %d / 浅海路径 %d / 失败 %d"),
                  snap.expansion.maritime.own_port_count, snap.expansion.port_candidate_regions,
                  snap.expansion.shallow_sea_reachable_regions, snap.expansion.maritime.blocked_no_shallow_path);
-        ui_row_text(hdc, cursor, tr("Sea targets", "海路目标"), text);
+        ui_row_text(hdc, cursor, cursor->width < 400 ?
+                    tr("Sea", "海路") : tr("Sea targets", "海路目标"), text);
         format_maritime_blockers(&snap.expansion.maritime, text, sizeof(text));
         ui_row_text(hdc, cursor, tr("Main sea blocker", "主要海路阻塞"), text);
         ui_section(hdc, cursor, tr("Territory Integrity", "领土完整性"));

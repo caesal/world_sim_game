@@ -11,29 +11,40 @@
 #include "sim/vassal.h"
 #include "sim/war.h"
 
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 #include <stdio.h>
 #include <string.h>
-
-typedef struct {
-    int valid;
-    int dirty;
-    int uid;
-    DecisionSnapshot snapshot;
-    char main_intent[32];
-    char expansion_reason[128];
-    char war_reason[128];
-} DecisionSnapshotCacheEntry;
-
-static DecisionSnapshotCacheEntry decision_cache[MAX_CIVS];
-static int decision_cache_cursor;
-static int decision_cache_last_update_ms;
-static int decision_cache_last_update_count;
 
 static int years_to_decade_check(void) {
     int years_left = 25 - (year % 25);
     return years_left <= 0 ? 25 : years_left;
+}
+
+void decision_stability_breakdown_calculate(
+    int effective_disorder, int resource_pressure,
+    int disconnected_components, int owned_regions,
+    int capital_connected_percent, int vassal_governance_disorder,
+    int war_active, DecisionStabilityBreakdown *out) {
+    int raw_total;
+    if (!out) return;
+    memset(out, 0, sizeof(*out));
+    out->effective_disorder = effective_disorder;
+    out->resource_pressure = resource_pressure;
+    out->base_contribution = clamp(max(effective_disorder, resource_pressure), 0, 160);
+    out->war_status_contribution = war_active ? 12 : 0;
+    out->territory_fragmentation_contribution = disconnected_components * 24;
+    if (owned_regions > 0 && capital_connected_percent < 80) {
+        out->capital_connectivity_contribution = 20 + (80 - capital_connected_percent);
+    }
+    out->vassal_governance_contribution = vassal_governance_disorder / 2;
+    out->high_disorder_contribution = effective_disorder >= 70 ? 30 : 0;
+    raw_total = out->base_contribution;
+    raw_total += out->territory_fragmentation_contribution;
+    raw_total += out->capital_connectivity_contribution;
+    raw_total += out->vassal_governance_contribution;
+    raw_total += out->war_status_contribution;
+    raw_total += out->high_disorder_contribution;
+    out->raw_total = raw_total;
+    out->final_intent = clamp(raw_total, 0, 100);
 }
 
 void decision_snapshot_refresh_countdowns(int civ_id, DecisionSnapshot *out) {
@@ -56,50 +67,21 @@ void decision_snapshot_refresh_countdowns(int civ_id, DecisionSnapshot *out) {
     out->next_collapse_years = effective_disorder >= 100 ? 0 : years_to_decade_check();
 }
 
-static void bind_cache_strings(DecisionSnapshotCacheEntry *entry) {
-    entry->snapshot.main_intent = entry->main_intent;
-    entry->snapshot.expansion_reason = entry->expansion_reason;
-    entry->snapshot.war_reason = entry->war_reason;
-}
-
-static void store_cached_decision(int civ_id, const DecisionSnapshot *snapshot) {
-    DecisionSnapshotCacheEntry *entry;
-
-    if (civ_id < 0 || civ_id >= MAX_CIVS || !snapshot) return;
-    entry = &decision_cache[civ_id];
-    entry->snapshot = *snapshot;
-    snprintf(entry->main_intent, sizeof(entry->main_intent), "%s",
-             snapshot->main_intent ? snapshot->main_intent : "");
-    snprintf(entry->expansion_reason, sizeof(entry->expansion_reason), "%s",
-             snapshot->expansion_reason ? snapshot->expansion_reason : "");
-    snprintf(entry->war_reason, sizeof(entry->war_reason), "%s",
-             snapshot->war_reason ? snapshot->war_reason : "");
-    bind_cache_strings(entry);
-    entry->uid = civs[civ_id].uid;
-    entry->valid = 1;
-    entry->dirty = 0;
-}
-
-static int cache_entry_needs_update(int civ_id) {
-    DecisionSnapshotCacheEntry *entry;
-
-    if (civ_id < 0 || civ_id >= civ_count || civ_id >= MAX_CIVS || !civs[civ_id].alive) return 0;
-    entry = &decision_cache[civ_id];
-    return !entry->valid || entry->dirty || entry->uid != civs[civ_id].uid;
-}
-
 void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
     int resource_score;
     int expansion;
     int war;
-    int stability;
     int effective_disorder;
+    int stability_vassal_governance;
+    int stability_war_active;
     TerritoryIntegrityStats integrity;
 
     if (!out) return;
     memset(out, 0, sizeof(*out));
     if (civ_id < 0 || civ_id >= civ_count) return;
 
+    out->city_slots_remaining = max(0, MAX_CITIES - city_count);
+    out->city_capacity_ready = out->city_slots_remaining > 0;
     resource_score = expansion_resource_score_for_civ(civ_id);
     out->expansion = expansion_ai_diagnostics(civ_id, resource_score);
     out->war_desire = diplomacy_last_war_desire(civ_id);
@@ -161,18 +143,17 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
 
     expansion = clamp(out->expansion.expansion_desire, 0, 160);
     war = clamp(out->war_desire, 0, 160);
-    stability = clamp(out->stability_pressure, 0, 160);
-    stability += integrity.disconnected_components * 24;
-    if (integrity.owned_regions > 0 && integrity.capital_connected_percent < 80) {
-        stability += 20 + (80 - integrity.capital_connected_percent);
-    }
-    stability += vassal_governance_disorder(civ_id) / 2;
-    if (war_active_for_civ(civ_id)) stability += 12;
+    stability_vassal_governance = vassal_governance_disorder(civ_id);
+    stability_war_active = war_active_for_civ(civ_id);
+    decision_stability_breakdown_calculate(
+        effective_disorder, civs[civ_id].resource_pressure,
+        integrity.disconnected_components, integrity.owned_regions,
+        integrity.capital_connected_percent, stability_vassal_governance,
+        stability_war_active, &out->stability_breakdown);
     if (out->expansion.land_adjacent_unowned_regions > 0 ||
         out->expansion.shallow_sea_reachable_regions > 0) {
         expansion += 20;
     }
-    if (effective_disorder >= 70) stability += 30;
     if (out->expansion.global_unowned_percent > 20 &&
         (out->expansion.nearby_unowned_regions +
          out->expansion.shallow_sea_reachable_regions +
@@ -183,7 +164,7 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
 
     out->expansion_weight = clamp(expansion, 0, 100);
     out->war_weight = clamp(war, 0, 100);
-    out->stability_weight = clamp(stability, 0, 100);
+    out->stability_weight = out->stability_breakdown.final_intent;
 
     if (out->stability_weight >= out->expansion_weight &&
         out->stability_weight >= out->war_weight) {
@@ -210,87 +191,3 @@ void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out) {
                  "Capital core connected; stability pressure is routine.");
     }
 }
-
-void decision_snapshot_cache_reset(void) {
-    memset(decision_cache, 0, sizeof(decision_cache));
-    decision_cache_cursor = 0;
-    decision_cache_last_update_ms = 0;
-    decision_cache_last_update_count = 0;
-}
-
-void decision_snapshot_cache_mark_dirty(int civ_id) {
-    if (civ_id < 0 || civ_id >= MAX_CIVS) return;
-    decision_cache[civ_id].dirty = 1;
-}
-
-void decision_snapshot_cache_mark_all_dirty(void) {
-    int i;
-
-    for (i = 0; i < MAX_CIVS; i++) decision_cache[i].dirty = 1;
-    decision_cache_cursor = 0;
-}
-
-void decision_snapshot_cache_update_budgeted(int max_civs) {
-    DWORD start = GetTickCount();
-    int scanned = 0;
-    int updated = 0;
-
-    if (max_civs <= 0) max_civs = 1;
-    while (scanned < MAX_CIVS && updated < max_civs) {
-        int civ_id = (decision_cache_cursor + scanned) % MAX_CIVS;
-        scanned++;
-        if (civ_id >= civ_count || !civs[civ_id].alive) {
-            decision_cache[civ_id].valid = 0;
-            decision_cache[civ_id].dirty = 0;
-            continue;
-        }
-        if (!cache_entry_needs_update(civ_id)) continue;
-        {
-            DecisionSnapshot snapshot;
-            decision_snapshot_for_civ(civ_id, &snapshot);
-            store_cached_decision(civ_id, &snapshot);
-            updated++;
-        }
-    }
-    decision_cache_cursor = (decision_cache_cursor + scanned) % MAX_CIVS;
-    decision_cache_last_update_ms = (int)(GetTickCount() - start);
-    decision_cache_last_update_count = updated;
-}
-
-int decision_snapshot_cached(int civ_id, DecisionSnapshot *out) {
-    DecisionSnapshotCacheEntry *entry;
-
-    if (!out) return 0;
-    memset(out, 0, sizeof(*out));
-    if (civ_id < 0 || civ_id >= civ_count || civ_id >= MAX_CIVS || !civs[civ_id].alive) return 0;
-    entry = &decision_cache[civ_id];
-    if (!entry->valid || entry->dirty || entry->uid != civs[civ_id].uid) return 0;
-    bind_cache_strings(entry);
-    *out = entry->snapshot;
-    decision_snapshot_refresh_countdowns(civ_id, out);
-    return 1;
-}
-
-int decision_snapshot_cache_valid_count(void) {
-    int i;
-    int count = 0;
-
-    for (i = 0; i < civ_count && i < MAX_CIVS; i++) {
-        if (civs[i].alive && decision_cache[i].valid &&
-            !decision_cache[i].dirty && decision_cache[i].uid == civs[i].uid) count++;
-    }
-    return count;
-}
-
-int decision_snapshot_cache_dirty_count(void) {
-    int i;
-    int count = 0;
-
-    for (i = 0; i < civ_count && i < MAX_CIVS; i++) {
-        if (cache_entry_needs_update(i)) count++;
-    }
-    return count;
-}
-
-int decision_snapshot_cache_last_update_ms(void) { return decision_cache_last_update_ms; }
-int decision_snapshot_cache_last_update_count(void) { return decision_cache_last_update_count; }

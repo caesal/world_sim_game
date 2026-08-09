@@ -16,12 +16,10 @@
 #include "core/dirty_flags.h"
 #include "core/profiler.h"
 #include "core/render_snapshot_cache.h"
-#include "core/render_snapshot_civs.h"
 #include "core/render_snapshot_profile.h"
 #include "game/game_loop.h"
 #include "sim/alliance.h"
 #include "sim/civ_colors.h"
-#include "sim/decision_snapshot.h"
 #include "sim/diplomacy_year.h"
 #include "sim/fragmentation_diag.h"
 #include "sim/sea_lanes.h"
@@ -118,6 +116,7 @@ static void draw_rule39_evidence_rows(HDC hdc, UiCursor *cursor) {
 }
 
 void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     RuntimeProfilerSnapshot perf;
     char text[180];
     profiler_snapshot(&perf);
@@ -165,17 +164,19 @@ void draw_debug_performance_panel(HDC hdc, UiCursor *cursor) {
     perf_row(hdc, cursor, tr("Civ copy phases", "文明复制阶段"), text,
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "valid %d / dirty %d / update %d civs %d ms",
-             decision_snapshot_cache_valid_count(), decision_snapshot_cache_dirty_count(),
-             decision_snapshot_cache_last_update_count(), decision_snapshot_cache_last_update_ms());
+             snapshot ? snapshot->decision_cache_valid_count : 0,
+             snapshot ? snapshot->decision_cache_dirty_count : 0,
+             snapshot ? snapshot->decision_cache_last_update_count : 0,
+             snapshot ? snapshot->decision_cache_last_update_ms : 0);
     perf_row(hdc, cursor, tr("Decision cache", "决策缓存"), text,
-              decision_snapshot_cache_dirty_count() > 0 ? RGB(218, 178, 78) :
+              snapshot && snapshot->decision_cache_dirty_count > 0 ? RGB(218, 178, 78) :
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     snprintf(text, sizeof(text), "cached %d / stale %d / fallback %d",
-             render_snapshot_civ_decision_cached_count(),
-             render_snapshot_civ_decision_stale_count(),
-             render_snapshot_civ_decision_fallback_count());
+             snapshot ? snapshot->decision_snapshot_cached_count : 0,
+             snapshot ? snapshot->decision_snapshot_stale_count : 0,
+             snapshot ? snapshot->decision_snapshot_fallback_count : 0);
     perf_row(hdc, cursor, tr("Snapshot decisions", "快照决策"), text,
-              render_snapshot_civ_decision_fallback_count() > 0 ? RGB(218, 178, 78) :
+              snapshot && snapshot->decision_snapshot_fallback_count > 0 ? RGB(218, 178, 78) :
               ui_theme_color(UI_COLOR_TEXT_MUTED));
     ui_section(hdc, cursor, tr("Simulation Clock", "模拟时钟"));
     if (render_context_snapshot()) {

@@ -16,6 +16,8 @@ typedef struct {
     int scale;
 } RenderOceanCoverageStats;
 
+extern RenderOceanCoverageStats ocean_coverage_debug_stats;
+
 int render_ocean_coverage_prepare_field(const RenderSnapshot *snapshot);
 int render_ocean_coverage_pixel_is_ocean(const RenderSnapshot *snapshot,
                                          MapLayout layout, int px, int py);

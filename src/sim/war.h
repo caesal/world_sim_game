@@ -3,6 +3,8 @@
 
 #include "core/game_state.h"
 
+#include <stdint.h>
+
 typedef enum {
     WAR_OUTCOME_NONE,
     WAR_OUTCOME_ATTACKER_WIN,
@@ -33,6 +35,10 @@ typedef struct {
     int temporary_soldiers_b;
     int mercenary_hired_a;
     int mercenary_hired_b;
+    uint64_t war_serial;
+    int attacker_uid;
+    int defender_uid;
+    int start_absolute_month;
 } ActiveWar;
 
 #define WAR_SAVE_SLOT_COUNT (MAX_CIVS * MAX_CIVS / 2)

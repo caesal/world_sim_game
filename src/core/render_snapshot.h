@@ -12,6 +12,7 @@
 #include "sim/plague_types.h"
 #include "core/render_snapshot_plague_types.h"
 #include "core/render_snapshot_river_types.h"
+#include "core/render_snapshot_war_history.h"
 #include "core/render_snapshot_wind_types.h"
 #include "sim/alliance.h"
 #include "sim/diplomacy_relation_score.h"
@@ -156,6 +157,7 @@ typedef struct {
     char decision_expansion_reason[128];
     char decision_war_reason[128];
     DecisionSnapshot decision;
+    SnapshotWarHistory war_history;
     char collapse_last_reason[EVENT_LOG_LEN];
     char name_en[NAME_LEN];
     char name_zh[NAME_LEN];
@@ -306,6 +308,13 @@ typedef struct {
     int world_announcement_total_entries;
     int alliance_count;
     FragmentationDiagnostics fragmentation;
+    int decision_cache_valid_count;
+    int decision_cache_dirty_count;
+    int decision_cache_last_update_count;
+    int decision_cache_last_update_ms;
+    int decision_snapshot_cached_count;
+    int decision_snapshot_stale_count;
+    int decision_snapshot_fallback_count;
     int tiles_revision;
     int terrain_revision;
     int coast_revision;

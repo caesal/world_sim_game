@@ -4,7 +4,7 @@
 #include "core/render_snapshot_cache.h"
 #include "core/worldgen_progress.h"
 #include "sim/alliance.h"
-#include "sim/decision_snapshot.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/diplomacy.h"
 #include "sim/civilization_slots.h"
 #include "sim/civilization_metrics.h"
@@ -28,6 +28,7 @@
 #include "sim/technology.h"
 #include "sim/vassal.h"
 #include "sim/war.h"
+#include "sim/war_history.h"
 #include "sim/world_announcement.h"
 #include "core/profiler.h"
 #include "world/terrain_query.h"
@@ -426,6 +427,7 @@ void simulation_reset_state(void) {
     month = 1;
     civ_count = 0;
     city_count = 0;
+    war_history_reset();
     civilization_color_reset_manual_locks();
     civilization_uid_reset();
     event_log_clear();

@@ -57,6 +57,7 @@ int expansion_need_for_civ(int civ_id, int resource_score);
 int expansion_threshold_for_civ(int civ_id);
 int expansion_resource_score_for_civ(int civ_id);
 int expansion_civ_months_until_claim(int civ_id);
+int expansion_civ_next_claim_month_index(int civ_id);
 ExpansionAIDiagnostics expansion_ai_diagnostics(int civ_id, int resource_score);
 const char *expansion_last_reason(int civ_id);
 

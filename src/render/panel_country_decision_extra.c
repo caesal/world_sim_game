@@ -2,10 +2,19 @@
 
 #include "render/render_common.h"
 #include "render/ui_format.h"
+#include "ui/ui_clay_primitives.h"
+#include "ui/ui_clay_theme.h"
 #include "ui/ui_types.h"
 #include "ui/ui_widgets.h"
 
 #include <stdio.h>
+
+#define STABILITY_INTENT_H 62
+#define STABILITY_STATUS_H 30
+#define STABILITY_COMPOSITION_H 31
+#define STABILITY_FACTOR_ROW_H 50
+#define STABILITY_TOTAL_H 36
+#define STABILITY_FACTOR_ACCENT_W 3
 
 static const char *decision_subtab_label(int tab) {
     switch (tab) {
@@ -85,47 +94,191 @@ static void restriction_card(HDC hdc, RECT r, const char *label, const char *val
                    value, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER);
 }
 
-static void stability_meter(HDC hdc, UiCursor *cursor, const DecisionSnapshot *snap) {
-    RECT card = ui_take_rect(cursor, 74);
-    RECT bar = {card.left + 10, card.top + 34, card.right - 10, card.top + 48};
-    RECT mode_badge = {card.right - 92, card.top + 8, card.right - 10, card.top + 28};
-    int ranges[6] = {45, 15, 15, 15, 10, 1};
-    COLORREF colors[6] = {RGB(83, 143, 98), RGB(178, 151, 78), RGB(191, 124, 65),
-                          RGB(188, 82, 67), RGB(164, 54, 64), RGB(112, 45, 52)};
-    const char *labels[6] = {tr("Normal", "正常"), tr("Cautious", "谨慎"), tr("Reorg", "整顿"),
-                             tr("Crisis", "危机"), tr("Emergency", "紧急"), tr("Collapse", "崩溃")};
-    int x = bar.left, i;
-    int marker_x = bar.left + clamp(snap->stability_pressure, 0, 100) * (bar.right - bar.left) / 100;
-    char text[48];
-    fill_rect(hdc, card, ui_theme_color(UI_COLOR_PANEL));
-    snprintf(text, sizeof(text), "%s %d / 100", tr("Disorder", "混乱"), snap->stability_pressure);
-    draw_text_rect(hdc, (RECT){card.left + 10, card.top + 7, mode_badge.left - 8, card.top + 29},
-                   text, ui_theme_color(UI_COLOR_TEXT), DT_SINGLELINE | DT_VCENTER);
-    badge(hdc, mode_badge, country_decision_stability_mode_label(snap->stability_mode),
-          stability_mode_color(snap->stability_mode));
-    for (i = 0; i < 6; i++) {
-        int w = max(2, ranges[i] * (bar.right - bar.left) / 101);
-        RECT seg = {x, bar.top, i == 5 ? bar.right : x + w, bar.bottom};
-        fill_rect(hdc, seg, colors[i]);
-        if (seg.right - seg.left >= 38) {
-            draw_center_text(hdc, (RECT){seg.left, bar.bottom + 3, seg.right, bar.bottom + 18},
-                             labels[i], ui_theme_color(UI_COLOR_TEXT_DIM));
-        }
-        x = seg.right;
-    }
-    fill_rect(hdc, (RECT){marker_x - 2, bar.top - 5, marker_x + 2, bar.bottom + 5}, RGB(250, 244, 205));
-    cursor->y += 8;
+static COLORREF stability_intent_accent(void) {
+    return RGB(92, 130, 162);
 }
 
-static void exit_condition(HDC hdc, UiCursor *cursor, const DecisionSnapshot *snap) {
-    char text[96], span[48];
-    if (snap->stability_mode == STABILITY_MODE_NORMAL) {
-        ui_row_text(hdc, cursor, tr("Exit", "退出条件"), tr("Already normal", "已正常"));
-        return;
+void country_decision_stability_layout(
+    int x, int y, int width, CountryDecisionStabilityLayout *layout) {
+    int split;
+    int matrix_top;
+    int i;
+    if (!layout) return;
+    split = x + width / 2;
+    layout->intent = (RECT){x, y, x + width, y + STABILITY_INTENT_H};
+    y = layout->intent.bottom;
+    layout->status = (RECT){x, y, x + width, y + STABILITY_STATUS_H};
+    y = layout->status.bottom;
+    layout->composition =
+        (RECT){x, y, x + width, y + STABILITY_COMPOSITION_H};
+    matrix_top = layout->composition.bottom;
+    for (i = 0; i < 6; i++) {
+        int col = i % 2;
+        int row = i / 2;
+        RECT cell = {
+            col ? split : x,
+            matrix_top + row * STABILITY_FACTOR_ROW_H,
+            col ? x + width : split,
+            matrix_top + (row + 1) * STABILITY_FACTOR_ROW_H
+        };
+        layout->factors[i] = cell;
+        layout->factor_accents[i] = (RECT){
+            cell.left, cell.top, cell.left + STABILITY_FACTOR_ACCENT_W,
+            cell.bottom
+        };
+        layout->factor_values[i] = (RECT){
+            cell.right - 60, cell.top + 2, cell.right - 7, cell.bottom - 2
+        };
+        layout->factor_labels[i] = (RECT){
+            cell.left + 9, cell.top + 2, layout->factor_values[i].left - 4,
+            cell.bottom - 2
+        };
     }
-    ui_format_months(span, sizeof(span), snap->stability_recovery_months, UI_MONTH_ZERO_NOW);
-    snprintf(text, sizeof(text), tr("Below threshold for %s", "低于阈值持续%s"), span);
-    ui_row_text(hdc, cursor, tr("Exit", "退出条件"), text);
+    y = matrix_top + STABILITY_FACTOR_ROW_H * 3;
+    layout->total = (RECT){x, y, x + width, y + STABILITY_TOTAL_H};
+    layout->total_label = (RECT){x + 4, y + 2, split, layout->total.bottom - 2};
+    layout->total_value =
+        (RECT){split, y + 2, x + width - 4, layout->total.bottom - 2};
+    layout->bottom = layout->total.bottom;
+}
+
+static void draw_stability_intent_meter(HDC hdc, RECT area,
+                                        const DecisionSnapshot *snap) {
+    RECT label = {area.left + 2, area.top + 2, area.right - 92, area.top + 25};
+    RECT value = {area.right - 90, area.top + 2, area.right - 2, area.top + 25};
+    RECT bar = {area.left + 2, area.top + 31, area.right - 2, area.top + 49};
+    char text[32];
+
+    snprintf(text, sizeof(text), "%d / 100", snap->stability_weight);
+    draw_text_rect(hdc, label, tr("Stability Intent", "稳定倾向"),
+                   ui_clay_text_color(UI_CLAY_STATE_NORMAL),
+                   DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+    draw_text_rect(hdc, value, text, ui_clay_text_color(UI_CLAY_STATE_NORMAL),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX);
+    ui_progress_bar(hdc, bar, snap->stability_weight, 100,
+                    stability_intent_accent());
+}
+
+static void draw_stability_compact_status(HDC hdc, RECT area,
+                                          const DecisionSnapshot *snap) {
+    char duration[48];
+    char text[192];
+    const char *mode = country_decision_stability_mode_label(snap->stability_mode);
+
+    ui_format_months(duration, sizeof(duration), snap->stability_mode_months,
+                     UI_MONTH_ZERO_NOW);
+    snprintf(text, sizeof(text),
+             tr("Stability Mode: %s    Duration: %s",
+                "稳定模式：%s    持续：%s"),
+             mode, duration);
+    draw_text_rect(hdc, (RECT){area.left + 2, area.top,
+                               area.right - 2, area.bottom},
+                   text, ui_clay_muted_text_color(),
+                   DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+}
+
+static void format_stability_factor(char *out, size_t out_size, int value) {
+    if (value > 0) snprintf(out, out_size, "+%d", value);
+    else snprintf(out, out_size, "%d", value);
+}
+
+static void draw_stability_factor_label(HDC hdc, RECT rect,
+                                        const char *label) {
+    WCHAR wide[128];
+    RECT measured = {0, 0, rect.right - rect.left, 0};
+    int length = MultiByteToWideChar(
+        CP_UTF8, 0, label, -1, wide,
+        (int)(sizeof(wide) / sizeof(wide[0])));
+    if (length <= 0) return;
+    DrawTextW(hdc, wide, -1, &measured,
+              DT_CALCRECT | DT_WORDBREAK | DT_NOPREFIX);
+    if (measured.bottom < rect.bottom - rect.top) {
+        rect.top += ((rect.bottom - rect.top) - measured.bottom) / 2;
+    }
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, ui_clay_text_color(UI_CLAY_STATE_NORMAL));
+    DrawTextW(hdc, wide, -1, &rect, DT_WORDBREAK | DT_NOPREFIX);
+}
+
+static void draw_stability_factor_cell(
+    HDC hdc, const CountryDecisionStabilityLayout *layout, int index,
+    const char *label, int value) {
+    COLORREF value_color = value > 0 ? RGB(104, 184, 224) :
+                           value < 0 ? ui_theme_color(UI_COLOR_DANGER) :
+                           ui_clay_muted_text_color();
+    char text[32];
+
+    fill_rect(hdc, layout->factors[index],
+              ui_theme_color(UI_COLOR_PANEL_SOFT));
+    fill_rect(hdc, layout->factor_accents[index], stability_intent_accent());
+    draw_stability_factor_label(hdc, layout->factor_labels[index], label);
+    format_stability_factor(text, sizeof(text), value);
+    draw_text_rect(hdc, layout->factor_values[index], text, value_color,
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX);
+}
+
+static void draw_stability_factor_grid(
+    HDC hdc, const CountryDecisionStabilityLayout *layout,
+                                       const DecisionSnapshot *snap) {
+    const DecisionStabilityBreakdown *breakdown = &snap->stability_breakdown;
+    const char *labels[6] = {
+        tr("Base Pressure", "基础压力"), tr("War Status", "战争状态"),
+        tr("Territory Fragmentation", "领土断裂"),
+        tr("Capital Connectivity", "首都连通"),
+        tr("Vassal Governance", "附庸治理"), tr("High Disorder", "高混乱")
+    };
+    int values[6] = {
+        breakdown->base_contribution, breakdown->war_status_contribution,
+        breakdown->territory_fragmentation_contribution,
+        breakdown->capital_connectivity_contribution,
+        breakdown->vassal_governance_contribution,
+        breakdown->high_disorder_contribution
+    };
+    int i;
+
+    for (i = 0; i < 6; i++) {
+        draw_stability_factor_cell(hdc, layout, i, labels[i], values[i]);
+    }
+    fill_rect(hdc, (RECT){layout->factors[0].right - 1,
+                          layout->factors[0].top,
+                          layout->factors[0].right,
+                          layout->factors[5].bottom},
+              ui_theme_color(UI_COLOR_PANEL_LINE));
+    fill_rect(hdc, (RECT){layout->factors[0].left,
+                          layout->factors[2].top,
+                          layout->factors[1].right,
+                          layout->factors[2].top + 1},
+              ui_theme_color(UI_COLOR_PANEL_LINE));
+    fill_rect(hdc, (RECT){layout->factors[0].left,
+                          layout->factors[4].top,
+                          layout->factors[1].right,
+                          layout->factors[4].top + 1},
+              ui_theme_color(UI_COLOR_PANEL_LINE));
+}
+
+static void draw_stability_monthly_total(
+    HDC hdc, const CountryDecisionStabilityLayout *layout,
+    const DecisionSnapshot *snap) {
+    const DecisionStabilityBreakdown *breakdown = &snap->stability_breakdown;
+    char value[96];
+
+    if (breakdown->raw_total == breakdown->final_intent) {
+        snprintf(value, sizeof(value), "%d", breakdown->final_intent);
+    } else {
+        snprintf(value, sizeof(value), "%d → %d",
+                 breakdown->raw_total, breakdown->final_intent);
+    }
+    fill_rect(hdc, layout->total, ui_theme_color(UI_COLOR_PANEL_SOFT));
+    fill_rect(hdc, (RECT){layout->total.left, layout->total.top,
+                          layout->total.right, layout->total.top + 1},
+              ui_theme_color(UI_COLOR_PANEL_LINE));
+    draw_text_rect(hdc, layout->total_label,
+                   tr("Monthly Total", "本月合计"),
+                   ui_clay_text_color(UI_CLAY_STATE_NORMAL),
+                   DT_SINGLELINE | DT_VCENTER | DT_NOPREFIX);
+    draw_text_rect(hdc, layout->total_value,
+                   value, ui_clay_text_color(UI_CLAY_STATE_NORMAL),
+                   DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX);
 }
 
 static void restriction_grid(HDC hdc, UiCursor *cursor, const DecisionSnapshot *snap) {
@@ -173,12 +326,19 @@ static void gate_flow(HDC hdc, UiCursor *cursor, const char *label,
 }
 
 void draw_country_decision_stability_tab(HDC hdc, UiCursor *cursor, const DecisionSnapshot *snap) {
-    char span[48], text[48];
-    ui_section(hdc, cursor, tr("Stability", "稳定"));
-    stability_meter(hdc, cursor, snap);
-    exit_condition(hdc, cursor, snap);
-    ui_format_months(span, sizeof(span), snap->stability_mode_months, UI_MONTH_ZERO_NOW);
-    ui_row_text(hdc, cursor, tr("Duration", "持续"), span);
+    CountryDecisionStabilityLayout layout;
+    UiCursor section;
+    char text[96];
+    country_decision_stability_layout(
+        cursor->x, cursor->y, cursor->width, &layout);
+    draw_stability_intent_meter(hdc, layout.intent, snap);
+    draw_stability_compact_status(hdc, layout.status, snap);
+    section = ui_cursor(layout.composition.left, layout.composition.top,
+                        cursor->width, layout.composition.bottom);
+    ui_section(hdc, &section, tr("Composition", "倾向构成"));
+    draw_stability_factor_grid(hdc, &layout, snap);
+    draw_stability_monthly_total(hdc, &layout, snap);
+    cursor->y = layout.bottom;
     ui_section(hdc, cursor, tr("Active Limits", "启用限制"));
     restriction_grid(hdc, cursor, snap);
     ui_section(hdc, cursor, tr("Gate Result", "闸门结果"));

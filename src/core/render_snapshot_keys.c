@@ -2,8 +2,10 @@
 
 #include "core/dirty_flags.h"
 #include "core/game_types.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/maritime.h"
 #include "sim/regions.h"
+#include "sim/war_history.h"
 #include "world/world_physical_state.h"
 #include "world/river_presentation_state.h"
 
@@ -21,6 +23,11 @@ static int key_from_u32(uint32_t value) {
 static int combined_key(int a, int b) {
     uint32_t mixed = (uint32_t)a * UINT32_C(1000003) ^ (uint32_t)b;
     return key_from_u32(mixed);
+}
+
+static int combined_u64_key(int key, uint64_t value) {
+    key = combined_key(key, key_from_u32((uint32_t)value));
+    return combined_key(key, key_from_u32((uint32_t)(value >> 32)));
 }
 
 int render_snapshot_tile_revision_key(void) {
@@ -56,6 +63,8 @@ int render_snapshot_civs_revision_key(void) {
     key = combined_key(key, dirty_revision_diplomacy());
     key = combined_key(key, dirty_revision_alliance());
     key = combined_key(key, civ_count * 31 + city_count);
+    key = combined_u64_key(key, decision_snapshot_cache_published_revision());
+    key = combined_u64_key(key, war_history_revision());
     return combined_key(key, world_generated);
 }
 

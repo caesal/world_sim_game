@@ -5,7 +5,8 @@
 
 #include <string.h>
 
-static RenderOceanCoverageStats stats;
+RenderOceanCoverageStats ocean_coverage_debug_stats;
+#define stats ocean_coverage_debug_stats
 
 static void refresh_stats(void) {
     const RenderWaterCoverageStats *coverage = render_water_coverage_stats();

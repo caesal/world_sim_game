@@ -4,6 +4,10 @@
 #include "render/render_ocean_decoration_rules.h"
 #include "world/terrain_query.h"
 
+#include <string.h>
+
+OceanDecorationWaterDebugStats ocean_decoration_water_debug_stats;
+
 int ocean_decoration_water_tile(const RenderSnapshot *snapshot, int x, int y) {
     const SnapshotTile *t;
     if (!snapshot || x < 0 || y < 0 || x >= snapshot->map_w || y >= snapshot->map_h) return 0;
@@ -53,14 +57,23 @@ int ocean_decoration_deep_clearance(const RenderSnapshot *snapshot, int x, int y
 int ocean_decoration_motif_clearance(const RenderSnapshot *snapshot, int x, int y,
                                      unsigned char type, int max_radius) {
     int r, dx, dy;
+    ocean_decoration_water_debug_stats.motif_clearance_calls++;
+    ocean_decoration_water_debug_stats.motif_clearance_tile_visits++;
     if (!motif_water_tile(snapshot, x, y, type)) return 0;
     for (r = 1; r <= max_radius; r++) {
         for (dy = -r; dy <= r; dy++) {
             for (dx = -r; dx <= r; dx++) {
                 if (dx * dx + dy * dy > r * r) continue;
+                ocean_decoration_water_debug_stats
+                    .motif_clearance_tile_visits++;
                 if (!motif_water_tile(snapshot, x + dx, y + dy, type)) return r - 1;
             }
         }
     }
     return max_radius;
+}
+
+void ocean_decoration_water_reset_debug(void) {
+    memset(&ocean_decoration_water_debug_stats, 0,
+           sizeof(ocean_decoration_water_debug_stats));
 }

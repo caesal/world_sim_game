@@ -55,6 +55,8 @@ typedef struct {
     uint64_t persistent_bitmap_bytes;
 } RenderWaterSurfaceCacheStats;
 
+extern RenderWaterSurfaceCacheStats water_surface_cache_debug_stats;
+
 uint32_t render_water_surface_lake_tint_pixel(uint32_t source_pixel);
 int render_water_surface_cache_pixel_is_lake(
     const RenderSnapshot *snapshot, MapLayout layout, int px, int py);

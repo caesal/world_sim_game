@@ -9,7 +9,6 @@
 #include "ui/ui_alliance_panel_input.h"
 #include "ui/ui_layout.h"
 #include "ui/ui_types.h"
-#include "core/game_state.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -77,61 +76,42 @@ static int render_speed_badge_bmp(const char *path, int language, int auto_runni
 }
 
 int game_presentation_map_decision_probe(FILE *summary) {
-    int old_count = civ_count, old_year = year, old_month = month;
-    Civilization old_civ = civs[0];
-    DecisionSnapshot first, second;
     SnapshotCiv row;
-    unsigned int key_exp_a, key_exp_b, key_dip_a, key_dip_b, key_battle_a, key_battle_b, key_col_a, key_col_b;
-    int refresh_ok, key_ok, ok;
+    unsigned int key_base, key_payload, key_revision, key_high, key_uid;
+    int payload_stable, revision_changes, high_changes, uid_changes, ok;
 
-    memset(&first, 0, sizeof(first));
-    memset(&second, 0, sizeof(second));
     memset(&row, 0, sizeof(row));
-    civ_count = 1;
-    memset(&civs[0], 0, sizeof(civs[0]));
-    civs[0].alive = 1;
-    civs[0].uid = 9001;
-    year = 24;
-    month = 12;
-    decision_snapshot_refresh_countdowns(0, &first);
-    year = 25;
-    month = 1;
-    decision_snapshot_refresh_countdowns(0, &second);
-
-    row.decision = first;
-    row.decision.next_expansion_months = 2;
-    key_exp_a = panel_view_model_cache_probe_decision_key(&row);
+    row.uid = 9001;
+    row.decision.published_revision = UINT64_C(1);
+    key_base = panel_view_model_cache_probe_decision_key(&row);
     row.decision.next_expansion_months = 1;
-    key_exp_b = panel_view_model_cache_probe_decision_key(&row);
-    row.decision = first;
-    key_dip_a = panel_view_model_cache_probe_decision_key(&row);
-    row.decision.next_diplomacy_months = second.next_diplomacy_months;
-    key_dip_b = panel_view_model_cache_probe_decision_key(&row);
-    row.decision = first;
-    key_battle_a = panel_view_model_cache_probe_decision_key(&row);
-    row.decision.next_battle_months = second.next_battle_months;
-    key_battle_b = panel_view_model_cache_probe_decision_key(&row);
-    row.decision = first;
-    key_col_a = panel_view_model_cache_probe_decision_key(&row);
-    row.decision.next_collapse_years = second.next_collapse_years;
-    key_col_b = panel_view_model_cache_probe_decision_key(&row);
+    row.decision.next_diplomacy_months = 2;
+    row.decision.next_battle_months = 3;
+    row.decision.next_collapse_years = 4;
+    row.decision.expansion.land_adjacent_unowned_regions = 5;
+    row.decision.expansion.maritime.blocked_no_shallow_path = 1;
+    row.decision.war_readiness_cap = 6;
+    row.decision.stability_mode_months = 7;
+    row.decision.city_slots_remaining = 8;
+    row.decision.city_capacity_ready = 1;
+    key_payload = panel_view_model_cache_probe_decision_key(&row);
+    row.decision.published_revision = UINT64_C(2);
+    key_revision = panel_view_model_cache_probe_decision_key(&row);
+    row.decision.published_revision = UINT64_C(0x0000000100000001);
+    key_high = panel_view_model_cache_probe_decision_key(&row);
+    row.decision.published_revision = UINT64_C(1);
+    row.uid = 9002;
+    key_uid = panel_view_model_cache_probe_decision_key(&row);
 
-    refresh_ok = first.next_diplomacy_months != second.next_diplomacy_months &&
-                 first.next_battle_months != second.next_battle_months &&
-                 first.next_collapse_years != second.next_collapse_years;
-    key_ok = key_exp_a != key_exp_b && key_dip_a != key_dip_b &&
-             key_battle_a != key_battle_b && key_col_a != key_col_b;
-    ok = refresh_ok && key_ok;
+    payload_stable = key_base == key_payload;
+    revision_changes = key_base != key_revision;
+    high_changes = key_base != key_high;
+    uid_changes = key_base != key_uid;
+    ok = payload_stable && revision_changes && high_changes && uid_changes;
     fprintf(summary,
-            "case=decision_countdown_refresh ok=%d refresh=%d key=%d expansion_key=%u/%u diplomacy=%d/%d battle=%d/%d collapse=%d/%d\n",
-            ok, refresh_ok, key_ok, key_exp_a, key_exp_b,
-            first.next_diplomacy_months, second.next_diplomacy_months,
-            first.next_battle_months, second.next_battle_months,
-            first.next_collapse_years, second.next_collapse_years);
-    civs[0] = old_civ;
-    civ_count = old_count;
-    year = old_year;
-    month = old_month;
+            "case=decision_published_revision_key ok=%d payload_stable=%d revision=%d high=%d uid=%d keys=%u/%u/%u/%u/%u\n",
+            ok, payload_stable, revision_changes, high_changes, uid_changes,
+            key_base, key_payload, key_revision, key_high, key_uid);
     return ok;
 }
 

@@ -3,7 +3,9 @@
 
 #include "core/game_state.h"
 #include "render/render_common.h"
+#include "render/render_ocean_assets.h"
 #include "render/render_ocean_decoration.h"
+#include "render/render_ocean_texture.h"
 #include "render/render_water_surface_cache.h"
 #include "ui/ui_layout.h"
 
@@ -113,6 +115,7 @@ static int render_artifact(const char *path, int split, int zoomed) {
                               &bits, NULL, 0);
     old_bitmap = SelectObject(hdc, bitmap);
     fill_rect(hdc, client, RGB(18, 24, 28));
+    render_water_surface_cache_ensure(hdc, snapshot);
     render_ocean_decoration_draw_background(hdc, client, layout, snapshot);
     saved_dc = SaveDC(hdc);
     IntersectClipRect(hdc, viewport.left, viewport.top,
@@ -127,8 +130,8 @@ static int render_artifact(const char *path, int split, int zoomed) {
                 layout.map_x + (x + 1) * layout.draw_w / snapshot->map_w + 1,
                 layout.map_y + (y + 1) * layout.draw_h / snapshot->map_h + 1
             };
-            fill_rect(hdc, cell, tile->water_depth == WATER_DEPTH_NONE ?
-                      RGB(144, 174, 116) : RGB(54, 126, 184));
+            if (tile->water_depth == WATER_DEPTH_NONE)
+                fill_rect(hdc, cell, RGB(144, 174, 116));
         }
     }
     RestoreDC(hdc, saved_dc);
@@ -144,7 +147,7 @@ static int render_artifact(const char *path, int split, int zoomed) {
         draw_center_text(hdc, right, "40 / 80 water bloc",
                          RGB(232, 238, 232));
     }
-    render_water_surface_cache_present_ocean(hdc, client, layout, snapshot);
+    render_water_surface_cache_present_lake(hdc, client, layout, snapshot);
     ok = write_bmp(path, &info, bits, width, height);
     SelectObject(hdc, old_bitmap);
     DeleteObject(bitmap);
@@ -167,7 +170,14 @@ int game_presentation_map_ocean_probe(FILE *summary) {
     HBITMAP old = SelectObject(hdc, bitmap);
     RECT client = {0, 0, 1100, 620};
     RECT resized = {0, 0, 1140, 620};
-    OceanDecorationProbeInfo a, b, camera, resized_info;
+    OceanDecorationProbeInfo a, b, camera, panel, resized_info, resized_repeat;
+    OceanDecorationDebugStats debug_a, debug_b, debug_camera, debug_panel;
+    OceanDecorationDebugStats debug_resized, debug_resized_repeat;
+    OceanTextureDebugStats texture_a, texture_b, texture_camera, texture_panel;
+    OceanTextureDebugStats texture_resized;
+    OceanAssetDebugStats assets_a, assets_b, assets_camera, assets_panel;
+    OceanAssetDebugStats assets_resized;
+    OceanAssetDebugStats assets_resized_repeat;
     int old_collapsed = side_panel_collapsed, old_side = side_panel_w;
     int old_zoom = map_zoom_percent, old_x = map_offset_x;
     int old_y = map_offset_y;
@@ -190,15 +200,42 @@ int game_presentation_map_ocean_probe(FILE *summary) {
             hdc, client, get_map_layout(client), snapshot);
     render_ocean_decoration_draw(hdc, client, get_map_layout(client), snapshot);
     a = render_ocean_decoration_probe_info();
+    debug_a = ocean_decoration_debug_stats;
+    texture_a = render_ocean_texture_debug_stats();
+    assets_a = ocean_assets_debug_stats();
     render_ocean_decoration_draw(hdc, client, get_map_layout(client), snapshot);
     b = render_ocean_decoration_probe_info();
+    debug_b = ocean_decoration_debug_stats;
+    texture_b = render_ocean_texture_debug_stats();
+    assets_b = ocean_assets_debug_stats();
     map_zoom_percent = 165;
     map_offset_x = -95;
     map_offset_y = 48;
     render_ocean_decoration_draw(hdc, client, get_map_layout(client), snapshot);
     camera = render_ocean_decoration_probe_info();
+    debug_camera = ocean_decoration_debug_stats;
+    texture_camera = render_ocean_texture_debug_stats();
+    assets_camera = ocean_assets_debug_stats();
+    side_panel_collapsed = 0;
+    side_panel_w = 420;
+    render_ocean_decoration_draw(hdc, client, get_map_layout(client), snapshot);
+    side_panel_w = 500;
+    render_ocean_decoration_draw(hdc, client, get_map_layout(client), snapshot);
+    side_panel_collapsed = 1;
+    render_ocean_decoration_draw(hdc, client, get_map_layout(client), snapshot);
+    panel = render_ocean_decoration_probe_info();
+    debug_panel = ocean_decoration_debug_stats;
+    texture_panel = render_ocean_texture_debug_stats();
+    assets_panel = ocean_assets_debug_stats();
     render_ocean_decoration_draw(hdc, resized, get_map_layout(resized), snapshot);
     resized_info = render_ocean_decoration_probe_info();
+    debug_resized = ocean_decoration_debug_stats;
+    texture_resized = render_ocean_texture_debug_stats();
+    assets_resized = ocean_assets_debug_stats();
+    render_ocean_decoration_draw(hdc, resized, get_map_layout(resized), snapshot);
+    resized_repeat = render_ocean_decoration_probe_info();
+    debug_resized_repeat = ocean_decoration_debug_stats;
+    assets_resized_repeat = ocean_assets_debug_stats();
     artifacts = render_named_artifact(
         "ocean_decoration_full.bmp", 0, 0);
     artifacts &= render_named_artifact(
@@ -214,6 +251,7 @@ int game_presentation_map_ocean_probe(FILE *summary) {
          a.motif_spacing_violation_count == 0 && a.exterior_spacing_ok &&
          a.motif_mask != 0 && a.item_hash == b.item_hash &&
          a.item_hash == camera.item_hash &&
+         a.item_hash == panel.item_hash &&
          a.item_hash == resized_info.item_hash &&
          a.texture_asset_ready && a.motif_asset_ready &&
          a.exterior_texture_score >= 800 && a.interior_texture_score >= 800 &&
@@ -222,14 +260,99 @@ int game_presentation_map_ocean_probe(FILE *summary) {
          a.interior_min_clearance >= 4 &&
          b.item_rebuilds == a.item_rebuilds &&
          camera.item_rebuilds == b.item_rebuilds &&
+         panel.item_rebuilds == camera.item_rebuilds &&
          resized_info.item_rebuilds == b.item_rebuilds &&
+         resized_repeat.item_rebuilds == b.item_rebuilds &&
+         b.exterior_rebuilds == a.exterior_rebuilds &&
          camera.exterior_rebuilds == b.exterior_rebuilds &&
-         resized_info.exterior_rebuilds == b.exterior_rebuilds &&
+         panel.exterior_rebuilds == camera.exterior_rebuilds &&
+         resized_info.exterior_rebuilds == panel.exterior_rebuilds + 1 &&
+         resized_repeat.exterior_rebuilds == resized_info.exterior_rebuilds &&
          b.interior_rebuilds == a.interior_rebuilds &&
          camera.interior_rebuilds == b.interior_rebuilds &&
+         panel.interior_rebuilds == camera.interior_rebuilds &&
          resized_info.interior_rebuilds == camera.interior_rebuilds &&
+         resized_repeat.interior_rebuilds == resized_info.interior_rebuilds &&
+         debug_b.composite_rebuilds == debug_a.composite_rebuilds &&
+         debug_camera.composite_rebuilds == debug_b.composite_rebuilds &&
+         debug_panel.composite_rebuilds == debug_camera.composite_rebuilds &&
+         debug_resized.composite_rebuilds == debug_camera.composite_rebuilds &&
+         debug_resized_repeat.composite_rebuilds ==
+             debug_resized.composite_rebuilds &&
+         debug_camera.exterior_layer_allocations ==
+             debug_b.exterior_layer_allocations &&
+         debug_camera.interior_layer_allocations ==
+             debug_b.interior_layer_allocations &&
+         debug_panel.exterior_layer_allocations ==
+             debug_camera.exterior_layer_allocations &&
+         debug_panel.interior_layer_allocations ==
+             debug_camera.interior_layer_allocations &&
+         debug_panel.exterior_layer_clears ==
+             debug_camera.exterior_layer_clears &&
+         debug_panel.interior_layer_clears ==
+             debug_camera.interior_layer_clears &&
+         debug_panel.exterior_cleared_pixels ==
+             debug_camera.exterior_cleared_pixels &&
+         debug_panel.interior_cleared_pixels ==
+             debug_camera.interior_cleared_pixels &&
+         debug_panel.exterior_surface_identity ==
+             debug_camera.exterior_surface_identity &&
+         debug_panel.interior_surface_identity ==
+             debug_camera.interior_surface_identity &&
+         debug_panel.exterior_layer_key == debug_camera.exterior_layer_key &&
+         debug_panel.interior_layer_key == debug_camera.interior_layer_key &&
+         debug_panel.exterior_retained_bytes ==
+             debug_camera.exterior_retained_bytes &&
+         debug_panel.interior_retained_bytes ==
+             debug_camera.interior_retained_bytes &&
+         debug_resized.exterior_layer_allocations ==
+             debug_camera.exterior_layer_allocations + 1 &&
+         debug_resized.interior_layer_allocations ==
+             debug_camera.interior_layer_allocations &&
+         debug_resized.exterior_layer_clears ==
+             debug_camera.exterior_layer_clears + 1 &&
+         debug_resized.interior_layer_clears ==
+             debug_camera.interior_layer_clears &&
+         debug_resized_repeat.exterior_layer_allocations ==
+             debug_resized.exterior_layer_allocations &&
+         debug_resized_repeat.exterior_layer_clears ==
+             debug_resized.exterior_layer_clears &&
+         texture_b.rebuilds == texture_a.rebuilds &&
+         texture_camera.rebuilds == texture_b.rebuilds &&
+         texture_panel.rebuilds == texture_camera.rebuilds &&
+         texture_resized.rebuilds == texture_camera.rebuilds + 1 &&
+         texture_b.allocation_rebuilds == texture_a.allocation_rebuilds &&
+         texture_camera.allocation_rebuilds ==
+             texture_b.allocation_rebuilds &&
+         texture_panel.allocation_rebuilds ==
+             texture_camera.allocation_rebuilds &&
+         texture_resized.allocation_rebuilds ==
+             texture_camera.allocation_rebuilds + 1 &&
+         texture_b.generation == texture_a.generation &&
+         texture_camera.generation == texture_b.generation &&
+         texture_panel.generation == texture_camera.generation &&
+         texture_resized.generation == texture_camera.generation + 1 &&
+         texture_a.tile_px == 760 && texture_a.phase_x == 0 &&
+         texture_a.phase_y == 0 && texture_resized.resample_calls == 0 &&
+         texture_resized.stretchblt_calls == 0 &&
+         assets_b.texture_raster_calls == assets_a.texture_raster_calls &&
+         assets_camera.texture_raster_calls == assets_b.texture_raster_calls &&
+         assets_panel.texture_raster_calls ==
+             assets_camera.texture_raster_calls &&
+         assets_resized.texture_raster_calls ==
+             assets_camera.texture_raster_calls + 1 &&
+         assets_b.motif_draw_calls == assets_a.motif_draw_calls &&
+         assets_camera.motif_draw_calls == assets_b.motif_draw_calls &&
+         assets_panel.motif_draw_calls == assets_camera.motif_draw_calls &&
+         assets_panel.motif_decode_attempts ==
+             assets_camera.motif_decode_attempts &&
+         assets_resized.motif_draw_calls == assets_panel.motif_draw_calls +
+             (uint64_t)a.exterior_items &&
+         assets_resized_repeat.motif_draw_calls ==
+             assets_resized.motif_draw_calls &&
          b.coverage_rebuilds == a.coverage_rebuilds &&
          camera.coverage_rebuilds == b.coverage_rebuilds &&
+         panel.coverage_rebuilds == camera.coverage_rebuilds &&
          resized_info.coverage_rebuilds == camera.coverage_rebuilds &&
          artifacts;
     fprintf(summary,
@@ -239,7 +362,13 @@ int game_presentation_map_ocean_probe(FILE *summary) {
             "compass=%d water_only=%d deep_only=%d shallow_seen=%d "
             "spacing=%d/%d overlaps=%d violations=%d clearance=%d "
             "texture=%d/%d assets=%d/%d primitive=%d coverage=%d/%d/%d "
-            "color_key=%d artifacts=%d\n",
+            "color_key=%d exterior_camera_panel_resize=%d/%d/%d "
+            "interior_camera_panel_resize=%d/%d/%d "
+            "panel_motif_alloc_clear_base=%llu/%llu/%llu/%llu "
+            "motif_draws=%llu/%llu/%llu/%llu/%llu "
+            "base_rebuilds=%llu/%llu/%llu/%llu base_generation=%llu/%llu/%llu/%llu "
+            "base_raster=%llu/%llu/%llu/%llu resample=%llu stretchblt=%llu "
+            "artifacts=%d\n",
             ok, a.exterior_items, a.interior_items,
             a.item_rebuilds, b.item_rebuilds, camera.item_rebuilds,
             resized_info.item_rebuilds, a.exterior_rebuilds,
@@ -255,7 +384,41 @@ int game_presentation_map_ocean_probe(FILE *summary) {
             a.texture_asset_ready, a.motif_asset_ready,
             a.primitive_wave_stamps, a.coverage_rebuilds,
             a.coverage_row_spans, a.coverage_lake_tiles_excluded,
-            a.coverage_uses_color_key, artifacts);
+            a.coverage_uses_color_key,
+            camera.exterior_rebuilds - b.exterior_rebuilds,
+            panel.exterior_rebuilds - camera.exterior_rebuilds,
+            resized_info.exterior_rebuilds - panel.exterior_rebuilds,
+            camera.interior_rebuilds - b.interior_rebuilds,
+            panel.interior_rebuilds - camera.interior_rebuilds,
+            resized_info.interior_rebuilds - camera.interior_rebuilds,
+            (unsigned long long)(assets_panel.motif_draw_calls -
+                                 assets_camera.motif_draw_calls),
+            (unsigned long long)(debug_panel.exterior_layer_allocations -
+                                 debug_camera.exterior_layer_allocations),
+            (unsigned long long)(debug_panel.exterior_layer_clears -
+                                 debug_camera.exterior_layer_clears),
+            (unsigned long long)(texture_panel.rebuilds -
+                                 texture_camera.rebuilds),
+            (unsigned long long)assets_a.motif_draw_calls,
+            (unsigned long long)assets_b.motif_draw_calls,
+            (unsigned long long)assets_camera.motif_draw_calls,
+            (unsigned long long)assets_resized.motif_draw_calls,
+            (unsigned long long)assets_resized_repeat.motif_draw_calls,
+            (unsigned long long)texture_a.rebuilds,
+            (unsigned long long)texture_b.rebuilds,
+            (unsigned long long)texture_camera.rebuilds,
+            (unsigned long long)texture_resized.rebuilds,
+            (unsigned long long)texture_a.generation,
+            (unsigned long long)texture_b.generation,
+            (unsigned long long)texture_camera.generation,
+            (unsigned long long)texture_resized.generation,
+            (unsigned long long)assets_a.texture_raster_calls,
+            (unsigned long long)assets_b.texture_raster_calls,
+            (unsigned long long)assets_camera.texture_raster_calls,
+            (unsigned long long)assets_resized.texture_raster_calls,
+            (unsigned long long)texture_resized.resample_calls,
+            (unsigned long long)texture_resized.stretchblt_calls,
+            artifacts);
     SelectObject(hdc, old);
     DeleteObject(bitmap);
     DeleteDC(hdc);

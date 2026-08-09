@@ -1,0 +1,9 @@
+#ifndef WORLD_SIM_GAME_PRESENTATION_WAR_HISTORY_VISUAL_CONTRACT_PROBE_H
+#define WORLD_SIM_GAME_PRESENTATION_WAR_HISTORY_VISUAL_CONTRACT_PROBE_H
+
+#include <stdio.h>
+
+int game_presentation_war_history_visual_contract_probe(FILE *summary);
+int game_presentation_war_history_visual_contract_source_ok(void);
+
+#endif

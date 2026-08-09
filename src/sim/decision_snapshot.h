@@ -1,11 +1,29 @@
 #ifndef WORLD_SIM_DECISION_SNAPSHOT_H
 #define WORLD_SIM_DECISION_SNAPSHOT_H
 
+#include <stdint.h>
+
 #include "sim/expansion.h"
 #include "sim/stability_decision.h"
 #include "sim/war_desire.h"
 
 typedef struct {
+    int effective_disorder;
+    int resource_pressure;
+    int base_contribution;
+    int war_status_contribution;
+    int territory_fragmentation_contribution;
+    int capital_connectivity_contribution;
+    int vassal_governance_contribution;
+    int high_disorder_contribution;
+    int raw_total;
+    int final_intent;
+} DecisionStabilityBreakdown;
+
+typedef struct {
+    uint64_t published_revision;
+    int city_slots_remaining;
+    int city_capacity_ready;
     ExpansionAIDiagnostics expansion;
     int war_desire;
     int war_pre_stability_desire;
@@ -43,6 +61,7 @@ typedef struct {
     int stability_peace_bonus;
     int stability_allows_war;
     int stability_allows_expansion;
+    DecisionStabilityBreakdown stability_breakdown;
     int expansion_weight;
     int war_weight;
     int stability_weight;
@@ -69,16 +88,12 @@ typedef struct {
     char stability_reason[128];
 } DecisionSnapshot;
 
+void decision_stability_breakdown_calculate(
+    int effective_disorder, int resource_pressure,
+    int disconnected_components, int owned_regions,
+    int capital_connected_percent, int vassal_governance_disorder,
+    int war_active, DecisionStabilityBreakdown *out);
 void decision_snapshot_for_civ(int civ_id, DecisionSnapshot *out);
 void decision_snapshot_refresh_countdowns(int civ_id, DecisionSnapshot *out);
-void decision_snapshot_cache_reset(void);
-void decision_snapshot_cache_mark_dirty(int civ_id);
-void decision_snapshot_cache_mark_all_dirty(void);
-void decision_snapshot_cache_update_budgeted(int max_civs);
-int decision_snapshot_cached(int civ_id, DecisionSnapshot *out);
-int decision_snapshot_cache_valid_count(void);
-int decision_snapshot_cache_dirty_count(void);
-int decision_snapshot_cache_last_update_ms(void);
-int decision_snapshot_cache_last_update_count(void);
 
 #endif

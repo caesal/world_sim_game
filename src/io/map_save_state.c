@@ -9,6 +9,7 @@
 #include "sim/war.h"
 
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef struct {
@@ -65,6 +66,11 @@ static int read_war_state(FILE *file, int save_version, int *total_started) {
     if (!read_header_any_size(file, &header, "WAR", WAR_SAVE_SLOT_COUNT)) return 0;
     memset(save_wars, 0, sizeof(save_wars));
     if (total_started) *total_started = header.aux_a;
+    if (save_version >= 21 &&
+        (header.item_size != (int)sizeof(ActiveWar) ||
+         header.count != WAR_SAVE_SLOT_COUNT || header.aux_a < 0 || header.aux_b != 0)) {
+        return 0;
+    }
     if (header.item_size == sizeof(ActiveWar)) {
         return read_all(file, save_wars, sizeof(ActiveWar), (size_t)header.count);
     }
@@ -74,6 +80,68 @@ static int read_war_state(FILE *file, int save_version, int *total_started) {
         }
         return 1;
     }
+    return 0;
+}
+
+static int compare_serials(const void *left, const void *right) {
+    uint64_t a = *(const uint64_t *)left;
+    uint64_t b = *(const uint64_t *)right;
+    return a < b ? -1 : a > b ? 1 : 0;
+}
+
+static int block_is_zero(const void *data, size_t size) {
+    const unsigned char *bytes = (const unsigned char *)data;
+    size_t i;
+    for (i = 0; i < size; i++) if (bytes[i] != 0) return 0;
+    return 1;
+}
+
+static int active_wars_valid(const WarHistorySaveState *history_state) {
+    uint64_t *serials;
+    int64_t current_absolute_month;
+    int serial_count = 0;
+    int i;
+    if (!history_state || history_state->next_serial == 0 ||
+        year < 0 || month < 1 || month > 12) return 0;
+    current_absolute_month = (int64_t)year * 12 + month - 1;
+    serials = (uint64_t *)malloc(sizeof(*serials) * WAR_SAVE_SLOT_COUNT);
+    if (!serials) return 0;
+    for (i = 0; i < WAR_SAVE_SLOT_COUNT; i++) {
+        const ActiveWar *war = &save_wars[i];
+        if (war->active == 0) {
+            if (!block_is_zero(war, sizeof(*war))) goto invalid;
+            continue;
+        }
+        if (war->active != 1 || war->attacker < 0 || war->attacker >= civ_count ||
+            war->defender < 0 || war->defender >= civ_count ||
+            war->attacker == war->defender || !civs[war->attacker].alive ||
+            !civs[war->defender].alive || war->war_serial == 0 ||
+            war->war_serial >= history_state->next_serial ||
+            war->attacker_uid <= WAR_HISTORY_INVALID_UID ||
+            war->defender_uid <= WAR_HISTORY_INVALID_UID ||
+            war->attacker_uid != civs[war->attacker].uid ||
+            war->defender_uid != civs[war->defender].uid ||
+            war->start_absolute_month < 0 ||
+            war->start_absolute_month > current_absolute_month) goto invalid;
+        serials[serial_count++] = war->war_serial;
+    }
+    qsort(serials, (size_t)serial_count, sizeof(*serials), compare_serials);
+    for (i = 1; i < serial_count; i++) {
+        if (serials[i - 1] == serials[i]) goto invalid;
+    }
+    for (i = 0; i < MAX_CIVS; i++) {
+        const WarHistory *history = &history_state->histories[i];
+        int record_id;
+        for (record_id = 0; record_id < history->count; record_id++) {
+            uint64_t serial = history->records[record_id].war_serial;
+            if (bsearch(&serial, serials, (size_t)serial_count,
+                        sizeof(*serials), compare_serials)) goto invalid;
+        }
+    }
+    free(serials);
+    return 1;
+invalid:
+    free(serials);
     return 0;
 }
 
@@ -124,7 +192,8 @@ int map_save_write_dynamic_state(FILE *file) {
            write_block(file, "ELOT", &event_total, sizeof(int), 1, 0, 0);
 }
 
-int map_save_read_dynamic_state(FILE *file, int save_version) {
+int map_save_read_dynamic_state_with_history(
+    FILE *file, int save_version, const WarHistorySaveState *history_state) {
     SaveBlockHeader header;
     int event_total = 0;
     int a, b, total_started, event_count, event_next;
@@ -136,7 +205,10 @@ int map_save_read_dynamic_state(FILE *file, int save_version) {
     for (a = 0; a < MAX_CIVS; a++) for (b = 0; b < MAX_CIVS; b++) diplomacy_restore_relation(a, b, save_relations[a * MAX_CIVS + b]);
     if (!read_alliance_state(file, save_version)) return -1;
     if (!read_war_state(file, save_version, &total_started)) return -1;
-    if (!read_header(file, &header, "WSUP", sizeof(int), MAX_CIVS) || !read_all(file, save_support, sizeof(int), (size_t)header.count)) return -1;
+    if (!read_header(file, &header, "WSUP", sizeof(int), MAX_CIVS) ||
+        header.count != MAX_CIVS || header.aux_a != 0 || header.aux_b != 0 ||
+        !read_all(file, save_support, sizeof(int), (size_t)header.count)) return -1;
+    if (history_state && !active_wars_valid(history_state)) return -1;
     if (!map_save_plague_read(file)) return -1;
     if (!read_header(file, &header, "ELOG", sizeof(EventLogEntry), EVENT_LOG_COUNT) ||
         !read_all(file, save_events, sizeof(EventLogEntry), (size_t)header.count)) return -1;
@@ -146,4 +218,8 @@ int map_save_read_dynamic_state(FILE *file, int save_version) {
     war_restore_save_state(save_wars, WAR_SAVE_SLOT_COUNT, save_support, MAX_CIVS, total_started);
     event_log_restore_save_state(save_events, event_count, event_next, event_total);
     return 1;
+}
+
+int map_save_read_dynamic_state(FILE *file, int save_version) {
+    return map_save_read_dynamic_state_with_history(file, save_version, NULL);
 }

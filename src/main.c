@@ -54,8 +54,23 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-expansion-perf") == 0) {
         return run_expansion_perf_probe();
     }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-decision-equivalence") == 0) {
+        return run_decision_equivalence_probe();
+    }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-decision-cache") == 0) {
+        return run_decision_cache_probe();
+    }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-decision-topology") == 0) {
+        return run_decision_topology_probe();
+    }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-war-history-save") == 0) {
+        return run_war_history_save_probe();
+    }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-military-alliance") == 0) {
         return run_military_alliance_probe();
+    }
+    if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-war-history") == 0) {
+        return run_war_history_probe();
     }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-population") == 0) {
         return run_population_probe();

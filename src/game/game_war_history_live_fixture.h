@@ -1,0 +1,24 @@
+#ifndef WORLD_SIM_GAME_WAR_HISTORY_LIVE_FIXTURE_H
+#define WORLD_SIM_GAME_WAR_HISTORY_LIVE_FIXTURE_H
+
+#include <windows.h>
+#include <stdint.h>
+
+extern int war_history_live_fixture_status;
+extern int war_history_live_fixture_selected_civ;
+extern int war_history_live_fixture_opponent_civ;
+extern int war_history_live_fixture_requested_count;
+extern int war_history_live_fixture_history_count;
+extern int war_history_live_fixture_actual_cession;
+extern int war_history_live_fixture_actual_indemnity;
+extern int war_history_live_fixture_save_reload_ok;
+extern int war_history_live_fixture_active_war_ok;
+extern int war_history_live_fixture_map_version;
+extern uint64_t war_history_live_fixture_revision_before_save;
+extern uint64_t war_history_live_fixture_revision_after_load;
+extern uint64_t war_history_live_fixture_active_serial_before_save;
+extern uint64_t war_history_live_fixture_active_serial_after_load;
+
+void game_war_history_live_fixture_after_worldgen(HWND hwnd);
+
+#endif

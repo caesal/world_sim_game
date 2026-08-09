@@ -5,6 +5,11 @@
 #include "game/game_plague_baseline_probe.h"
 #include "game/game_plague_probe.h"
 #include "game/game_plague_performance_probe.h"
+#include "game/game_decision_equivalence_probe.h"
+#include "game/game_decision_cache_probe.h"
+#include "game/game_decision_topology_probe.h"
+#include "game/game_war_history_probe.h"
+#include "game/game_war_history_save_probe.h"
 
 #include <windows.h>
 

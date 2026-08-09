@@ -1,4 +1,5 @@
 #include "sim/war_internal.h"
+#include "sim/war_history.h"
 #include "sim/world_announcement.h"
 
 #include <string.h>
@@ -15,6 +16,8 @@ void war_reset(void) {
     memset(active_wars, 0, sizeof(active_wars));
     memset(support_casualties, 0, sizeof(support_casualties));
     total_started_wars = 0;
+    war_history_reset();
+    war_history_rebind_current_slots();
     world_announcement_war_reset();
 }
 

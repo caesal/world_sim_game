@@ -27,7 +27,8 @@ typedef struct {
 } WaterCoverageCache;
 
 static WaterCoverageCache cache;
-static RenderWaterCoverageStats stats;
+RenderWaterCoverageStats water_coverage_debug_stats;
+#define stats water_coverage_debug_stats
 
 static int cache_matches(const RenderSnapshot *snapshot) {
     return cache.valid && cache.ocean_alpha && cache.lake_alpha &&

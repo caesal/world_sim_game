@@ -27,6 +27,8 @@ typedef struct {
     int lake_tiles;
 } RenderWaterCoverageStats;
 
+extern RenderWaterCoverageStats water_coverage_debug_stats;
+
 int render_water_coverage_prepare(const RenderSnapshot *snapshot);
 unsigned char render_water_coverage_ocean_alpha(int x, int y);
 unsigned char render_water_coverage_lake_alpha(int x, int y);

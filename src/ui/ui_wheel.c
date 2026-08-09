@@ -30,7 +30,7 @@ static int wheel_steps_from_delta(int delta) {
 }
 
 static int ui_wheel_handle_side_panel(HWND hwnd, RECT client, POINT point, int steps) {
-    if (side_panel_collapsed && side_panel_handle_hit_test(client, point.x, point.y)) return 1;
+    if (side_panel_handle_hit_test(client, point.x, point.y)) return 1;
     if (side_panel_collapsed || point.x < client.right - side_panel_w) return 0;
     if (panel_tab == PANEL_COUNTRY && point.y >= TOP_BAR_H && point.y <= client.bottom) {
         if (display_mode == DISPLAY_ALLIANCE && ui_alliance_panel_owns_input()) {

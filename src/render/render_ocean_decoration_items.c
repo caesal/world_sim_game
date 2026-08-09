@@ -169,11 +169,17 @@ static int collides_interior(const RenderSnapshot *snapshot,
 
 static void add_item(OceanDecorationItem *items, int *count, int max_count,
                      OceanDecorationItem item) {
+    unsigned int value;
     if (*count >= max_count) return;
     items[(*count)++] = item;
     item_set.motif_mask |= 1u << item.type;
-    item_set.hash = mix_u32(item_set.hash, (unsigned int)(item.type + item.x * 17 +
-                            item.y * 131 + item.size * 8191 + item.variant));
+    value = (unsigned int)(item.type + item.x * 17 + item.y * 131 +
+                           item.size * 8191 + item.variant);
+    item_set.hash = mix_u32(item_set.hash, value);
+    if (item.interior)
+        item_set.interior_hash = mix_u32(item_set.interior_hash, value);
+    else
+        item_set.exterior_hash = mix_u32(item_set.exterior_hash, value);
 }
 
 static void validate_spacing(const RenderSnapshot *snapshot) {
@@ -228,7 +234,13 @@ static void rebuild(const RenderSnapshot *snapshot) {
     rng = item_set.key;
     item_set.exterior_count = item_set.interior_count = 0;
     item_set.hash = 2166136261u;
+    item_set.exterior_hash = 2166136261u;
+    item_set.interior_hash = 2166136261u;
     item_set.motif_mask = 0;
+    item_set.interior_water_only = 1;
+    item_set.interior_deep_only = 1;
+    item_set.interior_shallow_allowed_seen = 0;
+    item_set.interior_min_clearance = 99;
     for (attempts = 0; attempts < 520 && item_set.exterior_count < OCEAN_EXT_TARGET; attempts++) {
         OceanDecorationItem item;
         int picked = random_motif_asset(&rng, 1);
@@ -245,7 +257,9 @@ static void rebuild(const RenderSnapshot *snapshot) {
     }
     for (attempts = 0; attempts < 1400 && item_set.interior_count < OCEAN_INT_TARGET; attempts++) {
         OceanDecorationItem item;
-        int needed;
+        int needed, clearance;
+        const OceanMotifAssetInfo *info;
+        const SnapshotTile *tile;
         int picked = random_motif_asset(&rng, 0);
         if (picked < 0 || snapshot->map_w < 5 || snapshot->map_h < 5) break;
         item.type = (unsigned char)picked;
@@ -256,10 +270,25 @@ static void rebuild(const RenderSnapshot *snapshot) {
         item.y = (short)rand_range(&rng, 2, snapshot->map_h - 3);
         item.size = (short)scaled_width(item.type, &rng);
         needed = render_ocean_decoration_item_clearance_tiles(snapshot, &item);
-        if (ocean_decoration_motif_clearance(snapshot, item.x, item.y, item.type, needed) < needed ||
+        clearance = ocean_decoration_motif_clearance(
+            snapshot, item.x, item.y, item.type, needed);
+        if (clearance < needed ||
             !far_from_city_and_lane(snapshot, item.x, item.y) ||
             collides_interior(snapshot, interior_items, item_set.interior_count, item)) continue;
         add_item(interior_items, &item_set.interior_count, OCEAN_INT_MAX, item);
+        info = ocean_assets_motif_info(item.type);
+        tile = &snapshot->tiles[item.y * snapshot->map_w + item.x];
+        if (ocean_decoration_motif_water_rule(info) ==
+                OCEAN_MOTIF_WATER_DEEP_ONLY &&
+            !ocean_decoration_deep_ocean_tile(snapshot, item.x, item.y))
+            item_set.interior_deep_only = 0;
+        if (ocean_decoration_motif_water_rule(info) ==
+                OCEAN_MOTIF_WATER_SHALLOW_OR_DEEP &&
+            tile->geography == GEO_OCEAN &&
+            tile->water_depth == WATER_DEPTH_SHALLOW)
+            item_set.interior_shallow_allowed_seen = 1;
+        if (clearance < item_set.interior_min_clearance)
+            item_set.interior_min_clearance = clearance;
     }
     validate_spacing(snapshot);
     source_valid = 1;
@@ -297,6 +326,8 @@ void render_ocean_decoration_items_reset(void) {
     int rebuilds = item_set.item_rebuilds;
     item_set = (OceanDecorationItemSet){0};
     item_set.same_type_spacing_ok = item_set.exterior_spacing_ok = 1;
+    item_set.interior_water_only = item_set.interior_deep_only = 1;
+    item_set.interior_min_clearance = 99;
     item_set.item_rebuilds = 0;
     (void)rebuilds;
     source_valid = 0;

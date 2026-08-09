@@ -324,10 +324,16 @@ int war_owned_province_count(int civ_id) {
     return regions_owned_count_for_civ(civ_id);
 }
 
-void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcome, int margin,
-                                   int loser_casualties, int loser_initial_soldiers, int last_war_result) {
+WarSettlementResult war_apply_outcome_with_result_capture(
+    int attacker, int defender, WarOutcome outcome, int margin,
+    int loser_casualties, int loser_initial_soldiers, int last_war_result) {
+    WarSettlementResult settlement = {0};
     int winner = -1;
     int loser = -1;
+
+    settlement.winner_civ = -1;
+    settlement.loser_civ = -1;
+    settlement.beneficiary_civ = -1;
 
     if (outcome == WAR_OUTCOME_ATTACKER_WIN) {
         winner = attacker;
@@ -348,6 +354,8 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
         snprintf(loser_alliance_payload, sizeof(loser_alliance_payload), "%s\t%s",
                  loser_alliance >= 0 ? alliance_name_en(loser_alliance) : "",
                  loser_alliance >= 0 ? alliance_name_zh(loser_alliance) : "");
+        settlement.winner_civ = winner;
+        settlement.loser_civ = loser;
         diplomacy_record_war_result_kind(winner, loser, (DiplomacyLastWarResult)last_war_result);
         if (alliance_type(loser_alliance) != ALLIANCE_TYPE_MILITARY) {
             forced_alliance_exit = alliance_force_member_exit_for_war_defeat(
@@ -362,8 +370,10 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
             cession_count = cession_count_from_loss(loser, winner, loser_casualties, loser_initial_soldiers);
             cession_count = apply_indemnity_offset(loser, winner, cession_count,
                                                    &indemnity_offsets, &indemnity_spent);
-            if (indemnity_spent > 0 && alliance_type(alliance_for_civ(winner)) == ALLIANCE_TYPE_MILITARY)
-                alliance_council_distribute_indemnity(alliance_for_civ(winner), indemnity_spent);
+            if (indemnity_spent > 0 && alliance_type(alliance_for_civ(winner)) == ALLIANCE_TYPE_MILITARY) {
+                settlement.indemnity_distributed =
+                    alliance_council_distribute_indemnity(alliance_for_civ(winner), indemnity_spent);
+            }
             transferred = transfer_side_border_regions(loser, winner, cession_count);
             if (indemnity_offsets > 0) {
                 event_log_push_structured(EVENT_TYPE_TREASURY_INDEMNITY, EVENT_SEVERITY_WARNING,
@@ -372,6 +382,10 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
             }
             if (transferred == 0) disorder_add_war_pressure(loser, 10);
         }
+        settlement.transferred_regions = transferred;
+        settlement.indemnity_paid = indemnity_spent;
+        settlement.forced_alliance_exit = forced_alliance_exit;
+        if (transferred > 0 || indemnity_spent > 0) settlement.beneficiary_civ = winner;
         if ((!forced_alliance_exit && transferred == 0) ||
             (civs[loser].disorder >= 80 && civs[loser].cohesion <= 3) ||
             (civs[loser].disorder >= 92 && civs[loser].cohesion <= 4)) {
@@ -385,6 +399,14 @@ void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcom
     }
     world_recalculate_territory();
     world_invalidate_region_cache();
+    return settlement;
+}
+
+void war_apply_outcome_with_result(int attacker, int defender, WarOutcome outcome, int margin,
+                                   int loser_casualties, int loser_initial_soldiers, int last_war_result) {
+    (void)war_apply_outcome_with_result_capture(attacker, defender, outcome, margin,
+                                                loser_casualties, loser_initial_soldiers,
+                                                last_war_result);
 }
 
 void war_apply_outcome(int attacker, int defender, WarOutcome outcome, int margin,

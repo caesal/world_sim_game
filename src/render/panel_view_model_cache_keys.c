@@ -8,6 +8,8 @@
 #include "ui/ui_types.h"
 #include "ui/ui_worldgen_control_state.h"
 
+#include <stdint.h>
+
 static const char *kind_names[PANEL_CACHE_COUNT] = {
     "collapsed", "country-list", "country-detail", "population",
     "plague", "worldgen", "debug-map", "debug-perf"
@@ -15,6 +17,11 @@ static const char *kind_names[PANEL_CACHE_COUNT] = {
 
 static unsigned int mix_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
+}
+
+static unsigned int mix_u64_key(unsigned int key, uint64_t value) {
+    key = mix_key(key, (int)(uint32_t)value);
+    return mix_key(key, (int)(uint32_t)(value >> 32));
 }
 
 static unsigned int snapshot_base_key(const RenderSnapshot *snapshot,
@@ -116,43 +123,21 @@ static unsigned int mix_header_key(unsigned int key,
                   key_bucket(civ->current_soldiers, 100));
     key = mix_key(key, exact ? civ->treasury :
                   key_bucket(civ->treasury, 100));
-    return mix_text_key(key, civ->main_intent);
+    return key;
 }
 
-static unsigned int mix_decision_key(unsigned int key,
-                                     const SnapshotCiv *civ) {
-    const DecisionSnapshot *decision;
-    int values[17];
-    int i;
+static unsigned int mix_decision_revision_key(unsigned int key,
+                                              const SnapshotCiv *civ) {
     if (!civ) return mix_key(key, 0);
-    decision = &civ->decision;
-    values[0] = decision->expansion_weight;
-    values[1] = decision->war_weight;
-    values[2] = decision->stability_weight;
-    values[3] = decision->next_expansion_months;
-    values[4] = decision->war_desire;
-    values[5] = decision->war_raw_desire;
-    values[6] = decision->war_threshold;
-    values[7] = decision->war_readiness_percent;
-    values[8] = decision->war_crisis_score;
-    values[9] = decision->war_result;
-    values[10] = decision->stability_pressure;
-    values[11] = decision->stability_mode;
-    values[12] = decision->next_diplomacy_months;
-    values[13] = decision->next_battle_months;
-    values[14] = decision->next_collapse_years;
-    values[15] = decision->capital_region;
-    values[16] = decision->owned_regions;
-    for (i = 0; i < 17; i++) key = mix_key(key, values[i]);
-    key = mix_text_key(mix_text_key(mix_text_key(key, civ->main_intent),
-                                    civ->decision_expansion_reason),
-                       civ->decision_war_reason);
-    return mix_text_key(key, decision->stability_reason);
+    return mix_u64_key(key, civ->decision.published_revision);
 }
 
 unsigned int panel_view_model_cache_probe_decision_key(
     const SnapshotCiv *civ) {
-    return mix_decision_key(2166136261u, civ);
+    unsigned int key = 2166136261u;
+    if (!civ) return mix_key(key, 0);
+    key = mix_key(key, civ->uid);
+    return mix_decision_revision_key(key, civ);
 }
 
 static unsigned int mix_top_city_rows_key(unsigned int key,
@@ -299,7 +284,7 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot,
     if (tab == COUNTRY_DETAIL_OVERVIEW) {
         key = mix_header_key(key, civ, 1);
         if (civ) key = mix_country_summary_key(key, civ->summary);
-        key = mix_decision_key(key, civ);
+        key = mix_decision_revision_key(key, civ);
         key = panel_diplomacy_rows_cache_key_for_view(
             key, snapshot, selected_civ, 0, 0);
         key = mix_key(key, snapshot->plague_revision);
@@ -317,10 +302,7 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot,
         key = mix_key(key, snapshot->plague_revision);
     } else if (tab == COUNTRY_DETAIL_DECISION) {
         key = mix_header_key(key, civ, 0);
-        key = mix_decision_key(key, civ);
-        key = mix_key(key, snapshot->regions_revision);
-        key = mix_key(key, snapshot->lanes_revision);
-        key = mix_key(key, snapshot->events_revision);
+        key = mix_decision_revision_key(key, civ);
     } else if (tab == COUNTRY_DETAIL_POPULATION) {
         key = mix_header_key(key, civ, 1);
         if (civ) {
@@ -352,6 +334,7 @@ static unsigned int country_data_key(const RenderSnapshot *snapshot,
             key = mix_key(key, civ->disorder_wartime);
             key = mix_key(key, civ->disorder_last_net_x10);
         }
+        key = mix_decision_revision_key(key, civ);
         key = mix_key(key, snapshot->plague_revision);
     } else {
         key = mix_header_key(key, civ, 0);

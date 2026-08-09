@@ -23,8 +23,14 @@ typedef struct {
     int motif_spacing_violation_count;
     int same_type_spacing_ok;
     int exterior_spacing_ok;
+    int interior_water_only;
+    int interior_deep_only;
+    int interior_shallow_allowed_seen;
+    int interior_min_clearance;
     unsigned int key;
     unsigned int hash;
+    unsigned int exterior_hash;
+    unsigned int interior_hash;
     unsigned int motif_mask;
 } OceanDecorationItemSet;
 

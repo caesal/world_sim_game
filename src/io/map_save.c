@@ -8,6 +8,8 @@
 #include "io/map_save_regions.h"
 #include "io/map_save_river_paths.h"
 #include "io/map_save_state.h"
+#include "io/map_save_validation.h"
+#include "io/map_save_war_history.h"
 #include "io/map_save_world_physical.h"
 #include "sim/civilization_uid.h"
 #include "sim/disorder.h"
@@ -15,6 +17,7 @@
 #include "sim/regions_port_policy.h"
 #include "sim/regions_settlement.h"
 #include "sim/simulation.h"
+#include "sim/war.h"
 #include "ui/ui_types.h"
 #include "world/world_physical_state.h"
 #include "world/river_presentation_state.h"
@@ -23,7 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#define MAP_SAVE_VERSION 20
+#define MAP_SAVE_VERSION 21
 #define MAP_SAVE_PATH_MAX 1024
 
 typedef struct {
@@ -56,9 +59,9 @@ typedef struct {
     int plague_fog_alpha;
 } MapSaveHeader;
 
-_Static_assert(sizeof(MapSaveHeader) == 112, "save-v20 header contract changed");
+_Static_assert(sizeof(MapSaveHeader) == 112, "save-v21 header contract changed");
 _Static_assert(offsetof(MapSaveHeader, river_path_count) == 44,
-               "save-v20 river count offset changed");
+               "save-v21 river count offset changed");
 
 static const char MAP_SAVE_MAGIC[8] = {'W', 'S', 'G', 'M', 'A', 'P', '1', '\0'};
 static char save_folder[MAP_SAVE_PATH_MAX];
@@ -137,7 +140,7 @@ int ensure_map_save_folder(void) {
 static void show_utf8_message(HWND hwnd, const char *text, const char *title, UINT flags) {
     WCHAR wide_text[1024];
     WCHAR wide_title[128];
-
+    if (map_save_validation_silent()) return;
     MultiByteToWideChar(CP_UTF8, 0, text, -1, wide_text, (int)(sizeof(wide_text) / sizeof(wide_text[0])));
     MultiByteToWideChar(CP_UTF8, 0, title, -1, wide_title, (int)(sizeof(wide_title) / sizeof(wide_title[0])));
     MessageBoxW(hwnd, wide_text, wide_title, flags);
@@ -225,6 +228,7 @@ static int validate_header(const MapSaveHeader *header) {
            map_save_version_supported(header->version) &&
            header->map_w > 0 && header->map_w <= MAX_MAP_W &&
            header->map_h > 0 && header->map_h <= MAX_MAP_H &&
+           header->year >= 0 && header->month >= 1 && header->month <= 12 &&
            header->civ_count >= 0 && header->civ_count <= MAX_CIVS &&
            header->city_count >= 0 && header->city_count <= MAX_CITIES &&
            header->maritime_route_count >= 0 && header->maritime_route_count <= MAX_MARITIME_ROUTES &&
@@ -242,7 +246,7 @@ static void make_save_filename(char *path, size_t path_size) {
 }
 static int pick_save_destination(HWND hwnd, char *path, DWORD path_size) {
     OPENFILENAMEA save_file;
-
+    if (map_save_validation_path(path, path_size)) return 1;
     make_save_filename(path, path_size);
     if (path[0] == '\0') return 0;
     memset(&save_file, 0, sizeof(save_file));
@@ -319,6 +323,7 @@ int save_current_map(HWND hwnd) {
     }
     fill_header(&header);
     if (!write_block(file, &header, sizeof(header), 1) ||
+        !map_save_war_history_write(file) ||
         !write_world_rows(file) ||
         !map_save_world_physical_write(file, map_w, map_h) ||
         !map_save_river_paths_write(file, river_paths, river_path_count, map_w, map_h) ||
@@ -352,7 +357,7 @@ static int any_save_files(void) {
 
 static int pick_save_file(HWND hwnd, char *path, DWORD path_size) {
     OPENFILENAMEA open_file;
-
+    if (map_save_validation_path(path, path_size)) return 1;
     memset(&open_file, 0, sizeof(open_file));
     path[0] = '\0';
     open_file.lStructSize = sizeof(open_file);
@@ -368,16 +373,18 @@ static int pick_save_file(HWND hwnd, char *path, DWORD path_size) {
 int load_map_from_file(HWND hwnd) {
     MapSaveHeader header;
     MapSaveRiverPathsStage river_stage = {0};
+    MapSaveWarHistoryStage history_stage = {0};
     MapSaveRiverPathsStatus river_status;
     FILE *file;
+    int storage_cleared = 0;
     char path[MAP_SAVE_PATH_MAX];
-#define LOAD_FAIL(message) do { map_save_river_paths_stage_release(&river_stage); \
-    fclose(file); load_progress_fail(); \
+#define LOAD_FAIL(message) do { map_save_river_paths_stage_release(&river_stage); map_save_war_history_stage_release(&history_stage); \
+    if (storage_cleared) { war_reset(); } fclose(file); load_progress_fail(); \
     load_progress_set_repaint_callback(NULL, NULL); \
     show_utf8_message(hwnd, message, localized_text("Load Map", "读取地图"), \
                       MB_OK | MB_ICONERROR); return 0; } while (0)
 
-    if (!ensure_map_save_folder() || !any_save_files()) {
+    if (!ensure_map_save_folder() || (!map_save_validation_path(path, sizeof(path)) && !any_save_files())) {
         show_utf8_message(hwnd, "No saved maps found.", "Load Map", MB_OK | MB_ICONINFORMATION);
         return 0;
     }
@@ -390,7 +397,9 @@ int load_map_from_file(HWND hwnd) {
     load_progress_set_repaint_callback(load_repaint, hwnd);
     load_progress_begin();
     load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 0, 1);
-    if (!read_block(file, &header, sizeof(header), 1) || !validate_header(&header)) {
+    if (!read_block(file, &header, sizeof(header), 1) || !validate_header(&header) ||
+        !map_save_war_history_stage_read(file, header.version, header.year, header.month,
+                                         header.civ_count, &history_stage)) {
         LOAD_FAIL(localized_text("The selected file is not a compatible map save.",
                                  "所选文件不是兼容的地图存档。"));
     }
@@ -403,7 +412,7 @@ int load_map_from_file(HWND hwnd) {
     }
     load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 1, 1);
     load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 0, 1);
-    clear_loaded_storage();
+    clear_loaded_storage(); storage_cleared = 1;
     load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 1, 1);
     map_w = header.map_w;
     map_h = header.map_h;
@@ -456,7 +465,8 @@ int load_map_from_file(HWND hwnd) {
     {
         int dynamic_result;
         load_progress_update(LOAD_STAGE_DYNAMIC_STATE, 0, 1);
-        dynamic_result = map_save_read_dynamic_state(file, header.version);
+        dynamic_result = map_save_read_dynamic_state_with_history(
+            file, header.version, map_save_war_history_stage_state(&history_stage));
         if (dynamic_result < 0) {
             LOAD_FAIL("Could not read dynamic world state.");
         }
@@ -469,10 +479,12 @@ int load_map_from_file(HWND hwnd) {
         LOAD_FAIL(localized_text("The map's river data is incompatible or corrupted.",
                                  "地图的河流数据不兼容或已损坏。"));
     }
-    fclose(file);
     map_save_normalize_loaded_civilizations(header.version);
     civilization_migrate_loaded_names();
     civilization_repair_loaded_uids();
+    if (!map_save_war_history_stage_commit(&history_stage)) LOAD_FAIL("Could not restore war history.");
+    map_save_war_history_stage_release(&history_stage);
+    fclose(file);
     regions_repair_local_city_slots(1);
     regions_port_policy_apply_all();
     regions_refresh_province_ids_from_regions();

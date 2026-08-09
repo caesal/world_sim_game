@@ -75,8 +75,8 @@ RECT get_side_panel_handle_rect(RECT client) {
         rect.right = client.right - 8;
         rect.left = rect.right - handle_w;
     } else {
-        rect.left = panel_left;
-        rect.right = rect.left + handle_w;
+        rect.right = panel_left;
+        rect.left = rect.right - handle_w;
     }
     rect.top = area_top + ((area_bottom - area_top) - handle_h) / 2;
     rect.bottom = rect.top + handle_h;
@@ -90,6 +90,12 @@ RECT get_side_panel_handle_rect(RECT client) {
 RECT get_side_panel_handle_dirty_rect(RECT client) {
     RECT rect = get_side_panel_handle_rect(client);
     InflateRect(&rect, 10, 10);
+    return rect;
+}
+
+RECT get_side_panel_handle_hit_rect(RECT client) {
+    RECT rect = get_side_panel_handle_rect(client);
+    InflateRect(&rect, 8, 8);
     return rect;
 }
 
@@ -109,8 +115,7 @@ RECT get_side_panel_draw_rect(RECT client) {
 }
 
 int side_panel_handle_hit_test(RECT client, int x, int y) {
-    RECT rect = get_side_panel_handle_rect(client);
-    InflateRect(&rect, 8, 8);
+    RECT rect = get_side_panel_handle_hit_rect(client);
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 

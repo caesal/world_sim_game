@@ -1,6 +1,7 @@
 #include "expansion.h"
 
 #include "core/profiler.h"
+#include "sim/expansion_land_topology.h"
 #include "sim/maritime.h"
 #include "sim/population.h"
 #include "sim/regions.h"
@@ -38,6 +39,7 @@ static int expansion_stage(int civ_id) {
 void expansion_reset(void) {
     memset(next_expansion_month, 0, sizeof(next_expansion_month));
     memset(expansion_reasons, 0, sizeof(expansion_reasons));
+    expansion_land_topology_reset();
 }
 
 static int region_claimable_by_alive_civ(const NaturalRegion *region) {
@@ -89,29 +91,6 @@ static int expansion_retry_months(int civ_id) {
     return stage >= 3 ? 3 : (stage >= 2 ? 4 : 6);
 }
 
-static int region_has_near_owner_path(int region_id, int civ_id) {
-    const NaturalRegion *region = regions_get(region_id);
-    int i;
-
-    if (!region_claimable_by_alive_civ(region)) return 0;
-    for (i = 0; i < region->neighbor_count; i++) {
-        int neighbor = region->neighbors[i];
-        const NaturalRegion *near_region;
-        int j;
-
-        if (neighbor < 0 || neighbor >= region_count) continue;
-        near_region = regions_get(neighbor);
-        if (!near_region || !near_region->alive) continue;
-        if (near_region->owner_civ == civ_id) return 1;
-        if (!region_claimable_by_alive_civ(near_region)) continue;
-        for (j = 0; j < near_region->neighbor_count; j++) {
-            int next = near_region->neighbors[j];
-            if (next >= 0 && next < region_count && natural_regions[next].owner_civ == civ_id) return 1;
-        }
-    }
-    return 0;
-}
-
 static int owned_region_count_for_civ(int civ_id) {
     int i;
     int count = 0;
@@ -144,8 +123,7 @@ static void finalize_expansion_ai(int civ_id, ExpansionAIDiagnostics *ai) {
 
 static ExpansionAIDiagnostics expansion_land_diagnostics(int civ_id, int resource_score) {
     ExpansionAIDiagnostics ai;
-    int i;
-    int viable_regions = 0;
+    ExpansionLandTopologyCounts topology;
 
     memset(&ai, 0, sizeof(ai));
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return ai;
@@ -155,15 +133,13 @@ static ExpansionAIDiagnostics expansion_land_diagnostics(int civ_id, int resourc
     ai.expansion_need = max(ai.population_pressure, ai.resource_pressure);
     ai.expansion_threshold = expansion_threshold_for_civ(civ_id);
     ai.tech_expansion_percent = technology_expansion_percent(civ_id);
-    for (i = 0; i < region_count; i++) {
-        const NaturalRegion *region = regions_get(i);
-        if (region) viable_regions++;
-        if (!region_claimable_by_alive_civ(region)) continue;
-        ai.global_unowned_regions++;
-        if (regions_region_has_owner_neighbor(i, civ_id)) ai.land_adjacent_unowned_regions++;
-        else if (region_has_near_owner_path(i, civ_id)) ai.land_nearby_unowned_regions++;
+    if (expansion_land_topology_counts(civ_id, &topology)) {
+        ai.global_unowned_regions = topology.global_unowned_regions;
+        ai.land_adjacent_unowned_regions = topology.land_adjacent_unowned_regions;
+        ai.land_nearby_unowned_regions = topology.land_nearby_unowned_regions;
+        ai.global_unowned_percent = topology.viable_regions > 0 ?
+            topology.global_unowned_regions * 100 / topology.viable_regions : 0;
     }
-    ai.global_unowned_percent = viable_regions > 0 ? ai.global_unowned_regions * 100 / viable_regions : 0;
     finalize_expansion_ai(civ_id, &ai);
     return ai;
 }
@@ -198,6 +174,10 @@ const char *expansion_last_reason(int civ_id) {
 int expansion_civ_months_until_claim(int civ_id) {
     if (civ_id < 0 || civ_id >= civ_count || !civs[civ_id].alive) return 9999;
     return max(0, next_expansion_month[civ_id] - simulation_month_index());
+}
+
+int expansion_civ_next_claim_month_index(int civ_id) {
+    return civ_id >= 0 && civ_id < MAX_CIVS ? next_expansion_month[civ_id] : 0;
 }
 
 static int expansion_attempts_for_civ(int civ_id, int resource_score, ExpansionAIDiagnostics ai) {

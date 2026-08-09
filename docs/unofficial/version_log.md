@@ -1,5 +1,45 @@
 # Version Log
 
+## Ver0.3.7
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.7.
+2. Published one coherent, bounded monthly Decision snapshot for every alive
+   civilization, including late civilization IDs.
+3. Kept selected-country Decision presentation snapshot-only, with no
+   render-time Decision calculation.
+4. Redesigned Stability around one Stability Intent meter, a fixed 2x3 factor
+   composition, numeric-only Base Pressure, and no duplicate Disorder meter.
+5. Added a fixed-capacity, newest-first history of exactly three completed
+   principal-war summaries per civilization.
+6. Placed those summaries above the active war with the selected/local
+   principal on the left and the opponent on the right, exact localized
+   outcomes, principal casualties, actual cession or indemnity direction,
+   ending year/month, and duration.
+7. Increased the save format to MAP21 to persist the bounded war-history state.
+8. Unified ocean texture coordinates, native scale, phase, and sharpness inside
+   and outside the playable map.
+9. Reused the same ocean texture before generation without generated ships,
+   monsters, other world-dependent decoration, or stale-map presentation.
+
+Compatibility and scope notes:
+
+- `WORLD_SIM_VERSION` is `0.3.7`; `MAP_SAVE_VERSION` is `21`.
+- MAP20 and older saves are intentionally rejected; no migration or backward
+  save compatibility is promised.
+- Gameplay formulas, war outcomes, Decision formulas, world generation,
+  climate, hydrology, routes, plague, diplomacy classification, and
+  simulation-speed semantics are not retuned.
+- `docs/official` remains unchanged because this is not an official
+  documentation freeze.
+- The ordered Rule 47 prerequisites and a fresh final-source Rule 39 acceptance
+  run passed on 2026-08-09 with no known actionable defect.
+- The accepted Rule 39 world began with 64 civilizations and 1,295 natural
+  regions, ended with 57 civilizations at Year 693 Month 4, and completed all
+  required route, war, vassal, collapse, plague, GUI, and resource checks.
+- This release is published from `dev` under the lightweight `ver0.3.7` tag.
+
 ## Ver0.3.6.c
 
 Implemented changes:

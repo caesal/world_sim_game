@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_DECISION_EQUIVALENCE_PROBE_H
+#define WORLD_SIM_GAME_DECISION_EQUIVALENCE_PROBE_H
+
+int run_decision_equivalence_probe(void);
+
+#endif

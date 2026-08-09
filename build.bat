@@ -24,6 +24,22 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_plague_performance_probe.c ^
   src\game\game_plague_probability_request.c ^
   src\game\game_expansion_perf_probe.c ^
+  src\game\game_war_history_probe.c ^
+  src\game\game_war_history_probe_fixture.c ^
+  src\game\game_war_history_model_probe.c ^
+  src\game\game_war_history_terminal_probe.c ^
+  src\game\game_war_history_save_probe.c ^
+  src\game\game_war_history_save_probe_fixture.c ^
+  src\game\game_war_history_save_probe_codec.c ^
+  src\game\game_war_history_save_probe_dynamic.c ^
+  src\game\game_war_history_live_fixture.c ^
+  src\game\game_decision_equivalence_probe.c ^
+  src\game\game_decision_cache_probe.c ^
+  src\game\game_decision_cache_probe_fixture.c ^
+  src\game\game_decision_cache_probe_lifecycle.c ^
+  src\game\game_decision_cache_probe_matrix.c ^
+  src\game\game_decision_stability_probe.c ^
+  src\game\game_decision_topology_probe.c ^
   src\game\game_worldgen_probe.c ^
   src\game\game_worldgen_coast_threshold_probe.c ^
   src\game\game_worldgen_coast_semantic_fixture.c ^
@@ -65,6 +81,14 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_diplomacy_visual_probe.c ^
   src\game\game_presentation_probe.c ^
   src\game\game_presentation_probe_runner.c ^
+  src\game\game_presentation_decision_artifact_fixture.c ^
+  src\game\game_presentation_decision_artifact_probe.c ^
+  src\game\game_presentation_visual_blocker_probe.c ^
+  src\game\game_presentation_decision_stability_probe.c ^
+  src\game\game_presentation_decision_stability_visual_contract_probe.c ^
+  src\game\game_presentation_war_history_fixture.c ^
+  src\game\game_presentation_war_history_probe.c ^
+  src\game\game_presentation_war_history_visual_contract_probe.c ^
   src\game\game_presentation_plague_probe.c ^
   src\game\game_presentation_plague_probability_probe.c ^
   src\game\game_presentation_plague_probability_contract_probe.c ^
@@ -105,6 +129,8 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_presentation_river_lod_probe.c ^
   src\game\game_presentation_river_terminal_probe.c ^
   src\game\game_presentation_ocean_surface_probe.c ^
+  src\game\game_presentation_ocean_coherence_probe.c ^
+  src\game\game_presentation_ocean_cache_probe.c ^
   src\game\game_presentation_map_probe.c ^
   src\game\game_presentation_diplomacy_probe.c ^
   src\game\game_presentation_diplomacy_sort_probe.c ^
@@ -127,6 +153,8 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\io\map_save_civs.c ^
   src\io\map_save_regions.c ^
   src\io\map_save_state.c ^
+  src\io\map_save_war_history.c ^
+  src\io\map_save_validation.c ^
   src\io\map_save_world_physical.c ^
   src\io\map_save_plague.c ^
   src\core\event_log.c ^
@@ -155,6 +183,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\core\render_snapshot_civs.c ^
   src\core\render_snapshot_events.c ^
   src\core\render_snapshot_keys.c ^
+  src\core\render_snapshot_war_history.c ^
   src\core\render_snapshot_profile.c ^
   src\core\render_snapshot_sections.c ^
   src\core\state_lock.c ^
@@ -249,6 +278,8 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\sim\plague_diagnostics.c ^
   src\sim\civilization_metrics.c ^
   src\sim\decision_snapshot.c ^
+  src\sim\decision_snapshot_cache.c ^
+  src\sim\expansion_land_topology.c ^
   src\sim\technology.c ^
   src\sim\province.c ^
   src\sim\province_partition.c ^
@@ -284,6 +315,8 @@ src\sim\diplomacy_year.c ^
   src\sim\diplomacy_names.c ^
   src\sim\war_desire.c ^
   src\sim\war.c ^
+  src\sim\war_history.c ^
+  src\sim\war_terminal.c ^
   src\sim\war_transfer.c ^
   src\sim\war_economy.c ^
   src\sim\war_front.c ^
@@ -327,6 +360,7 @@ src\sim\diplomacy_year.c ^
   src\render\render_ocean_coverage.c ^
   src\render\render_ocean_decoration.c ^
   src\render\render_ocean_texture.c ^
+  src\render\render_ocean_static_mask.c ^
   src\render\render_ocean_motifs.c ^
   src\render\render_context.c ^
   src\render\snapshot_ui.c ^
@@ -399,6 +433,8 @@ src\sim\diplomacy_year.c ^
   src\render\panel_country_resources.c ^
   src\render\panel_country_diplomacy.c ^
   src\render\panel_country_diplomacy_cards.c ^
+  src\render\panel_country_diplomacy_result.c ^
+  src\render\panel_country_diplomacy_war_history.c ^
   src\render\panel_war_compare_bar.c ^
   src\render\panel_country_diplomacy_score.c ^
   src\render\panel_country_diplomacy_tooltip.c ^

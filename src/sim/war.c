@@ -12,9 +12,11 @@
 #include "sim/vassal.h"
 #include "sim/war_economy.h"
 #include "sim/war_front.h"
+#include "sim/war_history.h"
 #include "sim/war_internal.h"
-#include "sim/world_announcement.h"
 #include "sim/war_resolution.h"
+#include "sim/war_terminal.h"
+#include "sim/world_announcement.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -169,6 +171,10 @@ static int war_start_internal(int attacker, int defender, int allow_no_border) {
     war->active = 1;
     war->attacker = attacker;
     war->defender = defender;
+    war->war_serial = war_history_allocate_serial();
+    war->attacker_uid = civs[attacker].uid;
+    war->defender_uid = civs[defender].uid;
+    war->start_absolute_month = max(0, year) * 12 + clamp(month, 1, 12) - 1;
     war->initial_national_a = current_national_soldiers(attacker);
     war->initial_national_b = current_national_soldiers(defender);
     war->initial_soldiers_a = allocate_front_share(war, attacker);
@@ -229,13 +235,7 @@ int war_peace_pressure_between(int civ_id, int other_id) {
 }
 int war_total_started_count(void) { return total_started_wars; }
 void war_end_direct_for_civ(int civ_id) {
-    int i;
-    for (i = 0; i < MAX_ACTIVE_WARS; i++) {
-        if (!active_wars[i].active) continue;
-        if (active_wars[i].attacker == civ_id || active_wars[i].defender == civ_id) {
-            memset(&active_wars[i], 0, sizeof(active_wars[i]));
-        }
-    }
+    war_terminal_end_direct_for_civ(civ_id);
 }
 static void apply_population_casualties(int civ_id, int soldier_casualties) {
     int population_losses;
@@ -253,47 +253,19 @@ static void update_supply_state(ActiveWar *war) {
     if (b.food < 3 || b.money < 3 || b.water < 2) war->supply_fail_b++;
     else war->supply_fail_b = 0;
 }
-static void finish_war(ActiveWar *war, WarOutcome outcome, int margin, int last_war_result) {
-    int loser_casualties = 0;
-    int loser_initial = 0;
-    if (outcome == WAR_OUTCOME_ATTACKER_WIN) {
-        loser_casualties = war->casualties_b + war->support_casualties_b;
-        loser_initial = war->initial_soldiers_b;
-    } else if (outcome == WAR_OUTCOME_DEFENDER_WIN) {
-        loser_casualties = war->casualties_a + war->support_casualties_a;
-        loser_initial = war->initial_soldiers_a;
-    }
-    world_announcement_war_ended((int)(war - active_wars), outcome, last_war_result);
-    war_apply_outcome_with_result(war->attacker, war->defender, outcome, margin,
-                                  loser_casualties, loser_initial, last_war_result);
-    memset(war, 0, sizeof(*war));
-}
-static void end_war_severed_front(ActiveWar *war) {
-    int attacker = war->attacker;
-    int defender = war->defender;
-    event_log_push_structured(EVENT_TYPE_WAR_FRONT_SEVERED, EVENT_SEVERITY_INFO,
-                              attacker, defender, -1, -1, 0, 0, "");
-    world_announcement_war_ended((int)(war - active_wars), WAR_OUTCOME_STALEMATE,
-                                 DIP_LAST_WAR_FRONT_SEVERED);
-    diplomacy_record_war_no_winner(attacker, defender, DIP_LAST_WAR_FRONT_SEVERED);
-    diplomacy_start_truce(attacker, defender, 25, 45);
-    memset(war, 0, sizeof(*war));
-}
 static int resolve_peace_pressure_outcome(ActiveWar *war, int peace_a, int peace_b) {
     int attacker_willing = peace_a >= 70;
     int defender_willing = peace_b >= 70;
     if (!attacker_willing && !defender_willing) return 0;
     if (defender_willing && !attacker_willing) {
-        finish_war(war, WAR_OUTCOME_ATTACKER_WIN, max(1, war_owned_province_count(war->defender) / 5),
-                   DIP_LAST_WAR_SURRENDER);
+        war_terminal_finish(war, WAR_OUTCOME_ATTACKER_WIN,
+                            max(1, war_owned_province_count(war->defender) / 5),
+                            DIP_LAST_WAR_SURRENDER);
     } else if (attacker_willing && !defender_willing) {
-        world_announcement_war_ended((int)(war - active_wars), WAR_OUTCOME_STALEMATE,
-                                     DIP_LAST_WAR_OFFENSIVE_HALTED);
-        diplomacy_record_war_no_winner(war->attacker, war->defender, DIP_LAST_WAR_OFFENSIVE_HALTED);
-        diplomacy_start_truce(war->attacker, war->defender, 25, 45);
-        memset(war, 0, sizeof(*war));
+        war_terminal_offensive_halted(war, 1, 25, 45);
     } else {
-        finish_war(war, WAR_OUTCOME_STALEMATE, 0, DIP_LAST_WAR_NEGOTIATED_TRUCE);
+        war_terminal_finish(war, WAR_OUTCOME_STALEMATE, 0,
+                            DIP_LAST_WAR_NEGOTIATED_TRUCE);
     }
     return 1;
 }
@@ -379,11 +351,11 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     int peace_a;
     int peace_b;
     if (!is_valid_civ(war->attacker) || !is_valid_civ(war->defender)) {
-        memset(war, 0, sizeof(*war));
+        war_terminal_interrupt(war);
         return;
     }
     if (!war_has_active_front(war->attacker, war->defender)) {
-        end_war_severed_front(war);
+        war_terminal_front_severed(war);
         return;
     }
     if (tail_cut_done && !*tail_cut_done &&
@@ -393,9 +365,11 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
             (!stability_should_tail_cut_war(war->defender) ||
              economy_effective_disorder_for_civ(war->attacker) >=
              economy_effective_disorder_for_civ(war->defender))) {
-            finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 1, DIP_LAST_WAR_MILITARY);
+            war_terminal_finish(war, WAR_OUTCOME_DEFENDER_WIN, 1,
+                                DIP_LAST_WAR_MILITARY);
         } else {
-            finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 1, DIP_LAST_WAR_MILITARY);
+            war_terminal_finish(war, WAR_OUTCOME_ATTACKER_WIN, 1,
+                                DIP_LAST_WAR_MILITARY);
         }
         *tail_cut_done = 1;
         return;
@@ -406,27 +380,33 @@ static void run_war_year(ActiveWar *war, int *tail_cut_done) {
     war_economy_try_hire_mercenaries(war);
     war->years++;
     if (war->soldiers_a + war->temporary_soldiers_a <= 0) {
-        finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 3, DIP_LAST_WAR_MILITARY);
+        war_terminal_finish(war, WAR_OUTCOME_DEFENDER_WIN, 3,
+                            DIP_LAST_WAR_MILITARY);
         return;
     }
     if (war->soldiers_b + war->temporary_soldiers_b <= 0) {
-        finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 3, DIP_LAST_WAR_MILITARY);
+        war_terminal_finish(war, WAR_OUTCOME_ATTACKER_WIN, 3,
+                            DIP_LAST_WAR_MILITARY);
         return;
     }
     if (war->initial_national_a > 0 && war_current_soldiers_for_civ(war->attacker) * 3 <= war->initial_national_a) {
-        finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 3, DIP_LAST_WAR_MILITARY);
+        war_terminal_finish(war, WAR_OUTCOME_DEFENDER_WIN, 3,
+                            DIP_LAST_WAR_MILITARY);
         return;
     }
     if (war->initial_national_b > 0 && war_current_soldiers_for_civ(war->defender) * 3 <= war->initial_national_b) {
-        finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 3, DIP_LAST_WAR_MILITARY);
+        war_terminal_finish(war, WAR_OUTCOME_ATTACKER_WIN, 3,
+                            DIP_LAST_WAR_MILITARY);
         return;
     }
     if (war->initial_soldiers_a > 0 && war->soldiers_a * 3 <= war->initial_soldiers_a) {
-        finish_war(war, WAR_OUTCOME_DEFENDER_WIN, 3, DIP_LAST_WAR_MILITARY);
+        war_terminal_finish(war, WAR_OUTCOME_DEFENDER_WIN, 3,
+                            DIP_LAST_WAR_MILITARY);
         return;
     }
     if (war->initial_soldiers_b > 0 && war->soldiers_b * 3 <= war->initial_soldiers_b) {
-        finish_war(war, WAR_OUTCOME_ATTACKER_WIN, 3, DIP_LAST_WAR_MILITARY);
+        war_terminal_finish(war, WAR_OUTCOME_ATTACKER_WIN, 3,
+                            DIP_LAST_WAR_MILITARY);
         return;
     }
     if (war->years % WAR_BATTLE_INTERVAL_YEARS != 0) return;

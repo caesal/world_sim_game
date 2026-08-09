@@ -372,10 +372,11 @@ static int render_zoom(FILE *summary, StaticPhysicalProbeCanvas *canvas,
     }
     fprintf(summary,
             "case=static_coast_artifact_isolation zoom=%d ok=%d "
+            "layers_ok=%d artifact_ok=%d "
             "hydro_comb=%d coast_comb=%d lake_comb=%d ocean_comb=%d final_comb=%d "
             "river_comb=%d coast_mask_palette_leak=%d "
             "water_land_palette_leak=%d lod=%d\n",
-            zoom, layers_ok && artifact_ok,
+            zoom, layers_ok && artifact_ok, layers_ok, artifact_ok,
             metrics[COAST_ARTIFACT_LAYER_BASE].comb_clusters,
             metrics[COAST_ARTIFACT_LAYER_COAST].comb_clusters,
             metrics[COAST_ARTIFACT_LAYER_LAKE].comb_clusters,

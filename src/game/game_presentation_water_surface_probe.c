@@ -363,11 +363,11 @@ static int water_ready_identity_contract(const RenderSnapshot *snapshot,
                                          int *current, int *stale,
                                          int *restored) {
     RenderSnapshot *mutable_snapshot = (RenderSnapshot *)(uintptr_t)snapshot;
-    int region_count = snapshot->region_count;
+    int hydrology_revision = snapshot->hydrology_revision;
     *current = render_water_surface_cache_ready(snapshot);
-    mutable_snapshot->region_count = region_count + 1;
+    mutable_snapshot->hydrology_revision = hydrology_revision + 1;
     *stale = !render_water_surface_cache_ready(snapshot);
-    mutable_snapshot->region_count = region_count;
+    mutable_snapshot->hydrology_revision = hydrology_revision;
     *restored = render_water_surface_cache_ready(snapshot);
     return *current && *stale && *restored;
 }

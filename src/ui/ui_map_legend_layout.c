@@ -5,12 +5,10 @@
 
 static RECT map_legend_frame_rect(RECT client) {
     RECT frame = get_map_frame_rect(client);
-    if (side_panel_collapsed) {
-        RECT unsafe = get_side_panel_handle_dirty_rect(client);
-        if (unsafe.left < frame.right && unsafe.right > frame.left &&
-            unsafe.top < frame.bottom && unsafe.bottom > frame.top) {
-            frame.right = min(frame.right, unsafe.left - 8);
-        }
+    RECT unsafe = get_side_panel_handle_dirty_rect(client);
+    if (unsafe.left < frame.right && unsafe.right > frame.left &&
+        unsafe.top < frame.bottom && unsafe.bottom > frame.top) {
+        frame.right = min(frame.right, unsafe.left - 8);
     }
     if (frame.right < frame.left + 120) SetRectEmpty(&frame);
     return frame;

@@ -37,6 +37,7 @@ int draw_population_display_pyramid_summary_labeled(HDC hdc, RECT client, int x,
                                                     HFONT body_font,
                                                     const char *pressure_label);
 void draw_side_panel(HDC hdc, RECT client);
+void draw_side_panel_handle(HDC hdc, RECT client);
 void draw_bottom_bar(HDC hdc, RECT client);
 void draw_map_frame_overlay(HDC hdc, RECT client);
 void draw_map_legend(HDC hdc, RECT client);

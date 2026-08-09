@@ -7,7 +7,31 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.6.c is a Windows graphical sandbox prototype written in C.
+Ver0.3.7 is a Windows graphical sandbox prototype written in C.
+
+Ver0.3.7 publishes one coherent, bounded monthly Decision snapshot for every
+alive civilization, including late civilization IDs. Selected-country Decision
+presentation reads the published snapshot only and performs no render-time
+Decision calculation. The Stability page now uses one Stability Intent meter,
+a fixed 2x3 factor composition, numeric-only Base Pressure, and no duplicate
+Disorder meter.
+
+Country Detail > Diplomacy > War now places the three newest completed
+principal-war summaries above the active war. Each compact localized record
+keeps the selected/local principal on the left and the opponent on the right,
+and preserves principal casualties, the exact result type, actual cession or
+indemnity direction, ending year and month, and duration. Each civilization
+persists exactly three bounded summaries.
+
+Ocean presentation now shares texture coordinates, native scale, phase, and
+sharpness inside and outside the playable map. Before world generation, the
+viewport uses that same ocean texture without ships, monsters, other
+world-dependent decoration, or a stale generated map. The save format is MAP21;
+MAP20 and older files are rejected without migration or backward compatibility.
+
+This release does not retune gameplay formulas, war outcomes, Decision
+formulas, world generation, climate, hydrology, routes, plague, diplomacy
+classification, or simulation-speed semantics.
 
 Ver0.3.6.c replaces the original illustrative climate-envelope background with
 the C2 statistically informed continuous tendency field. The calibration
@@ -71,13 +95,11 @@ transition from hidden/unrevealed to visible/revealed after unlock, include
 maximized Debug / Performance evidence, and use non-disruptive window handling
 when another fullscreen application is active.
 
-Validation note: Ver0.3.6.c retains the Ver0.3.6.b deterministic adapter,
-interaction, layout, asset-cache, bilingual artifact, legacy-preservation, and
-two-way-synchronization coverage. It adds automated qualification, calibration,
-holdout, processing, lineage, and C2 presentation checks. Release acceptance
-still requires both build paths, static/text gates, generated-world GUI
-validation, performance/resource checks, and a fresh final-source AGENTS
-Rule39 run after the source scope is frozen.
+Validation note: Ver0.3.7 passed the ordered Rule 47 prerequisites and a fresh
+final-source Rule 39 acceptance run on 2026-08-09. The accepted run completed
+the required generated-world, regression, GUI, visual, performance, resource,
+and artifact checks with no known actionable defect. This release uses MAP21;
+MAP20 and older saves remain intentionally unsupported.
 Future performance, UI, map-display, simulation-speed, diplomacy, war, vassal,
 collapse, enclave, route, marker, plague, or population balance changes must
 remain evidence-based and pass the strict validation gate for the specific scope

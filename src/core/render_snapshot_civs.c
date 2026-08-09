@@ -2,10 +2,12 @@
 
 #include "core/city_display.h"
 #include "core/render_snapshot_profile.h"
+#include "core/render_snapshot_war_history.h"
 #include "sim/civilization_slots.h"
 #include "sim/collapse.h"
 #include "sim/alliance.h"
 #include "sim/decision_snapshot.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/diplomacy.h"
 #include "sim/disorder.h"
 #include "sim/economy.h"
@@ -206,39 +208,30 @@ static void refresh_decision_scalars(SnapshotCiv *dst) {
     dst->decision_next_expansion_months = dst->decision.next_expansion_months;
 }
 
-static int has_snapshot_decision(const SnapshotCiv *dst) {
-    return dst && dst->main_intent[0] != '\0';
-}
-
 static void copy_cached_decision(SnapshotCiv *dst, const DecisionSnapshot *decision) {
     dst->decision = *decision;
     copy_decision_strings(dst, decision);
     refresh_decision_scalars(dst);
 }
 
-static void write_fallback_decision(SnapshotCiv *dst) {
+static void clear_decision_state(SnapshotCiv *dst) {
     memset(&dst->decision, 0, sizeof(dst->decision));
-    snprintf(dst->main_intent, sizeof(dst->main_intent), "%s", "Waiting");
-    snprintf(dst->decision_expansion_reason, sizeof(dst->decision_expansion_reason), "%s", "Waiting");
+    dst->main_intent[0] = '\0';
+    dst->decision_expansion_reason[0] = '\0';
     dst->decision_war_reason[0] = '\0';
     bind_decision_strings(dst);
     refresh_decision_scalars(dst);
 }
 
-static void copy_decision_state(SnapshotCiv *dst, int civ_id, int stable) {
+static void copy_decision_state(SnapshotCiv *dst, int civ_id) {
     DecisionSnapshot decision;
 
-    if (decision_snapshot_cached(civ_id, &decision)) {
+    if (dst->alive && decision_snapshot_cached(civ_id, &decision)) {
         copy_cached_decision(dst, &decision);
         last_decision_cached_count++;
-    } else if (stable && has_snapshot_decision(dst)) {
-        bind_decision_strings(dst);
-        decision_snapshot_refresh_countdowns(civ_id, &dst->decision);
-        refresh_decision_scalars(dst);
-        last_decision_stale_count++;
     } else {
-        write_fallback_decision(dst);
-        last_decision_fallback_count++;
+        clear_decision_state(dst);
+        if (dst->alive) last_decision_fallback_count++;
     }
 }
 
@@ -248,7 +241,13 @@ static void copy_names(SnapshotCiv *dst, int i) {
 }
 
 void render_snapshot_copy_civs_locked(RenderSnapshot *snapshot) {
+    DecisionSnapshotCacheDiagnostics diagnostics;
     int i;
+    decision_snapshot_cache_get_diagnostics(&diagnostics);
+    snapshot->decision_cache_valid_count = diagnostics.published_count;
+    snapshot->decision_cache_dirty_count = diagnostics.dirty_count;
+    snapshot->decision_cache_last_update_count = diagnostics.last_slice_count;
+    snapshot->decision_cache_last_update_ms = decision_snapshot_cache_last_update_ms();
     snapshot->civ_count = clamp(civ_count, 0, MAX_CIVS);
     snapshot->alliance_count = alliance_copy_snapshot_records(snapshot->alliances, ALLIANCE_MAX);
     snapshot->civ_independent_alive_count = 0;
@@ -264,6 +263,7 @@ void render_snapshot_copy_civs_locked(RenderSnapshot *snapshot) {
         DWORD start = GetTickCount();
         if (!stable) reset_stale_fields(dst);
         copy_raw_fields(dst, src, i);
+        render_snapshot_war_history_copy(&dst->war_history, i, src->uid);
         copy_focus_fields(dst, i, stable);
         if (src->alive && dst->overlord < 0) snapshot->civ_independent_alive_count++;
         record_phase(SNAPSHOT_CIV_PROFILE_RAW, start);
@@ -279,7 +279,7 @@ void render_snapshot_copy_civs_locked(RenderSnapshot *snapshot) {
         }
         record_phase(SNAPSHOT_CIV_PROFILE_POPULATION, start);
         start = GetTickCount();
-        copy_decision_state(dst, i, stable);
+        copy_decision_state(dst, i);
         record_phase(SNAPSHOT_CIV_PROFILE_DECISION, start);
         render_snapshot_profile_record_civ_phase(SNAPSHOT_CIV_PROFILE_EXPANSION, 0);
         render_snapshot_profile_record_civ_phase(SNAPSHOT_CIV_PROFILE_MARITIME, 0);
@@ -287,6 +287,9 @@ void render_snapshot_copy_civs_locked(RenderSnapshot *snapshot) {
         copy_names(dst, i);
         record_phase(SNAPSHOT_CIV_PROFILE_NAMES, start);
     }
+    snapshot->decision_snapshot_cached_count = last_decision_cached_count;
+    snapshot->decision_snapshot_stale_count = last_decision_stale_count;
+    snapshot->decision_snapshot_fallback_count = last_decision_fallback_count;
 }
 
 int render_snapshot_civ_decision_cached_count(void) { return last_decision_cached_count; }

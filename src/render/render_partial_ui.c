@@ -139,6 +139,7 @@ void render_partial_ui_draw(HDC target, RECT client, RECT paint) {
     RECT bottom = {client.left, client.bottom - BOTTOM_BAR_H,
                    client.right, client.bottom};
     RECT panel = get_side_panel_draw_rect(client);
+    RECT handle_dirty = get_side_panel_handle_dirty_rect(client);
     RECT badge = speed_badge_dirty_rect(client);
     if (render_transient_ui_draw_partial(target, client, paint)) return;
     if (rects_intersect(paint, top)) {
@@ -149,14 +150,21 @@ void render_partial_ui_draw(HDC target, RECT client, RECT paint) {
     if (rects_intersect(paint, bottom)) draw_bottom_bar(target, client);
     if (rects_intersect(paint, badge))
         panel_map_draw_actual_speed_badge(target, client, game_loop_actual_ms_per_month());
-    if (!rects_intersect(paint, panel)) return;
+    if (!rects_intersect(paint, panel) &&
+        !rects_intersect(paint, handle_dirty)) return;
     if (side_panel_collapsed) {
         panel_view_model_cache_draw(target, client);
-    } else if (render_layer_cache_ensure(target, &side_panel_cache, client,
+    } else if (rects_intersect(paint, panel) &&
+               render_layer_cache_ensure(target, &side_panel_cache, client,
                                          get_map_layout(client), side_panel_w, display_mode)) {
         fill_rect(side_panel_cache.dc, panel, ui_theme_color(UI_COLOR_PANEL));
         panel_view_model_cache_draw(side_panel_cache.dc, client);
         BitBlt(target, panel.left, panel.top, panel.right - panel.left, panel.bottom - panel.top,
                side_panel_cache.dc, panel.left, panel.top, SRCCOPY);
-    } else panel_view_model_cache_draw(target, client);
+    } else if (rects_intersect(paint, panel)) {
+        panel_view_model_cache_draw(target, client);
+        return;
+    }
+    if (!side_panel_collapsed && rects_intersect(paint, handle_dirty))
+        draw_side_panel_handle(target, client);
 }

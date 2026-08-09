@@ -5,6 +5,8 @@
 #include "core/game_types.h"
 #include "core/render_snapshot.h"
 #include "game/game_presentation_static_camera_probe.h"
+#include "game/game_presentation_ocean_cache_probe.h"
+#include "game/game_presentation_ocean_coherence_probe.h"
 #include "game/game_presentation_static_physical_artifacts.h"
 #include "game/game_presentation_static_physical_metrics.h"
 #include "game/game_presentation_water_river_probe.h"
@@ -201,6 +203,7 @@ int game_presentation_static_physical_probe(FILE *summary) {
     int artifacts_ok = 1, visuals_ok = 0, width_ok = 1;
     int lod_ok = 0, ready_ok = 0;
     int label_ok = 0, hash_ok = 0, water_river_ok = 0, camera_ok = 0;
+    int ocean_coherence_ok = 0, ocean_cache_ok = 0;
     int ok = 0, i;
     unsigned int seed = presentation_world_seed();
     memset(&canvas, 0, sizeof(canvas));
@@ -270,6 +273,10 @@ int game_presentation_static_physical_probe(FILE *summary) {
                  gf.hash != cf.hash && gc.hash != cc.hash &&
                  gf.hash != gc.hash;
     camera_ok = game_presentation_static_camera_probe(summary, &canvas, snapshot);
+    ocean_coherence_ok = game_presentation_ocean_coherence_probe(
+        summary, &canvas, snapshot);
+    ocean_cache_ok = game_presentation_ocean_cache_probe(
+        summary, &canvas, snapshot);
     artifacts_ok &= draw_variant(&canvas, snapshot, DISPLAY_GEOGRAPHY,
                                  FULL_ZOOM, NULL, &post);
     hash_ok = post.hash == gf.hash;
@@ -361,7 +368,7 @@ int game_presentation_static_physical_probe(FILE *summary) {
             labels.placement_pool_hits, labels.placement_pool_stores);
     ok = generated && wind_contract_ok && ready_ok && artifacts_ok &&
          visuals_ok && lod_ok && camera_ok && hash_ok && label_ok &&
-         water_river_ok;
+         water_river_ok && ocean_coherence_ok && ocean_cache_ok;
 
 cleanup:
     if (snapshot) render_snapshot_release(snapshot);

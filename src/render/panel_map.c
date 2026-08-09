@@ -12,7 +12,7 @@
 #include "ui/ui_pressed_state.h"
 #include "ui/ui_theme.h"
 
-static void draw_side_panel_handle(HDC hdc, RECT client) {
+void draw_side_panel_handle(HDC hdc, RECT client) {
     RECT handle = get_side_panel_handle_rect(client);
     int hot = point_in_rect(handle, hover_x, hover_y);
     UiClayState state = ui_clay_state_from_flags(

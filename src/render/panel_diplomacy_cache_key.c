@@ -1,7 +1,14 @@
 #include "render/panel_diplomacy_cache_key.h"
 
+#include <stdint.h>
+
 static unsigned int mix_key(unsigned int key, int value) {
     return key * 1000003u ^ (unsigned int)value;
+}
+
+static unsigned int mix_u64_key(unsigned int key, uint64_t value) {
+    key = mix_key(key, (int)(uint32_t)value);
+    return mix_key(key, (int)(uint32_t)(value >> 32));
 }
 
 static int key_bucket(int value, int bucket) {
@@ -42,6 +49,7 @@ unsigned int panel_diplomacy_rows_cache_key_for_view(unsigned int key, const Ren
         key = mix_key(key, snapshot->month);
         key = mix_key(key, snapshot->civs[civ_id].disorder);
         key = mix_key(key, snapshot->civs[civ_id].effective_disorder);
+        key = mix_u64_key(key, snapshot->civs[civ_id].war_history.revision);
     }
     for (i = 0; i < snapshot->civ_count; i++) {
         const SnapshotCiv *other = &snapshot->civs[i];

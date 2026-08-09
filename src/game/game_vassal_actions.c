@@ -6,7 +6,7 @@
 #include "core/render_snapshot.h"
 #include "core/render_snapshot_cache.h"
 #include "core/state_lock.h"
-#include "sim/decision_snapshot.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/ports.h"

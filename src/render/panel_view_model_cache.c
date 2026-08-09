@@ -202,6 +202,7 @@ void panel_view_model_cache_draw(HDC hdc, RECT client) {
     BitBlt(hdc, panel.left, panel.top, panel.right - panel.left,
            panel.bottom - panel.top, cache->dc, panel.left, panel.top, SRCCOPY);
     draw_hover_overlay(hdc, panel, kind);
+    draw_side_panel_handle(hdc, client);
 }
 
 void panel_view_model_cache_invalidate(void) {

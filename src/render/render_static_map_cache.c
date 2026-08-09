@@ -8,6 +8,7 @@
 #include "render/coast_geometry.h"
 #include "render/map_ownership_surface.h"
 #include "render/render_context.h"
+#include "render/render_ocean_static_mask.h"
 #include "render/river_render.h"
 #include "render/render_static_map_cache_internal.h"
 #include "render/render_static_map_surface.h"
@@ -71,10 +72,6 @@ static int border_cache_matches(int revision) {
     return cache_matches_display(&border_cache, revision, border_display_key());
 }
 
-static int cache_presentable(const MapLayerCache *cache) {
-    return render_static_map_surface_presentable(cache, cache_w(), cache_h(), display_mode);
-}
-
 static void mark_cache_valid(MapLayerCache *cache, int revision, int complete) {
     render_static_map_surface_mark_valid(cache, revision, display_mode, complete);
 }
@@ -85,10 +82,8 @@ static int display_requires_fill_layer(void) {
 
 static int cache_stretch_mode(MapLayout layout) {
     if (display_mode == DISPLAY_GEOGRAPHY || display_mode == DISPLAY_CLIMATE) {
-        /* GDI HALFTONE dithers adjacent land/water colors into alternating
-           cyan and pale-land combs at non-integer zooms. Keep the immutable
-           semantic base crisp; the separate 4x water surface owns shoreline
-           alpha and texture smoothing. */
+        /* Keep categorical land colors crisp. The static alpha mask owns the
+           shoreline transition while the client ocean base stays unscaled. */
         (void)layout;
         return render_static_map_surface_categorical_stretch_mode();
     }
@@ -101,6 +96,7 @@ static void alpha_cache(HDC dst, const MapLayerCache *src) {
 }
 
 static int compose_static_map(HDC hdc, MapLayerCache *cache, int revision) {
+    const RenderSnapshot *snapshot = render_context_snapshot();
     if (!ensure_cache(hdc, cache) ||
         cache->width != render_static_physical_cache_width() ||
         cache->height != render_static_physical_cache_height() ||
@@ -108,13 +104,16 @@ static int compose_static_map(HDC hdc, MapLayerCache *cache, int revision) {
                                                          display_mode)) return 0;
     if (display_requires_fill_layer() && fill_cache.valid)
         alpha_cache(cache->dc, &fill_cache);
+    if (!render_ocean_static_mask_apply(
+            cache->pixels, cache->width, cache->height, snapshot)) return 0;
     mark_cache_valid(cache, revision, 1);
     static_map_compositions++;
     return 1;
 }
 
 static void present_cache(HDC hdc, RECT client, MapLayout layout, const MapLayerCache *cache) {
-    render_static_map_surface_present(hdc, client, layout, cache, cache_stretch_mode(layout));
+    render_static_map_surface_present_alpha(
+        hdc, client, layout, cache, cache_stretch_mode(layout));
 }
 
 static int physical_display_key(void) {
@@ -132,19 +131,15 @@ static int fill_revision(int ownership_key, int civ_key, int alliance_key) {
 
 static int border_revision(int tile_key, int region_key) { return combined_revision(tile_key, region_key); }
 
-static int static_revision(int physical_key, int fill_key, int coast_key) {
-    return combined_revision(combined_revision(physical_key, fill_key), coast_key);
+static int static_revision(int physical_key, int fill_key, int coast_key,
+                           int coverage_hydrology_key) {
+    int key = combined_revision(combined_revision(physical_key, fill_key),
+                                coast_key);
+    return combined_revision(key, coverage_hydrology_key);
 }
 
 static int presentation_revision(int static_key, int hydro_key, int border_key) {
     return combined_revision(static_key, combined_revision(hydro_key, border_key));
-}
-
-static void draw_blank(HDC hdc, RECT client, MapLayout layout) {
-    const RenderSnapshot *snapshot = render_context_snapshot();
-    RECT map_rect = {layout.map_x, layout.map_y, layout.map_x + layout.draw_w, layout.map_y + layout.draw_h};
-    if (!snapshot || !snapshot->world_generated) fill_rect(hdc, get_map_viewport_rect(client), RGB(79, 160, 215));
-    fill_rect(hdc, map_rect, RGB(64, 133, 178));
 }
 
 static int static_layers_ready(int physical_ready) {
@@ -221,7 +216,6 @@ static void present_static_and_border(HDC hdc, RECT client, MapLayout layout,
     const RenderSnapshot *snapshot,
     int physical_ready, int river_lod) {
     present_cache(hdc, client, layout, cache);
-    render_water_surface_cache_present_ocean(hdc, client, layout, snapshot);
     render_water_surface_cache_present_lake(hdc, client, layout, snapshot);
     if (physical_ready) {
         render_static_physical_overlay_cache_present_river(
@@ -233,9 +227,8 @@ static void present_static_and_border(HDC hdc, RECT client, MapLayout layout,
 }
 
 static void draw_snapshot_fallback(HDC hdc, RECT client, MapLayout layout,
-                                   const RenderSnapshot *snapshot, int river_lod) {
+    const RenderSnapshot *snapshot, int river_lod) {
     draw_snapshot_terrain_layer(hdc, client, layout);
-    render_water_surface_cache_present_ocean(hdc, client, layout, snapshot);
     render_water_surface_cache_present_lake(hdc, client, layout, snapshot);
     if (render_static_physical_overlay_cache_river_ready(snapshot, river_lod)) {
         render_static_physical_overlay_cache_present_river(
@@ -263,10 +256,6 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
         cache_needs_work = 0;
         render_static_map_cache_status_reset_keys();
         render_static_map_cache_status_set_presented(0, 0, 0, 0);
-        if (static_cache->complete && cache_presentable(static_cache)) {
-            render_static_map_cache_status_set_presented(0, 1, 1, 0);
-            present_cache(hdc, client, layout, static_cache);
-        } else draw_blank(hdc, client, layout);
         return;
     }
     physical_key = physical_revision(snapshot->terrain_revision);
@@ -292,8 +281,11 @@ void draw_cached_static_map_nonblocking(HDC hdc, RECT client, MapLayout layout) 
                       fill_key : 0;
     live_static_key = static_revision(live_physical_key,
                                       display_requires_fill_layer() ? live_fill_key : 0,
-                                      live_coast_key);
-    target_static_key = static_revision(physical_key, target_fill_key, coast_key);
+                                      live_coast_key,
+                                      dirty_revision_hydrology());
+    target_static_key = static_revision(physical_key, target_fill_key,
+                                        coast_key,
+                                        snapshot->hydrology_revision);
     target_present_key = presentation_revision(target_static_key, hydro_key, border_key);
     live_present_key = presentation_revision(live_static_key, live_hydro_key, live_border_key);
     render_static_map_cache_status_set_keys(
@@ -412,4 +404,7 @@ void render_static_map_cache_invalidate_all(void) {
     render_static_map_cache_status_set_presented(0, 0, 0, 0);
 }
 
-void render_static_map_cache_reset_debug(void) { render_static_map_cache_invalidate_all(); }
+void render_static_map_cache_reset_debug(void) {
+    render_static_map_cache_invalidate_all();
+    render_ocean_static_mask_reset_debug();
+}

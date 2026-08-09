@@ -5,7 +5,7 @@
 #include "sim/diplomacy.h"
 #include "sim/civilization_metrics.h"
 #include "sim/collapse.h"
-#include "sim/decision_snapshot.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/disorder.h"
 #include "sim/economy.h"
 #include "sim/expansion.h"
@@ -214,7 +214,7 @@ int simulation_month_begin(SimulationMonthState *state) {
     memset(state, 0, sizeof(*state));
     profiler_begin_month();
     plague_perf_note_sim_skipped(0);
-    decision_snapshot_cache_mark_all_dirty();
+    decision_snapshot_cache_cancel_building();
     state->active = 1;
     state->phase = SIM_MONTH_RESOURCES;
     state->run_quarterly = resource_pressure_due_this_month();
@@ -422,10 +422,11 @@ int simulation_month_run_next(SimulationMonthState *state) {
             break;
         case SIM_MONTH_SNAPSHOT_CACHE:
             render_snapshot_cache_update_budgeted(16, 256, 1, 1);
+            decision_snapshot_cache_begin_generation();
             state->phase = SIM_MONTH_DECISION_CACHE;
             break;
         case SIM_MONTH_DECISION_CACHE:
-            decision_snapshot_cache_update_budgeted(4);
+            if (!decision_snapshot_cache_service_slice()) break;
             state->phase = SIM_MONTH_DONE;
             state->active = 0;
             break;

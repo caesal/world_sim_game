@@ -10,8 +10,9 @@
 #include "core/worldgen_fault_injection.h"
 #include "core/worldgen_progress.h"
 #include "game/game_loop.h"
+#include "game/game_war_history_live_fixture.h"
 #include "sim/civ_colors.h"
-#include "sim/decision_snapshot.h"
+#include "sim/decision_snapshot_cache.h"
 #include "sim/diplomacy.h"
 #include "sim/maritime.h"
 #include "sim/ports.h"
@@ -339,8 +340,8 @@ void game_request_new_world_with_progress(HWND hwnd) {
     world_generated = 1;
     dirty_mark_world();
     state_write_unlock();
-    decision_snapshot_cache_mark_all_dirty();
-    decision_snapshot_cache_update_budgeted(MAX_CIVS);
+    game_war_history_live_fixture_after_worldgen(hwnd);
+    decision_snapshot_cache_seed_complete();
     render_snapshot_cache_update_all();
     auto_run = 0;
     worldgen_attempt_set_stage(WORLDGEN_ATTEMPT_SNAPSHOT_PUBLISH);

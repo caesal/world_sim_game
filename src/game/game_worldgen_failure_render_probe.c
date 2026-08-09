@@ -33,6 +33,28 @@ static uint64_t allocation_attempts(const RenderAllocationDiagnostics *value) {
     return total;
 }
 
+static int allocation_initial_ocean_ready(
+    const RenderAllocationDiagnostics *before,
+    const RenderAllocationDiagnostics *after) {
+    int owner;
+    for (owner = 0; owner < RENDER_ALLOCATION_COUNT; owner++) {
+        uint64_t expected = owner == RENDER_ALLOCATION_LAYER_CACHE ? 3u : 0u;
+        if (after->attempts[owner] != before->attempts[owner] + expected ||
+            after->failures[owner] != before->failures[owner]) return 0;
+    }
+    return after->injected_failures == before->injected_failures;
+}
+
+static int allocation_settled_equal(
+    const RenderAllocationDiagnostics *before,
+    const RenderAllocationDiagnostics *after) {
+    return memcmp(before->attempts, after->attempts,
+                  sizeof(before->attempts)) == 0 &&
+           memcmp(before->failures, after->failures,
+                  sizeof(before->failures)) == 0 &&
+           before->injected_failures == after->injected_failures;
+}
+
 static int river_overlay_failure_retry_probe(HDC hdc, FILE *file) {
     RenderSnapshot *snapshot = (RenderSnapshot *)calloc(1, sizeof(*snapshot));
     RenderStaticPhysicalOverlayCacheStats before = {0};
@@ -247,7 +269,8 @@ int game_worldgen_failure_render_probe(FILE *file) {
     HGDIOBJ old_bitmap = NULL;
     uint32_t *pixels = NULL;
     MapLayout layout;
-    RenderAllocationDiagnostics before_alloc = {0}, after_alloc = {0};
+    RenderAllocationDiagnostics before_alloc = {0}, mid_alloc = {0};
+    RenderAllocationDiagnostics after_alloc = {0};
     RenderStaticPhysicalCacheStats before_physical = {0};
     RenderStaticPhysicalOverlayCacheStats before_overlay = {0};
     RenderWaterSurfaceCacheStats before_water = {0}, after_water = {0};
@@ -308,6 +331,7 @@ int game_worldgen_failure_render_probe(FILE *file) {
                               &first_land, &first_ocean, &first_lake);
     geography_matches = count_land_matches(
         pixels, snapshot, layout, DISPLAY_GEOGRAPHY);
+    render_allocation_diagnostics_get(&mid_alloc);
     display_mode = DISPLAY_CLIMATE;
     memset(pixels, 0, FALLBACK_W * FALLBACK_H * sizeof(*pixels));
     render_context_begin(snapshot);
@@ -322,9 +346,8 @@ int game_worldgen_failure_render_probe(FILE *file) {
                              &visible_lake);
     render_allocation_diagnostics_get(&after_alloc);
     after_water = *render_water_surface_cache_stats();
-    immutable_ok = allocation_attempts(&after_alloc) ==
-                       allocation_attempts(&before_alloc) &&
-        after_alloc.injected_failures == before_alloc.injected_failures &&
+    immutable_ok = allocation_initial_ocean_ready(&before_alloc, &mid_alloc) &&
+        allocation_settled_equal(&mid_alloc, &after_alloc) &&
         render_static_physical_cache_stats()->base_rebuilds[0] ==
             before_physical.base_rebuilds[0] &&
         render_static_physical_cache_stats()->base_rebuilds[1] ==
@@ -371,7 +394,8 @@ cleanup:
     if (file) {
         fprintf(file,
                 "worldgen_full_scene_fallback nonblank=%d/%d map=%d/%d/%d:%d/%d/%d expected=%d/%d/%d matches=%d/%d static=%d water=%d/%d "
-                "water_scans=%llu alloc_delta=%llu immutable=%d current=%d safe=%d "
+                "water_scans=%llu initial_alloc_delta=%llu "
+                "settled_alloc_delta=%llu immutable=%d current=%d safe=%d "
                 "full=%d work=%d result=%s\n",
                 first_nonblank, second_nonblank,
                 first_land, first_ocean, first_lake,
@@ -383,8 +407,10 @@ cleanup:
                 after_water.fallback_ocean_draws - before_water.fallback_ocean_draws,
                 (unsigned long long)(after_water.fallback_tile_scans -
                                      before_water.fallback_tile_scans),
-                (unsigned long long)(allocation_attempts(&after_alloc) -
+                (unsigned long long)(allocation_attempts(&mid_alloc) -
                                      allocation_attempts(&before_alloc)),
+                (unsigned long long)(allocation_attempts(&after_alloc) -
+                                     allocation_attempts(&mid_alloc)),
                 immutable_ok, render_static_scene_presented_current(),
                 render_static_scene_presentable(),
                 render_static_scene_fully_current(),

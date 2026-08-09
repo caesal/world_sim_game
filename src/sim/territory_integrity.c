@@ -23,6 +23,7 @@ static TerritoryIntegrityStats stats_cache[MAX_CIVS];
 static unsigned char capital_connected[MAX_CIVS][MAX_NATURAL_REGIONS];
 typedef struct { int own, route, sea_own, cities, regions, tech, ports; } IntegrityKey;
 static IntegrityKey stats_key;
+static int read_batch_depth;
 
 static int valid_civ(int civ_id) { return civ_id >= 0 && civ_id < civ_count && civs[civ_id].alive; }
 
@@ -31,6 +32,7 @@ void territory_integrity_reset(void) {
     memset(stats_cache, 0, sizeof(stats_cache));
     memset(capital_connected, 0, sizeof(capital_connected));
     memset(&stats_key, 0, sizeof(stats_key));
+    read_batch_depth = 0;
     for (i = 0; i < MAX_NATURAL_REGIONS; i++) {
         natural_regions[i].disconnected_months = 0;
         natural_regions[i].disconnected_component_id = -1;
@@ -348,7 +350,17 @@ static void rebuild_all(int elapsed_months, int apply) {
 }
 
 static void ensure_cache(void) {
+    if (read_batch_depth > 0) return;
     if (!same_key(stats_key, make_key())) rebuild_all(0, 0);
+}
+
+void territory_integrity_read_batch_begin(void) {
+    ensure_cache();
+    read_batch_depth++;
+}
+
+void territory_integrity_read_batch_end(void) {
+    if (read_batch_depth > 0) read_batch_depth--;
 }
 
 void territory_integrity_update_year(void) {

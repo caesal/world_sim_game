@@ -4,6 +4,7 @@
 #include "render/panel_country_diplomacy_cards.h"
 #include "render/panel_country_diplomacy_hits.h"
 #include "render/panel_country_diplomacy_tooltip.h"
+#include "render/panel_country_diplomacy_war_history.h"
 #include "render/snapshot_ui.h"
 #include "render/ui_format.h"
 #include "render_panel_internal.h"
@@ -408,6 +409,7 @@ int country_diplomacy_tab_height(int civ_id) {
     int count = collect_entries(civ_id, view, selected_is_vassal, entries, MAX_CIVS);
     int height = 220 + (civ ? civ->war_front_count : 0) * 110;
     int i;
+    if (view == DIPLOMACY_VIEW_WAR) height += country_diplomacy_war_history_height(civ);
     for (i = 0; i < count; i++) {
         int id = entries[i].id;
         if (selected_is_vassal) {
@@ -467,6 +469,7 @@ void draw_country_diplomacy_tab(HDC hdc, UiCursor *cursor, RECT viewport,
     IntersectClipRect(hdc, viewport.left, viewport.top + DIPLOMACY_STICKY_H,
                       viewport.right, viewport.bottom);
     draw_army_pool(hdc, &content, civ_id);
+    if (view == DIPLOMACY_VIEW_WAR) draw_country_diplomacy_war_history(hdc, &content, dip_civ(civ_id));
     shown_total = draw_diplomacy_group(hdc, &content, civ_id, view, selected_is_vassal);
     if (shown_total == 0) {
         ui_row_text(hdc, &content, tr("Known Countries", "已知国家"),

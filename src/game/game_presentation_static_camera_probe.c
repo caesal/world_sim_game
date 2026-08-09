@@ -7,7 +7,10 @@
 #include "render/coast_geometry.h"
 #include "render/render_allocation_diagnostics.h"
 #include "render/render_context.h"
+#include "render/render_ocean_assets.h"
 #include "render/render_ocean_decoration.h"
+#include "render/render_ocean_static_mask.h"
+#include "render/render_ocean_texture.h"
 #include "render/render_static_map_cache.h"
 #include "render/render_static_physical_cache.h"
 #include "render/render_static_physical_overlay_cache.h"
@@ -30,6 +33,10 @@ typedef struct {
     RenderWaterSurfaceCacheStats water;
     RenderWaterCoverageStats coverage;
     OceanDecorationProbeInfo ocean;
+    OceanDecorationDebugStats ocean_decoration;
+    OceanTextureDebugStats ocean_texture;
+    OceanAssetDebugStats ocean_assets;
+    RenderOceanStaticMaskStats ocean_mask;
     WindRenderStats wind;
     HydrologyRenderStats river;
     RenderLayerCacheMemory map_memory;
@@ -59,6 +66,10 @@ static void take_stamp(CameraStamp *stamp) {
     stamp->water = *render_water_surface_cache_stats();
     stamp->coverage = *render_water_coverage_stats();
     stamp->ocean = render_ocean_decoration_probe_info();
+    stamp->ocean_decoration = ocean_decoration_debug_stats;
+    stamp->ocean_texture = render_ocean_texture_debug_stats();
+    stamp->ocean_assets = ocean_assets_debug_stats();
+    stamp->ocean_mask = *render_ocean_static_mask_stats();
     stamp->wind = *wind_render_stats();
     stamp->river = *river_geometry_stats();
     stamp->map_memory = render_static_map_cache_memory();
@@ -85,6 +96,60 @@ static int allocation_equal(const RenderAllocationDiagnostics *left,
             left->failures[owner] != right->failures[owner]) return 0;
     }
     return left->injected_failures == right->injected_failures;
+}
+
+static int ocean_base_immutable_equal(const CameraStamp *left,
+                                      const CameraStamp *right) {
+    return left->ocean_texture.rebuilds ==
+               right->ocean_texture.rebuilds &&
+           left->ocean_texture.allocation_rebuilds ==
+               right->ocean_texture.allocation_rebuilds &&
+           left->ocean_texture.generation ==
+               right->ocean_texture.generation &&
+           left->ocean_texture.identity == right->ocean_texture.identity &&
+           left->ocean_texture.source_identity ==
+               right->ocean_texture.source_identity &&
+           left->ocean_texture.width == right->ocean_texture.width &&
+           left->ocean_texture.height == right->ocean_texture.height &&
+           left->ocean_texture.tile_px == right->ocean_texture.tile_px &&
+           left->ocean_texture.phase_x == right->ocean_texture.phase_x &&
+           left->ocean_texture.phase_y == right->ocean_texture.phase_y &&
+           left->ocean_texture.bitmap_identity ==
+               right->ocean_texture.bitmap_identity &&
+           left->ocean_texture.dc_identity ==
+               right->ocean_texture.dc_identity &&
+           left->ocean_texture.persistent_bytes ==
+               right->ocean_texture.persistent_bytes &&
+           left->ocean_assets.texture_decode_attempts ==
+               right->ocean_assets.texture_decode_attempts &&
+           left->ocean_assets.texture_raster_calls ==
+               right->ocean_assets.texture_raster_calls &&
+           left->ocean_assets.texture_tile_draw_calls ==
+               right->ocean_assets.texture_tile_draw_calls &&
+           left->ocean_assets.motif_decode_attempts ==
+               right->ocean_assets.motif_decode_attempts &&
+           left->ocean_assets.motif_draw_calls ==
+               right->ocean_assets.motif_draw_calls &&
+           left->ocean_decoration.composite_rebuilds ==
+               right->ocean_decoration.composite_rebuilds &&
+           left->ocean_decoration.exterior_layer_rebuilds ==
+               right->ocean_decoration.exterior_layer_rebuilds &&
+           left->ocean_decoration.interior_layer_rebuilds ==
+               right->ocean_decoration.interior_layer_rebuilds &&
+           left->ocean_decoration.exterior_layer_allocations ==
+               right->ocean_decoration.exterior_layer_allocations &&
+           left->ocean_decoration.interior_layer_allocations ==
+               right->ocean_decoration.interior_layer_allocations &&
+           left->ocean_decoration.exterior_layer_clears ==
+               right->ocean_decoration.exterior_layer_clears &&
+           left->ocean_decoration.interior_layer_clears ==
+               right->ocean_decoration.interior_layer_clears &&
+           left->ocean_decoration.exterior_layer_key ==
+               right->ocean_decoration.exterior_layer_key &&
+           left->ocean_decoration.interior_layer_key ==
+               right->ocean_decoration.interior_layer_key &&
+           left->ocean_mask.applications == right->ocean_mask.applications &&
+           left->ocean_mask.pixel_scans == right->ocean_mask.pixel_scans;
 }
 
 static int immutable_equal(const CameraStamp *left,
@@ -142,8 +207,7 @@ static int immutable_equal(const CameraStamp *left,
            left->coverage.raster_samples == right->coverage.raster_samples &&
            left->coverage.retained_bytes == right->coverage.retained_bytes &&
            left->ocean.item_rebuilds == right->ocean.item_rebuilds &&
-           left->ocean.exterior_rebuilds == right->ocean.exterior_rebuilds &&
-           left->ocean.interior_rebuilds == right->ocean.interior_rebuilds &&
+           ocean_base_immutable_equal(left, right) &&
            left->wind.geometry_rebuild_count ==
                right->wind.geometry_rebuild_count &&
            left->wind.sprite_atlas_build_count ==
@@ -179,6 +243,26 @@ static CameraResources process_resources(void) {
         result.valid = result.gdi_objects > 0;
     }
     return result;
+}
+
+static CameraResources settle_process_resources(int *settled, int *samples) {
+    CameraResources previous = process_resources();
+    int i;
+    *settled = 0;
+    *samples = 1;
+    for (i = 0; i < 8; i++) {
+        CameraResources current = process_resources();
+        (*samples)++;
+        if (previous.valid && current.valid &&
+            previous.gdi_objects == current.gdi_objects &&
+            previous.private_bytes == current.private_bytes &&
+            previous.working_set == current.working_set) {
+            *settled = 1;
+            return current;
+        }
+        previous = current;
+    }
+    return previous;
 }
 
 static int draw_camera(StaticPhysicalProbeCanvas *canvas,
@@ -298,6 +382,7 @@ int game_presentation_static_camera_probe(
     int zoom_steps = 0;
     int sweep_draw_ok, sweep_cache_ok, warm_draw_ok, warm_cache_ok;
     int cycle_draw_ok, cycle_cache_ok;
+    int resource_settled = 0, resource_samples = 0;
     int resource_ok, stale_ok, ok;
     if (!summary || !canvas || !snapshot || !snapshot->world_generated) return 0;
     draw_camera(canvas, snapshot, DISPLAY_GEOGRAPHY, 100, 0, 0, 1);
@@ -308,15 +393,19 @@ int game_presentation_static_camera_probe(
     sweep_cache_ok = immutable_equal(&before, &after_zoom);
     warm_draw_ok = run_pan_and_mode_cycles(canvas, snapshot, 100);
     GdiFlush();
+    warm_draw_ok &= run_pan_and_mode_cycles(canvas, snapshot, 100);
+    GdiFlush();
     take_stamp(&before_pan);
     warm_cache_ok = immutable_equal(&after_zoom, &before_pan);
-    before_resources = process_resources();
+    before_resources = settle_process_resources(
+        &resource_settled, &resource_samples);
     cycle_draw_ok = run_pan_and_mode_cycles(canvas, snapshot, 100);
     GdiFlush();
     after_resources = process_resources();
     take_stamp(&after_pan);
     cycle_cache_ok = immutable_equal(&before_pan, &after_pan);
-    resource_ok = before_resources.valid && after_resources.valid &&
+    resource_ok = resource_settled && before_resources.valid &&
+        after_resources.valid &&
         before_resources.gdi_objects == after_resources.gdi_objects &&
         after_resources.private_bytes <= before_resources.private_bytes &&
         after_resources.working_set <= before_resources.working_set;
@@ -362,10 +451,10 @@ int game_presentation_static_camera_probe(
             after_zoom.viewport_rebuilds - before.viewport_rebuilds,
             after_zoom.static_compositions - before.static_compositions);
     fprintf(summary,
-            "case=static_camera_pan_mode_100_cycles ok=%d warm=%d/%d draw=%d immutable=%d memory=%d gdi=%lu->%lu private=%llu->%llu working=%llu->%llu river_mask=0x%x wind_mask=0x%x physical_bytes=%llu overlay_bytes=%llu wind_anchor_bytes=%llu wind_sprite_bytes=%llu map_bytes=%llu water_bytes=%llu water_coverage_bytes=%llu ocean_total_bytes=%llu retained_bytes=%llu anchor_visit_delta=%llu sprite_blit_delta=%d composition_delta=%d\n",
+            "case=static_camera_pan_mode_100_cycles ok=%d warm=%d/%d draw=%d immutable=%d memory=%d resource_settle=%d/%d gdi=%lu->%lu private=%llu->%llu working=%llu->%llu river_mask=0x%x wind_mask=0x%x physical_bytes=%llu overlay_bytes=%llu wind_anchor_bytes=%llu wind_sprite_bytes=%llu map_bytes=%llu water_bytes=%llu water_coverage_bytes=%llu ocean_total_bytes=%llu retained_bytes=%llu anchor_visit_delta=%llu sprite_blit_delta=%d composition_delta=%d\n",
             warm_draw_ok && warm_cache_ok && cycle_draw_ok && cycle_cache_ok &&
                 resource_ok, warm_draw_ok, warm_cache_ok, cycle_draw_ok,
-            cycle_cache_ok, resource_ok,
+            cycle_cache_ok, resource_ok, resource_settled, resource_samples,
             (unsigned long)before_resources.gdi_objects,
             (unsigned long)after_resources.gdi_objects,
             (unsigned long long)before_resources.private_bytes,

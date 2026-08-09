@@ -1,0 +1,9 @@
+#ifndef WORLD_SIM_GAME_PRESENTATION_DECISION_STABILITY_VISUAL_CONTRACT_PROBE_H
+#define WORLD_SIM_GAME_PRESENTATION_DECISION_STABILITY_VISUAL_CONTRACT_PROBE_H
+
+#include <stdio.h>
+
+int game_presentation_decision_stability_visual_contract_probe(FILE *summary);
+int game_presentation_decision_stability_visual_contract_source_ok(void);
+
+#endif

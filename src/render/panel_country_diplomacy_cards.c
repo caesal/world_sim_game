@@ -1,5 +1,6 @@
 #include "render/panel_country_diplomacy_cards.h"
 
+#include "render/panel_country_diplomacy_result.h"
 #include "render/panel_country_diplomacy_score.h"
 #include "render/panel_war_compare_bar.h"
 #include "render/snapshot_ui.h"
@@ -93,27 +94,6 @@ static int card_side_vassal_support(int civ_id, COLORREF *color_out) {
         if (color_out && total == v->vassal_support_used) *color_out = v->color;
     }
     return total;
-}
-
-static const char *last_war_result_text(int civ_id, SnapshotDiplomacyRelation relation) {
-    if (relation.last_war_result == DIP_LAST_WAR_INTERRUPTED ||
-        relation.last_war_result == DIP_LAST_WAR_FRONT_SEVERED) return tr("Front Severed", "战线中断");
-    if (relation.last_war_result == DIP_LAST_WAR_NEGOTIATED_TRUCE) return tr("Negotiated Truce", "议和停战");
-    if (relation.last_war_result == DIP_LAST_WAR_OFFENSIVE_HALTED) {
-        if (relation.last_war_winner == civ_id) return tr("Offensive Halted", "攻势中止");
-        if (relation.last_war_loser == civ_id) return tr("Enemy Offensive Halted", "对方攻势中止");
-        return tr("Offensive Halted", "攻势中止");
-    }
-    if (relation.last_war_result == DIP_LAST_WAR_SURRENDER) {
-        if (relation.last_war_winner == civ_id) return tr("Surrender Win", "受降胜利");
-        if (relation.last_war_loser == civ_id) return tr("Surrender", "投降战败");
-    }
-    if (relation.last_war_result == DIP_LAST_WAR_DECISIVE ||
-        relation.last_war_result == DIP_LAST_WAR_MILITARY) {
-        if (relation.last_war_winner == civ_id) return tr("Military Win", "军事胜利");
-        if (relation.last_war_loser == civ_id) return tr("Military Defeat", "军事战败");
-    }
-    return tr("-", "-");
 }
 
 static const char *truce_after_text(SnapshotDiplomacyRelation relation) {
@@ -292,12 +272,18 @@ static void draw_peace_tense(HDC hdc, UiCursor *cursor, int civ_id, int other_id
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_TERRITORY, tr("Border", "边界"), border,
                   ICON_ATTACK, tr("Conflict", "冲突"), level_label(relation.resource_conflict),
-                  ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
+                  ICON_BATTLE, tr("History", "历史"),
+                  panel_country_diplomacy_result_text(civ_id, relation.last_war_winner,
+                                                      relation.last_war_loser,
+                                                      relation.last_war_result));
     } else {
         snprintf(border, sizeof(border), "%d", relation.border_length);
         chip_row3(hdc, cursor, ICON_COMMERCE, tr("Trade", "贸易"), level_label(relation.trade_fit),
                   ICON_TERRITORY, tr("Border", "边界"), border,
-                  ICON_BATTLE, tr("History", "历史"), last_war_result_text(civ_id, relation));
+                  ICON_BATTLE, tr("History", "历史"),
+                  panel_country_diplomacy_result_text(civ_id, relation.last_war_winner,
+                                                      relation.last_war_loser,
+                                                      relation.last_war_result));
     }
 }
 
@@ -384,7 +370,10 @@ static void draw_war_truce(HDC hdc, UiCursor *cursor, int civ_id, int other_id,
                     ICON_GOVERNANCE, tr("Status", "停战状态"), truce_after_text(relation), RGB(132, 148, 126));
         cursor->y += 5;
         metric_chip(hdc, ui_take_rect(cursor, 34), ICON_BATTLE, tr("History", "历史"),
-                    last_war_result_text(civ_id, relation), RGB(132, 148, 126));
+                    panel_country_diplomacy_result_text(civ_id, relation.last_war_winner,
+                                                        relation.last_war_loser,
+                                                        relation.last_war_result),
+                    RGB(132, 148, 126));
     }
 }
 

@@ -90,19 +90,19 @@ static void check_old_save_rejection(PlagueProbeContext *context) {
     int dynamic_result = file ? map_save_read_dynamic_state(file, 19) : 0;
     if (file) fclose(file);
     plague_probe_check(context, "save", "old_version_rejected_before_payload",
-        map_save_current_version() == 20 && map_save_version_supported(20) &&
-        !map_save_version_supported(19) && !map_save_version_supported(18) &&
+        map_save_current_version() == 21 && map_save_version_supported(21) &&
+        !map_save_version_supported(20) && !map_save_version_supported(19) &&
         dynamic_result == -1,
-        "current=%d v19_supported=%d v18_supported=%d dynamic_result=%d",
-        map_save_current_version(), map_save_version_supported(19),
-        map_save_version_supported(18), dynamic_result);
+        "current=%d v20_supported=%d v19_supported=%d dynamic_result=%d",
+        map_save_current_version(), map_save_version_supported(20),
+        map_save_version_supported(19), dynamic_result);
 }
 
 static void check_fog_header_roundtrip(PlagueProbeContext *context) {
     int ok = map_save_probe_fog_header_roundtrip(0) &&
              map_save_probe_fog_header_roundtrip(50) &&
              map_save_probe_fog_header_roundtrip(100);
-    plague_probe_check(context, "save", "v20_fog_values_roundtrip",
+    plague_probe_check(context, "save", "v21_fog_values_roundtrip",
         ok, "values=0/50/100 retained without default override");
 }
 
