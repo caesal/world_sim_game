@@ -38,9 +38,33 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_decision_cache_probe_fixture.c ^
   src\game\game_decision_cache_probe_lifecycle.c ^
   src\game\game_decision_cache_probe_matrix.c ^
+  src\game\game_pause_snapshot_coherence_probe.c ^
+  src\game\game_pause_snapshot_coherence_probe_fixture.c ^
+  src\game\game_pause_snapshot_coherence_probe_cases.c ^
   src\game\game_decision_stability_probe.c ^
   src\game\game_decision_topology_probe.c ^
   src\game\game_worldgen_probe.c ^
+  src\game\game_worldgen_aridity_probe.c ^
+  src\game\game_worldgen_aridity_calibration_metrics.c ^
+  src\game\game_worldgen_aridity_calibration_options.c ^
+  src\game\game_worldgen_aridity_calibration_matrix.c ^
+  src\game\game_worldgen_aridity_calibration_artifacts.c ^
+  src\game\game_worldgen_aridity_response_options.c ^
+  src\game\game_worldgen_aridity_response_metrics.c ^
+  src\game\game_worldgen_aridity_response_matrix.c ^
+  src\game\game_worldgen_aridity_response_probe.c ^
+  src\game\game_worldgen_aridity_response_projection_options.c ^
+  src\game\game_worldgen_aridity_response_projection_histogram.c ^
+  src\game\game_worldgen_aridity_response_projection_matrix.c ^
+  src\game\game_worldgen_aridity_response_projection_probe.c ^
+  src\game\game_worldgen_aridity_diminishing_oasis_histogram.c ^
+  src\game\game_worldgen_aridity_diminishing_oasis_histogram_io.c ^
+  src\game\game_worldgen_aridity_diminishing_options.c ^
+  src\game\game_worldgen_aridity_diminishing_io.c ^
+  src\game\game_worldgen_aridity_diminishing_matrix.c ^
+  src\game\game_worldgen_aridity_diminishing_production.c ^
+  src\game\game_worldgen_aridity_diminishing_production_matrix.c ^
+  src\game\game_worldgen_aridity_diminishing_probe.c ^
   src\game\game_worldgen_coast_threshold_probe.c ^
   src\game\game_worldgen_coast_semantic_fixture.c ^
   src\game\game_worldgen_river_e2e_probe.c ^
@@ -104,6 +128,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_presentation_worldgen_controls_adapter_probe.c ^
   src\game\game_presentation_worldgen_controls_region_probe.c ^
   src\game\game_presentation_worldgen_controls_interaction_probe.c ^
+  src\game\game_presentation_worldgen_initial_civs_probe.c ^
   src\game\game_presentation_worldgen_controls_artifact_probe.c ^
   src\game\game_presentation_worldgen_controls_artifact_render.c ^
   src\game\game_presentation_worldgen_controls_artifact_matrix.c ^
@@ -111,6 +136,7 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\game\game_presentation_worldgen_controls_resource_probe.c ^
   src\game\game_presentation_static_physical_probe.c ^
   src\game\game_presentation_static_camera_probe.c ^
+  src\game\game_presentation_static_camera_resources.c ^
   src\game\game_presentation_static_physical_artifacts.c ^
   src\game\game_presentation_static_physical_metrics.c ^
   src\game\game_presentation_water_river_probe.c ^
@@ -207,8 +233,11 @@ gcc -O2 -Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8 -I. -Isrc ^
   src\world\mountain_gen.c ^
   src\world\world_gen_climate.c ^
   src\world\world_gen_moisture.c ^
+  src\world\world_gen_aridity_response.c ^
+  src\world\world_gen_aridity_projection.c ^
   src\world\wind_vector.c ^
   src\world\world_gen_classify.c ^
+  src\world\world_gen_classify_climate.c ^
   src\world\world_physical_state.c ^
   src\world\terrain_query.c ^
   src\world\world_smoothing.c ^

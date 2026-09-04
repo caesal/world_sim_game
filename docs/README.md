@@ -10,25 +10,36 @@ The project documentation is split into two folders:
    - Historical design notes, side docs, code-review instructions, probes, and working version logs.
    - The Codex architecture review source PDF lives here with its metadata.
 
-For Ver0.3.7, this release intentionally excludes `docs/official`. Those files
-remain a separately requested user-facing documentation-freeze series.
+For Ver0.3.7.a, this release intentionally excludes `docs/official`. Those
+files remain a separately requested user-facing documentation-freeze series.
 
-The release publishes coherent bounded monthly Decision snapshots for all
-alive civilizations, redesigns the Stability presentation, persists and shows
-the three newest completed principal wars, and unifies ocean texture scale and
-coordinates inside and outside the playable map. The no-world viewport uses
-the same ocean texture without generated-world decoration. The save format is
-MAP21; MAP20 and older files are rejected without migration.
+The implemented Ver0.3.7.a areas are episode-total plague-immunity thresholds
+and episode-wide assignment, map-size-aware Initial Civilizations controls, the
+fixed diminishing aridity response with its strict oasis window, and plague
+RenderSnapshot/cache consistency across unrelated Decision and war-history
+publication. Real plague, lane, city, month, civilization-source, and
+world-generated changes continue to invalidate plague payloads. The coherent
+Decision, Stability, completed-war, and ocean-presentation work from Ver0.3.7
+remains in place. Ordinary pause now closes new-month admission, drains any
+already-started month through coherent snapshot/front publication, and defers a
+resume requested during that drain. The collapsed top-bar mode lane now uses
+472 pixels so that all six labels, including English `Geography`, fit at the
+required viewport without changing strings, fonts, or narrow-window fallback.
+`MAP_SAVE_VERSION` remains 21; MAP20 and older files are rejected without
+migration.
 
-Gameplay formulas, war outcomes, Decision formulas, world generation, climate,
-hydrology, routes, plague, diplomacy classification, and simulation-speed
-semantics are not retuned. Ver0.3.7 passed the ordered Rule 47 prerequisites
-and a fresh final-source Rule 39 acceptance run on 2026-08-09. MAP20 and older
-saves remain intentionally unsupported.
+Final Rule 47 and Rule 39 acceptance, including manual visual review, passed on
+2026-09-04. The run ended at Year 672 Month 5 with 1,212 natural regions,
+64 initial and 64 surviving civilizations, and 1,443 wars started. The
+[Ver0.3.7.a side document](unofficial/ver0.3.7.a_side_doc.md) records the five
+stage-5 witnesses, final executable identity, and acceptance evidence hashes.
+Git publication is a separately authorized operation whose outcome is verified
+from the commit, lightweight tag, and remote references, not inferred from PASS.
 
 The non-official release records are:
 
 - `docs/unofficial/version_log.md`
+- `docs/unofficial/ver0.3.7.a_side_doc.md`
 - `docs/unofficial/ver0.3.7_side_doc.md`
 
 The previous climate-calibration, world-generation-control, static-geography,

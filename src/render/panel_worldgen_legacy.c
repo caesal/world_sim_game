@@ -5,6 +5,7 @@
 #include "ui/ui_clay_primitives.h"
 #include "ui/ui_clay_widgets.h"
 #include "ui/ui_theme.h"
+#include "ui/ui_worldgen_config_adapter.h"
 #include "ui/ui_worldgen_layout.h"
 #include "ui/ui_worldgen_view.h"
 
@@ -325,7 +326,9 @@ void draw_worldgen_legacy_panel(HDC hdc,
                    tr("Affects the next generated world; it does not resize the current map.",
                       "影响下次生成的世界；不会缩放当前地图。"),
                    ui_theme_color(UI_COLOR_TEXT_DIM), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
-    snprintf(initial_text, sizeof(initial_text), "%s (0-%d)", tr("Initial civilizations", "初始文明数量"), MAX_CIVS);
+    snprintf(initial_text, sizeof(initial_text), "%s (0-%d)",
+             tr("Initial civilizations", "初始文明数量"),
+             ui_worldgen_initial_civ_cap_for_map_size(pending_map_size));
     draw_text_rect(hdc, layout.initial_label, initial_text,
                    ui_theme_color(UI_COLOR_TEXT_MUTED), DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     draw_input_frame(hdc, &layout, layout.initial_input_frame);

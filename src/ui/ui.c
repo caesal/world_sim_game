@@ -40,6 +40,7 @@ static int tracking_mouse_leave = 0;
 static void handle_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client, legend_toggle;
     int i, slider;
+    if (game_pause_in_progress()) return;
     GetClientRect(hwnd, &client);
     if (ui_country_target_handle_left_click(hwnd, mouse_x, mouse_y)) return;
     if (color_picker_mouse_down(hwnd, client, mouse_x, mouse_y)) return;
@@ -366,6 +367,7 @@ static void handle_mouse_up(HWND hwnd, int mouse_x, int mouse_y) {
 static void handle_right_mouse_down(HWND hwnd, int mouse_x, int mouse_y) {
     RECT client;
     RECT viewport;
+    if (game_pause_in_progress()) return;
     GetClientRect(hwnd, &client);
     if (ui_country_target_cancel(hwnd)) return;
     if (color_picker_active()) return;
@@ -392,6 +394,7 @@ LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) 
             ui_invalidate_full(hwnd);
             return 0;
         case WM_COMMAND:
+            if (game_pause_in_progress()) return 0;
             if (pause_menu_open) return 0;
             if (HIWORD(wparam) == EN_CHANGE && ui_forms_handle_metric_change(LOWORD(wparam))) {
                 ui_invalidate_side_panel(hwnd); return 0;

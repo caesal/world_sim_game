@@ -46,12 +46,12 @@ static int history_ring_case(void) {
 static int chart_math_case(PlagueEpisodeHistory history[7]) {
     int duration_max = plague_panel_chart_duration_max(history, 7);
     int boundaries =
-        plague_rules_immunity_percent_for_duration(59) == 30 &&
-        plague_rules_immunity_percent_for_duration(60) == 50 &&
-        plague_rules_immunity_percent_for_duration(119) == 50 &&
-        plague_rules_immunity_percent_for_duration(120) == 80 &&
-        plague_rules_immunity_percent_for_duration(239) == 80 &&
-        plague_rules_immunity_percent_for_duration(240) == 100;
+        plague_rules_immunity_percent_for_duration(79) == 30 &&
+        plague_rules_immunity_percent_for_duration(80) == 50 &&
+        plague_rules_immunity_percent_for_duration(139) == 50 &&
+        plague_rules_immunity_percent_for_duration(140) == 80 &&
+        plague_rules_immunity_percent_for_duration(199) == 80 &&
+        plague_rules_immunity_percent_for_duration(200) == 100;
     return plague_panel_chart_rounded_max(0) == 1 &&
            plague_panel_chart_rounded_max(1) == 1 &&
            plague_panel_chart_rounded_max(3) == 5 &&
@@ -73,9 +73,9 @@ static int chart_geometry_case(void) {
                    PLAGUE_SIZE_LARGE, 0, 180) == 30;
     int severity = plague_panel_chart_value_height(1, 10, 180) == 18 &&
                    plague_panel_chart_value_height(10, 10, 180) == 180;
-    int duration = plague_panel_chart_value_height(60, 300, 180) == 36 &&
-                   plague_panel_chart_value_height(120, 300, 180) == 72 &&
-                   plague_panel_chart_value_height(240, 300, 180) == 144;
+    int duration = plague_panel_chart_value_height(80, 300, 180) == 48 &&
+                   plague_panel_chart_value_height(140, 300, 180) == 84 &&
+                   plague_panel_chart_value_height(200, 300, 180) == 120;
     int linear = plague_panel_chart_value_height(627062, 1000000, 180) == 112 &&
                  plague_panel_chart_value_height(79, 100, 180) == 142 &&
                  plague_panel_chart_value_height(14, 20, 180) == 126;
@@ -85,6 +85,24 @@ static int chart_geometry_case(void) {
                  plague_panel_chart_spore_fill_height(180, 0, 0) == 0 &&
                  plague_panel_chart_spore_fill_height(180, 200, 158) == 180;
     return type && severity && duration && linear && spores;
+}
+
+static int immunity_projection_case(RenderSnapshot *snapshot) {
+    static const int history_percent[7] = {30, 50, 50, 80, 100, 100, 100};
+    int live;
+    int history = 1;
+    int i;
+    plague_probe_fill_active(snapshot, PLAGUE_SIZE_MEDIUM, 7);
+    live = snapshot->plague_state.projected_immunity_percent == 30 &&
+           snapshot->plague_state.next_immunity_percent == 50 &&
+           snapshot->plague_state.months_to_next_immunity == 42;
+    for (i = 0; i < 7; i++) {
+        const PlagueEpisodeHistory *episode =
+            &snapshot->plague_state.recent_history[i];
+        history &= plague_rules_immunity_percent_for_duration(
+                       episode->duration_months) == history_percent[i];
+    }
+    return live && history;
 }
 
 static int metric_icon_geometry_case(void) {
@@ -171,6 +189,7 @@ int game_presentation_plague_history_probe(FILE *summary) {
     int spore_usage = 0;
     int layout = 0;
     int mapping = 0;
+    int immunity_projection = 0;
     int restored = 0;
     int i;
     int ok;
@@ -191,16 +210,17 @@ int game_presentation_plague_history_probe(FILE *summary) {
     spore_usage = spore_usage_fixture_case(history);
     metrics = all_metric_smoke_case(history);
     layout = metric_layout_case();
+    immunity_projection = immunity_projection_case(snapshot);
     plague_probe_fill_inactive(snapshot, 7);
     mapping = oldest_to_newest_render_case(snapshot);
     restored = plague_state_restore(saved_model);
     ok = ring && math && geometry && metric_icon && spore_usage && metrics &&
-         layout && mapping && restored;
+         layout && immunity_projection && mapping && restored;
     fprintf(summary,
-            "case=plague_history_chart ok=%d histories_0_1_6_7=%d persistent_newest7=%d active_excluded=%d oldest_to_newest=%d metrics7=%d metric_layout_4_plus_3=%d type_categories=%d severity_1_10=%d duration_axis_min300=%d duration_bands_60_120_240=%d exact_linear_values=%d spore_capacity_fill=%d spore_0_partial_100=%d zero_spores_safe=%d minimum_nonzero_height=%d metric_icon_20x20=%d restored=%d\n",
+            "case=plague_history_chart ok=%d histories_0_1_6_7=%d persistent_newest7=%d active_excluded=%d oldest_to_newest=%d metrics7=%d metric_layout_4_plus_3=%d type_categories=%d severity_1_10=%d duration_axis_min300=%d duration_bands_80_140_200=%d immunity_live_history_projection=%d exact_linear_values=%d spore_capacity_fill=%d spore_0_partial_100=%d zero_spores_safe=%d minimum_nonzero_height=%d metric_icon_20x20=%d restored=%d\n",
             ok, ring, ring, ring, mapping, metrics, layout, geometry,
-            geometry, math, math, geometry, geometry, spore_usage, geometry, math,
-            metric_icon, restored);
+            geometry, math, math, immunity_projection, geometry, geometry,
+            spore_usage, geometry, math, metric_icon, restored);
     free(saved_model);
     free(snapshot);
     return ok;

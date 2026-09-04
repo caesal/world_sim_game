@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_PAUSE_SNAPSHOT_COHERENCE_PROBE_H
+#define WORLD_SIM_GAME_PAUSE_SNAPSHOT_COHERENCE_PROBE_H
+
+int run_pause_snapshot_coherence_probe(void);
+
+#endif

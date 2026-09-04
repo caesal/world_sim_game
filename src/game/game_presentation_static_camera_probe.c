@@ -1,8 +1,8 @@
 #include "game/game_presentation_static_camera_probe.h"
+#include "game/game_presentation_static_camera_resources.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#include <psapi.h>
 
 #include "render/coast_geometry.h"
 #include "render/render_allocation_diagnostics.h"
@@ -48,15 +48,6 @@ typedef struct {
     int fallback_draws;
     int static_compositions;
 } CameraStamp;
-
-typedef struct {
-    DWORD gdi_objects;
-    SIZE_T working_set;
-    SIZE_T private_bytes;
-    int valid;
-} CameraResources;
-
-typedef BOOL(WINAPI *MemoryInfoFn)(HANDLE, PPROCESS_MEMORY_COUNTERS, DWORD);
 
 static void take_stamp(CameraStamp *stamp) {
     memset(stamp, 0, sizeof(*stamp));
@@ -228,43 +219,6 @@ static int immutable_equal(const CameraStamp *left,
            left->static_compositions == right->static_compositions;
 }
 
-static CameraResources process_resources(void) {
-    CameraResources result = {0};
-    PROCESS_MEMORY_COUNTERS_EX memory = {0};
-    HMODULE module = GetModuleHandleA("kernel32.dll");
-    MemoryInfoFn query = module ? (MemoryInfoFn)(void *)GetProcAddress(
-                                      module, "K32GetProcessMemoryInfo") : NULL;
-    memory.cb = sizeof(memory);
-    result.gdi_objects = GetGuiResources(GetCurrentProcess(), GR_GDIOBJECTS);
-    if (query && query(GetCurrentProcess(), (PPROCESS_MEMORY_COUNTERS)&memory,
-                       sizeof(memory))) {
-        result.working_set = memory.WorkingSetSize;
-        result.private_bytes = memory.PrivateUsage;
-        result.valid = result.gdi_objects > 0;
-    }
-    return result;
-}
-
-static CameraResources settle_process_resources(int *settled, int *samples) {
-    CameraResources previous = process_resources();
-    int i;
-    *settled = 0;
-    *samples = 1;
-    for (i = 0; i < 8; i++) {
-        CameraResources current = process_resources();
-        (*samples)++;
-        if (previous.valid && current.valid &&
-            previous.gdi_objects == current.gdi_objects &&
-            previous.private_bytes == current.private_bytes &&
-            previous.working_set == current.working_set) {
-            *settled = 1;
-            return current;
-        }
-        previous = current;
-    }
-    return previous;
-}
-
 static int draw_camera(StaticPhysicalProbeCanvas *canvas,
                        const RenderSnapshot *snapshot, int mode, int zoom,
                        int offset_x, int offset_y, int centered) {
@@ -372,7 +326,8 @@ int game_presentation_static_camera_probe(
     FILE *summary, StaticPhysicalProbeCanvas *canvas,
     const RenderSnapshot *snapshot) {
     CameraStamp before = {0}, after_zoom = {0}, before_pan = {0}, after_pan = {0};
-    CameraResources before_resources = {0}, after_resources = {0};
+    StaticCameraResources before_resources = {0}, after_resources = {0};
+    StaticCameraResourceTrace resource_trace;
     int old_mode = display_mode;
     int old_zoom = map_zoom_percent;
     int old_x = map_offset_x;
@@ -382,8 +337,8 @@ int game_presentation_static_camera_probe(
     int zoom_steps = 0;
     int sweep_draw_ok, sweep_cache_ok, warm_draw_ok, warm_cache_ok;
     int cycle_draw_ok, cycle_cache_ok;
-    int resource_settled = 0, resource_samples = 0;
-    int resource_ok, stale_ok, ok;
+    int resource_settled = 0, resource_settle_samples = 0;
+    int resource_ok, resource_trace_ok, resource_contract_ok, stale_ok, ok;
     if (!summary || !canvas || !snapshot || !snapshot->world_generated) return 0;
     draw_camera(canvas, snapshot, DISPLAY_GEOGRAPHY, 100, 0, 0, 1);
     draw_camera(canvas, snapshot, DISPLAY_CLIMATE, 100, 0, 0, 1);
@@ -397,18 +352,22 @@ int game_presentation_static_camera_probe(
     GdiFlush();
     take_stamp(&before_pan);
     warm_cache_ok = immutable_equal(&after_zoom, &before_pan);
-    before_resources = settle_process_resources(
-        &resource_settled, &resource_samples);
+    resource_contract_ok = static_camera_resource_contract_probe(summary);
+    before_resources = static_camera_resources_settle(
+        &resource_trace, &resource_settled);
+    resource_settle_samples = resource_trace.count;
     cycle_draw_ok = run_pan_and_mode_cycles(canvas, snapshot, 100);
     GdiFlush();
-    after_resources = process_resources();
+    after_resources = static_camera_resources_capture();
+    static_camera_resources_append(&resource_trace, after_resources,
+                                   "after_cycles");
     take_stamp(&after_pan);
     cycle_cache_ok = immutable_equal(&before_pan, &after_pan);
-    resource_ok = resource_settled && before_resources.valid &&
-        after_resources.valid &&
-        before_resources.gdi_objects == after_resources.gdi_objects &&
-        after_resources.private_bytes <= before_resources.private_bytes &&
-        after_resources.working_set <= before_resources.working_set;
+    resource_trace_ok = static_camera_resource_trace_report(
+        summary, &resource_trace);
+    resource_ok = resource_trace_ok && static_camera_resource_contract_ok(
+        resource_settled, cycle_draw_ok && cycle_cache_ok,
+        before_resources, after_resources);
     fprintf(summary,
             "case=static_camera_continuous_zoom ok=%d steps=%d range=25_700_25 immutable=%d base_rebuild_delta=%d coast_draw_delta=%d river_rebuild_delta=%d wind_rebuild_delta=%d wind_sprite_prebuild_delta=%d wind_sprite_raster_delta=%d water_rebuild_delta=%d coverage_rebuild_delta=%llu tile_scan_delta=%llu coverage_source_scan_delta=%llu coverage_raster_sample_delta=%llu path_scan_delta=%llu sample_scan_delta=%llu anchor_visit_delta=%llu sprite_blit_delta=%d allocation_delta=%llu clear_pixel_delta=%llu fallback_delta=%d water_fallback_delta=%d/%d/%llu viewport_rebuild_delta=%d composition_delta=%d\n",
             sweep_draw_ok && sweep_cache_ok, zoom_steps, sweep_cache_ok,
@@ -451,10 +410,11 @@ int game_presentation_static_camera_probe(
             after_zoom.viewport_rebuilds - before.viewport_rebuilds,
             after_zoom.static_compositions - before.static_compositions);
     fprintf(summary,
-            "case=static_camera_pan_mode_100_cycles ok=%d warm=%d/%d draw=%d immutable=%d memory=%d resource_settle=%d/%d gdi=%lu->%lu private=%llu->%llu working=%llu->%llu river_mask=0x%x wind_mask=0x%x physical_bytes=%llu overlay_bytes=%llu wind_anchor_bytes=%llu wind_sprite_bytes=%llu map_bytes=%llu water_bytes=%llu water_coverage_bytes=%llu ocean_total_bytes=%llu retained_bytes=%llu anchor_visit_delta=%llu sprite_blit_delta=%d composition_delta=%d\n",
+            "case=static_camera_pan_mode_100_cycles ok=%d warm=%d/%d draw=%d immutable=%d memory=%d resource_settle=%d/%d gdi=%lu->%lu private=%llu->%llu working=%llu->%llu working_set_diagnostic_only=1 river_mask=0x%x wind_mask=0x%x physical_bytes=%llu overlay_bytes=%llu wind_anchor_bytes=%llu wind_sprite_bytes=%llu map_bytes=%llu water_bytes=%llu water_coverage_bytes=%llu ocean_total_bytes=%llu retained_bytes=%llu anchor_visit_delta=%llu sprite_blit_delta=%d composition_delta=%d\n",
             warm_draw_ok && warm_cache_ok && cycle_draw_ok && cycle_cache_ok &&
                 resource_ok, warm_draw_ok, warm_cache_ok, cycle_draw_ok,
-            cycle_cache_ok, resource_ok, resource_settled, resource_samples,
+            cycle_cache_ok, resource_ok, resource_settled,
+            resource_settle_samples,
             (unsigned long)before_resources.gdi_objects,
             (unsigned long)after_resources.gdi_objects,
             (unsigned long long)before_resources.private_bytes,
@@ -486,7 +446,8 @@ int game_presentation_static_camera_probe(
             after_pan.static_compositions - before_pan.static_compositions);
     stale_ok = stale_revision_contract(summary, canvas, snapshot);
     ok = sweep_draw_ok && sweep_cache_ok && warm_draw_ok && warm_cache_ok &&
-         cycle_draw_ok && cycle_cache_ok && resource_ok && stale_ok;
+         cycle_draw_ok && cycle_cache_ok && resource_ok &&
+         resource_contract_ok && stale_ok;
     display_mode = old_mode;
     map_zoom_percent = old_zoom;
     map_offset_x = old_x;

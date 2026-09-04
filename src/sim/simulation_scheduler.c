@@ -17,6 +17,26 @@ static int last_step_ms = 0;
 static SimulationMonthState active_month;
 static DWORD last_budget_event_tick = 0;
 static int budget_event_repeat = 0;
+static volatile LONG month_admission_state = 1;
+
+enum {
+    MONTH_ADMISSION_PAUSED = 0,
+    MONTH_ADMISSION_OPEN = 1,
+    MONTH_ADMISSION_START_CLAIMED = 2
+};
+
+static int claim_month_start(void) {
+    if (!auto_run) return 0;
+    return InterlockedCompareExchange(&month_admission_state,
+                                      MONTH_ADMISSION_START_CLAIMED,
+                                      MONTH_ADMISSION_OPEN) == MONTH_ADMISSION_OPEN;
+}
+
+static void release_month_start_claim(void) {
+    InterlockedCompareExchange(&month_admission_state,
+                               MONTH_ADMISSION_OPEN,
+                               MONTH_ADMISSION_START_CLAIMED);
+}
 
 static void log_budget_yield(int step_ms, int budget_ms) {
     DWORD now = GetTickCount();
@@ -50,10 +70,39 @@ void sim_scheduler_reset(void) {
     completed_month_count = 0;
     last_step_ms = 0;
     active_month.active = 0;
+    simulation_month_reset_runtime();
+    InterlockedExchange(&month_admission_state, MONTH_ADMISSION_OPEN);
 }
 
+void sim_scheduler_request_pause_drain(void) {
+    InterlockedExchange(&month_admission_state, MONTH_ADMISSION_PAUSED);
+}
+
+void sim_scheduler_resume_month_admission(void) {
+    InterlockedExchange(&month_admission_state, MONTH_ADMISSION_OPEN);
+}
+
+int sim_scheduler_pause_drain_requested(void) {
+    return InterlockedCompareExchange(&month_admission_state, 0, 0) ==
+           MONTH_ADMISSION_PAUSED;
+}
+
+int sim_scheduler_cancel_queued_months_preserve_active(void) {
+    int canceled = pending_months;
+    pending_months = 0;
+    return canceled;
+}
+
+int sim_scheduler_active_month(void) {
+    return simulation_month_is_done(&active_month) ? 0 : 1;
+}
+
+int sim_scheduler_queued_months(void) { return pending_months; }
+
 int sim_scheduler_can_accept_month(void) {
-    return pending_months < SIM_PENDING_MONTH_CAP;
+    return InterlockedCompareExchange(&month_admission_state, 0, 0) ==
+               MONTH_ADMISSION_OPEN &&
+           pending_months < SIM_PENDING_MONTH_CAP;
 }
 
 int sim_scheduler_request_month(void) {
@@ -72,8 +121,16 @@ int sim_scheduler_run_budget(int work_units) {
     while (work_units > 0) {
         if (simulation_month_is_done(&active_month)) {
             if (pending_months <= 0) break;
+            if (!claim_month_start()) {
+                pending_months = 0;
+                break;
+            }
             pending_months--;
-            if (!simulation_month_begin(&active_month)) continue;
+            if (!simulation_month_begin(&active_month)) {
+                release_month_start_claim();
+                continue;
+            }
+            release_month_start_claim();
         }
         did_work |= simulation_month_run_next(&active_month);
         if (simulation_month_is_done(&active_month)) enqueue_completed_month_date();

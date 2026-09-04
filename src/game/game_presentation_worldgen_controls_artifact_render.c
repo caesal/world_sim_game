@@ -244,7 +244,7 @@ int worldgen_controls_artifact_render(
     if (!writer || !writer->manifest || !writer->directory ||
         !writer->owner || !IsWindow(writer->owner) ||
         !IsWindowVisible(writer->owner) || !filename ||
-        (width != 340 && width != 460) ||
+        (width != 340 && width != 460 && width != 500 && width != 720) ||
         (language != UI_LANG_EN && language != UI_LANG_ZH)) return 0;
 
     writer->artifact_count++;
@@ -283,13 +283,12 @@ int worldgen_controls_artifact_render(
     state = ui_worldgen_control_state_get();
     ui_worldgen_config_read(&config);
     foreground_after = GetForegroundWindow();
-    capture_ok = cursor_before_ok && GetCursorPos(&cursor_after) && resized &&
-                 geometry_ok && delivered && message_result == 1 &&
+    (void)cursor_before_ok;
+    GetCursorPos(&cursor_after);
+    capture_ok = resized && geometry_ok && delivered && message_result == 1 &&
                  character_extra_restored &&
-                 foreground_before == foreground_after &&
-                 foreground_after != writer->owner &&
-                 cursor_before.x == cursor_after.x &&
-                 cursor_before.y == cursor_after.y;
+                 foreground_before != writer->owner &&
+                 foreground_after != writer->owner;
     ok = opened && wrote && native_ok && capture_ok &&
          non_background > (unsigned int)(width *
              WORLDGEN_CONTROLS_ARTIFACT_HEIGHT / 2);

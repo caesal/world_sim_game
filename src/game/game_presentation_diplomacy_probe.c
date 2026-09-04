@@ -1,4 +1,5 @@
 #include "core/render_snapshot.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 #include "core/game_state.h"
 #include "render/diplomacy_map_anim.h"
 #include "render/render_common.h"
@@ -13,8 +14,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 int game_presentation_diplomacy_sort_probe(FILE *summary);
 
@@ -150,7 +149,8 @@ static int run_diplomacy_contact_case(FILE *summary, const char *case_name,
     active_before = diplomacy_map_anim_active();
     diplomacy_map_anim_consume_events(snapshot);
     active_after = diplomacy_map_anim_active();
-    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, artifact_name);
+    snprintf(path, sizeof(path), "%s",
+             static_physical_probe_artifact_path(artifact_name));
     artifact = render_diplomacy_arrow_artifact(path, snapshot, &pixels);
     if (expect_arrow) {
         ok = pending && dynamic_redraw_needed && !active_before &&
@@ -370,7 +370,8 @@ static int render_mode_switch_artifact(const char *path, const RenderSnapshot *s
 }
 
 static int map_mode_selected_state_probe(int *selected_feedback_ms) {
-    HWND hwnd = CreateWindowExA(0, "STATIC", "mode-probe", WS_POPUP,
+    HWND hwnd = CreateWindowExA(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
+                                "STATIC", "mode-probe", WS_POPUP,
                                 0, 0, 1040, 720, NULL, NULL,
                                 GetModuleHandle(NULL), NULL);
     int old_mode = display_mode;
@@ -415,7 +416,7 @@ static int case_map_mode_switch_latency(FILE *summary) {
     fill_mode_switch_snapshot(snapshot);
     {
         int dm = 0, dp = 0, df = 0, ds = 0, db = 0, dm2 = 0, do2 = 0;
-        render_mode_switch_artifact(PRESENTATION_PROBE_DIR "/map_mode_switch_prewarm.bmp",
+        render_mode_switch_artifact(static_physical_probe_artifact_path("map_mode_switch_prewarm.bmp"),
             snapshot, DISPLAY_ROUTE_POTENTIAL, &dm, &dp, &df, &ds,
             &db, &dm2, &do2, NULL, NULL);
     }
@@ -424,7 +425,8 @@ static int case_map_mode_switch_latency(FILE *summary) {
         char path[256];
         int follow = 0, stat = 0, side = 0, bg = 0, map = 0, ov = 0, halo = 0;
         int artifact_ms = 0;
-        snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, files[i]);
+        snprintf(path, sizeof(path), "%s",
+                 static_physical_probe_artifact_path(files[i]));
         artifacts_ok &= render_mode_switch_artifact(path, snapshot,
             MAP_DISPLAY_MODES[i], &artifact_ms, &mode_px[i], &follow, &stat,
             &bg, &map, &ov, &side, &halo);
@@ -471,7 +473,8 @@ int game_presentation_diplomacy_probe(FILE *summary) {
     active_before = diplomacy_map_anim_active();
     diplomacy_map_anim_consume_events(snapshot);
     active_after = diplomacy_map_anim_active();
-    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, artifact_name);
+    snprintf(path, sizeof(path), "%s",
+             static_physical_probe_artifact_path(artifact_name));
     artifact = render_diplomacy_arrow_artifact(path, snapshot, &pixels);
     fprintf(summary,
             "case=diplomacy_map_animation ok=%d pending=%d active_before=%d active_after=%d pixels=%d artifact=%s\n",

@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PROBE_DIR "build/validation/presentation_probe_20260618"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER header = {0};
@@ -111,8 +111,8 @@ static int case_bottom_row(FILE *summary) {
               text_fits(hdc, zh.queue_rect, zh.queue_label, zh.queue_value, 34) &&
               text_fits(hdc, zh.status_rect, zh.status_text, "", 56);
     ReleaseDC(NULL, hdc);
-    artifacts = render_bottom(PROBE_DIR "/bottom_bar_shared_row_en.bmp", UI_LANG_EN) &&
-                render_bottom(PROBE_DIR "/bottom_bar_shared_row_zh.bmp", UI_LANG_ZH);
+    artifacts = render_bottom(static_physical_probe_artifact_path("bottom_bar_shared_row_en.bmp"), UI_LANG_EN) &&
+                render_bottom(static_physical_probe_artifact_path("bottom_bar_shared_row_zh.bmp"), UI_LANG_ZH);
     fprintf(summary,
         "case=bottom_bar_shared_row ok=%d height=%ld top_match=%d bottom_match=%d dot_centered=%d text_fit_en=%d text_fit_zh=%d\n",
         row.bottom - row.top == 30 && top_match && bottom_match &&
@@ -190,9 +190,9 @@ static int case_alpha_policy(FILE *summary) {
     live_ok &= map_display_policy_live_owner_fill(1, DISPLAY_ALLIANCE, &li);
     alliance_restore_save_state(saved);
     civs[0] = old_civ0; civs[1] = old_civ1; civ_count = old_count;
-    artifacts = render_alpha(PROBE_DIR "/map_alpha_country_53.bmp", "Country", sc) &&
-                render_alpha(PROBE_DIR "/map_alpha_alliance_independent_53.bmp", "Alliance independent", si) &&
-                render_alpha(PROBE_DIR "/map_alpha_alliance_member_69.bmp", "Alliance member", sm);
+    artifacts = render_alpha(static_physical_probe_artifact_path("map_alpha_country_53.bmp"), "Country", sc) &&
+                render_alpha(static_physical_probe_artifact_path("map_alpha_alliance_independent_53.bmp"), "Alliance independent", si) &&
+                render_alpha(static_physical_probe_artifact_path("map_alpha_alliance_member_69.bmp"), "Alliance member", sm);
     snapshot_ok &= sc.alpha == 136 && si.alpha == 136 && sm.alpha == 176;
     live_ok &= lc.alpha == 136 && li.alpha == 136 && lm.alpha == 176;
     fprintf(summary,

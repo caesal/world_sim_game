@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PROBE_DIR "build/validation/presentation_probe_20260618"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER header = {0};
@@ -192,25 +192,25 @@ static int queue_case(FILE *summary, const WorldAnnouncementProbeBundle *bundle)
 static int artifact_cases(FILE *summary, const WorldAnnouncementProbeBundle *bundle) {
     TopWorldAnnouncementProbeInfo collapse, union1, union2, rich;
     int ok = 1;
-    ok &= render_event(&bundle->age, PROBE_DIR "/announcement_age_first_zh.bmp", UI_LANG_ZH, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->age, PROBE_DIR "/announcement_age_first_en.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->collapse, PROBE_DIR "/announcement_collapse_five_successors.bmp", UI_LANG_EN, 1920, 0, 0, 0, &collapse);
-    ok &= render_event(&bundle->union_four, PROBE_DIR "/announcement_union_four_members.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->union_long, PROBE_DIR "/announcement_union_long_page_1.bmp", UI_LANG_EN, 1366, 0, 0, 0, &union1);
-    ok &= render_event(&bundle->union_long, PROBE_DIR "/announcement_union_long_page_2.bmp", UI_LANG_EN, 1366, 0, 1, 0, &union2);
-    ok &= render_event(&bundle->vassal_independence, PROBE_DIR "/announcement_vassal_independence.bmp", UI_LANG_ZH, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->military_upgrade, PROBE_DIR "/announcement_military_upgrade.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->military_downgrade, PROBE_DIR "/announcement_military_downgrade.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->plague_started, PROBE_DIR "/announcement_plague_started.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->plague_ended, PROBE_DIR "/announcement_plague_ended.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->plague_started, PROBE_DIR "/announcement_plague_started_zh.bmp", UI_LANG_ZH, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->plague_ended, PROBE_DIR "/announcement_plague_ended_zh.bmp", UI_LANG_ZH, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->alliance_war_started, PROBE_DIR "/announcement_alliance_war_start.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->alliance_war_victory, PROBE_DIR "/announcement_alliance_war_victory.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->alliance_war_truce, PROBE_DIR "/announcement_alliance_war_negotiated_truce.bmp", UI_LANG_EN, 1920, 0, 0, 0, NULL);
-    ok &= render_event(&bundle->union_four, PROBE_DIR "/announcement_side_panel_expanded.bmp", UI_LANG_EN, 1920, 0, 0, 0, &rich);
-    ok &= render_event(&bundle->union_four, PROBE_DIR "/announcement_side_panel_collapsed.bmp", UI_LANG_EN, 1366, 1, 0, 0, NULL);
-    ok &= render_event(&bundle->age, PROBE_DIR "/announcement_action_toast_coexistence.bmp", UI_LANG_EN, 1920, 0, 0, 1, NULL);
+    ok &= render_event(&bundle->age, static_physical_probe_artifact_path("announcement_age_first_zh.bmp"), UI_LANG_ZH, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->age, static_physical_probe_artifact_path("announcement_age_first_en.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->collapse, static_physical_probe_artifact_path("announcement_collapse_five_successors.bmp"), UI_LANG_EN, 1920, 0, 0, 0, &collapse);
+    ok &= render_event(&bundle->union_four, static_physical_probe_artifact_path("announcement_union_four_members.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->union_long, static_physical_probe_artifact_path("announcement_union_long_page_1.bmp"), UI_LANG_EN, 1366, 0, 0, 0, &union1);
+    ok &= render_event(&bundle->union_long, static_physical_probe_artifact_path("announcement_union_long_page_2.bmp"), UI_LANG_EN, 1366, 0, 1, 0, &union2);
+    ok &= render_event(&bundle->vassal_independence, static_physical_probe_artifact_path("announcement_vassal_independence.bmp"), UI_LANG_ZH, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->military_upgrade, static_physical_probe_artifact_path("announcement_military_upgrade.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->military_downgrade, static_physical_probe_artifact_path("announcement_military_downgrade.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->plague_started, static_physical_probe_artifact_path("announcement_plague_started.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->plague_ended, static_physical_probe_artifact_path("announcement_plague_ended.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->plague_started, static_physical_probe_artifact_path("announcement_plague_started_zh.bmp"), UI_LANG_ZH, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->plague_ended, static_physical_probe_artifact_path("announcement_plague_ended_zh.bmp"), UI_LANG_ZH, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->alliance_war_started, static_physical_probe_artifact_path("announcement_alliance_war_start.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->alliance_war_victory, static_physical_probe_artifact_path("announcement_alliance_war_victory.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->alliance_war_truce, static_physical_probe_artifact_path("announcement_alliance_war_negotiated_truce.bmp"), UI_LANG_EN, 1920, 0, 0, 0, NULL);
+    ok &= render_event(&bundle->union_four, static_physical_probe_artifact_path("announcement_side_panel_expanded.bmp"), UI_LANG_EN, 1920, 0, 0, 0, &rich);
+    ok &= render_event(&bundle->union_four, static_physical_probe_artifact_path("announcement_side_panel_collapsed.bmp"), UI_LANG_EN, 1366, 1, 0, 0, NULL);
+    ok &= render_event(&bundle->age, static_physical_probe_artifact_path("announcement_action_toast_coexistence.bmp"), UI_LANG_EN, 1920, 0, 0, 1, NULL);
     fprintf(summary,
         "case=world_announcement_collapse ok=%d successors=%d all_visible=%d identity_colors=%d stable_snapshots=%d\n",
         ok && collapse.related_visible == 5 && bundle->collapse_stable,

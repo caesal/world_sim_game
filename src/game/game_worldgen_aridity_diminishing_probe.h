@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_WORLDGEN_ARIDITY_DIMINISHING_PROBE_H
+#define WORLD_SIM_GAME_WORLDGEN_ARIDITY_DIMINISHING_PROBE_H
+
+int run_worldgen_aridity_diminishing_response_probe(void);
+
+#endif

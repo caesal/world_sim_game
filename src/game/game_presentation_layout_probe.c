@@ -1,6 +1,7 @@
 #include "render/render_panel_internal.h"
 
 #include "game/game_presentation_live_map_probe.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 #include "core/dirty_flags.h"
 #include "core/game_state.h"
@@ -17,8 +18,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER file_header;
@@ -316,8 +315,8 @@ int game_presentation_layout_probe(FILE *summary) {
         render_context_begin(legend_snapshot); alliance_many = legend_case_ok(expanded, 0, DISPLAY_ALLIANCE) && legend_case_ok(collapsed, 1, DISPLAY_ALLIANCE); render_context_end(); free(legend_snapshot);
     }
     render_ocean_decoration_reset_debug();
-    artifact_ok = render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_political_expanded.bmp", 0, DISPLAY_POLITICAL, &seam_ep) && render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_political_collapsed.bmp", 1, DISPLAY_POLITICAL, &seam_cp) && render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_routes_expanded.bmp", 0, DISPLAY_ROUTE_POTENTIAL, &seam_er);
-    artifact_ok &= render_layout_bmp(PRESENTATION_PROBE_DIR "/ocean_texture_seam_routes_collapsed.bmp", 1, DISPLAY_ROUTE_POTENTIAL, &seam_cr);
+    artifact_ok = render_layout_bmp(static_physical_probe_artifact_path("ocean_texture_seam_political_expanded.bmp"), 0, DISPLAY_POLITICAL, &seam_ep) && render_layout_bmp(static_physical_probe_artifact_path("ocean_texture_seam_political_collapsed.bmp"), 1, DISPLAY_POLITICAL, &seam_cp) && render_layout_bmp(static_physical_probe_artifact_path("ocean_texture_seam_routes_expanded.bmp"), 0, DISPLAY_ROUTE_POTENTIAL, &seam_er);
+    artifact_ok &= render_layout_bmp(static_physical_probe_artifact_path("ocean_texture_seam_routes_collapsed.bmp"), 1, DISPLAY_ROUTE_POTENTIAL, &seam_cr);
     seam_ok = seam_ep <= 42 && seam_cp <= 42 && seam_er <= 42 && seam_cr <= 42;
     fprintf(summary, "case=alliance_legend_toggle_hit_rect ok=%d no_alliance=%d many_alliances=%d\n", alliance_no && alliance_many, alliance_no, alliance_many);
     fprintf(summary, "case=alliance_legend_toggle_no_alliance ok=%d\n", alliance_no);

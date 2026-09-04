@@ -36,10 +36,8 @@ static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits,
 
 static int write_named_bmp(const char *name, const BITMAPINFO *info,
                            const void *bits, int w, int h) {
-    char path[MAX_PATH];
-    return static_physical_probe_join_path(
-               path, sizeof(path), static_physical_probe_artifact_dir(), name) &&
-           write_bmp(path, info, bits, w, h);
+    return write_bmp(static_physical_probe_artifact_path(name),
+                     info, bits, w, h);
 }
 
 static int color_delta(unsigned int a, unsigned int b) {

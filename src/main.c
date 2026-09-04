@@ -48,6 +48,32 @@ int main(int argc, char **argv) {
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-worldgen") == 0) {
         return run_worldgen_probe();
     }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--probe-worldgen-aridity-formula") == 0) {
+        return run_worldgen_aridity_formula_probe();
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--probe-worldgen-aridity-smoke") == 0) {
+        return run_worldgen_aridity_smoke_probe();
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--probe-worldgen-aridity-matrix") == 0) {
+        return run_worldgen_aridity_matrix_probe();
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--probe-worldgen-aridity-response-pilot") == 0) {
+        return run_worldgen_aridity_response_pilot_probe();
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1],
+               "--probe-worldgen-aridity-response-projection") == 0) {
+        return run_worldgen_aridity_response_projection_probe();
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1],
+               "--probe-worldgen-aridity-diminishing-response") == 0) {
+        return run_worldgen_aridity_diminishing_response_probe();
+    }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-worldgen-coast") == 0) {
         return run_worldgen_coast_threshold_probe();
     }
@@ -59,6 +85,10 @@ int main(int argc, char **argv) {
     }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-decision-cache") == 0) {
         return run_decision_cache_probe();
+    }
+    if (argc > 1 && argv[1] &&
+        strcmp(argv[1], "--probe-pause-snapshot-coherence") == 0) {
+        return run_pause_snapshot_coherence_probe();
     }
     if (argc > 1 && argv[1] && strcmp(argv[1], "--probe-decision-topology") == 0) {
         return run_decision_topology_probe();

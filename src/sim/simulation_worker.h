@@ -2,8 +2,13 @@
 #define WORLD_SIM_SIMULATION_WORKER_H
 
 void simulation_worker_start(void);
+int simulation_worker_quiesce(void);
 void simulation_worker_shutdown(void);
 void simulation_worker_reset_scheduler(void);
+void simulation_worker_request_pause(void);
+void simulation_worker_request_resume(void);
+int simulation_worker_pause_in_progress(void);
+int simulation_worker_pause_settled(void);
 int simulation_worker_actual_ms_per_month(void);
 int simulation_worker_pending_months(void);
 int simulation_worker_last_budget_ms(void);

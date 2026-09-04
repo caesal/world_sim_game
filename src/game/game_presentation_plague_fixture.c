@@ -1,4 +1,5 @@
 #include "game/game_presentation_plague_fixture.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 #include "render/panel_plague_page.h"
 #include "render/render_common.h"
@@ -348,8 +349,8 @@ static int render_artifact(RenderSnapshot *snapshot,
         draw_side_panel(hdc, client);
     }
     render_context_end();
-    snprintf(path, sizeof(path), "%s/%s", PLAGUE_PRESENTATION_PROBE_DIR,
-             file_name);
+    snprintf(path, sizeof(path), "%s",
+             static_physical_probe_artifact_path(file_name));
     ok = write_bmp(path, &info, bits, width, height);
     ui_pressed_control_clear(NULL);
     ui_plague_panel_clear_hover();

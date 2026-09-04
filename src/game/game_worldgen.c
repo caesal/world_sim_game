@@ -228,6 +228,7 @@ void game_request_new_world_with_progress(HWND hwnd) {
     int static_prewarm_ok = 0;
     int snapshot_attempts = 0;
     int prewarm_attempts = 0;
+    int worker_quiesced = 0;
     uint64_t attempt_id;
     WorldGenDiagnostics previous_diagnostics;
     WorldGenAttemptDiagnostics completed_attempt;
@@ -238,6 +239,8 @@ void game_request_new_world_with_progress(HWND hwnd) {
     worldgen_progress_begin();
     worldgen_progress_set_repaint_callback(repaint_generation_callback, hwnd);
     total_start = GetTickCount();
+    if (!game_loop_quiesce_for_hard_reset()) goto cleanup;
+    worker_quiesced = 1;
     state_write_lock();
     previous_auto_run = auto_run;
     previous_map_size = map_size_index;
@@ -262,6 +265,8 @@ void game_request_new_world_with_progress(HWND hwnd) {
         state_write_lock();
         auto_run = previous_auto_run;
         state_write_unlock();
+        game_loop_resume_after_aborted_hard_reset();
+        worker_quiesced = 0;
         goto cleanup;
     }
     state_write_lock();
@@ -289,7 +294,11 @@ void game_request_new_world_with_progress(HWND hwnd) {
     state_write_unlock();
     if (commit_ok) {
         game_loop_reset();
+        worker_quiesced = 0;
         worldgen_attempt_note_commit();
+    } else {
+        game_loop_resume_after_aborted_hard_reset();
+        worker_quiesced = 0;
     }
     world_gen_release_prepared(prepared_world);
     prepared_world = NULL;
@@ -372,6 +381,12 @@ void game_request_new_world_with_progress(HWND hwnd) {
 
 cleanup:
     world_gen_release_prepared(prepared_world);
+    if (worker_quiesced) {
+        state_write_lock();
+        auto_run = previous_auto_run;
+        state_write_unlock();
+        game_loop_resume_after_aborted_hard_reset();
+    }
     worldgen_attempt_note_elapsed((uint64_t)(GetTickCount() - total_start));
     worldgen_progress_record_total_ms((int)(GetTickCount() - total_start));
     worldgen_attempt_finish(generation_success);

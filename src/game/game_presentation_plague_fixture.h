@@ -7,9 +7,6 @@
 #include "ui/ui_pressed_state.h"
 #include "ui/ui_types.h"
 
-#define PLAGUE_PRESENTATION_PROBE_DIR \
-    "build/validation/presentation_probe_20260618"
-
 typedef void (*PlagueProbeUiPrepareFn)(const RenderSnapshot *snapshot,
                                        void *context);
 

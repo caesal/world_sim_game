@@ -7,7 +7,50 @@ Create a small world map with several civilizations that can expand, form border
 
 ## Current Prototype
 
-Ver0.3.7 is a Windows graphical sandbox prototype written in C.
+Ver0.3.7.a is a Windows graphical sandbox prototype written in C.
+
+Ver0.3.7.a assigns plague immunity at episode end to every city ever infected
+in that episode, using the episode's total duration: less than 80 months gives
+30%, 80-139 gives 50%, 140-199 gives 80%, and 200 or more gives 100%.
+Immunity still lasts 480 months, and the corresponding infection-candidate
+weights remain 70/50/20/0 percent.
+
+Plague RenderSnapshot caching now ignores unrelated Decision publication and
+war-history revisions when validating a plague payload. Real plague, lane,
+city, month, civilization-source, and world-generated changes still invalidate
+that payload normally.
+
+Ordinary pause now closes new-month admission immediately while allowing an
+already-started month to drain through the existing snapshot, cache, Decision,
+and front-publication boundary. Only queued work that has not started is
+cancelled. A resume requested during that drain is deferred until publication
+is coherent, while world generation, load, reset, and close keep their separate
+hard-transition quiescence behavior.
+
+World Setup now caps Initial Civilizations by map size: Small 50, Medium 80,
+Large 115, and Extreme 200. The global dice uniformly chooses 1..current cap,
+excludes the current valid value, and does not change map size. Manual 0 remains
+valid; over-cap values clamp immediately, and Hydrology & Regions and Legacy
+Modules share the synchronized value.
+
+World generation now uses drought divisor 24 and the 31/4/2/12 diminishing
+aridity response, with oasis drop 20 and transition margin 2. The exact integer
+formula and strict oasis window are recorded in
+`docs/unofficial/ver0.3.7.a_side_doc.md`.
+
+The collapsed top bar now gives map-mode buttons the same 472-pixel lane as
+the minimum expanded side panel. All six English labels, including `Geography`,
+remain complete at the required 2560x1369 viewport; the existing ellipsis
+fallback remains for genuinely constrained windows.
+
+`MAP_SAVE_VERSION` remains 21; MAP20 and older saves remain rejected without
+migration. Final Rule 47 and Rule 39 acceptance passed on 2026-09-04, including
+original-resolution visual review. The Rule 39 world ended at Year 672 Month 5
+with 1,212 natural regions, 64 initial and 64 surviving civilizations, and
+1,443 wars started. The five stage-5 witnesses and accepted executable identity
+are recorded in [the Ver0.3.7.a side document](docs/unofficial/ver0.3.7.a_side_doc.md).
+These are acceptance results; the authorized Git publication is verified
+separately against the actual commit, lightweight tag, and remote references.
 
 Ver0.3.7 publishes one coherent, bounded monthly Decision snapshot for every
 alive civilization, including late civilization IDs. Selected-country Decision
@@ -29,9 +72,9 @@ viewport uses that same ocean texture without ships, monsters, other
 world-dependent decoration, or a stale generated map. The save format is MAP21;
 MAP20 and older files are rejected without migration or backward compatibility.
 
-This release does not retune gameplay formulas, war outcomes, Decision
-formulas, world generation, climate, hydrology, routes, plague, diplomacy
-classification, or simulation-speed semantics.
+Ver0.3.7 did not retune gameplay formulas, war outcomes, Decision formulas,
+world generation, climate, hydrology, routes, plague, diplomacy classification,
+or simulation-speed semantics.
 
 Ver0.3.6.c replaces the original illustrative climate-envelope background with
 the C2 statistically informed continuous tendency field. The calibration
@@ -72,11 +115,13 @@ switching do not rerasterize static terrain, coasts, water, rivers, or wind.
 Rivers progressively reveal complete downstream-connected systems at
 100/150/225/300 percent zoom, with the full generated network at 300 percent.
 
-The named global plague model from Ver0.3.6 remains intact: bounded spore
-budgets, batched route-aware spread, fixed episode severity, exact
-monthly-equivalent mortality, duration-based immunity, plague disorder,
+The named global plague model from Ver0.3.6 remains in place. Ver0.3.7.a changes
+its episode-duration immunity thresholds and episode-wide assignment, and keeps
+valid plague snapshot payloads coherent across unrelated Decision and
+war-history publication. Bounded spore budgets, batched route-aware spread,
+fixed episode severity, exact monthly-equivalent mortality, plague disorder,
 bilingual structured announcements, persistent history, and linked outbreak
-probability controls all remain supported.
+probability controls remain supported.
 
 The Plague panel now keeps fog and linked outbreak-probability controls above
 Live, Impact, and History views. Live shows the active episode or most recently

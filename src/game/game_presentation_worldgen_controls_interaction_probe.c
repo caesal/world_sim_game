@@ -370,8 +370,9 @@ static int case_relief_layout_identity(WorldgenControlsProbeReport *report) {
 }
 
 static HWND make_probe_window(void) {
-    return CreateWindowExA(0, "STATIC", "worldgen-controls-probe",
-                           WS_POPUP, 0, 0, 1280, 800, NULL, NULL,
+    return CreateWindowExA(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, "STATIC",
+                           "worldgen-controls-probe", WS_POPUP,
+                           0, 0, 1280, 800, NULL, NULL,
                            GetModuleHandle(NULL), NULL);
 }
 

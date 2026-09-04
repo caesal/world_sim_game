@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_WORLDGEN_ARIDITY_CALIBRATION_MATRIX_H
+#define WORLD_SIM_GAME_WORLDGEN_ARIDITY_CALIBRATION_MATRIX_H
+
+int game_worldgen_aridity_calibration_matrix_run(void);
+
+#endif

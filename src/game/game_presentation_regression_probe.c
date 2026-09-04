@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 int game_presentation_interaction_probe(FILE *summary);
 
@@ -156,7 +156,7 @@ static int transition_case(FILE *summary, const char *name, const char *artifact
     pending = diplomacy_map_anim_pending_events(s);
     diplomacy_map_anim_consume_events(s);
     active = diplomacy_map_anim_active();
-    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, artifact);
+    snprintf(path, sizeof(path), "%s", static_physical_probe_artifact_path(artifact));
     wrote = render_arrow_artifact(path, s, &pixels);
     ok = pending && active && wrote && pixels > 20 &&
          diplomacy_map_anim_endpoint_reject_count() == 0 &&
@@ -189,8 +189,7 @@ static int burst_case(FILE *summary) {
     pending = diplomacy_map_anim_pending_events(s);
     diplomacy_map_anim_consume_events(s);
     active = diplomacy_map_anim_active();
-    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR,
-             "diplomacy_transition_burst.bmp");
+    snprintf(path, sizeof(path), "%s", static_physical_probe_artifact_path("diplomacy_transition_burst.bmp"));
     wrote = render_arrow_artifact(path, s, &pixels);
     ok = pending && active && wrote && pixels > 80 &&
          diplomacy_map_anim_enqueued_count() >= 32 &&
@@ -216,7 +215,7 @@ static int cached_paint_guard_case(FILE *summary) {
     dynamic_before = diplomacy_map_anim_requires_dynamic_paint(s);
     diplomacy_map_anim_consume_events(s);
     dynamic_active = diplomacy_map_anim_requires_dynamic_paint(s);
-    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, "diplomacy_cached_paint_guard.bmp");
+    snprintf(path, sizeof(path), "%s", static_physical_probe_artifact_path("diplomacy_cached_paint_guard.bmp"));
     wrote = render_arrow_artifact(path, s, &pixels);
     ok = pending && dynamic_before && dynamic_active && wrote && pixels > 20 &&
          diplomacy_map_anim_cached_paint_blocked_count() == 0 &&
@@ -246,7 +245,7 @@ static int diplomacy_cached_deferred_arrow_path_case(FILE *summary) {
     s->year = 84; s->month = 6;
     diplomacy_map_anim_consume_events(s);
     active = diplomacy_map_anim_active();
-    snprintf(path, sizeof(path), "%s/%s", PRESENTATION_PROBE_DIR, "diplomacy_early_static_pending_arrow.bmp");
+    snprintf(path, sizeof(path), "%s", static_physical_probe_artifact_path("diplomacy_early_static_pending_arrow.bmp"));
     wrote = render_arrow_artifact(path, s, &pixels);
     ok = pending && active && wrote && pixels > 20 && diplomacy_map_anim_expired_before_draw_count() == 0;
     fprintf(summary, "case=diplomacy_cached_deferred_arrow_path ok=%d pending_forces_dynamic=1 cached_deferred_draws_arrows=1 cached_deferred_can_skip_arrows=0 full_render_required=0 final_acceptance=%d\n", ok, ok);
@@ -284,7 +283,7 @@ static int render_alliance_joiner_artifact(RenderSnapshot *s) {
     row.alliance_id = 7;
     fill_rect(hdc, (RECT){0, 0, w, h}, RGB(24, 30, 35));
     alliance_votes_draw_content(hdc, &cursor, s, &row);
-    ok = write_bmp(PRESENTATION_PROBE_DIR "/alliance_upgrade_vote_joiner.bmp", &info, bits, w, h);
+    ok = write_bmp(static_physical_probe_artifact_path("alliance_upgrade_vote_joiner.bmp"), &info, bits, w, h);
     SelectObject(hdc, old_bitmap);
     DeleteObject(bitmap);
     DeleteDC(hdc);
@@ -343,10 +342,10 @@ static int alliance_upgrade_vote_joiner_case(FILE *summary) {
 
 static int war_compare_bar_case(FILE *summary) {
     int lr = 0, la = 0, rr = 0, ra = 0, lt = 0, rt = 0;
-    int reg = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_regular_only.bmp", 0), mixed = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_mixed_balanced.bmp", 1);
-    int left = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_asymmetric_left_advantage.bmp", 2), right = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_asymmetric_right_advantage.bmp", 3);
-    int names = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_long_names.bmp", 4), left_reg = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_regular_left_visible.bmp", 5);
-    int right_reg = panel_war_compare_bar_probe_render(PRESENTATION_PROBE_DIR "/war_compare_regular_right_visible.bmp", 6), ok;
+    int reg = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_regular_only.bmp"), 0), mixed = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_mixed_balanced.bmp"), 1);
+    int left = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_asymmetric_left_advantage.bmp"), 2), right = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_asymmetric_right_advantage.bmp"), 3);
+    int names = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_long_names.bmp"), 4), left_reg = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_regular_left_visible.bmp"), 5);
+    int right_reg = panel_war_compare_bar_probe_render(static_physical_probe_artifact_path("war_compare_regular_right_visible.bmp"), 6), ok;
     panel_war_compare_bar_probe_totals(5, &lr, &la, &rr, &ra, &lt, &rt);
     left_reg &= lr > 0 && la > 0 && lt == lr + la && rr > 0;
     panel_war_compare_bar_probe_totals(6, &lr, &la, &rr, &ra, &lt, &rt);
@@ -451,7 +450,7 @@ static int border_safety_case(FILE *summary) {
             !render_static_scene_complete()) unsafe++;
         if (!render_static_map_cache_needs_work()) break;
     }
-    wrote = write_bmp(PRESENTATION_PROBE_DIR "/border_presentable_safety.bmp", &info, bits, w, h);
+    wrote = write_bmp(static_physical_probe_artifact_path("border_presentable_safety.bmp"), &info, bits, w, h);
     ok = wrote && unsafe == 0;
     fprintf(summary,
             "case=border_presentable_safety ok=%d unsafe_frames=%d ownership_current=%d boundary_safe=%d scene_current=%d scene_safe=%d needs_work=%d artifact=border_presentable_safety.bmp\n",

@@ -7,9 +7,11 @@
 #include "game/game_plague_performance_probe.h"
 #include "game/game_decision_equivalence_probe.h"
 #include "game/game_decision_cache_probe.h"
+#include "game/game_pause_snapshot_coherence_probe.h"
 #include "game/game_decision_topology_probe.h"
 #include "game/game_war_history_probe.h"
 #include "game/game_war_history_save_probe.h"
+#include "game/game_worldgen_aridity_probe.h"
 
 #include <windows.h>
 
@@ -17,7 +19,11 @@ int run_game(void);
 int run_game_no_activate(void);
 void game_toggle_auto_run(void);
 void game_request_pause(void);
+void game_request_resume(void);
+int game_pause_in_progress(void);
+int game_pause_settled(void);
 void game_pause_for_modal_or_action(void);
+void game_request_recover_failed_map_load(void);
 void game_request_new_world(void);
 void game_request_regenerate_regions(void);
 int game_request_add_civilization_from_selection(const char *name, char symbol,

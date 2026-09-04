@@ -4,6 +4,7 @@
 #include "core/load_progress.h"
 #include "core/render_snapshot.h"
 #include "core/worldgen_progress.h"
+#include "game/game.h"
 #include "game/game_loop.h"
 #include "game/game_player_actions.h"
 #include "ui/color_picker.h"
@@ -53,8 +54,7 @@ static int target_mode_blocked(void) {
 }
 
 static void restore_auto_run(void) {
-    auto_run = target_state.previous_auto_run ? 1 : 0;
-    game_loop_reset();
+    if (target_state.previous_auto_run) game_request_resume();
 }
 
 static void clamp_target_mouse_to_map(HWND hwnd) {
@@ -100,8 +100,7 @@ static int begin_target(HWND hwnd, int source_civ, UiCountryTargetMode mode,
     target_state.last_invalid_owner = -1;
     target_state.previous_auto_run = auto_run ? 1 : 0;
     initialize_target_mouse(hwnd, mouse_x, mouse_y);
-    auto_run = 0;
-    game_loop_reset();
+    game_request_pause();
     ui_invalidate_game_redraw(hwnd, GAME_REDRAW_TOP_BAR | GAME_REDRAW_BOTTOM_BAR |
                                     GAME_REDRAW_MAP_DYNAMIC);
     return 1;
@@ -355,6 +354,7 @@ int ui_country_target_handle_left_click(HWND hwnd, int mouse_x, int mouse_y) {
     int owner;
     GamePlayerActionResult result;
     if (!ui_country_target_active()) return 0;
+    if (game_pause_in_progress()) return 1;
     if (target_mode_blocked()) return ui_country_target_cancel(hwnd);
     target_state.mouse_x = mouse_x;
     target_state.mouse_y = mouse_y;

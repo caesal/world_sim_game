@@ -11,7 +11,7 @@ static UiWorldgenFieldMask randomized_mask(void) {
     UiWorldgenFieldMask mask = 0;
     int field;
     for (field = UI_WORLDGEN_FIELD_OCEAN;
-         field <= UI_WORLDGEN_FIELD_REGION_SIZE; field++) {
+         field <= UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT; field++) {
         mask |= UI_WORLDGEN_FIELD_MASK(field);
     }
     return mask;
@@ -67,6 +67,7 @@ static int case_dice_reset_scope(WorldgenControlsProbeReport *report) {
     UiWorldgenEffectiveConfig after;
     UiWorldgenFieldMask changed;
     UiWorldgenFieldMask expected = randomized_mask();
+    int diced_initial;
     int dice_ok;
     int reset_ok;
     ui_worldgen_control_state_init_fresh();
@@ -81,17 +82,23 @@ static int case_dice_reset_scope(WorldgenControlsProbeReport *report) {
     ui_worldgen_config_read(&after);
     dice_ok = changed == expected &&
               after.pending_map_size == before.pending_map_size &&
-              after.initial_civ_count == before.initial_civ_count;
+              after.initial_civ_count >= 1 &&
+              after.initial_civ_count <=
+                  ui_worldgen_initial_civ_cap_for_map_size(
+                      after.pending_map_size) &&
+              after.initial_civ_count != before.initial_civ_count;
+    diced_initial = after.initial_civ_count;
     ui_worldgen_control_state_apply_balanced();
     ui_worldgen_config_read(&after);
     reset_ok = ui_worldgen_config_is_balanced(&after) &&
-               after.initial_civ_count == before.initial_civ_count;
+               after.initial_civ_count == diced_initial;
     worldgen_controls_probe_record(
         report, "worldgen_controls_dice_reset_scope", dice_ok && reset_ok,
-        "dice_ok=%d changed_mask=%08x expected_mask=%08x map_before=%d map_after_dice=%d initial=%d reset_ok=%d",
+        "dice_ok=%d changed_mask=%08x expected_mask=%08x map_before=%d map_after_dice=%d initial_before=%d initial_after=%d reset_ok=%d",
         dice_ok, (unsigned int)changed, (unsigned int)expected,
         before.pending_map_size, dice_ok ? before.pending_map_size :
-        after.pending_map_size, after.initial_civ_count, reset_ok);
+        after.pending_map_size, before.initial_civ_count, diced_initial,
+        reset_ok);
     return dice_ok && reset_ok;
 }
 

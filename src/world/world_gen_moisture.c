@@ -7,6 +7,9 @@
 #include <stdint.h>
 #include <string.h>
 
+#define WORLD_GEN_DROUGHT_DIVISOR_DEFAULT 24
+#define WORLD_GEN_VALIDATION_COEFFICIENT_MAX 100
+
 enum {
     MOISTURE_VALUE_MASK = 255,
     MOISTURE_DISTANCE_SHIFT = 8,
@@ -22,11 +25,49 @@ typedef struct {
 } MoistureSample;
 
 static WorldGenMoistureDiagnostics last_diagnostics;
+static int validation_drought_divisor_enabled;
+static int validation_drought_divisor_value = WORLD_GEN_DROUGHT_DIVISOR_DEFAULT;
+
+int world_gen_moisture_drought_divisor(void) {
+    return validation_drought_divisor_enabled
+        ? validation_drought_divisor_value
+        : WORLD_GEN_DROUGHT_DIVISOR_DEFAULT;
+}
+
+int world_gen_moisture_validation_set_drought_divisor(int drought_divisor) {
+    if (drought_divisor <= 0 ||
+        drought_divisor > WORLD_GEN_VALIDATION_COEFFICIENT_MAX) return 0;
+    validation_drought_divisor_value = drought_divisor;
+    validation_drought_divisor_enabled = 1;
+    return 1;
+}
+
+void world_gen_moisture_validation_reset_drought_divisor(void) {
+    validation_drought_divisor_value = WORLD_GEN_DROUGHT_DIVISOR_DEFAULT;
+    validation_drought_divisor_enabled = 0;
+}
+
+int world_gen_moisture_validation_drought_divisor_active(void) {
+    return validation_drought_divisor_enabled;
+}
 
 static int clamp_int(int value, int low, int high) {
     if (value < low) return low;
     if (value > high) return high;
     return value;
+}
+
+int world_gen_moisture_base_air_calculate(
+    int world_moisture, int drought, int drought_divisor, int noise,
+    int *value) {
+    if (!value || world_moisture < 0 || world_moisture > 100 ||
+        drought < 0 || drought > 100 || drought_divisor <= 0 ||
+        drought_divisor > WORLD_GEN_VALIDATION_COEFFICIENT_MAX ||
+        noise < -50 || noise > 50) return 0;
+    *value = clamp_int(
+        18 + world_moisture / 2 - drought / drought_divisor + noise / 3,
+        4, 82);
+    return 1;
 }
 
 static int encoded_value(int encoded) {
@@ -46,9 +87,12 @@ static int base_air_moisture(const WorldGenContext *context, int index, int mois
     int x = index % context->width;
     int y = index / context->width;
     int noise = world_fractal_noise(x, y, moisture_seed) - 50;
+    int value = 4;
     if (!context->land_mask[index]) return 100;
-    return clamp_int(18 + context->config.moisture / 2 - context->config.drought / 4 +
-                     noise / 3, 4, 82);
+    world_gen_moisture_base_air_calculate(
+        context->config.moisture, context->config.drought,
+        world_gen_moisture_drought_divisor(), noise, &value);
+    return value;
 }
 
 static int bilinear_coordinate(int coordinate_q10, int limit, int *fraction_q10) {
@@ -269,8 +313,8 @@ static void finalize_fields(WorldGenContext *context, int moisture_seed) {
             continue;
         }
         context->moisture[i] = (int16_t)clamp_int(
-            context->config.moisture / 3 - context->config.drought / 5 +
-            transported / 2 + rain / 2 + coast + noise / 4, 0, 100);
+            context->config.moisture / 3 + transported / 2 + rain / 2 +
+            coast + noise / 4, 0, 100);
         if (ocean_chain > 0) {
             int length = ocean_chain - 1;
             last_diagnostics.ocean_reached_land_tiles++;

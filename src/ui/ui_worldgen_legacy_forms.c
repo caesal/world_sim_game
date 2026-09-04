@@ -1,6 +1,7 @@
 #include "ui/ui_worldgen_legacy_forms.h"
 
 #include "data/country_names.h"
+#include "ui/ui_worldgen_config_adapter.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,6 +120,11 @@ static HWND initial_civs_control_from_id(int control_id) {
     if (control_id == ID_HYDROLOGY_INITIAL_CIVS_EDIT)
         return form.hydrology_initial_civs_edit;
     return NULL;
+}
+
+static int initial_civ_cap(void) {
+    return ui_worldgen_initial_civ_cap_for_map_size(
+        ui_worldgen_config_get_field(UI_WORLDGEN_FIELD_PENDING_MAP_SIZE));
 }
 
 static int read_strict_decimal(HWND control, long *out_value) {
@@ -291,10 +297,14 @@ int ui_worldgen_legacy_forms_commit_custom_region(int fallback, int *out_value) 
 int ui_worldgen_legacy_forms_try_read_initial_civs(int control_id,
                                                     int *out_value) {
     long value;
+    int capped;
     HWND control = initial_civs_control_from_id(control_id);
-    if (!read_strict_decimal(control, &value) ||
-        value < 0 || value > MAX_CIVS) return 0;
-    if (out_value) *out_value = (int)value;
+    if (!read_strict_decimal(control, &value)) return 0;
+    capped = (int)value;
+    if (capped < 0) capped = 0;
+    if (capped > initial_civ_cap()) capped = initial_civ_cap();
+    if (value != capped) ui_worldgen_legacy_forms_write_int(control, capped);
+    if (out_value) *out_value = capped;
     return 1;
 }
 
@@ -306,7 +316,7 @@ int ui_worldgen_legacy_forms_commit_initial_civs(int control_id, int fallback,
     if (!control) return 0;
     value = read_strict_decimal(control, &parsed) ? (int)parsed : fallback;
     if (value < 0) value = 0;
-    if (value > MAX_CIVS) value = MAX_CIVS;
+    if (value > initial_civ_cap()) value = initial_civ_cap();
     ui_worldgen_legacy_forms_write_int(control, value);
     if (out_value) *out_value = value;
     return 1;

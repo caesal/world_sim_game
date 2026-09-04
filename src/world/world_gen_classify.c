@@ -1,12 +1,124 @@
 #include "world_gen_classify.h"
 
 #include "core/world_types.h"
+#include "world/world_gen_aridity_projection.h"
+#include "world/world_gen_aridity_response.h"
+#include "world/world_gen_classify_climate.h"
 #include "world/world_gen_rng.h"
+
+#define WORLD_GEN_DESERT_BASE_DEFAULT 10
+#define WORLD_GEN_DESERT_BIAS_SPAN_DEFAULT 2
+#define WORLD_GEN_SEMI_ARID_WIDTH_DEFAULT 14
+#define WORLD_GEN_OASIS_TRANSITION_MARGIN_DEFAULT 15
+#define WORLD_GEN_VALIDATION_COEFFICIENT_MAX 100
+
+static int validation_aridity_enabled;
+static int validation_desert_base_value = WORLD_GEN_DESERT_BASE_DEFAULT;
+static int validation_desert_bias_span_value = WORLD_GEN_DESERT_BIAS_SPAN_DEFAULT;
+static int validation_semi_arid_width_value = WORLD_GEN_SEMI_ARID_WIDTH_DEFAULT;
+static int validation_oasis_transition_margin_value =
+    WORLD_GEN_OASIS_TRANSITION_MARGIN_DEFAULT;
 
 static int clamp_int(int value, int low, int high) {
     if (value < low) return low;
     if (value > high) return high;
     return value;
+}
+
+int world_gen_desert_base(void) {
+    return validation_aridity_enabled
+        ? validation_desert_base_value
+        : WORLD_GEN_DESERT_BASE_DEFAULT;
+}
+
+int world_gen_desert_bias_span(void) {
+    return validation_aridity_enabled
+        ? validation_desert_bias_span_value
+        : WORLD_GEN_DESERT_BIAS_SPAN_DEFAULT;
+}
+
+int world_gen_semi_arid_width(void) {
+    return validation_aridity_enabled
+        ? validation_semi_arid_width_value
+        : WORLD_GEN_SEMI_ARID_WIDTH_DEFAULT;
+}
+
+int world_gen_oasis_transition_margin(void) {
+    return validation_aridity_enabled
+        ? validation_oasis_transition_margin_value
+        : WORLD_GEN_OASIS_TRANSITION_MARGIN_DEFAULT;
+}
+
+int world_gen_classify_validation_set_aridity(
+    int desert_base, int bias_span, int semi_arid_width,
+    int oasis_transition_margin) {
+    if (desert_base <= 0 ||
+        desert_base > WORLD_GEN_VALIDATION_COEFFICIENT_MAX ||
+        bias_span <= 0 ||
+        bias_span > WORLD_GEN_VALIDATION_COEFFICIENT_MAX ||
+        semi_arid_width <= 0 ||
+        semi_arid_width > WORLD_GEN_VALIDATION_COEFFICIENT_MAX ||
+        oasis_transition_margin < 0 ||
+        oasis_transition_margin > WORLD_GEN_VALIDATION_COEFFICIENT_MAX) return 0;
+    validation_desert_base_value = desert_base;
+    validation_desert_bias_span_value = bias_span;
+    validation_semi_arid_width_value = semi_arid_width;
+    validation_oasis_transition_margin_value = oasis_transition_margin;
+    validation_aridity_enabled = 1;
+    return 1;
+}
+
+void world_gen_classify_validation_reset_aridity(void) {
+    validation_desert_base_value = WORLD_GEN_DESERT_BASE_DEFAULT;
+    validation_desert_bias_span_value = WORLD_GEN_DESERT_BIAS_SPAN_DEFAULT;
+    validation_semi_arid_width_value = WORLD_GEN_SEMI_ARID_WIDTH_DEFAULT;
+    validation_oasis_transition_margin_value =
+        WORLD_GEN_OASIS_TRANSITION_MARGIN_DEFAULT;
+    validation_aridity_enabled = 0;
+}
+
+int world_gen_classify_validation_aridity_active(void) {
+    return validation_aridity_enabled;
+}
+
+int world_gen_classify_validation_set_desert_bias_span(int bias_span) {
+    return world_gen_classify_validation_set_aridity(
+        WORLD_GEN_DESERT_BASE_DEFAULT, bias_span,
+        WORLD_GEN_SEMI_ARID_WIDTH_DEFAULT,
+        WORLD_GEN_OASIS_TRANSITION_MARGIN_DEFAULT);
+}
+
+void world_gen_classify_validation_reset_desert_bias_span(void) {
+    world_gen_classify_validation_reset_aridity();
+}
+
+int world_gen_classify_validation_desert_bias_span_active(void) {
+    return world_gen_classify_validation_aridity_active();
+}
+
+int world_gen_desert_moisture_limit(int bias_desert) {
+    return world_gen_desert_base() +
+        bias_desert * world_gen_desert_bias_span() / 100;
+}
+
+int world_gen_semi_arid_moisture_limit(int bias_desert) {
+    return world_gen_desert_moisture_limit(bias_desert) +
+        world_gen_semi_arid_width();
+}
+
+int world_gen_oasis_moisture_limit(int drought) {
+    return 42 - drought * 18 / 100;
+}
+
+int world_gen_oasis_transition_moisture_limit_for_margin(
+    int bias_desert, int drought, int oasis_transition_margin) {
+    return world_gen_semi_arid_moisture_limit(bias_desert) +
+        drought * oasis_transition_margin / 100;
+}
+
+int world_gen_oasis_transition_moisture_limit(int bias_desert, int drought) {
+    return world_gen_oasis_transition_moisture_limit_for_margin(
+        bias_desert, drought, world_gen_oasis_transition_margin());
 }
 
 static int nearby_land(const WorldGenContext *context, int x, int y) {
@@ -24,55 +136,73 @@ static int nearby_land(const WorldGenContext *context, int x, int y) {
     return count;
 }
 
-static int large_lake_footprint(const WorldGenContext *context, int index) {
-    int center_x;
-    int center_y;
-    int lake_tiles = 0;
-    int dx;
-    int dy;
-    if (!(context->river_flags[index] & WORLD_GEN_RIVER_LAKE)) return 0;
-    center_x = index % context->width;
-    center_y = index / context->width;
-    for (dy = -2; dy <= 2; dy++) {
-        for (dx = -2; dx <= 2; dx++) {
-            int x = center_x + dx;
-            int y = center_y + dy;
-            if (!world_gen_context_in_bounds(context, x, y)) continue;
-            if (context->river_flags[world_gen_context_index(context, x, y)] &
-                WORLD_GEN_RIVER_LAKE) lake_tiles++;
-        }
-    }
-    return lake_tiles >= 6;
+static int legacy_oasis_predicate_for_limits(
+    const WorldGenContext *context, int index, Climate climate,
+    int oasis_limit, int oasis_transition_limit) {
+    int macro_arid;
+    int dry_transition;
+    if (!context || index < 0 || index >= context->tile_count ||
+        !context->land_mask[index]) return 0;
+    macro_arid = climate == CLIMATE_DESERT || climate == CLIMATE_SEMI_ARID;
+    dry_transition = context->config.drought > 0 &&
+        context->temperature[index] > 28 &&
+        context->moisture[index] < oasis_transition_limit;
+    return (context->river_flags[index] & WORLD_GEN_RIVER_CHANNEL) &&
+        context->moisture[index] > oasis_limit &&
+        (macro_arid || dry_transition);
 }
 
-static Climate classify_climate(const WorldGenContext *context, int index) {
-    int elevation = context->relative_altitude[index];
-    int moisture = context->moisture[index];
-    int temperature = context->temperature[index];
-    int near_ocean = context->ocean_distance[index] <= 18;
-    int desert_limit = 6 + (context->config.drought + context->config.bias_desert) * 36 / 100;
-    int semi_arid_limit = desert_limit + 16;
-    if (elevation > 36 && temperature < 48) return CLIMATE_ALPINE;
-    if (elevation > 28 && temperature < 68) return CLIMATE_HIGHLAND_PLATEAU;
-    if (temperature < 12) return CLIMATE_ICE_CAP;
-    if (temperature < 25) return CLIMATE_TUNDRA;
-    if (temperature < 36) return CLIMATE_SUBARCTIC;
-    if (moisture < desert_limit && temperature > 32) return CLIMATE_DESERT;
-    if (moisture < semi_arid_limit && temperature > 28) return CLIMATE_SEMI_ARID;
-    if (temperature > 72 && moisture > 78) return CLIMATE_TROPICAL_RAINFOREST;
-    if (temperature > 68 && moisture > 58) return CLIMATE_TROPICAL_MONSOON;
-    if (temperature > 64) return CLIMATE_TROPICAL_SAVANNA;
-    if (near_ocean && temperature > 47 && moisture > 38 && moisture < 70) return CLIMATE_MEDITERRANEAN;
-    if (near_ocean && moisture > 52) return CLIMATE_OCEANIC;
-    if (moisture > 66 && temperature > 42) return CLIMATE_TEMPERATE_MONSOON;
-    return CLIMATE_CONTINENTAL;
+static int response_oasis_predicate_for_limits(
+    const WorldGenContext *context, int index, Climate climate,
+    int oasis_limit, int oasis_transition_limit) {
+    return world_gen_classify_response_oasis_pair_independent_eligible(
+            context, index, climate) &&
+        world_gen_classify_response_oasis_moisture_in_window(
+            context->config.drought, context->moisture[index], oasis_limit,
+            oasis_transition_limit);
+}
+
+int world_gen_classify_oasis_predicate_for_margin(
+    const WorldGenContext *context, int index, Climate climate,
+    int oasis_transition_margin) {
+    if (oasis_transition_margin < 0 ||
+        oasis_transition_margin > WORLD_GEN_VALIDATION_COEFFICIENT_MAX) return 0;
+    return legacy_oasis_predicate_for_limits(
+        context, index, climate,
+        world_gen_oasis_moisture_limit(context ? context->config.drought : 0),
+        context ? world_gen_oasis_transition_moisture_limit_for_margin(
+            context->config.bias_desert, context->config.drought,
+            oasis_transition_margin) : 0);
+}
+
+int world_gen_classify_response_oasis_predicate_for_pair(
+    const WorldGenContext *context, int index, Climate climate,
+    int oasis_drop, int transition_margin) {
+    WorldGenAridityResponseLimits limits;
+    if (!context ||
+        !world_gen_aridity_response_calculate_diminishing(
+            context->config.moisture, context->config.drought,
+            context->config.bias_desert,
+            world_gen_aridity_response_arid_base(),
+            world_gen_aridity_response_desert_bias_span(),
+            world_gen_aridity_response_drought_classification_span(),
+            world_gen_aridity_response_moisture_compression_span(),
+            oasis_drop, transition_margin, &limits)) return 0;
+    return response_oasis_predicate_for_limits(
+        context, index, climate, limits.oasis_limit,
+        limits.oasis_transition_limit);
 }
 
 static int qualifies_oasis(const WorldGenContext *context, int index,
                            Climate climate) {
-    return (climate == CLIMATE_DESERT || climate == CLIMATE_SEMI_ARID) &&
-        (context->river_flags[index] & WORLD_GEN_RIVER_CHANNEL) &&
-        context->moisture[index] > 42;
+    if (world_gen_aridity_response_validation_active() ||
+        !world_gen_classify_validation_aridity_active()) {
+        return world_gen_classify_response_oasis_predicate_for_pair(
+            context, index, climate, world_gen_aridity_response_oasis_drop(),
+            world_gen_aridity_response_transition_margin());
+    }
+    return world_gen_classify_oasis_predicate_for_margin(
+        context, index, climate, world_gen_oasis_transition_margin());
 }
 
 static int qualifies_wetland(const WorldGenContext *context, int index) {
@@ -86,6 +216,71 @@ static int qualifies_coastal_lowland(const WorldGenContext *context,
     return context->coastal_lowland_hint[index] &&
            context->relative_altitude[index] <= 12 &&
            context->slope[index] <= 8;
+}
+
+static int oasis_visible_by_precedence(
+    const WorldGenContext *context, int index) {
+    if (!context || index < 0 || index >= context->tile_count ||
+        !context->land_mask[index] ||
+         (context->river_flags[index] &
+         (WORLD_GEN_RIVER_DELTA | WORLD_GEN_RIVER_LAKE))) return 0;
+    if (qualifies_coastal_lowland(context, index)) {
+        if (qualifies_wetland(context, index)) return 0;
+    } else if (context->ocean_distance[index] <= 1) {
+        return 0;
+    }
+    return 1;
+}
+
+int world_gen_classify_response_oasis_pair_independent_eligible(
+    const WorldGenContext *context, int index, Climate climate) {
+    int macro_arid;
+    if (!context || index < 0 || index >= context->tile_count ||
+        !context->land_mask[index] ||
+        !(context->river_flags[index] & WORLD_GEN_RIVER_CHANNEL)) return 0;
+    macro_arid = climate == CLIMATE_DESERT || climate == CLIMATE_SEMI_ARID;
+    return macro_arid || (context->config.drought > 0 &&
+        context->temperature[index] > 28);
+}
+
+int world_gen_classify_response_oasis_visible_eligible(
+    const WorldGenContext *context, int index, Climate climate) {
+    return world_gen_classify_response_oasis_pair_independent_eligible(
+            context, index, climate) &&
+        oasis_visible_by_precedence(context, index);
+}
+
+int world_gen_classify_response_oasis_moisture_in_window(
+    int drought, int moisture, int oasis_limit, int oasis_transition_limit) {
+    return moisture > oasis_limit &&
+        (drought <= 0 || moisture < oasis_transition_limit);
+}
+
+int world_gen_classify_visible_oasis_for_margin(
+    const WorldGenContext *context, int index, Climate climate,
+    int oasis_transition_margin) {
+    if (!oasis_visible_by_precedence(context, index)) return 0;
+    return world_gen_classify_oasis_predicate_for_margin(
+        context, index, climate, oasis_transition_margin);
+}
+
+int world_gen_classify_response_visible_oasis_for_pair(
+    const WorldGenContext *context, int index, Climate climate,
+    int oasis_drop, int transition_margin) {
+    WorldGenAridityResponseLimits limits;
+    if (!context || !world_gen_classify_response_oasis_visible_eligible(
+            context, index, climate) ||
+        !world_gen_aridity_response_calculate_diminishing(
+            context->config.moisture, context->config.drought,
+            context->config.bias_desert,
+            world_gen_aridity_response_arid_base(),
+            world_gen_aridity_response_desert_bias_span(),
+            world_gen_aridity_response_drought_classification_span(),
+            world_gen_aridity_response_moisture_compression_span(),
+            oasis_drop, transition_margin, &limits)) return 0;
+    return world_gen_classify_response_oasis_moisture_in_window(
+        context->config.drought, context->moisture[index],
+        limits.oasis_limit, limits.oasis_transition_limit);
 }
 
 Geography world_gen_classify_underlying_land(const WorldGenContext *context,
@@ -235,22 +430,29 @@ static int base_fertility(const WorldGenContext *context, int index, Geography g
 int world_gen_classify_final(WorldGenContext *context) {
     int y;
     int x;
+    int projection_active;
     if (!context) return 0;
+    projection_active = world_gen_aridity_projection_validation_active();
     for (y = 0; y < context->height; y++) {
         for (x = 0; x < context->width; x++) {
             int index = world_gen_context_index(context, x, y);
+            int refresh = world_gen_classify_climate_refreshes_after_hydrology(
+                context, index);
+            Climate pre_climate;
             Climate climate;
             Geography geography;
             Ecology ecology;
             ResourceFeature resource;
             context->resource_variation[index] = (uint8_t)(world_gen_hash_u32(
                 context->phase_seed[WORLD_GEN_PHASE_CLASSIFY] + 73u, (uint32_t)index) % 101u);
-            climate = (Climate)context->climate[index];
-            if (context->land_mask[index] &&
-                ((context->river_flags[index] & WORLD_GEN_RIVER_DELTA) ||
-                 large_lake_footprint(context, index))) {
-                climate = classify_climate(context, index);
+            pre_climate = (Climate)context->climate[index];
+            climate = pre_climate;
+            if (refresh) {
+                climate = world_gen_classify_climate(context, index);
             }
+            if (projection_active &&
+                !world_gen_aridity_projection_capture_post(
+                    context, index, refresh, pre_climate, climate)) return 0;
             geography = classify_geography(context, index, x, y, climate);
             ecology = classify_ecology(context, index, geography, climate);
             if (context->soil_fertility[index] < base_fertility(context, index, geography)) {
@@ -268,10 +470,21 @@ int world_gen_classify_final(WorldGenContext *context) {
 
 int world_gen_classify_macro_climate(WorldGenContext *context) {
     int i;
+    int projection_active = world_gen_aridity_projection_validation_active();
     if (!context) return 0;
+    if (projection_active &&
+        !world_gen_aridity_projection_capture_begin_context(context)) return 0;
     for (i = 0; i < context->tile_count; i++) {
         context->climate[i] = (uint8_t)(context->land_mask[i]
-            ? classify_climate(context, i) : CLIMATE_OCEANIC);
+            ? world_gen_classify_climate(context, i) : CLIMATE_OCEANIC);
+        if (projection_active) {
+            int eligible = context->land_mask[i] &&
+                world_gen_classify_climate_arid_eligible(
+                    context->relative_altitude[i], context->temperature[i]);
+            if (!world_gen_aridity_projection_capture_pre(
+                    context, i, eligible,
+                    (Climate)context->climate[i])) return 0;
+        }
     }
     return 1;
 }

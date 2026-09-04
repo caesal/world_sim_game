@@ -1,4 +1,5 @@
 #include "game/game_presentation_plague_fog_probe.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 #include "ui/ui_plague_fog.h"
 
@@ -13,7 +14,6 @@
 #define FOG_PROBE_W 320
 #define FOG_PROBE_H 180
 #define FOG_PROBE_PIXELS (FOG_PROBE_W * FOG_PROBE_H)
-#define FOG_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 static uint32_t background[FOG_PROBE_PIXELS];
 static uint32_t cloud[FOG_PROBE_PIXELS];
@@ -103,7 +103,8 @@ static int write_bmp(const char *name, const uint32_t *pixels) {
     BITMAPINFOHEADER info_header;
     char path[256];
     FILE *file;
-    snprintf(path, sizeof(path), "%s/%s", FOG_PROBE_DIR, name);
+    snprintf(path, sizeof(path), "%s",
+             static_physical_probe_artifact_path(name));
     file = fopen(path, "wb");
     if (!file) return 0;
     memset(&file_header, 0, sizeof(file_header));

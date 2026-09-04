@@ -31,10 +31,8 @@ static int write_bmp(const char *path, const BITMAPINFO *info,
 }
 
 static int render_named_artifact(const char *name, int split, int zoomed) {
-    char path[MAX_PATH];
-    return static_physical_probe_join_path(
-               path, sizeof(path), static_physical_probe_artifact_dir(), name) &&
-           render_artifact(path, split, zoomed);
+    return render_artifact(static_physical_probe_artifact_path(name),
+                           split, zoomed);
 }
 
 static void fill_snapshot(RenderSnapshot *snapshot) {

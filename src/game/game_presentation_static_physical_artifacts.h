@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 
 #define PRESENTATION_PROBE_DEFAULT_DIR \
     "build/validation/presentation_probe_20260618"
@@ -27,6 +28,9 @@ int static_physical_probe_prepare_artifact_dir(void);
 int static_physical_probe_summary_path(char *out, size_t out_size);
 int static_physical_probe_join_path(char *out, size_t out_size,
                                     const char *directory, const char *name);
+const char *static_physical_probe_artifact_path(const char *name);
+int static_physical_probe_artifact_registry_begin(int expected_count);
+int static_physical_probe_artifact_registry_finish(FILE *summary);
 
 int static_physical_probe_canvas_open(StaticPhysicalProbeCanvas *canvas,
                                       int width, int height);

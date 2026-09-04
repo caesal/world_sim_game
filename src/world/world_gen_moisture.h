@@ -29,5 +29,12 @@ typedef struct {
 
 int world_gen_transport_moisture(WorldGenContext *context, int moisture_seed);
 const WorldGenMoistureDiagnostics *world_gen_moisture_last_diagnostics(void);
+int world_gen_moisture_base_air_calculate(
+    int world_moisture, int drought, int drought_divisor, int noise,
+    int *value);
+int world_gen_moisture_drought_divisor(void);
+int world_gen_moisture_validation_set_drought_divisor(int drought_divisor);
+void world_gen_moisture_validation_reset_drought_divisor(void);
+int world_gen_moisture_validation_drought_divisor_active(void);
 
 #endif

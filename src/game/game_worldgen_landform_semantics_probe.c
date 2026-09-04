@@ -3,6 +3,7 @@
 #include "game/game_worldgen_lake_qualification_probe.h"
 
 #include "core/world_types.h"
+#include "world/world_gen_aridity_response.h"
 #include "world/world_gen_classify.h"
 #include "world/world_gen_context.h"
 
@@ -28,6 +29,14 @@ typedef struct {
     Climate climate;
     uint16_t river_flags;
 } RestorationCase;
+
+typedef enum {
+    OASIS_MOISTURE_AT_LOWER = 0,
+    OASIS_MOISTURE_ABOVE_LOWER,
+    OASIS_MOISTURE_BELOW_UPPER,
+    OASIS_MOISTURE_AT_UPPER,
+    OASIS_MOISTURE_MAXIMUM
+} OasisMoisturePoint;
 
 static int classify_fixture_create(WorldGenContext *context) {
     WorldGenConfig config = DEFAULT_WORLD_GEN_CONFIG;
@@ -74,18 +83,37 @@ static int rejected_lake_restoration_categories_contract(
         {"wetland", GEO_WETLAND, 10, 0, 0, 0, 5, 77, CLIMATE_CONTINENTAL, 0},
         {"hill", GEO_HILL, 18, 0, 0, 0, 5, 20, CLIMATE_CONTINENTAL, 0},
         {"plateau", GEO_PLATEAU, 29, 0, 0, 7, 5, 20, CLIMATE_CONTINENTAL, 0},
-        {"oasis", GEO_OASIS, 10, 0, 0, 0, 5, 43, CLIMATE_DESERT,
+        {"oasis", GEO_OASIS, 10, 0, 0, 0, 5, -1, CLIMATE_DESERT,
          WORLD_GEN_RIVER_CHANNEL},
         {"coast", GEO_COAST, 10, 0, 0, 0, 1, 20, CLIMATE_CONTINENTAL, 0},
         {"delta", GEO_DELTA, 10, 0, 0, 0, 5, 20, CLIMATE_CONTINENTAL,
          WORLD_GEN_RIVER_DELTA}
     };
     int target = world_gen_context_index(context, 3, 2);
+    int saved_moisture = context->config.moisture;
+    int saved_drought = context->config.drought;
+    int saved_bias_desert = context->config.bias_desert;
+    WorldGenAridityResponseLimits oasis_limits = {0};
+    int oasis_moisture = 0;
+    int oasis_window_ok;
     int ok = 1;
     size_t i;
     context->config.bias_wetland = 0;
+    context->config.moisture = 50;
+    context->config.drought = 50;
+    context->config.bias_desert = 50;
+    oasis_window_ok = world_gen_aridity_response_current_limits(
+        context->config.moisture, context->config.drought,
+        context->config.bias_desert, &oasis_limits);
+    if (oasis_window_ok) {
+        oasis_moisture = oasis_limits.oasis_limit + 1;
+        oasis_window_ok = oasis_moisture < oasis_limits.oasis_transition_limit;
+    }
     for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++) {
         const RestorationCase *row = &cases[i];
+        int row_moisture = row->expected == GEO_OASIS
+            ? oasis_moisture : row->moisture;
+        int input_ok = row->expected != GEO_OASIS || oasis_window_ok;
         Geography underlying;
         int lake_ok;
         int restored_ok;
@@ -94,17 +122,24 @@ static int rejected_lake_restoration_categories_contract(
         context->curvature[target] = (int16_t)row->curvature;
         context->mountain_uplift[target] = (int16_t)row->uplift;
         context->ocean_distance[target] = (int16_t)row->ocean_distance;
-        context->moisture[target] = (int16_t)row->moisture;
+        context->moisture[target] = (int16_t)row_moisture;
         context->climate[target] = (uint8_t)row->climate;
         context->river_flags[target] =
             (uint16_t)(row->river_flags | WORLD_GEN_RIVER_LAKE);
+        if (row->expected == GEO_OASIS) {
+            input_ok &= world_gen_classify_response_oasis_predicate_for_pair(
+                context, target, row->climate,
+                world_gen_aridity_response_oasis_drop(),
+                world_gen_aridity_response_transition_margin());
+        }
         underlying = world_gen_classify_underlying_land(
             context, target, target % context->width, target / context->width,
             row->climate);
-        lake_ok = underlying == row->expected &&
+        lake_ok = input_ok && underlying == row->expected &&
                   world_gen_classify_final(context) &&
                   context->geography[target] == GEO_LAKE;
         context->river_flags[target] = row->river_flags;
+        context->climate[target] = (uint8_t)row->climate;
         restored_ok = world_gen_classify_final(context) &&
             context->geography[target] == row->expected &&
             world_gen_classify_underlying_land(
@@ -113,11 +148,91 @@ static int rejected_lake_restoration_categories_contract(
                 (Climate)context->climate[target]) == row->expected;
         fprintf(file,
                 "case=landform_rejected_lake_restore category=%s expected=%d "
-                "underlying=%d lake_override=%d restored=%d ok=%d\n",
-                row->label, row->expected, underlying, lake_ok, restored_ok,
+                "moisture=%d lower=%d upper=%d input_ok=%d underlying=%d "
+                "lake_override=%d restored=%d ok=%d\n",
+                row->label, row->expected, row_moisture,
+                row->expected == GEO_OASIS ? oasis_limits.oasis_limit : -1,
+                row->expected == GEO_OASIS
+                    ? oasis_limits.oasis_transition_limit : -1,
+                input_ok, underlying, lake_ok, restored_ok,
                 lake_ok && restored_ok);
         ok &= lake_ok && restored_ok;
     }
+    context->config.moisture = saved_moisture;
+    context->config.drought = saved_drought;
+    context->config.bias_desert = saved_bias_desert;
+    return ok;
+}
+
+static int legacy_oasis_helper_contract(FILE *file) {
+    int limit_0 = world_gen_oasis_moisture_limit(0);
+    int limit_50 = world_gen_oasis_moisture_limit(50);
+    int limit_100 = world_gen_oasis_moisture_limit(100);
+    int ok = limit_0 == 42 && limit_50 == 33 && limit_100 == 24;
+    fprintf(file,
+            "case=landform_legacy_oasis_helper role=legacy_only "
+            "limits=%d/%d/%d expected=42/33/24 ok=%d\n",
+            limit_0, limit_50, limit_100, ok);
+    return ok;
+}
+
+static int oasis_moisture_for_point(
+    const WorldGenAridityResponseLimits *limits, OasisMoisturePoint point) {
+    if (!limits) return -1;
+    switch (point) {
+        case OASIS_MOISTURE_AT_LOWER:
+            return limits->oasis_limit;
+        case OASIS_MOISTURE_ABOVE_LOWER:
+            return limits->oasis_limit + 1;
+        case OASIS_MOISTURE_BELOW_UPPER:
+            return limits->oasis_transition_limit - 1;
+        case OASIS_MOISTURE_AT_UPPER:
+            return limits->oasis_transition_limit;
+        case OASIS_MOISTURE_MAXIMUM:
+            return 100;
+    }
+    return -1;
+}
+
+static int current_oasis_fixture_case(
+    FILE *file, WorldGenContext *context, int target, const char *label,
+    int drought, Climate climate, int temperature, int river_channel,
+    OasisMoisturePoint point, int expected_oasis) {
+    WorldGenAridityResponseLimits limits = {0};
+    int limits_ok;
+    int moisture;
+    int shared_expected = 0;
+    int classify_ok;
+    int actual_oasis;
+    int ok;
+    context->config.drought = drought;
+    limits_ok = world_gen_aridity_response_current_limits(
+        context->config.moisture, context->config.drought,
+        context->config.bias_desert, &limits);
+    moisture = limits_ok ? oasis_moisture_for_point(&limits, point) : -1;
+    context->climate[target] = (uint8_t)climate;
+    context->temperature[target] = (int16_t)temperature;
+    context->moisture[target] = (int16_t)moisture;
+    context->river_flags[target] = river_channel
+        ? WORLD_GEN_RIVER_CHANNEL : 0;
+    if (limits_ok) {
+        shared_expected = world_gen_classify_response_visible_oasis_for_pair(
+            context, target, climate,
+            world_gen_aridity_response_oasis_drop(),
+            world_gen_aridity_response_transition_margin());
+    }
+    classify_ok = limits_ok && world_gen_classify_final(context);
+    actual_oasis = classify_ok && context->geography[target] == GEO_OASIS;
+    ok = classify_ok && shared_expected == expected_oasis &&
+        actual_oasis == expected_oasis &&
+        (!expected_oasis || context->ecology[target] == ECO_GRASSLAND);
+    fprintf(file,
+            "case=landform_current_oasis label=%s drought=%d climate=%d "
+            "temperature=%d river=%d moisture=%d lower=%d upper=%d "
+            "shared=%d actual=%d expected=%d ok=%d\n",
+            label, drought, climate, temperature, river_channel, moisture,
+            limits.oasis_limit, limits.oasis_transition_limit,
+            shared_expected, actual_oasis, expected_oasis, ok);
     return ok;
 }
 
@@ -130,7 +245,8 @@ static int classification_fixture_contracts(FILE *file) {
     int wet_counts[3] = {0, 0, 0};
     int wet_ok = 1;
     int restoration_ok;
-    int oasis_ok;
+    int legacy_oasis_ok;
+    int current_oasis_ok;
     int target;
     int i;
     memset(&context, 0, sizeof(context));
@@ -163,34 +279,54 @@ static int classification_fixture_contracts(FILE *file) {
             (Climate)context.climate[target]) == GEO_WETLAND;
     target = world_gen_context_index(&context, 3, 3);
     context.config.bias_wetland = 50;
-    context.moisture[target] = 43;
-    context.climate[target] = CLIMATE_DESERT;
-    context.river_flags[target] = WORLD_GEN_RIVER_CHANNEL;
-    oasis_ok = world_gen_classify_final(&context) &&
-               context.geography[target] == GEO_OASIS &&
-               context.ecology[target] == ECO_GRASSLAND;
-    context.moisture[target] = 42;
-    oasis_ok &= world_gen_classify_final(&context) &&
-                context.geography[target] != GEO_OASIS;
-    context.moisture[target] = 43;
-    context.river_flags[target] = 0;
-    oasis_ok &= world_gen_classify_final(&context) &&
-                context.geography[target] != GEO_OASIS;
-    context.river_flags[target] = WORLD_GEN_RIVER_CHANNEL;
-    context.climate[target] = CLIMATE_CONTINENTAL;
-    oasis_ok &= world_gen_classify_final(&context) &&
-                context.geography[target] != GEO_OASIS;
+    legacy_oasis_ok = legacy_oasis_helper_contract(file);
+    current_oasis_ok = current_oasis_fixture_case(
+        file, &context, target, "d0_macro_lower_rejected", 0,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_AT_LOWER, 0);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d0_macro_above_lower", 0,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_ABOVE_LOWER, 1);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d0_macro_no_upper", 0,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_MAXIMUM, 1);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_macro_lower_rejected", 100,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_AT_LOWER, 0);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_macro_above_lower", 100,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_ABOVE_LOWER, 1);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_macro_below_upper", 100,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_BELOW_UPPER, 1);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_macro_upper_rejected", 100,
+        CLIMATE_DESERT, 20, 1, OASIS_MOISTURE_AT_UPPER, 0);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_hot_transition", 100,
+        CLIMATE_CONTINENTAL, 29, 1, OASIS_MOISTURE_ABOVE_LOWER, 1);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d0_transition_rejected", 0,
+        CLIMATE_CONTINENTAL, 29, 1, OASIS_MOISTURE_ABOVE_LOWER, 0);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_cool_transition_rejected", 100,
+        CLIMATE_CONTINENTAL, 28, 1, OASIS_MOISTURE_ABOVE_LOWER, 0);
+    current_oasis_ok &= current_oasis_fixture_case(
+        file, &context, target, "d100_no_river_rejected", 100,
+        CLIMATE_DESERT, 20, 0, OASIS_MOISTURE_ABOVE_LOWER, 0);
+    context.config.drought = 50;
     restoration_ok &=
         rejected_lake_restoration_categories_contract(file, &context);
     fprintf(file,
             "case=landform_classify_fixture wet_bias_0=%d wet_bias_50=%d "
             "wet_bias_100=%d wet_expected=1/2/3 nondecreasing=%d "
-            "lake_restoration=%d oasis_derived=%d ok=%d\n",
+            "lake_restoration=%d legacy_oasis_helper=%d "
+            "current_oasis_contract=%d ok=%d\n",
             wet_counts[0], wet_counts[1], wet_counts[2],
             wet_counts[0] <= wet_counts[1] && wet_counts[1] <= wet_counts[2],
-            restoration_ok, oasis_ok, wet_ok && restoration_ok && oasis_ok);
+            restoration_ok, legacy_oasis_ok, current_oasis_ok,
+            wet_ok && restoration_ok && legacy_oasis_ok && current_oasis_ok);
     world_gen_context_destroy(&context);
-    return wet_ok && restoration_ok && oasis_ok;
+    return wet_ok && restoration_ok && legacy_oasis_ok && current_oasis_ok;
 }
 
 static void count_landforms(const WorldGenContext *context, int *wetlands,

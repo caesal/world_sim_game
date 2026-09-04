@@ -12,10 +12,17 @@ static const int REGION_PRESET_VALUES[MAP_SIZE_COUNT][UI_WORLDGEN_REGION_PRESET_
     {30, 50, 70, 85, 100}
 };
 
+static const int INITIAL_CIV_CAPS[MAP_SIZE_COUNT] = {50, 80, 115, MAX_CIVS};
+
 static int clamp_local(int value, int low, int high) {
     if (value < low) return low;
     if (value > high) return high;
     return value;
+}
+
+int ui_worldgen_initial_civ_cap_for_map_size(int map_size) {
+    map_size = clamp_local(map_size, MAP_SIZE_SMALL, MAP_SIZE_COUNT - 1);
+    return INITIAL_CIV_CAPS[map_size];
 }
 
 static int *field_address(UiWorldgenConfigField field) {
@@ -42,7 +49,9 @@ static int clamp_field_value(UiWorldgenConfigField field, int value) {
         return clamp_local(value, MAP_SIZE_SMALL, MAP_SIZE_COUNT - 1);
     }
     if (field == UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) {
-        return clamp_local(value, 0, MAX_CIVS);
+        return clamp_local(
+            value, 0,
+            ui_worldgen_initial_civ_cap_for_map_size(pending_map_size));
     }
     return clamp_local(value, 0, 100);
 }
@@ -101,11 +110,22 @@ int ui_worldgen_config_get_field(UiWorldgenConfigField field) {
 
 int ui_worldgen_config_set_field(UiWorldgenConfigField field, int value) {
     int *address = field_address(field);
+    int changed = 0;
     if (!address) return 0;
     value = clamp_field_value(field, value);
-    if (*address == value) return 0;
-    *address = value;
-    return 1;
+    if (*address != value) {
+        *address = value;
+        changed = 1;
+    }
+    if (field == UI_WORLDGEN_FIELD_PENDING_MAP_SIZE) {
+        int capped = clamp_field_value(UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT,
+                                       initial_civ_count);
+        if (initial_civ_count != capped) {
+            initial_civ_count = capped;
+            changed = 1;
+        }
+    }
+    return changed;
 }
 
 int ui_worldgen_config_equal(const UiWorldgenEffectiveConfig *left,

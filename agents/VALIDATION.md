@@ -82,12 +82,54 @@ When the user may be using another foreground or fullscreen application:
 
 - Do not force `world_sim.exe` to the foreground.
 - Prefer a maximized game window on another monitor.
+- Before every GUI launch, enumerate the current monitors and visible top-level
+  windows. Record the primary monitor bounds and any non-owned foreground or
+  full-screen window there, including its HWND, PID, process image when
+  readable, window bounds, and monitor bounds. Use geometry and ownership for
+  the safety decision; do not depend only on a guessed list of game names.
+- Treat any non-owned visible top-level window that covers the primary monitor
+  within a documented small border tolerance as a protected full-screen
+  application. If one is present, place the owned validation window fully on a
+  suitable secondary monitor with `SWP_NOACTIVATE`, then verify its final
+  monitor and bounds before sending any interaction or capture message.
+- Never move, resize, minimize, cover, activate, inspect through invasive
+  process access, or otherwise manipulate the protected full-screen window.
+  If no suitable secondary monitor is available, do not launch GUI validation
+  and report the display-isolation limitation; never fall back to the primary
+  monitor merely to complete the run.
+- Continue checking owned-window placement during the run. If display topology
+  changes or an unrelated protected full-screen window appears on the selected
+  validation monitor, non-activatingly move only the owned window to another
+  suitable secondary monitor, or close only the owned process normally and
+  preserve the incomplete attempt when no isolated monitor remains.
 - Use HWND-scoped, non-activating methods such as
   `SetWindowPos(..., SWP_NOACTIVATE)`, `PrintWindow`, and safe direct
   `PostMessage` calls.
 - Do not use `SendInput`, `SetCursorPos`, real global mouse/keyboard input,
   Alt-Tab, `SetForegroundWindow`, activation, or page switching without the
   user's explicit approval for that disruption.
+- Do not require the user to keep the physical cursor stationary or keep one
+  unrelated foreground window unchanged as a precondition for HWND-scoped
+  validation. Cursor movement and foreground changes among non-owned windows
+  are diagnostic only; they must not reset a quiet timer or fail the run.
+- Hard non-interference gates are limited to the owned game window becoming
+  foreground or active without authorization, a message/capture/placement
+  targeting a non-owned HWND, a placement operation omitting its non-activation
+  flag, or any call to a forbidden global-input or activation API. Direct user
+  interaction with the owned game window may invalidate the affected evidence.
+- New or modified GUI helpers must route Win32 interaction through an audited,
+  allowlisted safety layer that verifies HWND ownership and records every
+  message, capture, and placement target. Direct helper-specific `user32`
+  calls that bypass this ownership audit are not acceptable.
+- Controls that use `SetCapture`, including divider or slider drags, require a
+  bounded owned-HWND transaction with a deterministic final move/release and
+  verified value, pressed/dragging state, and capture release. External pointer
+  movement must not require desktop-wide inactivity. If it contaminates the
+  postcondition, repeat only that UI transaction without regenerating the
+  world, changing the seed, or reclassifying a product failure.
+- Use deterministic presentation artifacts or source-bound renderer contracts
+  for hover or pointer-dependent states that cannot be isolated from the
+  physical cursor. Do not move the real cursor to manufacture those states.
 - If HWND-scoped validation cannot finish, stop and report the limitation. Do
   not silently fall back to disruptive automation.
 - Do not kill a pre-existing game process. If the executable is already

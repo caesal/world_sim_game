@@ -211,7 +211,7 @@ RECT get_mode_button_rect(RECT client, int index) {
     if (side_panel_collapsed || width < compact_min_w) {
         RECT reset = get_reset_view_button_rect(client);
         right = reset.left - 10;
-        left = max(client.left + 86, right - 430);
+        left = max(client.left + 86, right - (MIN_SIDE_PANEL_W - 28));
         width = right - left;
         button_w = (width - gap * (MAP_DISPLAY_MODE_COUNT - 1)) / MAP_DISPLAY_MODE_COUNT;
     }

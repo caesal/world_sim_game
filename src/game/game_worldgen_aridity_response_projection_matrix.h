@@ -1,0 +1,9 @@
+#ifndef WORLD_SIM_GAME_WORLDGEN_ARIDITY_RESPONSE_PROJECTION_MATRIX_H
+#define WORLD_SIM_GAME_WORLDGEN_ARIDITY_RESPONSE_PROJECTION_MATRIX_H
+
+#include "game/game_worldgen_aridity_response_projection_options.h"
+
+int game_worldgen_aridity_response_projection_matrix_run(
+    const GameWorldgenAridityProjectionOptions *options);
+
+#endif

@@ -142,8 +142,8 @@ static void draw_linear_guides(HDC hdc, RECT chart, RECT plot, int64_t maximum) 
 
 static void draw_duration_background(HDC hdc, RECT chart, RECT plot,
                                      int maximum) {
-    static const int tier_start[] = {0, 60, 120, 240};
-    static const int tier_end[] = {60, 120, 240, INT_MAX};
+    static const int tier_start[] = {0, 80, 140, 200};
+    static const int tier_end[] = {80, 140, 200, INT_MAX};
     static const int tier_percent[] = {30, 50, 80, 100};
     static const UiClaySemanticTone tones[] = {
         UI_CLAY_TONE_NEUTRAL, UI_CLAY_TONE_PEACE,
@@ -168,7 +168,7 @@ static void draw_duration_background(HDC hdc, RECT chart, RECT plot,
                        DT_SINGLELINE | DT_RIGHT | DT_VCENTER | DT_NOPREFIX);
     }
     for (i = 0; i < 3; i++) {
-        static const int guides[] = {60, 120, 240};
+        static const int guides[] = {80, 140, 200};
         char label[16];
         int y;
         if (guides[i] > maximum) continue;

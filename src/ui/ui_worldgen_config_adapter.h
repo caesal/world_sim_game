@@ -92,6 +92,7 @@ void ui_worldgen_config_read(UiWorldgenEffectiveConfig *out_config);
 void ui_worldgen_config_write(const UiWorldgenEffectiveConfig *config);
 int ui_worldgen_config_get_field(UiWorldgenConfigField field);
 int ui_worldgen_config_set_field(UiWorldgenConfigField field, int value);
+int ui_worldgen_initial_civ_cap_for_map_size(int map_size);
 int ui_worldgen_config_equal(const UiWorldgenEffectiveConfig *left,
                              const UiWorldgenEffectiveConfig *right);
 uint64_t ui_worldgen_config_signature(const UiWorldgenEffectiveConfig *config);

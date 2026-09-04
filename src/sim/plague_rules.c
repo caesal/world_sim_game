@@ -176,9 +176,9 @@ PlagueRouteType plague_rules_choose_route(const PlagueRouteWeights *weights, int
 }
 
 int plague_rules_immunity_percent_for_duration(int episode_duration_months) {
-    if (episode_duration_months < 60) return 30;
-    if (episode_duration_months < 120) return 50;
-    if (episode_duration_months < 240) return 80;
+    if (episode_duration_months < 80) return 30;
+    if (episode_duration_months < 140) return 50;
+    if (episode_duration_months < 200) return 80;
     return 100;
 }
 
@@ -187,14 +187,14 @@ int plague_rules_next_immunity_tier(int duration_months, int *out_percent,
     int next_percent = 100;
     int threshold_month = 0;
     if (duration_months < 0) duration_months = 0;
-    if (duration_months < 60) {
+    if (duration_months < 80) {
         next_percent = 50;
-        threshold_month = 60;
-    } else if (duration_months < 120) {
+        threshold_month = 80;
+    } else if (duration_months < 140) {
         next_percent = 80;
-        threshold_month = 120;
-    } else if (duration_months < 240) {
-        threshold_month = 240;
+        threshold_month = 140;
+    } else if (duration_months < 200) {
+        threshold_month = 200;
     }
     if (out_percent) *out_percent = next_percent;
     if (out_months_remaining) {

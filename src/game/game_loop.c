@@ -38,7 +38,12 @@ static void append_map_reason(char *buffer, int buffer_size, const char *reason)
     if (used < buffer_size) snprintf(buffer + used, buffer_size - used, "%s", reason);
 }
 
-void game_loop_reset(void) {
+int game_loop_quiesce_for_hard_reset(void) { return simulation_worker_quiesce(); }
+
+void game_loop_resume_after_aborted_hard_reset(void) { simulation_worker_start(); }
+
+int game_loop_reset(void) {
+    if (!game_loop_quiesce_for_hard_reset()) return 0;
     last_frame_tick = GetTickCount();
     last_presented_year = year;
     last_presented_month = month;
@@ -46,10 +51,11 @@ void game_loop_reset(void) {
     pending_presentation_redraw = GAME_REDRAW_NONE;
     render_presentation_throttled = 0;
     last_presentation_redraw_tick = 0;
-    simulation_worker_start();
     simulation_worker_reset_scheduler();
+    simulation_worker_start();
     profiler_reset();
     profiler_note_presentation_state(year, month, 0);
+    return 1;
 }
 
 static int presentation_throttle_interval_ms(int redraw) {

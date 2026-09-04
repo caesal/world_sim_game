@@ -1,4 +1,5 @@
 #include "game/game_presentation_worldgen_controls_artifact_internal.h"
+#include "game/game_presentation_worldgen_initial_civs_probe.h"
 
 #include "core/constants.h"
 #include "core/game_types.h"
@@ -407,5 +408,6 @@ int worldgen_controls_artifact_matrix(
     ok &= render_interaction_states(writer);
     ok &= render_fixed_shell_scrolls(writer);
     ok &= render_initial_civs_sync(writer);
+    ok &= worldgen_initial_civs_artifact_matrix(writer);
     return ok;
 }

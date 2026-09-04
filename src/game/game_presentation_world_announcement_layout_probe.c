@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define PROBE_DIR "build/validation/presentation_probe_20260618"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 typedef struct {
     HDC screen;
@@ -228,8 +228,8 @@ static int topbar_preserved_case(FILE *summary,
         if (GetRValue(pixel) > 150 && GetGValue(pixel) > 125 && GetBValue(pixel) < 190)
             date_pixels++;
     }
-    wrote = surface_write(&active, PROBE_DIR "/world_announcement_topbar_active.bmp") &&
-            surface_write(&inactive, PROBE_DIR "/world_announcement_topbar_inactive.bmp");
+    wrote = surface_write(&active, static_physical_probe_artifact_path("world_announcement_topbar_active.bmp")) &&
+            surface_write(&inactive, static_physical_probe_artifact_path("world_announcement_topbar_inactive.bmp"));
 done:
     fprintf(summary,
         "case=world_announcement_topbar_preserved ok=%d pixel_diff=%d year_month_visible=%d top_height=%d artifact=%s\n",
@@ -282,7 +282,7 @@ static int alpha_typography_cases(FILE *summary,
               abs(GetBValue(after) - expected_channel(
                       34, GetBValue(before), overlay_alpha)) <= 2;
     retained = after != before && after != RGB(24, 30, 34);
-    wrote = surface_write(&surface, PROBE_DIR "/world_announcement_alpha_map_overlay.bmp");
+    wrote = surface_write(&surface, static_physical_probe_artifact_path("world_announcement_alpha_map_overlay.bmp"));
     render_context_end();
 done:
     typography = info.header_font_px >= 20 && info.body_font_px >= 18 &&
@@ -342,7 +342,7 @@ static int underlay_freshness_case(FILE *summary,
     render_partial_ui_draw(surface.dc, client, band);
     actual = surface_pixel(&surface, x, y);
     restored = render_transient_ui_underlay_restores() == 1 && actual == expected;
-    wrote = surface_write(&surface, PROBE_DIR "/world_announcement_dismissed_fresh_underlay.bmp");
+    wrote = surface_write(&surface, static_physical_probe_artifact_path("world_announcement_dismissed_fresh_underlay.bmp"));
     render_context_end();
 done:
     fprintf(summary,

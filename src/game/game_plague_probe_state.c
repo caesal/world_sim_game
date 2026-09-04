@@ -128,16 +128,45 @@ static void check_immunity_expiry(PlagueProbeContext *context) {
          city.immunity_expiry_month == 580 &&
          plague_immunity_effective_percent(&city, 579) == 50 &&
          plague_immunity_candidate_weight_percent(&city, 579) == 50 &&
-         plague_immunity_effective_percent(&city, 580) == 0 &&
-         plague_immunity_candidate_weight_percent(&city, 580) == 100 &&
-         plague_immunity_apply_for_episode(&city, 240, 600) &&
-         city.immunity_percent == 100 && city.immunity_expiry_month == 1080 &&
+         plague_immunity_apply_for_episode(&city, 79, 200) &&
+         city.immunity_percent == 50 && city.immunity_expiry_month == 680 &&
+         plague_immunity_effective_percent(&city, 679) == 50 &&
+         plague_immunity_candidate_weight_percent(&city, 679) == 50 &&
+         plague_immunity_effective_percent(&city, 680) == 0 &&
+         plague_immunity_candidate_weight_percent(&city, 680) == 100 &&
+         plague_immunity_apply_for_episode(&city, 200, 680) &&
+         city.immunity_percent == 100 && city.immunity_expiry_month == 1160 &&
          plague_immunity_tier_index(30) == 0 &&
          plague_immunity_tier_index(50) == 1 &&
          plague_immunity_tier_index(80) == 2 &&
          plague_immunity_tier_index(100) == 3;
     plague_probe_check(context, "immunity", "absolute_expiry_and_tiers", ok,
-                       "duration=480 expiry_is_exclusive");
+                       "duration=480 expiry_is_exclusive max_and_refresh_preserved");
+}
+
+static void check_episode_wide_immunity(PlagueProbeContext *context) {
+    const PlagueModelState *model;
+    PlagueEpisodeHistory history;
+    int ok;
+    plague_state_reset();
+    begin_episode(PLAGUE_SIZE_MEDIUM, 5, 20, 3);
+    ok = plague_state_infect_city(0, 0, 20, 24) &&
+         plague_state_infect_city(1, 1, 80, 24) &&
+         plague_state_infect_city(2, 2, 150, 24) &&
+         plague_state_remove_active_city(0) &&
+         plague_state_remove_active_city(1) &&
+         plague_state_finish_episode(160, &history);
+    model = plague_state_get();
+    ok = ok && history.duration_months == 140 &&
+         history.infected_city_count == 3 &&
+         model->cities[0].immunity_percent == 80 &&
+         model->cities[1].immunity_percent == 80 &&
+         model->cities[2].immunity_percent == 80 &&
+         model->cities[0].immunity_expiry_month == 640 &&
+         model->cities[1].immunity_expiry_month == 640 &&
+         model->cities[2].immunity_expiry_month == 640;
+    plague_probe_check(context, "immunity", "episode_wide_total_duration", ok,
+                       "duration=140 cities=3 tier=80 expiry=640");
 }
 
 static void check_name_catalog_and_reuse(PlagueProbeContext *context) {
@@ -191,6 +220,7 @@ void plague_probe_run_state(PlagueProbeContext *context) {
     check_zero_origin_skip(context);
     check_frozen_origin_budget(context);
     check_immunity_expiry(context);
+    check_episode_wide_immunity(context);
     check_name_catalog_and_reuse(context);
     check_death_ring_boundaries(context);
 }

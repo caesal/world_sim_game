@@ -50,9 +50,18 @@ static void game_start_blank_world(void) {
     render_snapshot_cache_update_all();
     render_snapshot_publish_from_live_state();
 }
-void game_toggle_auto_run(void) { if (!world_generated) return; auto_run = !auto_run; game_loop_reset(); }
-void game_request_pause(void) { auto_run = 0; }
+void game_toggle_auto_run(void) {
+    if (!world_generated) return;
+    if (auto_run) game_request_pause(); else game_request_resume();
+}
+void game_request_pause(void) { simulation_worker_request_pause(); }
+void game_request_resume(void) { simulation_worker_request_resume(); }
+int game_pause_in_progress(void) { return simulation_worker_pause_in_progress(); }
+int game_pause_settled(void) { return simulation_worker_pause_settled(); }
 void game_pause_for_modal_or_action(void) { game_request_pause(); }
+void game_request_recover_failed_map_load(void) {
+    diplomacy_reset(); war_reset(); game_start_blank_world(); game_loop_reset();
+}
 void game_request_regenerate_regions(void) {
     if (!world_generated || civ_count > 0) return;
     regions_generate(region_size_slider);
@@ -249,7 +258,8 @@ int game_request_trigger_civil_unrest(int civ_id) {
 }
 int game_tick_auto_run(void) {
     int redraw = game_worldgen_service_pending_presentation() ? GAME_REDRAW_FULL : 0;
-    if (!world_generated || !auto_run) return redraw;
+    if (!world_generated || (!auto_run && !simulation_worker_pause_in_progress() &&
+                             simulation_worker_visual_backlog() <= 0)) return redraw;
     return redraw | game_loop_tick_frame();
 }
 static void probe_write_checkpoint(FILE *file, int checkpoint_year) {

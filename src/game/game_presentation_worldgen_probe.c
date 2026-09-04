@@ -1,4 +1,5 @@
 #include "game/game_presentation_worldgen_probe.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "core/constants.h"
@@ -16,7 +17,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 #define WORLDGEN_ARTIFACT_W 960
 #define WORLDGEN_ARTIFACT_H 640
 #define WORLDGEN_FIXTURE_W 64
@@ -376,7 +376,7 @@ static int case_wind_contract(FILE *summary) {
         calm_inputs += snapshot->wind.coarse[direction].speed <= WORLD_WIND_CALM_SPEED;
     before = *wind_render_stats();
     artifact_ok = render_extreme_wind(
-        PRESENTATION_PROBE_DIR "/worldgen_wind_extreme_density.bmp", snapshot,
+        static_physical_probe_artifact_path("worldgen_wind_extreme_density.bmp"), snapshot,
         &hash_a, &pixels_a);
     first = *wind_render_stats();
     artifact_ok &= render_extreme_wind(NULL, snapshot, &hash_b, &pixels_b);
@@ -447,15 +447,15 @@ static int case_river_overlay_contract(FILE *summary) {
                   stats->inland_dead_ends == 0;
     wind_before = *wind_render_stats();
     artifacts_ok = render_overlay(
-        PRESENTATION_PROBE_DIR "/worldgen_wind_river_geography.bmp", snapshot,
+        static_physical_probe_artifact_path("worldgen_wind_river_geography.bmp"), snapshot,
         DISPLAY_GEOGRAPHY, &geography);
     wind_geo = *wind_render_stats();
     artifacts_ok &= render_overlay(
-        PRESENTATION_PROBE_DIR "/worldgen_wind_river_climate.bmp", snapshot,
+        static_physical_probe_artifact_path("worldgen_wind_river_climate.bmp"), snapshot,
         DISPLAY_CLIMATE, &climate);
     wind_climate = *wind_render_stats();
     artifacts_ok &= render_overlay(
-        PRESENTATION_PROBE_DIR "/worldgen_river_overview_no_wind.bmp", snapshot,
+        static_physical_probe_artifact_path("worldgen_river_overview_no_wind.bmp"), snapshot,
         DISPLAY_OVERVIEW, &overview);
     wind_overview = *wind_render_stats();
     artifacts_ok &= geography.artifact_ok && climate.artifact_ok && overview.artifact_ok;

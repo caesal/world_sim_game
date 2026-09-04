@@ -8,6 +8,8 @@
 #include "world/mountain_gen.h"
 #include "world/river_path_validation.h"
 #include "world/wind_vector.h"
+#include "world/world_gen_aridity_response.h"
+#include "world/world_gen_classify.h"
 #include "world/world_gen_climate.h"
 #include "world/world_gen_context.h"
 #include "world/world_gen_elevation.h"
@@ -101,8 +103,10 @@ static int check_land_and_labels(FILE *file, const char *label,
         if (resource == RESOURCE_FEATURE_SALT_LAKE &&
             !(river_flags & WORLD_GEN_RIVER_SALT_LAKE)) semantic_errors++;
         if ((geography == GEO_DELTA && !(river_flags & WORLD_GEN_RIVER_DELTA)) ||
-            (geography == GEO_OASIS && (!(river_flags & WORLD_GEN_RIVER_CHANNEL) ||
-             (climate != CLIMATE_DESERT && climate != CLIMATE_SEMI_ARID)))) semantic_errors++;
+            (geography == GEO_OASIS &&
+             !world_gen_classify_response_visible_oasis_for_pair(
+                 context, i, climate, world_gen_aridity_response_oasis_drop(),
+                 world_gen_aridity_response_transition_margin()))) semantic_errors++;
         if ((ecology == ECO_MANGROVE && geography != GEO_DELTA) ||
             (ecology == ECO_SWAMP && geography != GEO_WETLAND && geography != GEO_BASIN) ||
             (ecology == ECO_DESERT && climate != CLIMATE_DESERT)) semantic_errors++;

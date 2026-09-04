@@ -53,6 +53,11 @@ enum {
 static int cached_resource_scores[MAX_CIVS];
 static int resource_scores_ready = 0;
 
+void simulation_month_reset_runtime(void) {
+    memset(cached_resource_scores, 0, sizeof(cached_resource_scores));
+    resource_scores_ready = 0;
+}
+
 static int simulation_month_index(void) {
     return year * 12 + month - 1;
 }

@@ -11,6 +11,7 @@
 #include "ui/ui_worldgen_input.h"
 
 int handle_shortcut(HWND hwnd, WPARAM key) {
+    if (game_pause_in_progress()) return 1;
     if (ui_worldgen_input_key_down(hwnd, key)) return 1;
     if (ui_country_target_active()) {
         if (key == VK_ESCAPE) return ui_country_target_cancel(hwnd);

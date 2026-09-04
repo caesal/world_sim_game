@@ -2,6 +2,7 @@
 #include "core/game_types.h"
 #include "core/load_progress.h"
 #include "game/game.h"
+#include "game/game_loop.h"
 #include "io/map_save_legacy.h"
 #include "io/map_save_civs.h"
 #include "io/map_save_load_river_preflight.h"
@@ -376,11 +377,11 @@ int load_map_from_file(HWND hwnd) {
     MapSaveWarHistoryStage history_stage = {0};
     MapSaveRiverPathsStatus river_status;
     FILE *file;
-    int storage_cleared = 0;
+    int storage_cleared = 0, worker_quiesced = 0;
     char path[MAP_SAVE_PATH_MAX];
 #define LOAD_FAIL(message) do { map_save_river_paths_stage_release(&river_stage); map_save_war_history_stage_release(&history_stage); \
-    if (storage_cleared) { war_reset(); } fclose(file); load_progress_fail(); \
-    load_progress_set_repaint_callback(NULL, NULL); \
+    fclose(file); if (worker_quiesced) { if (storage_cleared) game_request_recover_failed_map_load(); else game_loop_resume_after_aborted_hard_reset(); } \
+    load_progress_fail(); load_progress_set_repaint_callback(NULL, NULL); \
     show_utf8_message(hwnd, message, localized_text("Load Map", "读取地图"), \
                       MB_OK | MB_ICONERROR); return 0; } while (0)
 
@@ -411,7 +412,8 @@ int load_map_from_file(HWND hwnd) {
             river_status, ui_language == UI_LANG_ZH));
     }
     load_progress_update(LOAD_STAGE_OPEN_VALIDATE, 1, 1);
-    load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 0, 1);
+    if (!game_loop_quiesce_for_hard_reset()) LOAD_FAIL(localized_text("Could not pause simulation for map load.", "无法暂停模拟以读取地图。"));
+    worker_quiesced = 1; load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 0, 1);
     clear_loaded_storage(); storage_cleared = 1;
     load_progress_update(LOAD_STAGE_CLEAR_STORAGE, 1, 1);
     map_w = header.map_w;

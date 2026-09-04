@@ -1,4 +1,5 @@
 #include "game/game_presentation_worldgen_controls_artifact_internal.h"
+#include "game/game_presentation_worldgen_initial_civs_probe.h"
 
 #include "core/constants.h"
 #include "core/game_types.h"
@@ -81,163 +82,6 @@ static int artifact_forms_created(void) {
            form->hydrology_initial_civs_edit &&
            form->region_custom_edit && form->add_button &&
            form->apply_button;
-}
-
-static int text_equals(HWND control, const char *expected) {
-    char text[32];
-    if (!control || !expected) return 0;
-    GetWindowTextA(control, text, sizeof(text));
-    return strcmp(text, expected) == 0;
-}
-
-static int child_rect_equals(HWND parent, HWND child, RECT expected) {
-    RECT actual;
-    if (!child || !GetWindowRect(child, &actual)) return 0;
-    MapWindowPoints(HWND_DESKTOP, parent, (POINT *)&actual, 2);
-    return actual.left == expected.left && actual.top == expected.top &&
-           actual.right == expected.right && actual.bottom == expected.bottom;
-}
-
-static int child_style_visible(HWND child) {
-    return child && (GetWindowLongPtrW(child, GWL_STYLE) & WS_VISIBLE) != 0;
-}
-
-static int case_initial_civs_two_way_sync(
-    WorldgenControlsProbeReport *report, HWND hwnd) {
-    const FormControls *form = ui_worldgen_legacy_forms_controls();
-    RECT client;
-    UiWorldgenPanelLayout panel;
-    WorldgenLayout legacy;
-    int distinct_ok;
-    int geometry_ok;
-    int sync_ok;
-    int invalid_ok;
-    int command_ok;
-    int persistence_ok = 1;
-    int tab;
-    GetClientRect(hwnd, &client);
-    panel_tab = PANEL_WORLD;
-    side_panel_w = 460;
-    side_panel_expanded_w = 460;
-    side_panel_collapsed = 0;
-    ui_worldgen_control_state_init_fresh();
-    distinct_ok = form->initial_civs_edit &&
-                  form->hydrology_initial_civs_edit &&
-                  form->initial_civs_edit !=
-                      form->hydrology_initial_civs_edit &&
-                  GetDlgCtrlID(form->initial_civs_edit) ==
-                      ID_INITIAL_CIVS_EDIT &&
-                  GetDlgCtrlID(form->hydrology_initial_civs_edit) ==
-                      ID_HYDROLOGY_INITIAL_CIVS_EDIT;
-
-    ui_worldgen_control_state_set_tab(
-        UI_WORLDGEN_TAB_HYDROLOGY_REGIONS);
-    ui_worldgen_view_build(client, 460, &panel);
-    ui_worldgen_control_state_set_scroll(
-        UI_WORLDGEN_TAB_HYDROLOGY_REGIONS,
-        panel.tab_max_scroll[UI_WORLDGEN_TAB_HYDROLOGY_REGIONS]);
-    ui_forms_write_world_setup_controls();
-    ui_forms_layout(hwnd);
-    ui_worldgen_view_build(client, 460, &panel);
-    geometry_ok = child_style_visible(
-                      form->hydrology_initial_civs_edit) &&
-                  !child_style_visible(form->initial_civs_edit) &&
-                  child_rect_equals(
-                      hwnd, form->hydrology_initial_civs_edit,
-                      panel.hydrology.initial_civs_input);
-    SetWindowTextA(form->hydrology_initial_civs_edit, "42");
-    sync_ok = ui_forms_handle_metric_change(
-                  ID_HYDROLOGY_INITIAL_CIVS_EDIT) &&
-              ui_worldgen_config_get_field(
-                  UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 42 &&
-              text_equals(form->initial_civs_edit, "42");
-
-    ui_worldgen_control_state_set_tab(UI_WORLDGEN_TAB_LEGACY);
-    ui_worldgen_control_state_set_scroll(UI_WORLDGEN_TAB_LEGACY, 0);
-    ui_forms_layout(hwnd);
-    ui_worldgen_view_build(client, 460, &panel);
-    ui_worldgen_view_build_legacy_layout(&panel.legacy, &legacy);
-    geometry_ok &= child_style_visible(form->initial_civs_edit) &&
-                   !child_style_visible(
-                       form->hydrology_initial_civs_edit) &&
-                   child_rect_equals(
-                       hwnd, form->initial_civs_edit, legacy.initial_input);
-    SetWindowTextA(form->initial_civs_edit, "73");
-    sync_ok &= ui_forms_handle_metric_change(ID_INITIAL_CIVS_EDIT) &&
-               ui_worldgen_config_get_field(
-                   UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 73 &&
-               text_equals(form->hydrology_initial_civs_edit, "73");
-
-    ui_worldgen_control_state_set_tab(
-        UI_WORLDGEN_TAB_HYDROLOGY_REGIONS);
-    ui_forms_layout(hwnd);
-    SetWindowTextA(form->hydrology_initial_civs_edit, "");
-    invalid_ok = ui_forms_handle_metric_change(
-                     ID_HYDROLOGY_INITIAL_CIVS_EDIT) &&
-                 ui_worldgen_config_get_field(
-                     UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 73 &&
-                 text_equals(form->initial_civs_edit, "73") &&
-                 text_equals(form->hydrology_initial_civs_edit, "");
-    invalid_ok &= ui_forms_normalize_metric_edit(
-                      ID_HYDROLOGY_INITIAL_CIVS_EDIT) &&
-                  text_equals(form->initial_civs_edit, "73") &&
-                  text_equals(form->hydrology_initial_civs_edit, "73");
-    SetWindowTextA(form->hydrology_initial_civs_edit, "201");
-    invalid_ok &= ui_forms_handle_metric_change(
-                      ID_HYDROLOGY_INITIAL_CIVS_EDIT) &&
-                  ui_worldgen_config_get_field(
-                      UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 73 &&
-                  text_equals(form->hydrology_initial_civs_edit, "201");
-    SetFocus(form->hydrology_initial_civs_edit);
-    invalid_ok &= GetFocus() == form->hydrology_initial_civs_edit &&
-                  ui_worldgen_input_key_down(hwnd, VK_RETURN) &&
-                  ui_worldgen_config_get_field(
-                      UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == MAX_CIVS &&
-                  text_equals(form->initial_civs_edit, "200") &&
-                  text_equals(form->hydrology_initial_civs_edit, "200");
-
-    ui_worldgen_control_state_set_field(
-        UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT, 73);
-    ui_forms_write_world_setup_controls();
-    SetWindowTextA(form->initial_civs_edit, "19");
-    SetFocus(hwnd);
-    ui_forms_commit_worldgen_numeric_edits();
-    command_ok = ui_worldgen_config_get_field(
-                     UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 73 &&
-                 text_equals(form->initial_civs_edit, "73") &&
-                 text_equals(form->hydrology_initial_civs_edit, "73");
-    ui_worldgen_command_reset(hwnd);
-    command_ok &= ui_worldgen_config_get_field(
-                      UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 73 &&
-                  text_equals(form->initial_civs_edit, "73") &&
-                  text_equals(form->hydrology_initial_civs_edit, "73");
-    ui_worldgen_config_set_field(UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT, 88);
-    ui_worldgen_command_resync_after_load(hwnd);
-    command_ok &= text_equals(form->initial_civs_edit, "88") &&
-                  text_equals(form->hydrology_initial_civs_edit, "88");
-    ui_worldgen_control_state_set_field(
-        UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT, 42);
-    ui_worldgen_command_dice(hwnd);
-    for (tab = 0; tab < UI_WORLDGEN_TAB_COUNT; tab++) {
-        ui_worldgen_control_state_set_tab((UiWorldgenControlTab)tab);
-        ui_worldgen_control_state_set_scroll(
-            (UiWorldgenControlTab)tab, tab * 91);
-        ui_forms_layout(hwnd);
-        persistence_ok &= ui_worldgen_config_get_field(
-                              UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT) == 42 &&
-                          text_equals(form->initial_civs_edit, "42") &&
-                          text_equals(
-                              form->hydrology_initial_civs_edit, "42");
-    }
-    worldgen_controls_probe_record(
-        report, "worldgen_controls_initial_civs_two_way_sync",
-        distinct_ok && geometry_ok && sync_ok && invalid_ok &&
-            command_ok && persistence_ok,
-        "distinct=%d geometry=%d hydro42_legacy73=%d invalid_local_commit=%d reset_resync_hidden_guard=%d tab_scroll=%d",
-        distinct_ok, geometry_ok, sync_ok, invalid_ok, command_ok,
-        persistence_ok);
-    return distinct_ok && geometry_ok && sync_ok && invalid_ok &&
-           command_ok && persistence_ok;
 }
 
 static int point_equal(UiWorldgenPoint left, UiWorldgenPoint right) {
@@ -444,7 +288,7 @@ int worldgen_controls_probe_artifacts(
     writer.owner = form_owner;
     ui_forms_write_world_setup_controls();
 
-    sync_ok = case_initial_civs_two_way_sync(report, form_owner);
+    sync_ok = worldgen_initial_civs_probe_run(report, form_owner);
     matrix_ok = worldgen_controls_artifact_matrix(&writer);
     assets_ok = worldgen_controls_artifact_assets(&writer);
     worldgen_ui_assets_validation_force_missing(

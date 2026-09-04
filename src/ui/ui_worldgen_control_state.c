@@ -114,6 +114,9 @@ int ui_worldgen_control_state_resync(UiWorldgenResyncMode mode) {
     UiWorldgenEffectiveConfig config;
     int config_changed;
     int state_changed = 0;
+    ui_worldgen_config_set_field(
+        UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT,
+        ui_worldgen_config_get_field(UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT));
     ui_worldgen_config_read(&config);
     if (!control_state.initialized) {
         initialize_from_config(

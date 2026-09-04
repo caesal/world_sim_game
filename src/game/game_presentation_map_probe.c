@@ -1,4 +1,5 @@
 #include "render/panel_map_speed_badge.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 
 #include "core/constants.h"
 #include "render/panel_country_diplomacy_tooltip.h"
@@ -12,8 +13,6 @@
 
 #include <stdio.h>
 #include <string.h>
-
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER file_header;
@@ -211,9 +210,9 @@ int game_presentation_map_speed_probe(FILE *summary) {
                                                     DEBUG_EVENT_FILTER_COLLAPSE_PLAGUE)) {
         fail_mask |= 1u << 23;
     }
-    artifact_ok = render_speed_badge_bmp(PRESENTATION_PROBE_DIR "/map_speed_badge_bottom_status_en.bmp",
+    artifact_ok = render_speed_badge_bmp(static_physical_probe_artifact_path("map_speed_badge_bottom_status_en.bmp"),
                                          UI_LANG_EN, 0, 999, 999);
-    artifact_ok &= render_speed_badge_bmp(PRESENTATION_PROBE_DIR "/map_speed_badge_bottom_status_zh.bmp",
+    artifact_ok &= render_speed_badge_bmp(static_physical_probe_artifact_path("map_speed_badge_bottom_status_zh.bmp"),
                                           UI_LANG_ZH, 1, 999, 999);
     if (!artifact_ok) fail_mask |= 1u << 20;
     ok = fail_mask == 0;

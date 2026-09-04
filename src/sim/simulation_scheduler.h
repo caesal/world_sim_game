@@ -2,6 +2,12 @@
 #define WORLD_SIM_SIMULATION_SCHEDULER_H
 
 void sim_scheduler_reset(void);
+void sim_scheduler_request_pause_drain(void);
+void sim_scheduler_resume_month_admission(void);
+int sim_scheduler_pause_drain_requested(void);
+int sim_scheduler_cancel_queued_months_preserve_active(void);
+int sim_scheduler_active_month(void);
+int sim_scheduler_queued_months(void);
 int sim_scheduler_can_accept_month(void);
 int sim_scheduler_request_month(void);
 int sim_scheduler_has_pending_work(void);

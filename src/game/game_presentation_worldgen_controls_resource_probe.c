@@ -41,8 +41,9 @@ static int failed_generate_hook(HWND hwnd) {
 }
 
 static HWND make_probe_window(void) {
-    return CreateWindowExA(0, "STATIC", "worldgen-controls-form-probe",
-                           WS_POPUP, 0, 0, 1280, 800, NULL, NULL,
+    return CreateWindowExA(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, "STATIC",
+                           "worldgen-controls-form-probe", WS_POPUP,
+                           0, 0, 1280, 800, NULL, NULL,
                            GetModuleHandle(NULL), NULL);
 }
 
@@ -407,6 +408,7 @@ int worldgen_controls_probe_resources(WorldgenControlsProbeReport *report) {
     ui_worldgen_command_set_generate_hook_for_tests(NULL);
     ui_worldgen_command_reset_diagnostics();
     ui_worldgen_input_reset_diagnostics();
+    SetFocus(NULL);
     DestroyWindow(hwnd);
     return ok;
 }

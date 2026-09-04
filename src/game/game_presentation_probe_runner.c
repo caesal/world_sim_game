@@ -9,6 +9,7 @@
 #include "game/game_presentation_war_history_visual_contract_probe.h"
 #include "game/game_presentation_visual_blocker_probe.h"
 #include "game/game_presentation_coast_smoothing_probe.h"
+#include "game/game_presentation_static_camera_resources.h"
 #include "game/game_presentation_static_physical_artifacts.h"
 #include "game/game_presentation_static_physical_probe.h"
 #include "game/game_presentation_worldgen_contract_probe.h"
@@ -24,6 +25,8 @@
 
 #define WORLDGEN_CONTROLS_ONLY_ENV \
     "WORLD_SIM_PRESENTATION_WORLDGEN_CONTROLS_ONLY"
+#define STATIC_CAMERA_RESOURCES_ONLY_ENV \
+    "WORLD_SIM_PRESENTATION_STATIC_CAMERA_RESOURCES_ONLY"
 
 int game_presentation_core_probe(FILE *summary);
 int game_presentation_map_speed_probe(FILE *summary);
@@ -50,18 +53,27 @@ int run_presentation_probe(void) {
     int ok = 1;
     CreateDirectoryA("build", NULL);
     CreateDirectoryA("build/validation", NULL);
-    CreateDirectoryA(PRESENTATION_PROBE_DEFAULT_DIR, NULL);
     if (!static_physical_probe_prepare_artifact_dir() ||
         !static_physical_probe_summary_path(summary_path, sizeof(summary_path))) return 2;
     summary = fopen(summary_path, "w");
     if (!summary) return 2;
-    if (environment_truthy(WORLDGEN_CONTROLS_ONLY_ENV)) {
-        ok &= game_presentation_worldgen_controls_probe(summary);
+    if (environment_truthy(STATIC_CAMERA_RESOURCES_ONLY_ENV)) {
+        ok &= static_camera_resource_contract_probe(summary);
         fprintf(summary, "overall_ok=%d\n", ok);
         fclose(summary);
         printf("presentation probe summary: %s\n", summary_path);
         return ok ? 0 : 1;
     }
+    if (environment_truthy(WORLDGEN_CONTROLS_ONLY_ENV)) {
+        ok &= static_physical_probe_artifact_registry_begin(99);
+        ok &= game_presentation_worldgen_controls_probe(summary);
+        ok &= static_physical_probe_artifact_registry_finish(summary);
+        fprintf(summary, "overall_ok=%d\n", ok);
+        fclose(summary);
+        printf("presentation probe summary: %s\n", summary_path);
+        return ok ? 0 : 1;
+    }
+    ok &= static_physical_probe_artifact_registry_begin(632);
     ok &= game_presentation_core_probe(summary);
     ok &= game_presentation_map_speed_probe(summary);
     ok &= game_presentation_topbar_probe(summary);
@@ -90,6 +102,7 @@ int run_presentation_probe(void) {
     ok &= game_presentation_worldgen_contract_probe(summary);
     ok &= game_presentation_static_physical_probe(summary);
     ok &= game_presentation_worldgen_controls_probe(summary);
+    ok &= static_physical_probe_artifact_registry_finish(summary);
     fprintf(summary, "overall_ok=%d\n", ok);
     fclose(summary);
     printf("presentation probe summary: %s\n", summary_path);

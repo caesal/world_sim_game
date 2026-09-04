@@ -1,5 +1,6 @@
 #include "render/panel_worldgen_hydrology.h"
 
+#include "core/constants.h"
 #include "render/panel_worldgen_controls.h"
 #include "render/render_common.h"
 #include "render/worldgen_ui_assets.h"
@@ -218,12 +219,17 @@ static void draw_region(HDC hdc,
 }
 
 static void draw_initial_civs(
-    HDC hdc, const UiWorldgenHydrologyLayout *hydrology) {
+    HDC hdc, const UiWorldgenHydrologyLayout *hydrology,
+    const UiWorldgenEffectiveConfig *config) {
+    char label[96];
+    int map_size = config ? config->pending_map_size : MAP_SIZE_EXTREME;
+    snprintf(label, sizeof(label), "%s (0-%d)",
+             tr("Initial civilizations", "初始文明数量"),
+             ui_worldgen_initial_civ_cap_for_map_size(map_size));
     ui_clay_draw_card(hdc, hydrology->initial_civs_section,
                       UI_CLAY_STATE_NORMAL);
     draw_text_rect(hdc, hydrology->initial_civs_label,
-                   tr("Initial civilizations (0-200)",
-                      "初始文明数量 (0-200)"),
+                   label,
                    ui_clay_muted_text_color(),
                    DT_SINGLELINE | DT_VCENTER | DT_END_ELLIPSIS);
     ui_clay_draw_input_frame(hdc, hydrology->initial_civs_input_frame,
@@ -248,6 +254,6 @@ void panel_worldgen_hydrology_draw(
     draw_river(hdc, &layout->hydrology, config, state);
     draw_region(hdc, &layout->hydrology, config, state,
                 map_width, map_height);
-    draw_initial_civs(hdc, &layout->hydrology);
+    draw_initial_civs(hdc, &layout->hydrology, config);
     RestoreDC(hdc, saved);
 }

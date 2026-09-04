@@ -1,0 +1,6 @@
+#ifndef WORLD_SIM_GAME_WORLDGEN_ARIDITY_RESPONSE_PROJECTION_PROBE_H
+#define WORLD_SIM_GAME_WORLDGEN_ARIDITY_RESPONSE_PROJECTION_PROBE_H
+
+int run_worldgen_aridity_response_projection_probe(void);
+
+#endif

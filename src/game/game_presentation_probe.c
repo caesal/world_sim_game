@@ -28,7 +28,6 @@
 #include <string.h>
 
 int panel_map_probe_alliance_legend_before(const RenderSnapshot *snapshot, int a_index, int b_index);
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 static AllianceSaveState blocking_alliance_state;
 static AllianceSaveState stepped_alliance_state;

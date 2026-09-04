@@ -23,6 +23,17 @@ static unsigned int ui_worldgen_random_next(void) {
     return ui_worldgen_rng_state;
 }
 
+static unsigned int ui_worldgen_random_below(unsigned int count) {
+    unsigned int threshold;
+    unsigned int value;
+    if (count <= 1) return 0;
+    threshold = (0u - count) % count;
+    do {
+        value = ui_worldgen_random_next();
+    } while (value < threshold);
+    return value % count;
+}
+
 int ui_worldgen_random_range(int min_value, int max_value) {
     unsigned int width;
     if (max_value <= min_value) return min_value;
@@ -40,6 +51,22 @@ static UiWorldgenFieldMask randomize_field(UiWorldgenConfigField field) {
     int new_value = random_slider_value(old_value);
     if (!ui_worldgen_config_set_field(field, new_value)) return 0;
     return UI_WORLDGEN_FIELD_MASK(field);
+}
+
+static UiWorldgenFieldMask randomize_initial_civs(void) {
+    int map_size = ui_worldgen_config_get_field(
+        UI_WORLDGEN_FIELD_PENDING_MAP_SIZE);
+    int cap = ui_worldgen_initial_civ_cap_for_map_size(map_size);
+    int old_value = ui_worldgen_config_get_field(
+        UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT);
+    int excludes_old = old_value >= 1 && old_value <= cap;
+    int candidate_count = cap - excludes_old;
+    int new_value = 1 + (int)ui_worldgen_random_below(
+        (unsigned int)candidate_count);
+    if (excludes_old && new_value >= old_value) new_value++;
+    if (!ui_worldgen_config_set_field(
+            UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT, new_value)) return 0;
+    return UI_WORLDGEN_FIELD_MASK(UI_WORLDGEN_FIELD_INITIAL_CIV_COUNT);
 }
 
 UiWorldgenFieldMask ui_worldgen_randomize_physical(void) {
@@ -65,7 +92,8 @@ UiWorldgenFieldMask ui_worldgen_randomize_advanced(void) {
 
 UiWorldgenFieldMask ui_worldgen_randomize_all(void) {
     UiWorldgenFieldMask changed = ui_worldgen_randomize_physical();
-    return changed | ui_worldgen_randomize_advanced();
+    changed |= ui_worldgen_randomize_advanced();
+    return changed | randomize_initial_civs();
 }
 
 void ui_worldgen_random_validation_set_state(unsigned int state) {

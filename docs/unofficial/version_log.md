@@ -1,5 +1,61 @@
 # Version Log
 
+## Ver0.3.7.a
+
+Implemented changes:
+
+1. Bumped the active prototype version to Ver0.3.7.a.
+2. Assigned immunity at episode end to every city ever infected in the episode,
+   using the episode's total duration: less than 80 months gives 30%, 80-139
+   gives 50%, 140-199 gives 80%, and 200 or more gives 100%.
+3. Preserved the 480-month immunity lifetime and the corresponding
+   infection-candidate weights of 70/50/20/0 percent.
+4. Capped Initial Civilizations by map size at Small 50, Medium 80, Large 115,
+   and Extreme 200.
+5. Made the global dice choose uniformly from 1..current cap while excluding
+   the current valid value and leaving map size unchanged. Manual 0 remains
+   valid, over-cap input clamps immediately, and Hydrology & Regions and Legacy
+   Modules remain synchronized.
+6. Set the production drought divisor to 24 and published the fixed 31/4/2/12
+   diminishing aridity response.
+7. Published the strict drought oasis window with oasis drop 20 and transition
+   margin 2 while preserving the historical drought-zero macro-arid behavior.
+8. Retained deterministic formula, world-generation, presentation, and
+   production-binding validation support for these bounded changes.
+9. Kept plague RenderSnapshot payloads valid across unrelated Decision
+   publication and war-history revisions while preserving invalidation for
+   real plague, lane, city, month, civilization-source, and world-generated
+   changes.
+10. Made ordinary pause close new-month admission immediately, cancel only
+    queued work that has not started, drain any already-started month through
+    snapshot/cache/Decision/front publication, and defer resume until that
+    coherent boundary. World generation, load, reset, and close retain their
+    separate hard-transition quiescence behavior.
+11. Matched the collapsed top-bar map-mode lane to the minimum expanded lane
+    at 472 pixels, keeping all six labels complete at 2560x1369, including
+    English Geography. Preserved the font, strings, hit targets, neighboring
+    controls, and ellipsis fallback for constrained windows.
+
+Compatibility and scope notes:
+
+- `WORLD_SIM_VERSION` is `0.3.7.a`; `MAP_SAVE_VERSION` remains `21`.
+- MAP20 and older saves are intentionally rejected; no migration or backward
+  save compatibility is promised.
+- `docs/official` and `docs/unofficial/ver0.3.7_side_doc.md` remain unchanged.
+- Final Rule 47 Steps 1-9 and a fresh final Rule 39 passed on 2026-09-04,
+  followed by original-resolution manual review. The 632-item presentation
+  registry includes eight EN/ZH, 500/720, expanded/collapsed top-bar artifacts.
+- Rule 39 ended at Year 672 Month 5 with 1,212 natural regions, 64 initial and
+  64 surviving civilizations, and 1,443 wars started. Its first five stage-5
+  witnesses were Gratia (ID 28, UID 29), Regidoren (48, 49), Qiqi (58, 59),
+  Chakukora (18, 19), and Lucheng (8, 9).
+- The accepted executable is 3,173,605 bytes, built at
+  `2026-09-04T18:09:09.9352618Z`, SHA-256
+  `9672F877F4614B24746205AF3D4CC86C1A3681107C061E19DD2652A3B1CFDE7B`.
+- Acceptance is complete. The separately authorized Git publication outcome
+  is established by the actual commit, lightweight tag, and remote-reference
+  audit; this acceptance record does not predeclare a successful push.
+
 ## Ver0.3.7
 
 Implemented changes:

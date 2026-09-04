@@ -250,7 +250,7 @@ void color_picker_close(void) {
     if (picker.dragging) ReleaseCapture();
     picker.active = 0;
     picker.dragging = 0;
-    auto_run = restore_auto_run ? 1 : 0;
+    if (restore_auto_run) game_request_resume();
 }
 
 int color_picker_active(void) { return picker.active; }
@@ -419,6 +419,7 @@ int color_picker_mouse_down(HWND hwnd, RECT client, int x, int y) {
     picker.hover_button = button;
     picker.pressed_button = button;
     if (button == PICKER_BUTTON_APPLY) {
+        if (picker.context == PICKER_CONTEXT_CIV && game_pause_in_progress()) return 1;
         if (picker.context == PICKER_CONTEXT_CIV) {
             game_request_set_civilization_color_exact(picker.civ_id, picker.pending);
         } else {

@@ -195,30 +195,31 @@ static void check_deep_route_candidate_policy(PlagueProbeContext *context) {
 static void check_immunity_boundaries(PlagueProbeContext *context) {
     int next_percent = 0;
     int months_remaining = 0;
-    int ok = plague_rules_immunity_percent_for_duration(59) == 30 &&
-             plague_rules_immunity_percent_for_duration(60) == 50 &&
-             plague_rules_immunity_percent_for_duration(119) == 50 &&
-             plague_rules_immunity_percent_for_duration(120) == 80 &&
-             plague_rules_immunity_percent_for_duration(239) == 80 &&
-             plague_rules_immunity_percent_for_duration(240) == 100 &&
+    int ok = plague_rules_immunity_percent_for_duration(0) == 30 &&
+             plague_rules_immunity_percent_for_duration(79) == 30 &&
+             plague_rules_immunity_percent_for_duration(80) == 50 &&
+             plague_rules_immunity_percent_for_duration(139) == 50 &&
+             plague_rules_immunity_percent_for_duration(140) == 80 &&
+             plague_rules_immunity_percent_for_duration(199) == 80 &&
+             plague_rules_immunity_percent_for_duration(200) == 100 &&
              plague_rules_immunity_weight_percent(30) == 70 &&
              plague_rules_immunity_weight_percent(50) == 50 &&
              plague_rules_immunity_weight_percent(80) == 20 &&
              plague_rules_immunity_weight_percent(100) == 0;
-    ok = ok && plague_rules_next_immunity_tier(59, &next_percent, &months_remaining) &&
+    ok = ok && plague_rules_next_immunity_tier(79, &next_percent, &months_remaining) &&
          next_percent == 50 && months_remaining == 1;
-    ok = ok && plague_rules_next_immunity_tier(60, &next_percent, &months_remaining) &&
+    ok = ok && plague_rules_next_immunity_tier(80, &next_percent, &months_remaining) &&
          next_percent == 80 && months_remaining == 60;
-    ok = ok && plague_rules_next_immunity_tier(119, &next_percent, &months_remaining) &&
+    ok = ok && plague_rules_next_immunity_tier(139, &next_percent, &months_remaining) &&
          next_percent == 80 && months_remaining == 1;
-    ok = ok && plague_rules_next_immunity_tier(120, &next_percent, &months_remaining) &&
-         next_percent == 100 && months_remaining == 120;
-    ok = ok && plague_rules_next_immunity_tier(239, &next_percent, &months_remaining) &&
+    ok = ok && plague_rules_next_immunity_tier(140, &next_percent, &months_remaining) &&
+         next_percent == 100 && months_remaining == 60;
+    ok = ok && plague_rules_next_immunity_tier(199, &next_percent, &months_remaining) &&
          next_percent == 100 && months_remaining == 1;
-    ok = ok && !plague_rules_next_immunity_tier(240, &next_percent, &months_remaining) &&
+    ok = ok && !plague_rules_next_immunity_tier(200, &next_percent, &months_remaining) &&
          next_percent == 100 && months_remaining == 0;
     plague_probe_check(context, "rules", "immunity_duration_boundaries", ok,
-                       "duration thresholds=60,120,240 next-tier countdown verified");
+                       "duration thresholds=80,140,200 next-tier countdown verified");
 }
 
 static void check_mortality_table(PlagueProbeContext *context) {

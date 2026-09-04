@@ -80,14 +80,20 @@ static int text_fits(HDC hdc, RECT rect, const char *text) {
            measured.bottom <= rect_height(rect);
 }
 
-static int inherited_font_and_flat_progress_ok(void) {
+static COLORREF dib_pixel_color(const void *bits, int width, int x, int y) {
+    unsigned int pixel = ((const unsigned int *)bits)[y * width + x];
+    return RGB((pixel >> 16) & 0xffu, (pixel >> 8) & 0xffu,
+               pixel & 0xffu);
+}
+
+static int inherited_font_and_flat_progress_ok(FILE *summary) {
     BITMAPINFO info = {0};
     HDC hdc = CreateCompatibleDC(NULL);
     HBITMAP bitmap = NULL;
     HGDIOBJ old_bitmap = NULL;
     HFONT font = NULL;
     HGDIOBJ old_font = NULL;
-    HGDIOBJ incoming;
+    HGDIOBJ incoming = NULL;
     TEXTMETRICW before;
     TEXTMETRICW after;
     DecisionSnapshot snap = {0};
@@ -95,11 +101,23 @@ static int inherited_font_and_flat_progress_ok(void) {
     void *bits = NULL;
     int saved_language = ui_language;
     int ok = 0;
+    int fail_stage = 0;
+    int before_metrics_ok = 0;
+    int after_metrics_ok = 0;
+    COLORREF pixels[8];
+    COLORREF device_pixels[8];
     const int width = 500;
     const int left = 10;
     const int right = width - 10;
     const int boundary = left + (right - left) / 2;
-    if (!hdc) goto cleanup;
+    int i;
+    for (i = 0; i < 8; i++) {
+        pixels[i] = CLR_INVALID;
+        device_pixels[i] = CLR_INVALID;
+    }
+    memset(&before, 0, sizeof(before));
+    memset(&after, 0, sizeof(after));
+    if (!hdc) { fail_stage = 1; goto cleanup; }
     info.bmiHeader.biSize = sizeof(info.bmiHeader);
     info.bmiHeader.biWidth = width;
     info.bmiHeader.biHeight = -700;
@@ -111,38 +129,91 @@ static int inherited_font_and_flat_progress_ok(void) {
         17, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY,
         DEFAULT_PITCH | FF_SWISS, L"Microsoft YaHei UI");
-    if (!bitmap || !font || !bits) goto cleanup;
+    if (!bitmap || !font || !bits) { fail_stage = 2; goto cleanup; }
     old_bitmap = SelectObject(hdc, bitmap);
     old_font = SelectObject(hdc, font);
     incoming = GetCurrentObject(hdc, OBJ_FONT);
-    if (!incoming || !GetTextMetricsW(hdc, &before)) goto cleanup;
+    before_metrics_ok = GetTextMetricsW(hdc, &before);
+    if (!incoming || !before_metrics_ok) { fail_stage = 3; goto cleanup; }
     ui_language = UI_LANG_EN;
 
     snap.stability_weight = 0;
     cursor = ui_cursor(8, 42, width - 16, 700);
     draw_country_decision_stability_tab(hdc, &cursor, &snap);
+    GdiFlush();
+    device_pixels[0] = GetPixel(hdc, left, 73);
+    device_pixels[1] = GetPixel(hdc, right - 1, 90);
+    pixels[0] = dib_pixel_color(bits, width, left, 73);
+    pixels[1] = dib_pixel_color(bits, width, right - 1, 90);
+    after_metrics_ok = GetTextMetricsW(hdc, &after);
     if (GetCurrentObject(hdc, OBJ_FONT) != incoming ||
-        !GetTextMetricsW(hdc, &after) || after.tmHeight != before.tmHeight ||
-        GetPixel(hdc, left, 73) != RGB(30, 35, 38) ||
-        GetPixel(hdc, right - 1, 90) != RGB(30, 35, 38)) goto cleanup;
+        !after_metrics_ok || after.tmHeight != before.tmHeight ||
+        pixels[0] != RGB(30, 35, 38) ||
+        pixels[1] != RGB(30, 35, 38)) { fail_stage = 4; goto cleanup; }
 
     snap.stability_weight = 50;
     cursor = ui_cursor(8, 42, width - 16, 700);
     draw_country_decision_stability_tab(hdc, &cursor, &snap);
-    if (GetPixel(hdc, left, 73) != RGB(92, 130, 162) ||
-        GetPixel(hdc, boundary - 1, 90) != RGB(92, 130, 162) ||
-        GetPixel(hdc, boundary, 90) != RGB(30, 35, 38) ||
-        GetPixel(hdc, right - 1, 73) != RGB(30, 35, 38)) goto cleanup;
+    GdiFlush();
+    device_pixels[2] = GetPixel(hdc, left, 73);
+    device_pixels[3] = GetPixel(hdc, boundary - 1, 90);
+    device_pixels[4] = GetPixel(hdc, boundary, 90);
+    device_pixels[5] = GetPixel(hdc, right - 1, 73);
+    pixels[2] = dib_pixel_color(bits, width, left, 73);
+    pixels[3] = dib_pixel_color(bits, width, boundary - 1, 90);
+    pixels[4] = dib_pixel_color(bits, width, boundary, 90);
+    pixels[5] = dib_pixel_color(bits, width, right - 1, 73);
+    if (pixels[2] != RGB(92, 130, 162) ||
+        pixels[3] != RGB(92, 130, 162) ||
+        pixels[4] != RGB(30, 35, 38) ||
+        pixels[5] != RGB(30, 35, 38)) { fail_stage = 5; goto cleanup; }
 
     snap.stability_weight = 100;
     cursor = ui_cursor(8, 42, width - 16, 700);
     draw_country_decision_stability_tab(hdc, &cursor, &snap);
-    if (GetPixel(hdc, left, 73) != RGB(92, 130, 162) ||
-        GetPixel(hdc, right - 1, 90) != RGB(92, 130, 162) ||
-        GetCurrentObject(hdc, OBJ_FONT) != incoming) goto cleanup;
+    GdiFlush();
+    device_pixels[6] = GetPixel(hdc, left, 73);
+    device_pixels[7] = GetPixel(hdc, right - 1, 90);
+    pixels[6] = dib_pixel_color(bits, width, left, 73);
+    pixels[7] = dib_pixel_color(bits, width, right - 1, 90);
+    if (pixels[6] != RGB(92, 130, 162) ||
+        pixels[7] != RGB(92, 130, 162) ||
+        GetCurrentObject(hdc, OBJ_FONT) != incoming) {
+        fail_stage = 6;
+        goto cleanup;
+    }
     ok = 1;
 
 cleanup:
+    if (summary) {
+        fprintf(summary,
+                "case=stability_visual_pixel_diagnostics ok=%d fail_stage=%d "
+                "resources=%d/%d/%d/%d selected=%d/%d incoming=%p current=%p "
+                "metrics=%d/%d heights=%ld/%ld pixels=%08lx/%08lx/%08lx/%08lx/%08lx/%08lx/%08lx/%08lx "
+                "device_pixels=%08lx/%08lx/%08lx/%08lx/%08lx/%08lx/%08lx/%08lx "
+                "expected_track=%08lx expected_fill=%08lx\n",
+                ok, fail_stage, hdc != NULL, bitmap != NULL, font != NULL,
+                bits != NULL,
+                old_bitmap && old_bitmap != HGDI_ERROR,
+                old_font && old_font != HGDI_ERROR,
+                incoming, hdc ? GetCurrentObject(hdc, OBJ_FONT) : NULL,
+                before_metrics_ok, after_metrics_ok,
+                (long)before.tmHeight, (long)after.tmHeight,
+                (unsigned long)pixels[0], (unsigned long)pixels[1],
+                (unsigned long)pixels[2], (unsigned long)pixels[3],
+                (unsigned long)pixels[4], (unsigned long)pixels[5],
+                (unsigned long)pixels[6], (unsigned long)pixels[7],
+                (unsigned long)device_pixels[0],
+                (unsigned long)device_pixels[1],
+                (unsigned long)device_pixels[2],
+                (unsigned long)device_pixels[3],
+                (unsigned long)device_pixels[4],
+                (unsigned long)device_pixels[5],
+                (unsigned long)device_pixels[6],
+                (unsigned long)device_pixels[7],
+                (unsigned long)RGB(30, 35, 38),
+                (unsigned long)RGB(92, 130, 162));
+    }
     ui_language = saved_language;
     if (old_font && old_font != HGDI_ERROR) SelectObject(hdc, old_font);
     if (old_bitmap && old_bitmap != HGDI_ERROR) SelectObject(hdc, old_bitmap);
@@ -236,7 +307,7 @@ static int geometry_ok(void) {
 int game_presentation_decision_stability_visual_contract_probe(FILE *summary) {
     int source_ok = game_presentation_decision_stability_visual_contract_source_ok();
     int layout_ok = geometry_ok();
-    int font_progress_ok = inherited_font_and_flat_progress_ok();
+    int font_progress_ok = inherited_font_and_flat_progress_ok(summary);
     int text_fit_ok = supported_text_fit_ok();
     fprintf(summary,
             "case=stability_visual_source_contract ok=%d required_and_forbidden=%d geometry=%d inherited_font_flat_progress=%d supported_text_fit=%d widths=340/460/500/720 fixed=62/30/31/50x3/36 flat_cells=1 no_exit=1 no_base_detail=1 monthly_total=1\n",

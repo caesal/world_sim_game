@@ -1,4 +1,5 @@
 #include "core/render_snapshot.h"
+#include "game/game_presentation_static_physical_artifacts.h"
 #include "render/panel_country_diplomacy.h"
 #include "render/render_common.h"
 #include "render/render_context.h"
@@ -9,8 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define PRESENTATION_PROBE_DIR "build/validation/presentation_probe_20260618"
 
 static int write_bmp(const char *path, const BITMAPINFO *info, const void *bits, int w, int h) {
     BITMAPFILEHEADER header;
@@ -114,7 +113,7 @@ static int render_sort_artifact(void) {
     country_diplomacy_view = DIPLOMACY_VIEW_TENSE;
     ui_language = UI_LANG_EN;
     draw_country_diplomacy_tab(hdc, &cursor, viewport, 0, 0);
-    ok = write_bmp(PRESENTATION_PROBE_DIR "/diplomacy_tense_sort_order.bmp",
+    ok = write_bmp(static_physical_probe_artifact_path("diplomacy_tense_sort_order.bmp"),
                    &info, bits, w, h);
     selected_civ = old_selected;
     country_detail_subtab = old_subtab;
